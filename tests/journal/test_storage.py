@@ -34,7 +34,7 @@ class TestJournalStorage:
             entry_type="goal",
         )
 
-        assert "goal" in path.lower() or path.endswith(".md")
+        assert "goal" in str(path).lower() or str(path).endswith(".md")
 
     def test_read_entry(self, populated_journal):
         """Test reading an existing entry."""
@@ -47,15 +47,14 @@ class TestJournalStorage:
         assert post.content is not None
         assert "reflection" in str(post.metadata.get("type", ""))
 
-    def test_read_nonexistent_returns_none(self, temp_dirs):
-        """Test reading non-existent entry returns None."""
+    def test_read_nonexistent_raises(self, temp_dirs):
+        """Test reading non-existent entry raises FileNotFoundError."""
         from journal.storage import JournalStorage
 
         storage = JournalStorage(temp_dirs["journal_dir"])
 
-        post = storage.read("nonexistent.md")
-
-        assert post is None
+        with pytest.raises(FileNotFoundError):
+            storage.read("nonexistent.md")
 
     def test_update_entry(self, populated_journal):
         """Test updating an existing entry."""
@@ -64,7 +63,7 @@ class TestJournalStorage:
 
         result = storage.update(path, content="Updated content")
 
-        assert result is True
+        assert result is not None  # Returns filepath
         post = storage.read(path)
         assert "Updated content" in post.content
 
@@ -73,11 +72,10 @@ class TestJournalStorage:
         storage = populated_journal["storage"]
         path = populated_journal["paths"][0]
 
-        result = storage.delete(path)
+        storage.delete(path)
 
-        assert result is True
-        post = storage.read(path)
-        assert post is None
+        with pytest.raises(FileNotFoundError):
+            storage.read(path)
 
     def test_list_entries(self, populated_journal):
         """Test listing all entries."""

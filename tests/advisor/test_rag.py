@@ -13,7 +13,7 @@ class TestRAGRetriever:
 
         search = JournalSearch(
             storage=populated_journal["storage"],
-            embedding_manager=None,
+            embeddings=None,
         )
 
         rag = RAGRetriever(
@@ -32,7 +32,7 @@ class TestRAGRetriever:
         embeddings = EmbeddingManager(temp_dirs["chroma_dir"])
         search = JournalSearch(
             storage=populated_journal["storage"],
-            embedding_manager=embeddings,
+            embeddings=embeddings,
         )
         search.sync_embeddings()
 
@@ -51,7 +51,7 @@ class TestRAGRetriever:
 
         search = JournalSearch(
             storage=populated_journal["storage"],
-            embedding_manager=None,
+            embeddings=None,
         )
 
         rag = RAGRetriever(
@@ -70,7 +70,7 @@ class TestRAGRetriever:
 
         search = JournalSearch(
             storage=populated_journal["storage"],
-            embedding_manager=None,
+            embeddings=None,
         )
 
         rag = RAGRetriever(
@@ -96,7 +96,7 @@ class TestRAGRetriever:
 
         journal_search = JournalSearch(
             storage=populated_journal["storage"],
-            embedding_manager=None,
+            embeddings=None,
         )
 
         rag = RAGRetriever(
@@ -117,7 +117,7 @@ class TestRAGRetriever:
         embeddings = EmbeddingManager(temp_dirs["chroma_dir"])
         search = JournalSearch(
             storage=populated_journal["storage"],
-            embedding_manager=embeddings,
+            embeddings=embeddings,
         )
         search.sync_embeddings()
 
@@ -138,7 +138,7 @@ class TestRAGRetriever:
 
         search = JournalSearch(
             storage=populated_journal["storage"],
-            embedding_manager=None,
+            embeddings=None,
         )
 
         rag = RAGRetriever(
@@ -158,7 +158,7 @@ class TestRAGRetriever:
 
         search = JournalSearch(
             storage=populated_journal["storage"],
-            embedding_manager=None,
+            embeddings=None,
         )
 
         rag = RAGRetriever(journal_search=search)
@@ -175,7 +175,7 @@ class TestRAGRetriever:
 
         search = JournalSearch(
             storage=populated_journal["storage"],
-            embedding_manager=None,
+            embeddings=None,
         )
 
         rag = RAGRetriever(

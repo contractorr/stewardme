@@ -134,7 +134,7 @@ class TestIntelFlow:
             content="My goal is to become an expert in AI and machine learning.",
             entry_type="goal",
         )
-        journal_search = JournalSearch(journal_storage, embedding_manager=None)
+        journal_search = JournalSearch(journal_storage, embeddings=None)
 
         # Set up intel
         intel_storage = IntelStorage(temp_dirs["intel_db"])

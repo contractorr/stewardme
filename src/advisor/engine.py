@@ -1,12 +1,30 @@
 """LLM orchestration for advice generation."""
 
+import logging
 import os
 from typing import Optional
 
-from anthropic import Anthropic
+from anthropic import Anthropic, APIError, AuthenticationError
 
 from .prompts import PromptTemplates
 from .rag import RAGRetriever
+
+logger = logging.getLogger(__name__)
+
+
+class AdvisorError(Exception):
+    """Base exception for advisor errors."""
+    pass
+
+
+class APIKeyMissingError(AdvisorError):
+    """Raised when API key is not configured."""
+    pass
+
+
+class LLMError(AdvisorError):
+    """Raised when LLM call fails."""
+    pass
 
 
 class AdvisorEngine:
@@ -17,20 +35,37 @@ class AdvisorEngine:
         rag: RAGRetriever,
         api_key: Optional[str] = None,
         model: str = "claude-sonnet-4-20250514",
+        client: Optional[Anthropic] = None,  # Dependency injection for testing
     ):
         self.rag = rag
         self.model = model
-        self.client = Anthropic(api_key=api_key or os.getenv("ANTHROPIC_API_KEY"))
+
+        # Validate API key
+        resolved_key = api_key or os.getenv("ANTHROPIC_API_KEY")
+        if not resolved_key and client is None:
+            raise APIKeyMissingError(
+                "ANTHROPIC_API_KEY not set. Run: export ANTHROPIC_API_KEY=your-key"
+            )
+
+        self.client = client or Anthropic(api_key=resolved_key)
 
     def _call_llm(self, system: str, user_prompt: str, max_tokens: int = 2000) -> str:
         """Make LLM API call."""
-        response = self.client.messages.create(
-            model=self.model,
-            max_tokens=max_tokens,
-            system=system,
-            messages=[{"role": "user", "content": user_prompt}],
-        )
-        return response.content[0].text
+        try:
+            logger.debug("Calling LLM model=%s tokens=%d", self.model, max_tokens)
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=max_tokens,
+                system=system,
+                messages=[{"role": "user", "content": user_prompt}],
+            )
+            return response.content[0].text
+        except AuthenticationError as e:
+            logger.error("API authentication failed: %s", e)
+            raise LLMError("Invalid API key. Check ANTHROPIC_API_KEY.") from e
+        except APIError as e:
+            logger.error("API call failed: %s", e)
+            raise LLMError(f"LLM API error: {e}") from e
 
     def ask(
         self,

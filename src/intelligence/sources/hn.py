@@ -1,6 +1,7 @@
 """Hacker News scraper."""
 
 import asyncio
+import logging
 from datetime import datetime
 from typing import Optional
 
@@ -8,6 +9,9 @@ import httpx
 from bs4 import BeautifulSoup
 
 from intelligence.scraper import AsyncBaseScraper, BaseScraper, IntelItem, IntelStorage
+from intelligence.utils import detect_hn_tags
+
+logger = logging.getLogger(__name__)
 
 
 class HackerNewsScraper(BaseScraper):
@@ -28,24 +32,28 @@ class HackerNewsScraper(BaseScraper):
         items = []
 
         try:
-            # Get top story IDs
+            logger.debug("Fetching HN top stories")
             response = self.client.get(f"{self.API_BASE}/topstories.json")
+            response.raise_for_status()
             story_ids = response.json()[:self.max_stories]
+            logger.debug("Got %d story IDs", len(story_ids))
 
             for story_id in story_ids:
                 item = self._fetch_story(story_id)
                 if item:
                     items.append(item)
 
-        except Exception:
-            pass
+        except httpx.RequestError as e:
+            logger.error("Failed to fetch HN stories: %s", e)
 
+        logger.info("Scraped %d HN stories", len(items))
         return items
 
     def _fetch_story(self, story_id: int) -> Optional[IntelItem]:
         """Fetch single story details."""
         try:
             response = self.client.get(f"{self.API_BASE}/item/{story_id}.json")
+            response.raise_for_status()
             data = response.json()
 
             if not data or data.get("type") != "story":
@@ -58,8 +66,6 @@ class HackerNewsScraper(BaseScraper):
             if data.get("descendants"):
                 summary_parts.append(f"{data['descendants']} comments")
             if data.get("text"):
-                # For Ask HN / Show HN posts
-                from bs4 import BeautifulSoup
                 text = BeautifulSoup(data["text"], "html.parser").get_text()[:300]
                 summary_parts.append(text)
 
@@ -69,37 +75,12 @@ class HackerNewsScraper(BaseScraper):
                 url=data.get("url", f"https://news.ycombinator.com/item?id={story_id}"),
                 summary=" | ".join(summary_parts) if summary_parts else "",
                 published=datetime.fromtimestamp(data["time"]) if data.get("time") else None,
-                tags=self._detect_tags(data.get("title", "")),
+                tags=detect_hn_tags(data.get("title", "")),
             )
 
-        except Exception:
+        except httpx.RequestError as e:
+            logger.debug("Failed to fetch story %d: %s", story_id, e)
             return None
-
-    def _detect_tags(self, title: str) -> list[str]:
-        """Detect tags from title patterns."""
-        tags = []
-        title_lower = title.lower()
-
-        if title.startswith("Ask HN:"):
-            tags.append("ask-hn")
-        elif title.startswith("Show HN:"):
-            tags.append("show-hn")
-        elif title.startswith("Tell HN:"):
-            tags.append("tell-hn")
-
-        # Topic detection
-        topics = {
-            "ai": ["ai", "llm", "gpt", "machine learning", "neural"],
-            "startup": ["startup", "founder", "yc", "funding", "venture"],
-            "programming": ["rust", "python", "javascript", "golang", "typescript"],
-            "career": ["hiring", "job", "career", "interview", "salary"],
-        }
-
-        for tag, keywords in topics.items():
-            if any(kw in title_lower for kw in keywords):
-                tags.append(tag)
-
-        return tags[:5]
 
 
 class AsyncHackerNewsScraper(AsyncBaseScraper):
@@ -120,8 +101,11 @@ class AsyncHackerNewsScraper(AsyncBaseScraper):
         items = []
 
         try:
+            logger.debug("Fetching HN top stories (async)")
             response = await self.client.get(f"{self.API_BASE}/topstories.json")
+            response.raise_for_status()
             story_ids = response.json()[:self.max_stories]
+            logger.debug("Got %d story IDs", len(story_ids))
 
             # Fetch stories concurrently with semaphore for rate limiting
             semaphore = asyncio.Semaphore(10)
@@ -132,9 +116,10 @@ class AsyncHackerNewsScraper(AsyncBaseScraper):
                 if isinstance(result, IntelItem):
                     items.append(result)
 
-        except Exception:
-            pass
+        except httpx.RequestError as e:
+            logger.error("Failed to fetch HN stories: %s", e)
 
+        logger.info("Scraped %d HN stories", len(items))
         return items
 
     async def _fetch_story_limited(self, semaphore: asyncio.Semaphore, story_id: int) -> Optional[IntelItem]:
@@ -146,6 +131,7 @@ class AsyncHackerNewsScraper(AsyncBaseScraper):
         """Fetch single story details."""
         try:
             response = await self.client.get(f"{self.API_BASE}/item/{story_id}.json")
+            response.raise_for_status()
             data = response.json()
 
             if not data or data.get("type") != "story":
@@ -166,33 +152,9 @@ class AsyncHackerNewsScraper(AsyncBaseScraper):
                 url=data.get("url", f"https://news.ycombinator.com/item?id={story_id}"),
                 summary=" | ".join(summary_parts) if summary_parts else "",
                 published=datetime.fromtimestamp(data["time"]) if data.get("time") else None,
-                tags=self._detect_tags(data.get("title", "")),
+                tags=detect_hn_tags(data.get("title", "")),
             )
 
-        except Exception:
+        except httpx.RequestError as e:
+            logger.debug("Failed to fetch story %d: %s", story_id, e)
             return None
-
-    def _detect_tags(self, title: str) -> list[str]:
-        """Detect tags from title patterns."""
-        tags = []
-        title_lower = title.lower()
-
-        if title.startswith("Ask HN:"):
-            tags.append("ask-hn")
-        elif title.startswith("Show HN:"):
-            tags.append("show-hn")
-        elif title.startswith("Tell HN:"):
-            tags.append("tell-hn")
-
-        topics = {
-            "ai": ["ai", "llm", "gpt", "machine learning", "neural"],
-            "startup": ["startup", "founder", "yc", "funding", "venture"],
-            "programming": ["rust", "python", "javascript", "golang", "typescript"],
-            "career": ["hiring", "job", "career", "interview", "salary"],
-        }
-
-        for tag, keywords in topics.items():
-            if any(kw in title_lower for kw in keywords):
-                tags.append(tag)
-
-        return tags[:5]

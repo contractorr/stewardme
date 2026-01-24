@@ -49,6 +49,7 @@ class TestRSSFeedScraper:
             "link": "https://example.com/article",
         }.get(k, d)
         mock_entry.summary = "Test summary"
+        mock_entry.published_parsed = None  # No published date
 
         mock_parse.return_value = MagicMock(entries=[mock_entry])
 
@@ -75,6 +76,7 @@ class TestRSSFeedScraper:
                 "link": f"https://example.com/{i}",
             }.get(k, d)
             entry.summary = f"Summary {i}"
+            entry.published_parsed = None  # No published date
             mock_entries.append(entry)
 
         mock_parse.return_value = MagicMock(entries=mock_entries)
@@ -88,33 +90,25 @@ class TestRSSFeedScraper:
 
     def test_extract_tags(self, temp_dirs):
         """Test tag extraction from feed entry."""
-        from intelligence.scraper import IntelStorage
-        from intelligence.sources.rss import RSSFeedScraper
-
-        storage = IntelStorage(temp_dirs["intel_db"])
-        scraper = RSSFeedScraper(storage, "https://example.com/feed.xml")
+        from intelligence.sources.rss import _extract_entry_tags
 
         mock_entry = MagicMock()
         mock_tag1 = MagicMock(term="python")
         mock_tag2 = MagicMock(term="programming")
         mock_entry.tags = [mock_tag1, mock_tag2]
 
-        tags = scraper._extract_tags(mock_entry)
+        tags = _extract_entry_tags(mock_entry)
 
         assert "python" in tags
         assert "programming" in tags
 
     def test_extract_tags_no_tags(self, temp_dirs):
         """Test tag extraction when entry has no tags."""
-        from intelligence.scraper import IntelStorage
-        from intelligence.sources.rss import RSSFeedScraper
-
-        storage = IntelStorage(temp_dirs["intel_db"])
-        scraper = RSSFeedScraper(storage, "https://example.com/feed.xml")
+        from intelligence.sources.rss import _extract_entry_tags
 
         mock_entry = MagicMock(spec=[])  # No tags attribute
 
-        tags = scraper._extract_tags(mock_entry)
+        tags = _extract_entry_tags(mock_entry)
 
         assert tags == []
 

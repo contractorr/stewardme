@@ -20,38 +20,26 @@ class TestHackerNewsScraper:
 
     def test_detect_tags_ask_hn(self, temp_dirs):
         """Test tag detection for Ask HN posts."""
-        from intelligence.scraper import IntelStorage
-        from intelligence.sources.hn import HackerNewsScraper
+        from intelligence.utils import detect_hn_tags
 
-        storage = IntelStorage(temp_dirs["intel_db"])
-        scraper = HackerNewsScraper(storage)
-
-        tags = scraper._detect_tags("Ask HN: What are the best testing frameworks?")
+        tags = detect_hn_tags("Ask HN: What are the best testing frameworks?")
 
         assert "ask-hn" in tags
 
     def test_detect_tags_show_hn(self, temp_dirs):
         """Test tag detection for Show HN posts."""
-        from intelligence.scraper import IntelStorage
-        from intelligence.sources.hn import HackerNewsScraper
+        from intelligence.utils import detect_hn_tags
 
-        storage = IntelStorage(temp_dirs["intel_db"])
-        scraper = HackerNewsScraper(storage)
-
-        tags = scraper._detect_tags("Show HN: My new Python framework")
+        tags = detect_hn_tags("Show HN: My new Python framework")
 
         assert "show-hn" in tags
         assert "programming" in tags
 
     def test_detect_tags_topics(self, temp_dirs):
         """Test topic tag detection."""
-        from intelligence.scraper import IntelStorage
-        from intelligence.sources.hn import HackerNewsScraper
+        from intelligence.utils import detect_hn_tags
 
-        storage = IntelStorage(temp_dirs["intel_db"])
-        scraper = HackerNewsScraper(storage)
-
-        tags = scraper._detect_tags("New AI startup raises $50M in funding")
+        tags = detect_hn_tags("New AI startup raises $50M in funding")
 
         assert "ai" in tags
         assert "startup" in tags
@@ -104,13 +92,8 @@ class TestAsyncHackerNewsScraper:
 
     async def test_detect_tags(self, temp_dirs):
         """Test tag detection in async scraper."""
-        from intelligence.scraper import IntelStorage
-        from intelligence.sources.hn import AsyncHackerNewsScraper
+        from intelligence.utils import detect_hn_tags
 
-        storage = IntelStorage(temp_dirs["intel_db"])
-        scraper = AsyncHackerNewsScraper(storage)
-
-        tags = scraper._detect_tags("Learning Rust for systems programming")
+        tags = detect_hn_tags("Learning Rust for systems programming")
 
         assert "programming" in tags
-        await scraper.close()

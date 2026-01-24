@@ -14,7 +14,7 @@ class TestJournalSearch:
         embeddings = EmbeddingManager(temp_dirs["chroma_dir"])
         search = JournalSearch(
             storage=populated_journal["storage"],
-            embedding_manager=embeddings,
+            embeddings=embeddings,
         )
 
         assert search.storage is not None
@@ -28,7 +28,7 @@ class TestJournalSearch:
         embeddings = EmbeddingManager(temp_dirs["chroma_dir"])
         search = JournalSearch(
             storage=populated_journal["storage"],
-            embedding_manager=embeddings,
+            embeddings=embeddings,
         )
 
         # Sync embeddings first
@@ -44,7 +44,7 @@ class TestJournalSearch:
 
         search = JournalSearch(
             storage=populated_journal["storage"],
-            embedding_manager=None,
+            embeddings=None,
         )
 
         results = search.keyword_search("Rust")
@@ -58,7 +58,7 @@ class TestJournalSearch:
 
         search = JournalSearch(
             storage=populated_journal["storage"],
-            embedding_manager=None,
+            embeddings=None,
         )
 
         results = search.keyword_search("xyznonexistent123")
@@ -73,7 +73,7 @@ class TestJournalSearch:
         embeddings = EmbeddingManager(temp_dirs["chroma_dir"])
         search = JournalSearch(
             storage=populated_journal["storage"],
-            embedding_manager=embeddings,
+            embeddings=embeddings,
         )
         search.sync_embeddings()
 
@@ -88,7 +88,7 @@ class TestJournalSearch:
 
         search = JournalSearch(
             storage=populated_journal["storage"],
-            embedding_manager=None,
+            embeddings=None,
         )
 
         context = search.get_context_for_query("test", max_chars=100)
@@ -103,7 +103,7 @@ class TestJournalSearch:
         embeddings = EmbeddingManager(temp_dirs["chroma_dir"])
         search = JournalSearch(
             storage=populated_journal["storage"],
-            embedding_manager=embeddings,
+            embeddings=embeddings,
         )
 
         added, removed = search.sync_embeddings()
@@ -117,7 +117,7 @@ class TestJournalSearch:
 
         search = JournalSearch(
             storage=populated_journal["storage"],
-            embedding_manager=None,
+            embeddings=None,
         )
 
         # Should not raise, falls back to keyword search

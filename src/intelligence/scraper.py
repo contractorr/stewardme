@@ -1,6 +1,7 @@
 """Base scraper and intelligence storage."""
 
 import asyncio
+import logging
 import sqlite3
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -10,6 +11,8 @@ from typing import Optional
 
 import httpx
 from bs4 import BeautifulSoup
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -73,7 +76,11 @@ class IntelStorage:
                     ",".join(item.tags) if item.tags else None,
                 ))
                 return conn.total_changes > 0
-        except Exception:
+        except sqlite3.IntegrityError:
+            logger.debug("Duplicate URL skipped: %s", item.url)
+            return False
+        except sqlite3.Error as e:
+            logger.error("DB error saving item %s: %s", item.url, e)
             return False
 
     def get_recent(self, days: int = 7, limit: int = 50) -> list[dict]:
@@ -125,10 +132,15 @@ class BaseScraper(ABC):
     def fetch_html(self, url: str) -> Optional[BeautifulSoup]:
         """Fetch and parse HTML."""
         try:
+            logger.debug("Fetching %s", url)
             response = self.client.get(url)
             response.raise_for_status()
             return BeautifulSoup(response.text, "html.parser")
-        except Exception:
+        except httpx.HTTPStatusError as e:
+            logger.warning("HTTP %d fetching %s", e.response.status_code, url)
+            return None
+        except httpx.RequestError as e:
+            logger.warning("Request error fetching %s: %s", url, e)
             return None
 
     def save_items(self, items: list[IntelItem]) -> int:
@@ -164,10 +176,15 @@ class AsyncBaseScraper(ABC):
     async def fetch_html(self, url: str) -> Optional[BeautifulSoup]:
         """Fetch and parse HTML asynchronously."""
         try:
+            logger.debug("Fetching %s", url)
             response = await self.client.get(url)
             response.raise_for_status()
             return BeautifulSoup(response.text, "html.parser")
-        except Exception:
+        except httpx.HTTPStatusError as e:
+            logger.warning("HTTP %d fetching %s", e.response.status_code, url)
+            return None
+        except httpx.RequestError as e:
+            logger.warning("Request error fetching %s: %s", url, e)
             return None
 
     async def save_items(self, items: list[IntelItem]) -> int:
