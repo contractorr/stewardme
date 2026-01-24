@@ -1,0 +1,210 @@
+"""GitHub trending repositories scraper."""
+
+import re
+from datetime import datetime
+from typing import Optional
+
+import httpx
+from bs4 import BeautifulSoup
+
+from intelligence.scraper import AsyncBaseScraper, IntelItem, IntelStorage
+
+
+class GitHubTrendingScraper(AsyncBaseScraper):
+    """Scraper for GitHub trending repositories."""
+
+    TRENDING_URL = "https://github.com/trending"
+
+    def __init__(
+        self,
+        storage: IntelStorage,
+        languages: Optional[list[str]] = None,
+        timeframe: str = "daily",
+    ):
+        super().__init__(storage)
+        self.languages = languages or ["python"]
+        self.timeframe = timeframe  # daily, weekly, monthly
+
+    @property
+    def source_name(self) -> str:
+        return "github_trending"
+
+    async def scrape(self) -> list[IntelItem]:
+        """Scrape trending repos for configured languages."""
+        items = []
+
+        for lang in self.languages:
+            lang_items = await self._scrape_language(lang)
+            items.extend(lang_items)
+
+        return items
+
+    async def _scrape_language(self, language: str) -> list[IntelItem]:
+        """Scrape trending repos for single language."""
+        url = f"{self.TRENDING_URL}/{language}?since={self.timeframe}"
+
+        try:
+            response = await self.client.get(url)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, "html.parser")
+        except Exception:
+            return []
+
+        items = []
+        repo_articles = soup.select("article.Box-row")
+
+        for article in repo_articles[:25]:  # Top 25 per language
+            item = self._parse_repo(article, language)
+            if item:
+                items.append(item)
+
+        return items
+
+    def _parse_repo(self, article, language: str) -> Optional[IntelItem]:
+        """Parse single repo article into IntelItem."""
+        try:
+            # Repo name and URL
+            title_elem = article.select_one("h2 a")
+            if not title_elem:
+                return None
+
+            repo_path = title_elem.get("href", "").strip("/")
+            if not repo_path:
+                return None
+
+            repo_url = f"https://github.com/{repo_path}"
+            repo_name = repo_path.replace("/", " / ")
+
+            # Description
+            desc_elem = article.select_one("p")
+            description = desc_elem.get_text(strip=True) if desc_elem else ""
+
+            # Stars count
+            stars = 0
+            stars_elem = article.select_one("a[href$='/stargazers']")
+            if stars_elem:
+                stars_text = stars_elem.get_text(strip=True).replace(",", "")
+                stars = int(stars_text) if stars_text.isdigit() else 0
+
+            # Today's stars
+            today_stars = 0
+            today_elem = article.select_one("span.d-inline-block.float-sm-right")
+            if today_elem:
+                match = re.search(r"([\d,]+)\s+stars", today_elem.get_text())
+                if match:
+                    today_stars = int(match.group(1).replace(",", ""))
+
+            # Build summary
+            summary_parts = [f"{stars:,} stars"]
+            if today_stars:
+                summary_parts.append(f"+{today_stars:,} today")
+            if description:
+                summary_parts.append(description[:200])
+
+            # Tags
+            tags = [language, "github", "trending"]
+            if stars > 10000:
+                tags.append("popular")
+            if today_stars > 500:
+                tags.append("hot")
+
+            # Topics from repo
+            topic_elems = article.select("a.topic-tag")
+            for topic in topic_elems[:3]:
+                tags.append(topic.get_text(strip=True))
+
+            return IntelItem(
+                source=self.source_name,
+                title=repo_name,
+                url=repo_url,
+                summary=" | ".join(summary_parts),
+                content=description,
+                published=datetime.now(),
+                tags=tags[:8],
+            )
+
+        except Exception:
+            return None
+
+
+# Sync wrapper for backwards compatibility
+class GitHubTrendingScraperSync:
+    """Synchronous wrapper for GitHubTrendingScraper."""
+
+    def __init__(
+        self,
+        storage: IntelStorage,
+        languages: Optional[list[str]] = None,
+        timeframe: str = "daily",
+    ):
+        self.storage = storage
+        self.languages = languages or ["python"]
+        self.timeframe = timeframe
+
+    @property
+    def source_name(self) -> str:
+        return "github_trending"
+
+    def scrape(self) -> list[IntelItem]:
+        """Synchronous scrape using blocking client."""
+        items = []
+
+        with httpx.Client(
+            timeout=30.0,
+            headers={"User-Agent": "AI-Coach/1.0 (Personal Use)"},
+        ) as client:
+            for lang in self.languages:
+                url = f"https://github.com/trending/{lang}?since={self.timeframe}"
+                try:
+                    response = client.get(url)
+                    response.raise_for_status()
+                    soup = BeautifulSoup(response.text, "html.parser")
+
+                    for article in soup.select("article.Box-row")[:25]:
+                        item = self._parse_repo(article, lang)
+                        if item:
+                            items.append(item)
+                except Exception:
+                    continue
+
+        return items
+
+    def _parse_repo(self, article, language: str) -> Optional[IntelItem]:
+        """Parse repo article."""
+        try:
+            title_elem = article.select_one("h2 a")
+            if not title_elem:
+                return None
+
+            repo_path = title_elem.get("href", "").strip("/")
+            if not repo_path:
+                return None
+
+            desc_elem = article.select_one("p")
+            description = desc_elem.get_text(strip=True) if desc_elem else ""
+
+            stars = 0
+            stars_elem = article.select_one("a[href$='/stargazers']")
+            if stars_elem:
+                stars_text = stars_elem.get_text(strip=True).replace(",", "")
+                stars = int(stars_text) if stars_text.isdigit() else 0
+
+            return IntelItem(
+                source=self.source_name,
+                title=repo_path.replace("/", " / "),
+                url=f"https://github.com/{repo_path}",
+                summary=f"{stars:,} stars | {description[:200]}",
+                content=description,
+                published=datetime.now(),
+                tags=[language, "github", "trending"],
+            )
+        except Exception:
+            return None
+
+    def save_items(self, items: list[IntelItem]) -> int:
+        """Save items and return count of new items."""
+        new_count = 0
+        for item in items:
+            if self.storage.save(item):
+                new_count += 1
+        return new_count

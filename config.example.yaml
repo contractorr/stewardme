@@ -1,0 +1,31 @@
+llm:
+  provider: claude  # or gemini
+  api_key: ${ANTHROPIC_API_KEY}
+  model: claude-sonnet-4-20250514
+
+paths:
+  journal_dir: ~/coach/journal
+  chroma_dir: ~/coach/chroma
+  intel_db: ~/coach/intel.db
+
+sources:
+  custom_blogs:
+    - https://paulgraham.com/articles.html
+    - https://www.joelonsoftware.com/
+    # add your blogs here
+  rss_feeds:
+    - https://news.ycombinator.com/rss
+    - https://feeds.arstechnica.com/arstechnica/technology-lab
+  github_trending:
+    enabled: true
+    languages: [python, rust, go]
+    timeframe: daily  # daily, weekly, monthly
+  enabled:
+    - custom_blogs
+    - rss_feeds
+    - hn_top
+    - github_trending
+
+schedule:
+  weekly_review: "sunday 9am"
+  intelligence_gather: "daily 6am"

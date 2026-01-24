@@ -1,0 +1,55 @@
+AI COACH - Setup & Usage
+========================
+
+INSTALLATION
+------------
+cd ai-coach
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+export ANTHROPIC_API_KEY=sk-...
+coach init
+
+CLI COMMANDS
+------------
+coach init                      Setup directories (~/.coach/)
+coach journal add "content"     Add entry (opens editor if no content)
+coach journal add -t goal       Add with type: daily|project|goal|reflection
+coach journal list              List recent entries
+coach journal search "query"    Semantic search
+coach journal view <filename>   View entry
+coach journal sync              Sync embeddings
+
+coach ask "question"            Get contextual advice
+coach ask --type career "..."   Advice types: general|career|goals|opportunities
+coach review                    Generate weekly review
+coach opportunities             Detect opportunities from profile + trends
+
+coach scrape                    Gather intelligence now
+coach brief                     View recent intel
+coach sources                   Show configured sources
+
+CONFIG
+------
+Edit ~/coach/config.yaml to:
+- Add custom RSS feeds
+- Change LLM model
+- Modify data paths
+
+STRUCTURE
+---------
+ai-coach/
+├── src/
+│   ├── journal/       Markdown CRUD + ChromaDB embeddings
+│   ├── advisor/       Claude API + RAG + prompts
+│   ├── intelligence/  RSS/HN scrapers + SQLite
+│   └── cli/           Click commands
+├── config.yaml        Default config template
+└── pyproject.toml
+
+DATA LOCATIONS
+--------------
+~/coach/journal/    Markdown files
+~/coach/chroma/     Vector embeddings
+~/coach/intel.db    Scraped intelligence
+~/coach/config.yaml User config

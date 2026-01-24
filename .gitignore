@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Data directories
+data/
+
+# Config with secrets
+config.yaml
+
+# OS
+.DS_Store

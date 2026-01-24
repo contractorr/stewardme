@@ -1,0 +1,160 @@
+"""Markdown journal CRUD operations."""
+
+import os
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
+
+import frontmatter
+
+
+class JournalStorage:
+    """Manages markdown journal files with YAML frontmatter."""
+
+    def __init__(self, journal_dir: str | Path):
+        self.journal_dir = Path(journal_dir).expanduser()
+        self.journal_dir.mkdir(parents=True, exist_ok=True)
+
+    def _generate_filename(self, entry_type: str, title: str) -> str:
+        """Generate filename from type, date, and title."""
+        date_str = datetime.now().strftime("%Y-%m-%d")
+        slug = title.lower().replace(" ", "-")[:50]
+        return f"{date_str}_{entry_type}_{slug}.md"
+
+    def create(
+        self,
+        content: str,
+        entry_type: str = "daily",
+        title: Optional[str] = None,
+        tags: Optional[list[str]] = None,
+        metadata: Optional[dict] = None,
+    ) -> Path:
+        """Create new journal entry.
+
+        Args:
+            content: Main body text
+            entry_type: daily, project, goal, reflection
+            title: Optional title (defaults to date)
+            tags: Optional list of tags
+            metadata: Additional frontmatter fields
+
+        Returns:
+            Path to created file
+        """
+        now = datetime.now()
+        title = title or now.strftime("%B %d, %Y")
+
+        fm = frontmatter.Post(content)
+        fm["title"] = title
+        fm["type"] = entry_type
+        fm["created"] = now.isoformat()
+        fm["tags"] = tags or []
+
+        if metadata:
+            for k, v in metadata.items():
+                fm[k] = v
+
+        filename = self._generate_filename(entry_type, title)
+        filepath = self.journal_dir / filename
+
+        # Handle duplicates
+        counter = 1
+        while filepath.exists():
+            base = filename.rsplit(".", 1)[0]
+            filepath = self.journal_dir / f"{base}_{counter}.md"
+            counter += 1
+
+        with open(filepath, "w") as f:
+            f.write(frontmatter.dumps(fm))
+
+        return filepath
+
+    def read(self, filepath: str | Path) -> frontmatter.Post:
+        """Read journal entry."""
+        return frontmatter.load(filepath)
+
+    def update(
+        self,
+        filepath: str | Path,
+        content: Optional[str] = None,
+        metadata: Optional[dict] = None,
+    ) -> Path:
+        """Update existing entry."""
+        filepath = Path(filepath)
+        post = frontmatter.load(filepath)
+
+        if content is not None:
+            post.content = content
+
+        if metadata:
+            for k, v in metadata.items():
+                post[k] = v
+
+        post["updated"] = datetime.now().isoformat()
+
+        with open(filepath, "w") as f:
+            f.write(frontmatter.dumps(post))
+
+        return filepath
+
+    def delete(self, filepath: str | Path) -> bool:
+        """Delete journal entry."""
+        filepath = Path(filepath)
+        if filepath.exists():
+            filepath.unlink()
+            return True
+        return False
+
+    def list_entries(
+        self,
+        entry_type: Optional[str] = None,
+        tags: Optional[list[str]] = None,
+        limit: int = 50,
+    ) -> list[dict]:
+        """List journal entries with optional filtering."""
+        entries = []
+
+        for f in sorted(self.journal_dir.glob("*.md"), reverse=True):
+            try:
+                post = frontmatter.load(f)
+                entry = {
+                    "path": f,
+                    "title": post.get("title", f.stem),
+                    "type": post.get("type", "unknown"),
+                    "created": post.get("created"),
+                    "tags": post.get("tags", []),
+                    "preview": post.content[:200] if post.content else "",
+                }
+
+                # Filter by type
+                if entry_type and entry["type"] != entry_type:
+                    continue
+
+                # Filter by tags
+                if tags and not any(t in entry["tags"] for t in tags):
+                    continue
+
+                entries.append(entry)
+
+                if len(entries) >= limit:
+                    break
+
+            except Exception:
+                continue
+
+        return entries
+
+    def get_all_content(self) -> list[dict]:
+        """Get all entries with full content for embedding."""
+        entries = []
+        for f in self.journal_dir.glob("*.md"):
+            try:
+                post = frontmatter.load(f)
+                entries.append({
+                    "id": str(f),
+                    "content": post.content,
+                    "metadata": dict(post.metadata),
+                })
+            except Exception:
+                continue
+        return entries
