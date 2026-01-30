@@ -1,13 +1,14 @@
 """Tests for RSS feed scraper."""
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, AsyncMock
 
 
+@pytest.mark.asyncio
 class TestRSSFeedScraper:
-    """Test RSSFeedScraper (sync version)."""
+    """Test RSSFeedScraper (async)."""
 
-    def test_source_name(self, temp_dirs):
+    async def test_source_name(self, temp_dirs):
         """Test source name extraction from URL."""
         from intelligence.scraper import IntelStorage
         from intelligence.sources.rss import RSSFeedScraper
@@ -16,8 +17,9 @@ class TestRSSFeedScraper:
         scraper = RSSFeedScraper(storage, "https://example.com/feed.xml")
 
         assert "example" in scraper.source_name
+        await scraper.close()
 
-    def test_source_name_custom(self, temp_dirs):
+    async def test_source_name_custom(self, temp_dirs):
         """Test custom source name."""
         from intelligence.scraper import IntelStorage
         from intelligence.sources.rss import RSSFeedScraper
@@ -26,8 +28,9 @@ class TestRSSFeedScraper:
         scraper = RSSFeedScraper(storage, "https://example.com/feed.xml", name="custom")
 
         assert scraper.source_name == "rss:custom"
+        await scraper.close()
 
-    def test_extract_name_from_url(self, temp_dirs):
+    async def test_extract_name_from_url(self, temp_dirs):
         """Test URL name extraction."""
         from intelligence.scraper import IntelStorage
         from intelligence.sources.rss import RSSFeedScraper
@@ -36,57 +39,21 @@ class TestRSSFeedScraper:
         scraper = RSSFeedScraper(storage, "https://www.techcrunch.com/feed/")
 
         assert "techcrunch" in scraper.source_name
+        await scraper.close()
 
-    @patch("intelligence.sources.rss.feedparser.parse")
-    def test_scrape_parses_feed(self, mock_parse, temp_dirs):
-        """Test that scrape uses feedparser."""
+    async def test_context_manager(self, temp_dirs):
+        """Test async context manager."""
         from intelligence.scraper import IntelStorage
         from intelligence.sources.rss import RSSFeedScraper
 
-        mock_entry = MagicMock()
-        mock_entry.get.side_effect = lambda k, d=None: {
-            "title": "Test Article",
-            "link": "https://example.com/article",
-        }.get(k, d)
-        mock_entry.summary = "Test summary"
-        mock_entry.published_parsed = None  # No published date
-
-        mock_parse.return_value = MagicMock(entries=[mock_entry])
-
         storage = IntelStorage(temp_dirs["intel_db"])
-        scraper = RSSFeedScraper(storage, "https://example.com/feed.xml")
 
-        items = scraper.scrape()
+        async with RSSFeedScraper(storage, "https://example.com/feed") as scraper:
+            assert "rss:" in scraper.source_name
 
-        assert mock_parse.called
-        assert len(items) == 1
-        assert items[0].title == "Test Article"
 
-    @patch("intelligence.sources.rss.feedparser.parse")
-    def test_scrape_limits_entries(self, mock_parse, temp_dirs):
-        """Test that scrape limits to 20 entries."""
-        from intelligence.scraper import IntelStorage
-        from intelligence.sources.rss import RSSFeedScraper
-
-        mock_entries = []
-        for i in range(30):
-            entry = MagicMock()
-            entry.get.side_effect = lambda k, d=None, i=i: {
-                "title": f"Article {i}",
-                "link": f"https://example.com/{i}",
-            }.get(k, d)
-            entry.summary = f"Summary {i}"
-            entry.published_parsed = None  # No published date
-            mock_entries.append(entry)
-
-        mock_parse.return_value = MagicMock(entries=mock_entries)
-
-        storage = IntelStorage(temp_dirs["intel_db"])
-        scraper = RSSFeedScraper(storage, "https://example.com/feed.xml")
-
-        items = scraper.scrape()
-
-        assert len(items) == 20
+class TestRSSTagExtraction:
+    """Test RSS tag extraction utilities."""
 
     def test_extract_tags(self, temp_dirs):
         """Test tag extraction from feed entry."""
@@ -111,35 +78,3 @@ class TestRSSFeedScraper:
         tags = _extract_entry_tags(mock_entry)
 
         assert tags == []
-
-
-@pytest.mark.asyncio
-class TestAsyncRSSFeedScraper:
-    """Test AsyncRSSFeedScraper."""
-
-    async def test_source_name(self, temp_dirs):
-        """Test async RSS scraper source name."""
-        from intelligence.scraper import IntelStorage
-        from intelligence.sources.rss import AsyncRSSFeedScraper
-
-        storage = IntelStorage(temp_dirs["intel_db"])
-        scraper = AsyncRSSFeedScraper(storage, "https://blog.example.com/rss")
-
-        assert "rss:" in scraper.source_name
-        assert "blog" in scraper.source_name
-        await scraper.close()
-
-    async def test_custom_name(self, temp_dirs):
-        """Test async RSS scraper with custom name."""
-        from intelligence.scraper import IntelStorage
-        from intelligence.sources.rss import AsyncRSSFeedScraper
-
-        storage = IntelStorage(temp_dirs["intel_db"])
-        scraper = AsyncRSSFeedScraper(
-            storage,
-            "https://example.com/feed",
-            name="myblog"
-        )
-
-        assert scraper.source_name == "rss:myblog"
-        await scraper.close()

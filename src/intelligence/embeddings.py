@@ -141,3 +141,30 @@ class IntelEmbeddingManager:
     def count(self) -> int:
         """Get total number of embedded items."""
         return self.collection.count()
+
+    def find_similar(self, text: str, threshold: float = 0.85) -> bool:
+        """Check if similar content exists.
+
+        Args:
+            text: Content to check
+            threshold: Similarity threshold (0-1, higher = more similar)
+
+        Returns:
+            True if similar content found
+        """
+        if self.collection.count() == 0:
+            return False
+
+        results = self.collection.query(
+            query_texts=[text],
+            n_results=1,
+            include=["distances"],
+        )
+
+        if results["distances"] and results["distances"][0]:
+            # ChromaDB returns cosine distance, convert to similarity
+            distance = results["distances"][0][0]
+            similarity = 1 - distance
+            return similarity >= threshold
+
+        return False

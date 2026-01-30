@@ -1,6 +1,6 @@
 """Base scraper and intelligence storage."""
 
-import asyncio
+import hashlib
 import logging
 import sqlite3
 from abc import ABC, abstractmethod
@@ -25,6 +25,12 @@ class IntelItem:
     content: Optional[str] = None
     published: Optional[datetime] = None
     tags: Optional[list[str]] = None
+    content_hash: Optional[str] = None
+
+    def compute_hash(self) -> str:
+        """Compute content hash for deduplication."""
+        text = f"{self.title.lower().strip()}|{self.summary.lower().strip()}"
+        return hashlib.sha256(text.encode()).hexdigest()[:16]
 
 
 class IntelStorage:
@@ -48,7 +54,8 @@ class IntelStorage:
                     content TEXT,
                     published TIMESTAMP,
                     scraped_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    tags TEXT
+                    tags TEXT,
+                    content_hash TEXT
                 )
             """)
             conn.execute("""
@@ -57,15 +64,30 @@ class IntelStorage:
             conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_intel_scraped ON intel_items(scraped_at)
             """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_intel_hash ON intel_items(content_hash)
+            """)
+            # Add column if not exists (for existing DBs)
+            try:
+                conn.execute("ALTER TABLE intel_items ADD COLUMN content_hash TEXT")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
 
     def save(self, item: IntelItem) -> bool:
-        """Save intel item, skip if URL exists."""
+        """Save intel item, skip if URL or content hash exists."""
+        content_hash = item.content_hash or item.compute_hash()
+
+        # Check for hash-based duplicate
+        if self.hash_exists(content_hash):
+            logger.info("Duplicate content skipped (hash): %s", item.title[:50])
+            return False
+
         try:
             with sqlite3.connect(self.db_path) as conn:
                 conn.execute("""
                     INSERT OR IGNORE INTO intel_items
-                    (source, title, url, summary, content, published, tags)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    (source, title, url, summary, content, published, tags, content_hash)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     item.source,
                     item.title,
@@ -74,6 +96,7 @@ class IntelStorage:
                     item.content,
                     item.published.isoformat() if item.published else None,
                     ",".join(item.tags) if item.tags else None,
+                    content_hash,
                 ))
                 return conn.total_changes > 0
         except sqlite3.IntegrityError:
@@ -82,6 +105,17 @@ class IntelStorage:
         except sqlite3.Error as e:
             logger.error("DB error saving item %s: %s", item.url, e)
             return False
+
+    def hash_exists(self, content_hash: str, days: int = 7) -> bool:
+        """Check if content hash exists in recent items."""
+        with sqlite3.connect(self.db_path) as conn:
+            row = conn.execute("""
+                SELECT 1 FROM intel_items
+                WHERE content_hash = ?
+                AND scraped_at >= datetime('now', ?)
+                LIMIT 1
+            """, (content_hash, f"-{days} days")).fetchone()
+            return row is not None
 
     def get_recent(self, days: int = 7, limit: int = 50) -> list[dict]:
         """Get recent intel items."""
@@ -109,54 +143,11 @@ class IntelStorage:
 
 
 class BaseScraper(ABC):
-    """Base class for intelligence scrapers."""
-
-    def __init__(self, storage: IntelStorage):
-        self.storage = storage
-        self.client = httpx.Client(
-            timeout=30.0,
-            headers={"User-Agent": "AI-Coach/1.0 (Personal Use)"},
-        )
-
-    @property
-    @abstractmethod
-    def source_name(self) -> str:
-        """Unique source identifier."""
-        pass
-
-    @abstractmethod
-    def scrape(self) -> list[IntelItem]:
-        """Scrape and return intel items."""
-        pass
-
-    def fetch_html(self, url: str) -> Optional[BeautifulSoup]:
-        """Fetch and parse HTML."""
-        try:
-            logger.debug("Fetching %s", url)
-            response = self.client.get(url)
-            response.raise_for_status()
-            return BeautifulSoup(response.text, "html.parser")
-        except httpx.HTTPStatusError as e:
-            logger.warning("HTTP %d fetching %s", e.response.status_code, url)
-            return None
-        except httpx.RequestError as e:
-            logger.warning("Request error fetching %s: %s", url, e)
-            return None
-
-    def save_items(self, items: list[IntelItem]) -> int:
-        """Save items and return count of new items."""
-        new_count = 0
-        for item in items:
-            if self.storage.save(item):
-                new_count += 1
-        return new_count
-
-
-class AsyncBaseScraper(ABC):
     """Async base class for intelligence scrapers."""
 
-    def __init__(self, storage: IntelStorage):
+    def __init__(self, storage: IntelStorage, embedding_manager=None):
         self.storage = storage
+        self.embedding_manager = embedding_manager
         self.client = httpx.AsyncClient(
             timeout=30.0,
             headers={"User-Agent": "AI-Coach/1.0 (Personal Use)"},
@@ -187,10 +178,25 @@ class AsyncBaseScraper(ABC):
             logger.warning("Request error fetching %s: %s", url, e)
             return None
 
-    async def save_items(self, items: list[IntelItem]) -> int:
-        """Save items and return count of new items."""
+    async def save_items(self, items: list[IntelItem], semantic_dedup: bool = True) -> int:
+        """Save items and return count of new items.
+
+        Args:
+            items: List of items to save
+            semantic_dedup: Check for semantic duplicates via embeddings
+
+        Returns:
+            Count of new items saved
+        """
         new_count = 0
         for item in items:
+            # Semantic dedup check if embedding manager available
+            if semantic_dedup and self.embedding_manager:
+                content = f"{item.title} {item.summary}"
+                if self.embedding_manager.find_similar(content, threshold=0.85):
+                    logger.info("Semantic duplicate skipped: %s", item.title[:50])
+                    continue
+
             if self.storage.save(item):
                 new_count += 1
         return new_count

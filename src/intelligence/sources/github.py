@@ -4,14 +4,13 @@ import re
 from datetime import datetime
 from typing import Optional
 
-import httpx
 from bs4 import BeautifulSoup
 
-from intelligence.scraper import AsyncBaseScraper, IntelItem, IntelStorage
+from intelligence.scraper import BaseScraper, IntelItem, IntelStorage
 
 
-class GitHubTrendingScraper(AsyncBaseScraper):
-    """Scraper for GitHub trending repositories."""
+class GitHubTrendingScraper(BaseScraper):
+    """Async scraper for GitHub trending repositories."""
 
     TRENDING_URL = "https://github.com/trending"
 
@@ -125,86 +124,3 @@ class GitHubTrendingScraper(AsyncBaseScraper):
 
         except Exception:
             return None
-
-
-# Sync wrapper for backwards compatibility
-class GitHubTrendingScraperSync:
-    """Synchronous wrapper for GitHubTrendingScraper."""
-
-    def __init__(
-        self,
-        storage: IntelStorage,
-        languages: Optional[list[str]] = None,
-        timeframe: str = "daily",
-    ):
-        self.storage = storage
-        self.languages = languages or ["python"]
-        self.timeframe = timeframe
-
-    @property
-    def source_name(self) -> str:
-        return "github_trending"
-
-    def scrape(self) -> list[IntelItem]:
-        """Synchronous scrape using blocking client."""
-        items = []
-
-        with httpx.Client(
-            timeout=30.0,
-            headers={"User-Agent": "AI-Coach/1.0 (Personal Use)"},
-        ) as client:
-            for lang in self.languages:
-                url = f"https://github.com/trending/{lang}?since={self.timeframe}"
-                try:
-                    response = client.get(url)
-                    response.raise_for_status()
-                    soup = BeautifulSoup(response.text, "html.parser")
-
-                    for article in soup.select("article.Box-row")[:25]:
-                        item = self._parse_repo(article, lang)
-                        if item:
-                            items.append(item)
-                except Exception:
-                    continue
-
-        return items
-
-    def _parse_repo(self, article, language: str) -> Optional[IntelItem]:
-        """Parse repo article."""
-        try:
-            title_elem = article.select_one("h2 a")
-            if not title_elem:
-                return None
-
-            repo_path = title_elem.get("href", "").strip("/")
-            if not repo_path:
-                return None
-
-            desc_elem = article.select_one("p")
-            description = desc_elem.get_text(strip=True) if desc_elem else ""
-
-            stars = 0
-            stars_elem = article.select_one("a[href$='/stargazers']")
-            if stars_elem:
-                stars_text = stars_elem.get_text(strip=True).replace(",", "")
-                stars = int(stars_text) if stars_text.isdigit() else 0
-
-            return IntelItem(
-                source=self.source_name,
-                title=repo_path.replace("/", " / "),
-                url=f"https://github.com/{repo_path}",
-                summary=f"{stars:,} stars | {description[:200]}",
-                content=description,
-                published=datetime.now(),
-                tags=[language, "github", "trending"],
-            )
-        except Exception:
-            return None
-
-    def save_items(self, items: list[IntelItem]) -> int:
-        """Save items and return count of new items."""
-        new_count = 0
-        for item in items:
-            if self.storage.save(item):
-                new_count += 1
-        return new_count
