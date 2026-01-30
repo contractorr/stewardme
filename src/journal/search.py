@@ -32,6 +32,10 @@ class JournalSearch:
         Returns:
             List of matching entries with relevance scores
         """
+        # Fall back to keyword search if no embeddings
+        if self.embeddings is None:
+            return self.keyword_search(query, limit=n_results, entry_type=entry_type)
+
         where = {"type": entry_type} if entry_type else None
         results = self.embeddings.query(query, n_results=n_results, where=where)
 

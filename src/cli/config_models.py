@@ -1,10 +1,11 @@
 """Pydantic configuration models for AI Coach."""
 
 import os
+import re
 from pathlib import Path
 from typing import Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class LLMConfig(BaseModel):
@@ -39,12 +40,37 @@ class SourcesConfig(BaseModel):
     github_trending: dict = Field(default_factory=dict)
 
 
+def validate_cron(expr: str) -> str:
+    """Validate cron expression format (5 fields)."""
+    parts = expr.split()
+    if len(parts) != 5:
+        raise ValueError(f"Cron must have 5 fields, got {len(parts)}: {expr}")
+    patterns = [
+        r"^(\*|[0-9]|[1-5][0-9])(/[0-9]+)?$",  # minute
+        r"^(\*|[0-9]|1[0-9]|2[0-3])(/[0-9]+)?$",  # hour
+        r"^(\*|[1-9]|[12][0-9]|3[01])(/[0-9]+)?$",  # day
+        r"^(\*|[1-9]|1[0-2])(/[0-9]+)?$",  # month
+        r"^(\*|[0-6])(/[0-9]+)?$",  # weekday
+    ]
+    for i, (part, pattern) in enumerate(zip(parts, patterns)):
+        if not re.match(pattern, part) and part != "*":
+            # Allow common patterns like */5, 1-5, etc
+            if not re.match(r"^[\d\-,\*/]+$", part):
+                raise ValueError(f"Invalid cron field {i}: {part}")
+    return expr
+
+
 class ResearchConfig(BaseModel):
     """Deep research configuration."""
     enabled: bool = False
     max_topics: int = 3
     tavily_api_key: Optional[str] = None
     schedule: str = "0 21 * * 0"
+
+    @field_validator("schedule")
+    @classmethod
+    def validate_schedule(cls, v: str) -> str:
+        return validate_cron(v)
 
 
 class ScoringConfig(BaseModel):
@@ -58,11 +84,24 @@ class ScoringConfig(BaseModel):
         "impact": 0.2,
     })
 
+    @model_validator(mode="after")
+    def validate_weights(self):
+        """Ensure weights sum to 1.0."""
+        total = sum(self.weights.values())
+        if not 0.99 <= total <= 1.01:
+            raise ValueError(f"Scoring weights must sum to 1.0, got {total}")
+        return self
+
 
 class DeliveryConfig(BaseModel):
     """Recommendation delivery configuration."""
     methods: list[str] = Field(default_factory=lambda: ["journal"])
     schedule: str = "0 8 * * 0"
+
+    @field_validator("schedule")
+    @classmethod
+    def validate_schedule(cls, v: str) -> str:
+        return validate_cron(v)
 
 
 class RecommendationsConfig(BaseModel):
@@ -95,10 +134,21 @@ class LimitsConfig(BaseModel):
     llm_max_tokens: int = 2000
 
 
+VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+
+
 class LoggingConfig(BaseModel):
     """Logging configuration."""
     level: str = "INFO"
     file_level: str = "DEBUG"
+
+    @field_validator("level", "file_level")
+    @classmethod
+    def validate_level(cls, v: str) -> str:
+        v_upper = v.upper()
+        if v_upper not in VALID_LOG_LEVELS:
+            raise ValueError(f"Invalid log level: {v}. Must be one of {VALID_LOG_LEVELS}")
+        return v_upper
 
 
 class CoachConfig(BaseModel):

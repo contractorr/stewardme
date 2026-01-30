@@ -1,6 +1,81 @@
 """End-to-end integration tests."""
 
 import pytest
+from pydantic import ValidationError
+
+
+class TestConfigValidation:
+    """Test configuration validation."""
+
+    def test_valid_config(self):
+        """Test valid config loads without errors."""
+        from cli.config_models import CoachConfig
+
+        config = CoachConfig.from_dict({
+            "llm": {"model": "claude-sonnet-4-20250514"},
+            "research": {"schedule": "0 8 * * 0"},
+            "logging": {"level": "DEBUG"},
+        })
+
+        assert config.llm.model == "claude-sonnet-4-20250514"
+        assert config.logging.level == "DEBUG"
+
+    def test_invalid_cron_expression(self):
+        """Test invalid cron raises error."""
+        from cli.config_models import CoachConfig
+
+        with pytest.raises(ValidationError) as exc:
+            CoachConfig.from_dict({
+                "research": {"schedule": "invalid cron"},
+            })
+        assert "cron" in str(exc.value).lower() or "field" in str(exc.value).lower()
+
+    def test_invalid_log_level(self):
+        """Test invalid log level raises error."""
+        from cli.config_models import CoachConfig
+
+        with pytest.raises(ValidationError) as exc:
+            CoachConfig.from_dict({
+                "logging": {"level": "INVALID"},
+            })
+        assert "log level" in str(exc.value).lower()
+
+    def test_scoring_weights_must_sum_to_one(self):
+        """Test scoring weights validation."""
+        from cli.config_models import CoachConfig
+
+        with pytest.raises(ValidationError) as exc:
+            CoachConfig.from_dict({
+                "recommendations": {
+                    "scoring": {
+                        "weights": {"relevance": 0.5, "urgency": 0.5, "feasibility": 0.5}
+                    }
+                }
+            })
+        assert "sum to 1" in str(exc.value).lower()
+
+    def test_env_var_expansion(self, monkeypatch):
+        """Test environment variable expansion in API keys."""
+        from cli.config_models import CoachConfig
+
+        monkeypatch.setenv("TEST_API_KEY", "sk-test-12345")
+
+        config = CoachConfig.from_dict({
+            "llm": {"api_key": "${TEST_API_KEY}"},
+        })
+
+        assert config.llm.api_key == "sk-test-12345"
+
+    def test_path_expansion(self):
+        """Test ~ expansion in paths."""
+        from cli.config_models import CoachConfig
+        import os
+
+        config = CoachConfig.from_dict({
+            "paths": {"journal_dir": "~/coach/journal"},
+        })
+
+        assert str(config.paths.journal_dir).startswith(os.path.expanduser("~"))
 
 
 class TestJournalFlow:
@@ -121,6 +196,7 @@ class TestIntelFlow:
     def test_rag_with_intel_search(self, temp_dirs):
         """Test RAG retriever with semantic intel search."""
         from journal.storage import JournalStorage
+        from journal.embeddings import EmbeddingManager
         from journal.search import JournalSearch
         from intelligence.scraper import IntelStorage, IntelItem
         from intelligence.embeddings import IntelEmbeddingManager
@@ -128,13 +204,15 @@ class TestIntelFlow:
         from advisor.rag import RAGRetriever
         from datetime import datetime
 
-        # Set up journal
+        # Set up journal with embeddings
         journal_storage = JournalStorage(temp_dirs["journal_dir"])
+        journal_embeddings = EmbeddingManager(temp_dirs["chroma_dir"])
         journal_storage.create(
             content="My goal is to become an expert in AI and machine learning.",
             entry_type="goal",
         )
-        journal_search = JournalSearch(journal_storage, embeddings=None)
+        journal_search = JournalSearch(journal_storage, journal_embeddings)
+        journal_search.sync_embeddings()
 
         # Set up intel
         intel_storage = IntelStorage(temp_dirs["intel_db"])
@@ -196,46 +274,139 @@ class TestSchedulerFlow:
 
         assert "hackernews" in results
 
-    @pytest.mark.asyncio
-    async def test_scheduler_async(self, temp_dirs, monkeypatch):
-        """Test async scheduler execution."""
+    def test_scheduler_with_multiple_sources(self, temp_dirs, monkeypatch):
+        """Test scheduler with multiple sources configured."""
         from intelligence.scraper import IntelStorage
         from intelligence.scheduler import IntelScheduler
-        from unittest.mock import AsyncMock, MagicMock
+        from unittest.mock import MagicMock
 
-        # Mock async HTTP client
-        mock_response = MagicMock()
-        mock_response.json.return_value = []
-        mock_response.text = ""
-        mock_response.raise_for_status = MagicMock()
-
-        mock_client = AsyncMock()
-        mock_client.get.return_value = mock_response
-        mock_client.aclose = AsyncMock()
+        # Mock HTTP client
+        mock_client = MagicMock()
+        mock_client.get.return_value = MagicMock(
+            json=MagicMock(return_value=[]),
+            text="",
+            raise_for_status=MagicMock(),
+        )
 
         import httpx
-        monkeypatch.setattr(
-            httpx, "AsyncClient",
-            lambda **kwargs: MagicMock(
-                __aenter__=AsyncMock(return_value=mock_client),
-                __aexit__=AsyncMock(),
-                get=mock_client.get,
-                aclose=mock_client.aclose,
-            )
-        )
+        monkeypatch.setattr(httpx, "Client", lambda **kwargs: mock_client)
 
         storage = IntelStorage(temp_dirs["intel_db"])
         scheduler = IntelScheduler(
             storage=storage,
             config={
-                "enabled": ["hn_top"],
-                "rss_feeds": [],
+                "enabled": ["hn_top", "rss_feeds"],
+                "rss_feeds": ["https://example.com/feed.xml"],
             },
         )
 
-        # This will use sync version due to mocking complexity
+        # Verify scheduler initialized with sources
+        assert scheduler is not None
         results = scheduler.run_now()
         assert isinstance(results, dict)
+
+
+class TestGoalsFlow:
+    """Test goal tracking flow."""
+
+    def test_goal_create_and_checkin(self, temp_dirs):
+        """Test creating goal and adding check-ins."""
+        from journal.storage import JournalStorage
+        from advisor.goals import GoalTracker, get_goal_defaults
+
+        storage = JournalStorage(temp_dirs["journal_dir"])
+        tracker = GoalTracker(storage)
+
+        # Create goal via storage (the standard way)
+        path = storage.create(
+            content="Master K8s for container orchestration",
+            entry_type="goal",
+            title="Learn Kubernetes",
+            metadata=get_goal_defaults(),
+        )
+        assert path.exists()
+
+        # Add check-in
+        tracker.check_in_goal(path, "Completed pods and deployments tutorial")
+
+        # Verify check-in recorded (frontmatter.Post has .content attribute)
+        entry = storage.read(path)
+        assert "check-in" in entry.content.lower()
+
+    def test_goal_staleness_detection(self, temp_dirs):
+        """Test that stale goals are detected."""
+        from journal.storage import JournalStorage
+        from advisor.goals import GoalTracker, get_goal_defaults
+
+        storage = JournalStorage(temp_dirs["journal_dir"])
+        tracker = GoalTracker(storage)
+
+        # Create goal via storage
+        storage.create(
+            content="A goal to track",
+            entry_type="goal",
+            title="Test Goal",
+            metadata=get_goal_defaults(),
+        )
+
+        # Get goals
+        goals = tracker.get_goals()
+        assert len(goals) >= 1
+
+
+class TestRecommendationsFlow:
+    """Test recommendations system flow."""
+
+    def test_recommendation_storage(self, temp_dirs):
+        """Test storing and retrieving recommendations."""
+        from advisor.recommendation_storage import RecommendationStorage, Recommendation
+
+        storage = RecommendationStorage(temp_dirs["intel_db"])
+
+        # Save recommendation
+        rec = Recommendation(
+            category="learning",
+            title="Learn GraphQL",
+            description="GraphQL is trending for API development",
+            score=8.5,
+            rationale="High demand skill",
+        )
+        rec_id = storage.save(rec)
+
+        assert rec_id is not None
+
+        # Retrieve
+        result = storage.get(rec_id)
+        assert result.title == "Learn GraphQL"
+        assert result.score == 8.5
+
+    def test_recommendation_deduplication(self, temp_dirs):
+        """Test that duplicate recommendations are detected via hash."""
+        from advisor.recommendation_storage import RecommendationStorage, Recommendation
+        import hashlib
+
+        storage = RecommendationStorage(temp_dirs["intel_db"])
+
+        # Create hash for dedup check
+        content = "career:Apply to FAANG"
+        embed_hash = hashlib.md5(content.encode()).hexdigest()
+
+        rec = Recommendation(
+            category="career",
+            title="Apply to FAANG",
+            description="Consider applying to big tech",
+            score=7.0,
+            embedding_hash=embed_hash,
+        )
+
+        storage.save(rec)
+
+        # Check hash exists
+        assert storage.hash_exists(embed_hash)
+
+        # List by category
+        recs = storage.list_by_category("career")
+        assert len(recs) >= 1
 
 
 class TestCLIIntegration:
@@ -263,3 +434,48 @@ class TestCLIIntegration:
         assert journal_search is not None
         assert intel_storage is not None
         assert scheduler is not None
+
+    def test_full_advisor_flow(self, temp_dirs, mock_anthropic, monkeypatch):
+        """Test full advisor flow: journal -> intel -> RAG -> response."""
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+        from journal.storage import JournalStorage
+        from journal.embeddings import EmbeddingManager
+        from journal.search import JournalSearch
+        from intelligence.scraper import IntelStorage, IntelItem
+        from intelligence.embeddings import IntelEmbeddingManager
+        from intelligence.search import IntelSearch
+        from advisor.rag import RAGRetriever
+        from datetime import datetime
+
+        # Setup journal with goal
+        journal_storage = JournalStorage(temp_dirs["journal_dir"])
+        journal_embeddings = EmbeddingManager(temp_dirs["chroma_dir"])
+        journal_storage.create(
+            content="I want to transition into machine learning engineering.",
+            entry_type="goal",
+            title="Career Goal",
+        )
+        journal_search = JournalSearch(journal_storage, journal_embeddings)
+        journal_search.sync_embeddings()
+
+        # Setup intel
+        intel_storage = IntelStorage(temp_dirs["intel_db"])
+        intel_storage.save(IntelItem(
+            source="hackernews",
+            title="ML Engineer roadmap 2024",
+            url="https://example.com/ml-roadmap",
+            summary="Complete guide to becoming an ML engineer",
+            published=datetime.now(),
+        ))
+        intel_embeddings = IntelEmbeddingManager(temp_dirs["chroma_dir"])
+        intel_search = IntelSearch(intel_storage, intel_embeddings)
+        intel_search.sync_embeddings()
+
+        # RAG retrieval
+        rag = RAGRetriever(journal_search=journal_search, intel_search=intel_search)
+        journal_ctx, intel_ctx = rag.get_combined_context("ML career advice")
+
+        # Verify context retrieved
+        assert "machine learning" in journal_ctx.lower() or "ml" in journal_ctx.lower() or len(journal_ctx) > 0
+        assert isinstance(intel_ctx, str)

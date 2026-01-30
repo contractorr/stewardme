@@ -30,11 +30,22 @@ class EmbeddingManager:
         metadata: Optional[dict] = None,
     ) -> None:
         """Add or update entry embedding."""
-        # ChromaDB handles embedding generation internally
+        # Sanitize metadata - ChromaDB only accepts str, int, float, bool, None
+        clean_meta = {}
+        if metadata:
+            for k, v in metadata.items():
+                if isinstance(v, list):
+                    clean_meta[k] = ",".join(str(x) for x in v) if v else ""
+                elif isinstance(v, (str, int, float, bool)) or v is None:
+                    clean_meta[k] = v
+                else:
+                    clean_meta[k] = str(v)
+
+        # ChromaDB requires non-empty metadata or None
         self.collection.upsert(
             ids=[entry_id],
             documents=[content],
-            metadatas=[metadata or {}],
+            metadatas=[clean_meta] if clean_meta else None,
         )
 
     def remove_entry(self, entry_id: str) -> None:
