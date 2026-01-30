@@ -157,3 +157,77 @@ class RAGRetriever:
             return "No journal entries from the past week."
 
         return "\n".join(recent)
+
+    def get_research_context(
+        self,
+        query: str,
+        max_entries: int = 3,
+        max_chars: int = 4000,
+    ) -> str:
+        """Get relevant research reports for query.
+
+        Args:
+            query: User query to match against research
+            max_entries: Max research entries to include
+            max_chars: Max total characters
+
+        Returns:
+            Formatted research context string
+        """
+        # Search research entries via journal
+        research_entries = self.journal.storage.list_entries(
+            entry_type="research",
+            limit=max_entries * 2,
+        )
+
+        if not research_entries:
+            return ""
+
+        # Use semantic search if available to rank by relevance
+        if hasattr(self.journal, 'semantic_search'):
+            results = self.journal.semantic_search(
+                query,
+                n_results=max_entries,
+                entry_type="research",
+            )
+            if results:
+                context_parts = []
+                total_chars = 0
+                for r in results:
+                    text = f"[Research: {r.get('title', 'Unknown')}]\n{r.get('content', '')[:1500]}\n"
+                    if total_chars + len(text) > max_chars:
+                        break
+                    context_parts.append(text)
+                    total_chars += len(text)
+                return "\n".join(context_parts) if context_parts else ""
+
+        # Fallback: return most recent research
+        context_parts = []
+        total_chars = 0
+
+        for entry in research_entries[:max_entries]:
+            try:
+                post = self.journal.storage.read(entry["path"])
+                text = f"[Research: {entry['title']}]\n{post.content[:1500]}\n"
+                if total_chars + len(text) > max_chars:
+                    break
+                context_parts.append(text)
+                total_chars += len(text)
+            except Exception:
+                continue
+
+        return "\n".join(context_parts) if context_parts else ""
+
+    def get_full_context(
+        self,
+        query: str,
+        include_research: bool = True,
+    ) -> tuple[str, str, str]:
+        """Get journal, intel, and research context.
+
+        Returns:
+            Tuple of (journal_context, intel_context, research_context)
+        """
+        journal_ctx, intel_ctx = self.get_combined_context(query)
+        research_ctx = self.get_research_context(query) if include_research else ""
+        return journal_ctx, intel_ctx, research_ctx
