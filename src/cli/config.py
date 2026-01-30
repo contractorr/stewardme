@@ -3,58 +3,18 @@
 import logging
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 import yaml
 
-
-# Default values for tunable parameters (previously magic numbers)
-DEFAULTS = {
-    # Scraping limits
-    "hn_max_stories": 30,
-    "rss_max_entries": 20,
-    "github_max_repos": 25,
-
-    # Context limits for RAG
-    "journal_max_entries": 5,
-    "journal_max_chars": 6000,
-    "intel_max_items": 5,
-    "intel_max_chars": 3000,
-    "total_context_chars": 8000,
-
-    # Summary truncation lengths
-    "summary_truncate": 500,
-    "preview_truncate": 200,
-
-    # LLM settings
-    "llm_max_tokens": 2000,
-}
+from .config_models import CoachConfig, LimitsConfig
 
 
-DEFAULT_CONFIG = {
-    "llm": {
-        "provider": "claude",
-        "model": "claude-sonnet-4-20250514",
-    },
-    "paths": {
-        "journal_dir": "~/coach/journal",
-        "chroma_dir": "~/coach/chroma",
-        "intel_db": "~/coach/intel.db",
-        "log_file": "~/coach/coach.log",
-    },
-    "sources": {
-        "custom_blogs": [],
-        "rss_feeds": [
-            "https://news.ycombinator.com/rss",
-        ],
-        "enabled": ["hn_top", "rss_feeds"],
-    },
-    "limits": DEFAULTS,
-    "logging": {
-        "level": "INFO",
-        "file_level": "DEBUG",
-    },
-}
+# Default values for tunable parameters (backwards compat)
+DEFAULTS = LimitsConfig().model_dump()
+
+# Default config dict (backwards compat)
+DEFAULT_CONFIG = CoachConfig().to_dict()
 
 
 def find_config() -> Optional[Path]:
@@ -71,23 +31,30 @@ def find_config() -> Optional[Path]:
 
 
 def load_config(config_path: Optional[Path] = None) -> dict:
-    """Load configuration from file or defaults."""
-    config = DEFAULT_CONFIG.copy()
+    """Load configuration from file or defaults.
+
+    Returns dict for backwards compatibility. Use load_config_model() for typed access.
+    """
+    model = load_config_model(config_path)
+    return model.to_dict()
+
+
+def load_config_model(config_path: Optional[Path] = None) -> CoachConfig:
+    """Load configuration as Pydantic model with validation."""
+    base_config = {}
 
     path = config_path or find_config()
     if path and path.exists():
-        with open(path) as f:
-            user_config = yaml.safe_load(f) or {}
-            config = _deep_merge(config, user_config)
+        try:
+            with open(path) as f:
+                base_config = yaml.safe_load(f) or {}
+        except yaml.YAMLError as e:
+            raise ValueError(f"Invalid YAML in config file: {e}")
 
-    # Expand environment variables in API keys
-    if "llm" in config and "api_key" in config["llm"]:
-        api_key = config["llm"]["api_key"]
-        if api_key.startswith("${") and api_key.endswith("}"):
-            env_var = api_key[2:-1]
-            config["llm"]["api_key"] = os.getenv(env_var, "")
-
-    return config
+    try:
+        return CoachConfig.from_dict(base_config)
+    except Exception as e:
+        raise ValueError(f"Config validation failed: {e}")
 
 
 def _deep_merge(base: dict, override: dict) -> dict:
