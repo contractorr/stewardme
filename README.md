@@ -6,8 +6,11 @@ Personal AI-powered professional advisor combining journal knowledge with extern
 
 AI Coach is a RAG-based system that:
 - Stores personal journal entries with semantic search (ChromaDB)
-- Scrapes external intelligence (Hacker News, RSS feeds, GitHub trending)
-- Uses Claude API to provide personalized advice based on both sources
+- Scrapes external intelligence (HN, RSS, GitHub, arXiv, Reddit, Dev.to, Crunchbase, NewsAPI)
+- Proactive recommendations for learning, career, entrepreneurial, and investment opportunities
+- Deep research agent with web search and LLM synthesis
+- Goal tracking with staleness detection and check-ins
+- Uses Claude API to provide personalized advice based on all sources
 
 ## Quick Start
 
@@ -76,13 +79,50 @@ coach journal sync
 coach ask "What should I focus on this week?"
 coach ask "How can I improve my Python skills?" --type career
 
-# Advice types: general, career, goals, opportunities
-
 # Weekly review (analyzes recent journal entries)
 coach review
 
 # Opportunity detection (combines your profile with trends)
 coach opportunities
+```
+
+### Proactive Recommendations
+
+```bash
+# Generate recommendations by category
+coach recommend learning          # Skills to learn
+coach recommend career            # Career moves
+coach recommend entrepreneurial   # Business opportunities
+coach recommend investment        # Investment themes
+coach recommend all               # All categories
+
+# Action briefs and history
+coach recommend brief             # Weekly action brief
+coach recommend history           # View past recommendations
+coach recommend view <id>         # View specific rec
+coach recommend update <id> --status completed
+coach recommend rate <id> 5       # Rate usefulness (1-5)
+```
+
+### Goal Tracking
+
+```bash
+# Manage goals with staleness detection
+coach goals add "Learn Rust" --deadline 2024-06-01
+coach goals list                  # Shows staleness indicators
+coach goals check-in <id> "Made progress on chapters 1-3"
+coach goals status <id> --status in_progress
+coach goals analyze <id>          # AI analysis of goal progress
+```
+
+### Deep Research
+
+```bash
+# AI-driven research on topics from your goals/journal
+coach research run "distributed systems"
+coach research topics             # Show suggested research topics
+coach research list               # List all research reports
+coach research view <id>          # View full report
 ```
 
 ### Intelligence Gathering
@@ -97,6 +137,29 @@ coach brief -n 14 --limit 50
 
 # Show configured sources
 coach sources
+
+# Export intel
+coach intel-export --format json --output intel.json
+coach intel-export --format csv --days 30
+```
+
+### Data Export
+
+```bash
+# Export journal entries
+coach journal export --format json --output journal.json
+coach journal export --format markdown --output journal/
+
+# Export intelligence
+coach intel-export --format csv --output intel.csv
+```
+
+### Background Daemon
+
+```bash
+# Run scheduler in background (daily scraping, weekly research)
+coach daemon start
+coach daemon run-once             # Single execution of all jobs
 ```
 
 ## Configuration Reference
@@ -121,16 +184,32 @@ sources:
   github_trending:
     enabled: true
     languages: [python, rust, go]
-    timeframe: daily  # daily, weekly, monthly
+    timeframe: daily
   enabled:
     - hn_top
     - rss_feeds
     - github_trending
     - custom_blogs
+    - arxiv
+    - reddit
+    - devto
+
+research:
+  web_search_provider: tavily  # or serpapi
+  web_search_api_key: ${TAVILY_API_KEY}
+  max_sources: 5
+  weekly_schedule: "sunday 8am"
+
+recommendations:
+  enabled_categories: [learning, career, entrepreneurial, investment]
+  weekly_brief: true
+  schedule: "monday 7am"
 
 schedule:
   weekly_review: "sunday 9am"
   intelligence_gather: "daily 6am"
+  research: "sunday 8am"
+  recommendations: "monday 7am"
 ```
 
 ## Data Storage
@@ -144,16 +223,18 @@ All data stored in `~/coach/`:
 
 ```
 src/
-├── journal/       # Storage + embeddings + search
-├── advisor/       # LLM orchestration + RAG
-├── intelligence/  # Scrapers + scheduler
-└── cli/           # Click commands
+├── journal/       # Storage, embeddings, search, export
+├── advisor/       # LLM orchestration, RAG, recommendations, goals
+├── intelligence/  # Scrapers (8 sources), scheduler, export
+├── research/      # Deep research agent, topic selection, synthesis
+└── cli/           # Click commands (7 modules)
 ```
 
 **Data Flow:**
 1. Journal entries → Markdown + auto-embedded to ChromaDB
-2. Scrapers → SQLite intel DB
-3. Ask question → RAG retrieves context → Claude generates advice
+2. Scrapers → SQLite intel DB (8 sources)
+3. Goals/journal → Topic selection → Deep research → Reports
+4. All context → RAG retrieval → Claude generates advice/recommendations
 
 ## Development
 
