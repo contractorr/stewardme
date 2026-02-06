@@ -1,6 +1,6 @@
 """Deep research agent orchestrating the full research flow."""
 
-import logging
+import structlog
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -12,7 +12,7 @@ from .topics import TopicSelector
 from .web_search import WebSearchClient, AsyncWebSearchClient
 from .synthesis import ResearchSynthesizer
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 class DeepResearchAgent:
@@ -105,7 +105,7 @@ class DeepResearchAgent:
                 results.append({"topic": topic, "filepath": filepath, "success": True})
                 logger.info("Research complete for: %s -> %s", topic, filepath)
 
-            except Exception as e:
+            except (IOError, ValueError, KeyError) as e:
                 logger.error("Research failed for %s: %s", topic, e)
                 results.append({"topic": topic, "filepath": None, "success": False, "error": str(e)})
 
@@ -254,7 +254,7 @@ class AsyncDeepResearchAgent:
 
                 results.append({"topic": topic, "filepath": filepath, "success": True})
 
-            except Exception as e:
+            except (IOError, ValueError, KeyError) as e:
                 logger.error("Async research failed for %s: %s", topic, e)
                 results.append({"topic": topic, "filepath": None, "success": False})
 

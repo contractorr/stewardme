@@ -1,8 +1,8 @@
 """Base scraper and intelligence storage."""
 
 import hashlib
-import logging
 import sqlite3
+import structlog
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
@@ -12,7 +12,7 @@ from typing import Optional
 import httpx
 from bs4 import BeautifulSoup
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger().bind(source="intel_storage")
 
 
 @dataclass

@@ -1,6 +1,6 @@
 """LLM orchestration for advice generation."""
 
-import logging
+import structlog
 import os
 from pathlib import Path
 from typing import Optional
@@ -10,7 +10,7 @@ from anthropic import Anthropic, APIError, AuthenticationError, RateLimitError
 from .prompts import PromptTemplates
 from .rag import RAGRetriever
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 # Retry decorator for LLM calls
 try:

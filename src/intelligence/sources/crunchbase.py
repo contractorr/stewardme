@@ -1,13 +1,16 @@
 """Crunchbase scraper for startup funding and market data."""
 
-import logging
+import structlog
 from datetime import datetime
 from typing import Optional
 
+import httpx
+
+from cli.retry import http_retry
 from intelligence.scraper import BaseScraper, IntelItem, IntelStorage
 from intelligence.utils import detect_tags
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger().bind(source="crunchbase")
 
 
 class CrunchbaseScraper(BaseScraper):
@@ -45,6 +48,7 @@ class CrunchbaseScraper(BaseScraper):
         logger.info("Scraped %d items from Crunchbase", len(items))
         return items
 
+    @http_retry(exceptions=(httpx.HTTPStatusError, httpx.ConnectError, httpx.RequestError))
     async def _fetch_funding_rounds(self) -> list[IntelItem]:
         """Fetch recent funding rounds."""
         url = f"{self.API_BASE}/searches/funding_rounds"
@@ -67,10 +71,11 @@ class CrunchbaseScraper(BaseScraper):
             response.raise_for_status()
             data = response.json()
             return self._parse_funding_rounds(data.get("entities", []))
-        except Exception as e:
+        except (httpx.HTTPStatusError, httpx.RequestError) as e:
             logger.warning("Failed to fetch Crunchbase funding: %s", e)
             return []
 
+    @http_retry(exceptions=(httpx.HTTPStatusError, httpx.ConnectError, httpx.RequestError))
     async def _fetch_acquisitions(self) -> list[IntelItem]:
         """Fetch recent acquisitions."""
         url = f"{self.API_BASE}/searches/acquisitions"
@@ -92,7 +97,7 @@ class CrunchbaseScraper(BaseScraper):
             response.raise_for_status()
             data = response.json()
             return self._parse_acquisitions(data.get("entities", []))
-        except Exception as e:
+        except (httpx.HTTPStatusError, httpx.RequestError) as e:
             logger.warning("Failed to fetch Crunchbase acquisitions: %s", e)
             return []
 
@@ -166,7 +171,7 @@ class CrunchbaseScraper(BaseScraper):
                 tags=tags,
             )
 
-        except Exception as e:
+        except (KeyError, TypeError, ValueError) as e:
             logger.debug("Failed to parse funding round: %s", e)
             return None
 
@@ -227,6 +232,6 @@ class CrunchbaseScraper(BaseScraper):
                 tags=tags,
             )
 
-        except Exception as e:
+        except (KeyError, TypeError, ValueError) as e:
             logger.debug("Failed to parse acquisition: %s", e)
             return None

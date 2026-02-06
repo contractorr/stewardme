@@ -196,5 +196,5 @@ class IntelSearch:
                 )
                 row = cursor.fetchone()
                 return dict(row) if row else None
-        except Exception:
+        except (sqlite3.OperationalError, Exception):
             return None

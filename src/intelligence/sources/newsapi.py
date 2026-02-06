@@ -1,13 +1,16 @@
 """NewsAPI scraper for aggregated tech news."""
 
-import logging
+import structlog
 from datetime import datetime, timedelta
 from typing import Optional
 
+import httpx
+
+from cli.retry import http_retry
 from intelligence.scraper import BaseScraper, IntelItem, IntelStorage
 from intelligence.utils import detect_tags
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger().bind(source="newsapi")
 
 # Default search queries for tech/startup news
 DEFAULT_QUERIES = [
@@ -57,6 +60,7 @@ class NewsAPIScraper(BaseScraper):
         logger.info("Scraped %d articles from NewsAPI", len(items))
         return items
 
+    @http_retry(exceptions=(httpx.HTTPStatusError, httpx.ConnectError, httpx.RequestError))
     async def _fetch_query(self, query: str) -> list[IntelItem]:
         """Fetch articles for single query."""
         url = f"{self.API_BASE}/everything"
@@ -81,7 +85,7 @@ class NewsAPIScraper(BaseScraper):
                 return []
 
             return self._parse_articles(data.get("articles", []), query)
-        except Exception as e:
+        except (httpx.HTTPStatusError, httpx.RequestError) as e:
             logger.warning("Failed to fetch NewsAPI query '%s': %s", query, e)
             return []
 
@@ -147,10 +151,11 @@ class NewsAPIScraper(BaseScraper):
                 tags=tags,
             )
 
-        except Exception as e:
+        except (KeyError, TypeError, ValueError) as e:
             logger.debug("Failed to parse NewsAPI article: %s", e)
             return None
 
+    @http_retry(exceptions=(httpx.HTTPStatusError, httpx.ConnectError, httpx.RequestError))
     async def fetch_top_headlines(self, category: str = "technology") -> list[IntelItem]:
         """Fetch top headlines (alternative endpoint)."""
         url = f"{self.API_BASE}/top-headlines"
@@ -170,6 +175,6 @@ class NewsAPIScraper(BaseScraper):
                 return []
 
             return self._parse_articles(data.get("articles", []), category)
-        except Exception as e:
+        except (httpx.HTTPStatusError, httpx.RequestError) as e:
             logger.warning("Failed to fetch top headlines: %s", e)
             return []

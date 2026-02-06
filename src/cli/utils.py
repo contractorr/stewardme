@@ -1,6 +1,6 @@
 """Shared CLI utilities."""
 
-import logging
+import structlog
 import sys
 from pathlib import Path
 from typing import Optional
@@ -8,7 +8,7 @@ from typing import Optional
 from rich.console import Console
 
 console = Console()
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 def get_components(skip_advisor: bool = False):
@@ -17,7 +17,7 @@ def get_components(skip_advisor: bool = False):
     Args:
         skip_advisor: If True, skip advisor init (for commands that don't need LLM)
     """
-    from cli.config import load_config, get_paths
+    from cli.config import load_config, load_config_model, get_paths
     from journal import JournalStorage, EmbeddingManager, JournalSearch
     from advisor import RAGRetriever
     from advisor.engine import APIKeyMissingError, AdvisorEngine
@@ -26,6 +26,7 @@ def get_components(skip_advisor: bool = False):
     from intelligence.embeddings import IntelEmbeddingManager
 
     config = load_config()
+    config_model = load_config_model()
     paths = get_paths(config)
 
     storage = JournalStorage(paths["journal_dir"])
@@ -38,7 +39,13 @@ def get_components(skip_advisor: bool = False):
     intel_search = IntelSearch(intel_storage, intel_embeddings)
 
     # Pass intel_search to RAG for semantic intel retrieval
-    rag = RAGRetriever(search, paths["intel_db"], intel_search=intel_search)
+    rag = RAGRetriever(
+        search,
+        paths["intel_db"],
+        intel_search=intel_search,
+        max_context_chars=config_model.rag.max_context_chars,
+        journal_weight=config_model.rag.journal_weight,
+    )
 
     advisor = None
     if not skip_advisor:
@@ -50,6 +57,7 @@ def get_components(skip_advisor: bool = False):
 
     return {
         "config": config,
+        "config_model": config_model,
         "paths": paths,
         "storage": storage,
         "embeddings": embeddings,

@@ -1,15 +1,17 @@
 """Recommendation engine with specialized recommenders."""
 
-import logging
+import structlog
 from abc import ABC, abstractmethod
 from typing import Optional
+
+import anthropic
 
 from .scoring import RecommendationScorer, parse_llm_scores
 from .recommendation_storage import Recommendation, RecommendationStorage
 from .prompts import PromptTemplates
 from .rag import RAGRetriever
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 class BaseRecommender(ABC):
@@ -73,8 +75,8 @@ class BaseRecommender(ABC):
                         action_plan = self.generate_action_plan(rec)
                         rec.metadata = rec.metadata or {}
                         rec.metadata["action_plan"] = action_plan
-                    except Exception as e:
-                        logger.warning("Failed to generate action plan: %s", e)
+                    except (anthropic.APIError, KeyError, ValueError) as e:
+                        logger.warning("Failed to generate action plan", error=str(e))
 
         return recs
 

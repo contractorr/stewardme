@@ -77,6 +77,62 @@ class TestConfigValidation:
 
         assert str(config.paths.journal_dir).startswith(os.path.expanduser("~"))
 
+    def test_rag_config_defaults(self):
+        """Test RAG config has correct defaults."""
+        from cli.config_models import CoachConfig
+
+        config = CoachConfig.from_dict({})
+        assert config.rag.max_context_chars == 8000
+        assert config.rag.journal_weight == 0.7
+
+    def test_rag_config_custom(self):
+        """Test RAG config accepts custom values."""
+        from cli.config_models import CoachConfig
+
+        config = CoachConfig.from_dict({
+            "rag": {"max_context_chars": 10000, "journal_weight": 0.6},
+        })
+        assert config.rag.max_context_chars == 10000
+        assert config.rag.journal_weight == 0.6
+
+    def test_rag_journal_weight_validation(self):
+        """Test journal_weight must be 0-1."""
+        from cli.config_models import CoachConfig
+
+        with pytest.raises(ValidationError):
+            CoachConfig.from_dict({"rag": {"journal_weight": 1.5}})
+
+    def test_search_config_defaults(self):
+        """Test search config defaults."""
+        from cli.config_models import CoachConfig
+
+        config = CoachConfig.from_dict({})
+        assert config.search.default_results == 5
+        assert config.search.intel_similarity_threshold == 0.7
+
+    def test_rate_limits_config(self):
+        """Test rate limits config with per-source overrides."""
+        from cli.config_models import CoachConfig
+
+        config = CoachConfig.from_dict({
+            "rate_limits": {
+                "hackernews": {"requests_per_second": 3.0, "burst": 8},
+            },
+        })
+        assert config.rate_limits.hackernews.requests_per_second == 3.0
+        assert config.rate_limits.hackernews.burst == 8
+        assert config.rate_limits.default.requests_per_second == 2.0
+
+    def test_recommendations_dedup_window(self):
+        """Test dedup window config."""
+        from cli.config_models import CoachConfig
+
+        config = CoachConfig.from_dict({
+            "recommendations": {"dedup_window_days": 60, "similarity_threshold": 0.9},
+        })
+        assert config.recommendations.dedup_window_days == 60
+        assert config.recommendations.similarity_threshold == 0.9
+
 
 class TestJournalFlow:
     """Test journal create -> embed -> search flow."""

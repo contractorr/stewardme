@@ -1,15 +1,18 @@
 """arXiv papers scraper for AI/ML research."""
 
-import logging
+import structlog
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from typing import Optional
 from urllib.parse import urlencode
 
+import httpx
+
+from cli.retry import http_retry
 from intelligence.scraper import BaseScraper, IntelItem, IntelStorage
 from intelligence.utils import detect_tags
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger().bind(source="arxiv")
 
 # arXiv categories for AI/ML/Software
 DEFAULT_CATEGORIES = ["cs.AI", "cs.LG", "cs.CL", "cs.SE"]
@@ -34,6 +37,7 @@ class ArxivScraper(BaseScraper):
     def source_name(self) -> str:
         return "arxiv"
 
+    @http_retry(exceptions=(httpx.HTTPStatusError, httpx.ConnectError, httpx.RequestError))
     async def scrape(self) -> list[IntelItem]:
         """Fetch recent papers from arXiv."""
         # Build category query: cat:cs.AI OR cat:cs.LG OR ...
@@ -54,7 +58,7 @@ class ArxivScraper(BaseScraper):
             response = await self.client.get(url)
             response.raise_for_status()
             items = self._parse_response(response.text)
-        except Exception as e:
+        except (httpx.HTTPStatusError, httpx.RequestError) as e:
             logger.warning("Failed to fetch arXiv: %s", e)
 
         logger.info("Scraped %d papers from arXiv", len(items))
@@ -143,6 +147,6 @@ class ArxivScraper(BaseScraper):
                 tags=tags,
             )
 
-        except Exception as e:
+        except (KeyError, TypeError, ValueError) as e:
             logger.debug("Failed to parse arXiv entry: %s", e)
             return None

@@ -1,7 +1,7 @@
 """Job scheduling for intelligence gathering."""
 
 import asyncio
-import logging
+import structlog
 from pathlib import Path
 from typing import Optional
 
@@ -20,7 +20,7 @@ from .sources import (
     NewsAPIScraper,
 )
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger().bind(source="scheduler")
 
 
 class IntelScheduler:

@@ -1,13 +1,15 @@
 """Configuration loading and management."""
 
-import logging
 import os
+import structlog
 from pathlib import Path
 from typing import Optional, Union
 
 import yaml
 
 from .config_models import CoachConfig, LimitsConfig
+
+logger = structlog.get_logger()
 
 
 # Default values for tunable parameters (backwards compat)
@@ -53,7 +55,7 @@ def load_config_model(config_path: Optional[Path] = None) -> CoachConfig:
 
     try:
         return CoachConfig.from_dict(base_config)
-    except Exception as e:
+    except (ValueError, TypeError) as e:
         raise ValueError(f"Config validation failed: {e}")
 
 
@@ -86,28 +88,8 @@ def get_limits(config: dict) -> dict:
 
 def setup_logging(config: dict) -> None:
     """Configure logging based on config."""
+    from cli.logging_config import setup_logging as _setup
     log_config = config.get("logging", {})
-    console_level = getattr(logging, log_config.get("level", "INFO").upper(), logging.INFO)
-    file_level = getattr(logging, log_config.get("file_level", "DEBUG").upper(), logging.DEBUG)
-
-    # Root logger
-    root = logging.getLogger()
-    root.setLevel(logging.DEBUG)
-
-    # Console handler
-    console = logging.StreamHandler()
-    console.setLevel(console_level)
-    console.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
-    root.addHandler(console)
-
-    # File handler (optional)
-    paths = get_paths(config)
-    log_file = paths.get("log_file")
-    if log_file:
-        log_file.parent.mkdir(parents=True, exist_ok=True)
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setLevel(file_level)
-        file_handler.setFormatter(
-            logging.Formatter("%(asctime)s %(name)s %(levelname)s: %(message)s")
-        )
-        root.addHandler(file_handler)
+    level = log_config.get("level", "INFO")
+    json_mode = log_config.get("json_mode", False)
+    _setup(json_mode=json_mode, level=level)

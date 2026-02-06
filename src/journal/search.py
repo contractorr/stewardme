@@ -55,7 +55,7 @@ class JournalSearch:
                         "content": post.content,
                         "relevance": 1 - r["distance"],  # Convert distance to similarity
                     })
-            except Exception:
+            except (OSError, ValueError):
                 continue
 
         return enriched
@@ -85,7 +85,7 @@ class JournalSearch:
                     })
                     if len(matches) >= limit:
                         break
-            except Exception:
+            except (OSError, ValueError):
                 continue
 
         return matches

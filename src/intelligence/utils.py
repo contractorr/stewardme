@@ -1,9 +1,9 @@
 """Shared utilities for intelligence module."""
 
-import logging
+import structlog
 from typing import Optional
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 # Topic detection keywords - shared across scrapers

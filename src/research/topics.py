@@ -1,14 +1,14 @@
 """Topic selection for deep research."""
 
-import logging
 import re
+import structlog
 from collections import Counter
 from datetime import datetime, timedelta
 from typing import Optional
 
 from journal import JournalStorage
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 class TopicSelector:

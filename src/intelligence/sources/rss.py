@@ -1,18 +1,20 @@
 """RSS feed scraper."""
 
-import logging
+import structlog
 from datetime import datetime
 from time import mktime
 from typing import Optional
 from urllib.parse import urlparse
 
 import feedparser
+import httpx
 from bs4 import BeautifulSoup
 
+from cli.retry import http_retry
 from intelligence.scraper import BaseScraper, IntelItem, IntelStorage
 from intelligence.utils import detect_tags
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger().bind(source="rss")
 
 
 def _extract_name(url: str) -> str:
@@ -41,6 +43,7 @@ class RSSFeedScraper(BaseScraper):
     def source_name(self) -> str:
         return f"rss:{self._name}"
 
+    @http_retry(exceptions=(httpx.HTTPStatusError, httpx.ConnectError, httpx.RequestError))
     async def scrape(self) -> list[IntelItem]:
         """Parse RSS feed asynchronously."""
         try:
@@ -48,7 +51,7 @@ class RSSFeedScraper(BaseScraper):
             response = await self.client.get(self.feed_url)
             response.raise_for_status()
             content = response.text
-        except Exception as e:
+        except (httpx.HTTPStatusError, httpx.RequestError) as e:
             logger.warning("Failed to fetch RSS %s: %s", self.feed_url, e)
             return []
 

@@ -23,6 +23,7 @@ from cli.commands import (
     research,
     recommend,
     init,
+    trends,
 )
 
 
@@ -53,6 +54,7 @@ cli.add_command(brief)
 cli.add_command(sources)
 cli.add_command(intel_export)
 cli.add_command(init)
+cli.add_command(trends)
 
 
 if __name__ == "__main__":

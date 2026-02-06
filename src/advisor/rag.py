@@ -16,10 +16,14 @@ class RAGRetriever:
         journal_search: JournalSearch,
         intel_db_path: Optional[Path] = None,
         intel_search: Optional[IntelSearch] = None,
+        max_context_chars: int = 8000,
+        journal_weight: float = 0.7,
     ):
         self.journal = journal_search
         self.intel_db_path = Path(intel_db_path).expanduser() if intel_db_path else None
         self.intel_search = intel_search
+        self.max_context_chars = max_context_chars
+        self.journal_weight = journal_weight
 
     def get_journal_context(
         self,
@@ -94,13 +98,13 @@ class RAGRetriever:
 
             return "\n".join(context_parts) if context_parts else "No relevant intelligence found."
 
-        except Exception:
+        except sqlite3.OperationalError:
             return "No external intelligence available."
 
     def get_combined_context(
         self,
         query: str,
-        journal_weight: float = 0.7,
+        journal_weight: Optional[float] = None,
     ) -> tuple[str, str]:
         """Get both journal and intel context.
 
@@ -111,8 +115,9 @@ class RAGRetriever:
         Returns:
             Tuple of (journal_context, intel_context)
         """
-        total_chars = 8000
-        journal_chars = int(total_chars * journal_weight)
+        weight = journal_weight if journal_weight is not None else self.journal_weight
+        total_chars = self.max_context_chars
+        journal_chars = int(total_chars * weight)
         intel_chars = total_chars - journal_chars
 
         journal_ctx = self.get_journal_context(query, max_chars=journal_chars)
@@ -150,7 +155,7 @@ class RAGRetriever:
                 recent.append(entry_text)
                 total_chars += len(entry_text)
 
-            except Exception:
+            except (OSError, ValueError):
                 continue
 
         if not recent:
@@ -213,7 +218,7 @@ class RAGRetriever:
                     break
                 context_parts.append(text)
                 total_chars += len(text)
-            except Exception:
+            except (OSError, ValueError):
                 continue
 
         return "\n".join(context_parts) if context_parts else ""

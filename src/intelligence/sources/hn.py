@@ -1,17 +1,18 @@
 """Hacker News scraper."""
 
 import asyncio
-import logging
+import structlog
 from datetime import datetime
 from typing import Optional
 
 import httpx
 from bs4 import BeautifulSoup
 
+from cli.retry import http_retry
 from intelligence.scraper import BaseScraper, IntelItem, IntelStorage
 from intelligence.utils import detect_hn_tags
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger().bind(source="hackernews")
 
 
 class HackerNewsScraper(BaseScraper):
@@ -19,14 +20,16 @@ class HackerNewsScraper(BaseScraper):
 
     API_BASE = "https://hacker-news.firebaseio.com/v0"
 
-    def __init__(self, storage: IntelStorage, max_stories: int = 30):
+    def __init__(self, storage: IntelStorage, max_stories: int = 30, concurrency: int = 10):
         super().__init__(storage)
         self.max_stories = max_stories
+        self.concurrency = concurrency
 
     @property
     def source_name(self) -> str:
         return "hackernews"
 
+    @http_retry(exceptions=(httpx.HTTPStatusError, httpx.ConnectError, httpx.RequestError))
     async def scrape(self) -> list[IntelItem]:
         """Fetch top HN stories concurrently."""
         items = []
@@ -39,7 +42,7 @@ class HackerNewsScraper(BaseScraper):
             logger.debug("Got %d story IDs", len(story_ids))
 
             # Fetch stories concurrently with semaphore for rate limiting
-            semaphore = asyncio.Semaphore(10)
+            semaphore = asyncio.Semaphore(self.concurrency)
             tasks = [self._fetch_story_limited(semaphore, sid) for sid in story_ids]
             results = await asyncio.gather(*tasks, return_exceptions=True)
 

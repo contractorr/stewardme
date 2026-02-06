@@ -1,14 +1,15 @@
 """Web search abstraction for research."""
 
-import logging
 import os
-import time
 from dataclasses import dataclass
 from typing import Optional
 
 import httpx
+import structlog
 
-logger = logging.getLogger(__name__)
+from cli.rate_limit import TokenBucketRateLimiter
+
+logger = structlog.get_logger()
 
 
 @dataclass
@@ -37,8 +38,7 @@ class WebSearchClient:
         self.client = httpx.Client(timeout=30.0)
 
         # Rate limiting
-        self._last_request = 0.0
-        self._min_interval = 1.0  # seconds between requests
+        self._limiter = TokenBucketRateLimiter(requests_per_second=1.0, burst=1)
 
     def search(self, query: str, search_depth: str = "advanced") -> list[SearchResult]:
         """Search for a topic and return results.
@@ -64,10 +64,7 @@ class WebSearchClient:
 
     def _rate_limit(self):
         """Enforce rate limiting between requests."""
-        elapsed = time.time() - self._last_request
-        if elapsed < self._min_interval:
-            time.sleep(self._min_interval - elapsed)
-        self._last_request = time.time()
+        self._limiter.acquire_sync()
 
     def _tavily_search(self, query: str, search_depth: str) -> list[SearchResult]:
         """Execute Tavily API search."""
@@ -105,7 +102,7 @@ class WebSearchClient:
         except httpx.RequestError as e:
             logger.error("Tavily request failed: %s", e)
             return []
-        except Exception as e:
+        except (httpx.HTTPStatusError, httpx.RequestError, ValueError) as e:
             logger.error("Unexpected error in Tavily search: %s", e)
             return []
 
@@ -175,7 +172,7 @@ class AsyncWebSearchClient:
 
             return results
 
-        except Exception as e:
+        except (httpx.HTTPStatusError, httpx.RequestError, ValueError) as e:
             logger.error("Async Tavily search failed: %s", e)
             return []
 

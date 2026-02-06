@@ -140,7 +140,7 @@ class JournalExporter:
                     "tags": entry.get("tags", []),
                     "content": post.content,
                 })
-            except Exception:
+            except (OSError, ValueError):
                 continue
 
         return result

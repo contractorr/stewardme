@@ -31,8 +31,9 @@ class Recommendation:
 class RecommendationStorage:
     """SQLite storage for recommendations with deduplication."""
 
-    def __init__(self, db_path: Path):
+    def __init__(self, db_path: Path, dedup_window_days: int = 30):
         self.db_path = Path(db_path)
+        self.dedup_window_days = dedup_window_days
         self._init_db()
 
     def _init_db(self):
@@ -144,8 +145,9 @@ class RecommendationStorage:
             rows = conn.execute(query, params).fetchall()
             return [self._row_to_rec(r) for r in rows]
 
-    def hash_exists(self, embedding_hash: str, days: int = 30) -> bool:
+    def hash_exists(self, embedding_hash: str, days: int | None = None) -> bool:
         """Check if similar recommendation exists recently."""
+        days = days if days is not None else self.dedup_window_days
         with sqlite3.connect(self.db_path) as conn:
             row = conn.execute("""
                 SELECT 1 FROM recommendations

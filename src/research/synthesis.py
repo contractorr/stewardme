@@ -1,14 +1,15 @@
 """Research report synthesis using LLM."""
 
-import logging
 import os
 from typing import Optional
 
+import structlog
 from anthropic import Anthropic, APIError
 
+from cli.retry import llm_retry
 from .web_search import SearchResult
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 class ResearchSynthesizer:
@@ -57,6 +58,7 @@ Be specific and practical. Cite sources when making claims."""
         self.client = client or Anthropic(api_key=resolved_key)
         self.model = model
 
+    @llm_retry(exceptions=(APIError,))
     def synthesize(
         self,
         topic: str,

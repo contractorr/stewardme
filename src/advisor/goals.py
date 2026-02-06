@@ -5,6 +5,9 @@ from pathlib import Path
 from typing import Optional
 
 import frontmatter
+import structlog
+
+logger = structlog.get_logger()
 
 
 class GoalTracker:
@@ -55,7 +58,8 @@ class GoalTracker:
                     "tags": meta.get("tags", []),
                     "content": post.content[:200] if post.content else "",
                 })
-            except Exception:
+            except (OSError, ValueError) as e:
+                logger.debug("Failed to load goal entry", error=str(e))
                 continue
 
         return sorted(goals, key=lambda g: (not g["is_stale"], g.get("days_since_check") or 0), reverse=True)
@@ -107,7 +111,8 @@ class GoalTracker:
                 f.write(frontmatter.dumps(post))
 
             return True
-        except Exception:
+        except (OSError, ValueError) as e:
+            logger.debug("Failed to check in goal", error=str(e))
             return False
 
     def update_goal_status(
@@ -137,8 +142,96 @@ class GoalTracker:
                 f.write(frontmatter.dumps(post))
 
             return True
-        except Exception:
+        except (OSError, ValueError) as e:
+            logger.debug("Failed to update goal status", error=str(e))
             return False
+
+    def add_milestone(self, goal_path: Path, title: str) -> bool:
+        """Append a milestone to goal's frontmatter.
+
+        Args:
+            goal_path: Path to goal file
+            title: Milestone title
+
+        Returns:
+            True if successful
+        """
+        try:
+            post = frontmatter.load(goal_path)
+            milestones = post.metadata.get("milestones", [])
+            milestones.append({
+                "title": title,
+                "completed": False,
+                "completed_at": None,
+            })
+            post["milestones"] = milestones
+            post["progress"] = self._calc_progress(milestones)
+
+            with open(goal_path, "w") as f:
+                f.write(frontmatter.dumps(post))
+            return True
+        except (OSError, ValueError) as e:
+            logger.debug("Failed to add milestone", error=str(e))
+            return False
+
+    def complete_milestone(self, goal_path: Path, milestone_index: int) -> bool:
+        """Mark a milestone as completed.
+
+        Args:
+            goal_path: Path to goal file
+            milestone_index: 0-based index of milestone
+
+        Returns:
+            True if successful
+        """
+        try:
+            post = frontmatter.load(goal_path)
+            milestones = post.metadata.get("milestones", [])
+
+            if milestone_index < 0 or milestone_index >= len(milestones):
+                return False
+
+            milestones[milestone_index]["completed"] = True
+            milestones[milestone_index]["completed_at"] = datetime.now().isoformat()
+            post["milestones"] = milestones
+            post["progress"] = self._calc_progress(milestones)
+
+            with open(goal_path, "w") as f:
+                f.write(frontmatter.dumps(post))
+            return True
+        except (OSError, ValueError) as e:
+            logger.debug("Failed to complete milestone", error=str(e))
+            return False
+
+    def get_progress(self, goal_path: Path) -> dict:
+        """Get progress info for a goal.
+
+        Returns:
+            Dict with percent, completed, total, milestones list
+        """
+        try:
+            post = frontmatter.load(goal_path)
+            milestones = post.metadata.get("milestones", [])
+            completed = sum(1 for m in milestones if m.get("completed"))
+            total = len(milestones)
+            percent = int((completed / total * 100) if total > 0 else 0)
+
+            return {
+                "percent": percent,
+                "completed": completed,
+                "total": total,
+                "milestones": milestones,
+            }
+        except (OSError, ValueError):
+            return {"percent": 0, "completed": 0, "total": 0, "milestones": []}
+
+    @staticmethod
+    def _calc_progress(milestones: list) -> int:
+        """Calculate progress percentage from milestones."""
+        if not milestones:
+            return 0
+        completed = sum(1 for m in milestones if m.get("completed"))
+        return int(completed / len(milestones) * 100)
 
     def _days_since(self, iso_date: Optional[str]) -> Optional[int]:
         """Calculate days since ISO date string."""
@@ -149,7 +242,8 @@ class GoalTracker:
             if dt.tzinfo:
                 dt = dt.replace(tzinfo=None)
             return (datetime.now() - dt).days
-        except Exception:
+        except (OSError, ValueError) as e:
+            logger.debug("Failed to parse date", error=str(e))
             return None
 
 

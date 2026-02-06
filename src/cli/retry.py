@@ -1,6 +1,7 @@
 """Retry utilities with exponential backoff."""
 
 import logging
+import structlog
 from functools import wraps
 from typing import Callable, Optional, Type
 
@@ -12,7 +13,7 @@ from tenacity import (
     before_sleep_log,
 )
 
-logger = logging.getLogger(__name__)
+logger = structlog.stdlib.get_logger(__name__)
 
 
 def http_retry(

@@ -194,3 +194,81 @@ def goals_add(title: str, description: str, check_days: int):
     )
 
     console.print(f"[green]Created goal:[/] {filepath.name}")
+
+
+@goals.group("milestone")
+def goals_milestone():
+    """Manage goal milestones."""
+    pass
+
+
+@goals_milestone.command("add")
+@click.argument("goal_path", type=click.Path(exists=True))
+@click.argument("title")
+def milestone_add(goal_path: str, title: str):
+    """Add a milestone to a goal."""
+    from pathlib import Path
+    from advisor.goals import GoalTracker
+
+    c = get_components(skip_advisor=True)
+    tracker = GoalTracker(c["storage"])
+
+    if tracker.add_milestone(Path(goal_path), title):
+        console.print(f"[green]Added milestone:[/] {title}")
+    else:
+        console.print("[red]Failed to add milestone[/]")
+
+
+@goals_milestone.command("complete")
+@click.argument("goal_path", type=click.Path(exists=True))
+@click.argument("index", type=int)
+def milestone_complete(goal_path: str, index: int):
+    """Complete a milestone by index (0-based)."""
+    from pathlib import Path
+    from advisor.goals import GoalTracker
+
+    c = get_components(skip_advisor=True)
+    tracker = GoalTracker(c["storage"])
+
+    if tracker.complete_milestone(Path(goal_path), index):
+        progress = tracker.get_progress(Path(goal_path))
+        console.print(f"[green]Milestone completed![/] Progress: {progress['percent']}%")
+    else:
+        console.print("[red]Failed to complete milestone[/]")
+
+
+@goals.command("progress")
+@click.argument("goal_path", type=click.Path(exists=True))
+def goals_progress(goal_path: str):
+    """Show progress bar and milestone list for a goal."""
+    from pathlib import Path
+    from rich.progress import Progress, BarColumn, TextColumn
+    from rich.table import Table
+    from advisor.goals import GoalTracker
+
+    c = get_components(skip_advisor=True)
+    tracker = GoalTracker(c["storage"])
+    progress = tracker.get_progress(Path(goal_path))
+
+    # Progress bar
+    console.print(f"\n[bold]Progress: {progress['percent']}%[/] ({progress['completed']}/{progress['total']} milestones)")
+
+    with Progress(TextColumn("[bold]{task.description}"), BarColumn(bar_width=40), TextColumn("{task.percentage:.0f}%"), console=console) as bar:
+        task = bar.add_task("Progress", total=100, completed=progress["percent"])
+
+    # Milestone list
+    if progress["milestones"]:
+        table = Table(show_header=True)
+        table.add_column("#", style="dim", width=4)
+        table.add_column("Milestone")
+        table.add_column("Status", justify="center")
+        table.add_column("Completed At", style="dim")
+
+        for i, m in enumerate(progress["milestones"]):
+            status = "[green]Done[/]" if m.get("completed") else "[yellow]Pending[/]"
+            completed_at = (m.get("completed_at") or "")[:10]
+            table.add_row(str(i), m.get("title", ""), status, completed_at)
+
+        console.print(table)
+    else:
+        console.print("[dim]No milestones yet. Add with: coach goals milestone add <path> \"title\"[/]")

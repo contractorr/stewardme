@@ -9,7 +9,10 @@ AI Coach is a RAG-based system that:
 - Scrapes external intelligence (HN, RSS, GitHub, arXiv, Reddit, Dev.to, Crunchbase, NewsAPI)
 - Proactive recommendations for learning, career, entrepreneurial, and investment opportunities
 - Deep research agent with web search and LLM synthesis
-- Goal tracking with staleness detection and check-ins
+- Goal tracking with staleness detection, check-ins, and milestone progress
+- Topic trend detection via embedding clustering (emerging/declining topics)
+- Structured logging (structlog) with JSON mode for daemon, Rich console for CLI
+- Retry + token-bucket rate limiting on all external API calls
 - Uses Claude API to provide personalized advice based on all sources
 
 ## Quick Start
@@ -113,6 +116,20 @@ coach goals list                  # Shows staleness indicators
 coach goals check-in <id> "Made progress on chapters 1-3"
 coach goals status <id> --status in_progress
 coach goals analyze <id>          # AI analysis of goal progress
+
+# Milestones
+coach goals milestone add <goal> "Complete chapters 1-5"
+coach goals milestone complete <goal> 0    # Complete milestone by index
+coach goals progress <goal>                # Progress bar + milestone table
+```
+
+### Topic Trends
+
+```bash
+# Detect emerging/declining journal topics via embedding clustering
+coach trends
+coach trends --days 180 --window monthly
+coach trends --clusters 12
 ```
 
 ### Deep Research
@@ -202,8 +219,24 @@ research:
 
 recommendations:
   enabled_categories: [learning, career, entrepreneurial, investment]
+  similarity_threshold: 0.85   # dedup similarity cutoff
+  dedup_window_days: 30        # days before re-recommending
   weekly_brief: true
   schedule: "monday 7am"
+
+rag:
+  max_context_chars: 8000      # total context budget for RAG
+  journal_weight: 0.7          # journal vs intel split (0.7 = 70% journal)
+
+search:
+  default_results: 5           # default number of search results
+  intel_similarity_threshold: 0.7
+
+rate_limits:
+  default: {requests_per_second: 2, burst: 5}
+  tavily: {requests_per_second: 1, burst: 1}
+  hackernews: {requests_per_second: 5, burst: 10}
+  reddit: {requests_per_second: 1, burst: 2}
 
 schedule:
   weekly_review: "sunday 9am"
@@ -223,18 +256,31 @@ All data stored in `~/coach/`:
 
 ```
 src/
-├── journal/       # Storage, embeddings, search, export
-├── advisor/       # LLM orchestration, RAG, recommendations, goals
+├── journal/       # Storage, embeddings, search, export, trend detection
+├── advisor/       # LLM orchestration, RAG, recommendations, goals + milestones
 ├── intelligence/  # Scrapers (8 sources), scheduler, export
 ├── research/      # Deep research agent, topic selection, synthesis
-└── cli/           # Click commands (7 modules)
+└── cli/           # Click commands, config (Pydantic), logging, retry, rate limiting
 ```
 
 **Data Flow:**
 1. Journal entries → Markdown + auto-embedded to ChromaDB
-2. Scrapers → SQLite intel DB (8 sources)
+2. Scrapers → SQLite intel DB (8 sources, with retry + rate limiting)
 3. Goals/journal → Topic selection → Deep research → Reports
 4. All context → RAG retrieval → Claude generates advice/recommendations
+5. Journal embeddings → KMeans clustering → Topic trend detection
+
+**Cross-cutting:**
+- Structured logging via `structlog` — JSON output in daemon mode, Rich console in CLI
+- Automatic retries with exponential backoff on all HTTP and LLM calls (`tenacity`)
+- Token-bucket rate limiting per source (configurable in `rate_limits` config)
+- All magic numbers centralized in Pydantic config models with validation
+
+## Dependencies
+
+Core: `click`, `rich`, `anthropic`, `chromadb`, `httpx`, `pydantic`, `structlog`, `tenacity`, `scikit-learn`, `numpy`, `frontmatter`, `pyyaml`
+
+Dev: `pytest`, `ruff`, `mypy`
 
 ## Development
 
@@ -252,6 +298,16 @@ ruff format src tests
 # Type check
 mypy src
 ```
+
+## Troubleshooting
+
+| Issue | Fix |
+|-------|-----|
+| `RateLimitError` from Claude | Reduce `rate_limits` in config or wait; retries handle transient 429s automatically |
+| ChromaDB version conflicts | Pin `chromadb>=0.4.0`; delete `~/coach/chroma/` and re-sync if schema changed |
+| `ModuleNotFoundError: sklearn` | `pip install scikit-learn>=1.3.0` (needed for `coach trends`) |
+| Stale embeddings after manual edits | Run `coach journal sync` to re-index |
+| Daemon not logging | Check `~/coach/logs/`; daemon uses JSON-format structlog output |
 
 ## License
 

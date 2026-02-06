@@ -139,7 +139,7 @@ class JournalStorage:
                 if len(entries) >= limit:
                     break
 
-            except Exception:
+            except (OSError, ValueError):
                 continue
 
         return entries
@@ -155,6 +155,6 @@ class JournalStorage:
                     "content": post.content,
                     "metadata": dict(post.metadata),
                 })
-            except Exception:
+            except (OSError, ValueError):
                 continue
         return entries

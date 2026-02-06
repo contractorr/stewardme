@@ -7,6 +7,7 @@ from .daemon import daemon
 from .research import research
 from .recommend import recommend
 from .init import init
+from .trends import trends
 
 __all__ = [
     "journal",
@@ -22,4 +23,5 @@ __all__ = [
     "research",
     "recommend",
     "init",
+    "trends",
 ]

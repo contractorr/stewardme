@@ -4,8 +4,10 @@ import re
 from datetime import datetime
 from typing import Optional
 
+import httpx
 from bs4 import BeautifulSoup
 
+from cli.retry import http_retry
 from intelligence.scraper import BaseScraper, IntelItem, IntelStorage
 
 
@@ -38,6 +40,7 @@ class GitHubTrendingScraper(BaseScraper):
 
         return items
 
+    @http_retry(exceptions=(httpx.HTTPStatusError, httpx.ConnectError, httpx.RequestError))
     async def _scrape_language(self, language: str) -> list[IntelItem]:
         """Scrape trending repos for single language."""
         url = f"{self.TRENDING_URL}/{language}?since={self.timeframe}"
@@ -46,7 +49,7 @@ class GitHubTrendingScraper(BaseScraper):
             response = await self.client.get(url)
             response.raise_for_status()
             soup = BeautifulSoup(response.text, "html.parser")
-        except Exception:
+        except (httpx.HTTPStatusError, httpx.RequestError):
             return []
 
         items = []
@@ -122,5 +125,5 @@ class GitHubTrendingScraper(BaseScraper):
                 tags=tags[:8],
             )
 
-        except Exception:
+        except (KeyError, TypeError, ValueError, AttributeError):
             return None

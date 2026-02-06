@@ -1,0 +1,85 @@
+"""Tests for topic trend detection."""
+
+import numpy as np
+import pytest
+
+from journal.trends import TrendDetector
+
+
+class TestTrendDetector:
+    """Test clustering and trend detection."""
+
+    def test_calc_growth_rate_increasing(self):
+        """Increasing counts yield positive growth."""
+        rate = TrendDetector._calc_growth_rate([1, 2, 3, 4, 5])
+        assert rate > 0
+
+    def test_calc_growth_rate_decreasing(self):
+        """Decreasing counts yield negative growth."""
+        rate = TrendDetector._calc_growth_rate([5, 4, 3, 2, 1])
+        assert rate < 0
+
+    def test_calc_growth_rate_stable(self):
+        """Stable counts yield ~0 growth."""
+        rate = TrendDetector._calc_growth_rate([3, 3, 3, 3])
+        assert abs(rate) < 0.01
+
+    def test_calc_growth_rate_empty(self):
+        """Empty/zero counts return 0."""
+        assert TrendDetector._calc_growth_rate([]) == 0.0
+        assert TrendDetector._calc_growth_rate([0, 0, 0]) == 0.0
+
+    def test_bucket_key_weekly(self):
+        """Weekly bucket key format."""
+        from datetime import datetime
+        dt = datetime(2024, 1, 15)  # Monday of week 3
+        key = TrendDetector._get_bucket_key(dt, "weekly")
+        assert "W" in key
+
+    def test_bucket_key_monthly(self):
+        """Monthly bucket key format."""
+        from datetime import datetime
+        dt = datetime(2024, 3, 15)
+        key = TrendDetector._get_bucket_key(dt, "monthly")
+        assert key == "2024-03"
+
+    def test_format_trends_text(self):
+        """Trends format as readable text."""
+        trends = [
+            {"topic": "AI", "direction": "emerging", "growth_rate": 0.5, "total_entries": 10},
+            {"topic": "Java", "direction": "declining", "growth_rate": -0.3, "total_entries": 5},
+        ]
+        text = TrendDetector._format_trends_text(trends)
+        assert "AI" in text
+        assert "emerging" in text
+        assert "declining" in text
+
+    def test_format_trends_empty(self):
+        """Empty trends return default message."""
+        text = TrendDetector._format_trends_text([])
+        assert "No trends" in text
+
+    def test_detect_trends_few_entries(self, temp_dirs):
+        """Too few entries returns empty list."""
+        from journal.storage import JournalStorage
+        from journal.embeddings import EmbeddingManager
+        from journal.search import JournalSearch
+
+        storage = JournalStorage(temp_dirs["journal_dir"])
+        embeddings = EmbeddingManager(temp_dirs["chroma_dir"])
+        search = JournalSearch(storage, embeddings)
+        detector = TrendDetector(search)
+
+        trends = detector.detect_trends(days=90)
+        assert trends == []
+
+    def test_get_representative_entries(self):
+        """Representative entries filtered by cluster."""
+        entries = [
+            {"cluster": 0, "title": "A"},
+            {"cluster": 1, "title": "B"},
+            {"cluster": 0, "title": "C"},
+        ]
+        reps = TrendDetector._get_representative_entries(entries, 0, 5)
+        assert len(reps) == 2
+        assert all(e["cluster"] == 0 for e in reps)

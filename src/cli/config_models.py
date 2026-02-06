@@ -93,6 +93,45 @@ class ScoringConfig(BaseModel):
         return self
 
 
+class RAGConfig(BaseModel):
+    """RAG retrieval configuration."""
+    max_context_chars: int = 8000
+    journal_weight: float = 0.7
+
+    @field_validator("journal_weight")
+    @classmethod
+    def validate_weight(cls, v: float) -> float:
+        if not 0.0 <= v <= 1.0:
+            raise ValueError(f"journal_weight must be 0-1, got {v}")
+        return v
+
+
+class SearchConfig(BaseModel):
+    """Search defaults."""
+    default_results: int = 5
+    intel_similarity_threshold: float = 0.7
+
+
+class RateLimitSourceConfig(BaseModel):
+    """Per-source rate limit."""
+    requests_per_second: float = 2.0
+    burst: int = 5
+
+
+class RateLimitsConfig(BaseModel):
+    """Rate limits for external APIs."""
+    default: RateLimitSourceConfig = Field(default_factory=RateLimitSourceConfig)
+    tavily: RateLimitSourceConfig = Field(
+        default_factory=lambda: RateLimitSourceConfig(requests_per_second=1.0, burst=1)
+    )
+    hackernews: RateLimitSourceConfig = Field(
+        default_factory=lambda: RateLimitSourceConfig(requests_per_second=5.0, burst=10)
+    )
+    reddit: RateLimitSourceConfig = Field(
+        default_factory=lambda: RateLimitSourceConfig(requests_per_second=1.0, burst=2)
+    )
+
+
 class DeliveryConfig(BaseModel):
     """Recommendation delivery configuration."""
     methods: list[str] = Field(default_factory=lambda: ["journal"])
@@ -109,6 +148,8 @@ class RecommendationsConfig(BaseModel):
     enabled: bool = False
     scoring: ScoringConfig = Field(default_factory=ScoringConfig)
     delivery: DeliveryConfig = Field(default_factory=DeliveryConfig)
+    similarity_threshold: float = 0.85
+    dedup_window_days: int = 30
 
 
 class RetryConfig(BaseModel):
@@ -161,6 +202,9 @@ class CoachConfig(BaseModel):
     retry: RetryConfig = Field(default_factory=RetryConfig)
     limits: LimitsConfig = Field(default_factory=LimitsConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    rag: RAGConfig = Field(default_factory=RAGConfig)
+    search: SearchConfig = Field(default_factory=SearchConfig)
+    rate_limits: RateLimitsConfig = Field(default_factory=RateLimitsConfig)
 
     @model_validator(mode="after")
     def expand_env_vars(self):

@@ -10,9 +10,11 @@ from chromadb.config import Settings
 class IntelEmbeddingManager:
     """Manages vector embeddings for intelligence items."""
 
-    def __init__(self, chroma_dir: str | Path):
+    def __init__(self, chroma_dir: str | Path, default_results: int = 5, similarity_threshold: float = 0.85):
         self.chroma_dir = Path(chroma_dir).expanduser()
         self.chroma_dir.mkdir(parents=True, exist_ok=True)
+        self.default_results = default_results
+        self.similarity_threshold = similarity_threshold
 
         self.client = chromadb.PersistentClient(
             path=str(self.chroma_dir),
@@ -67,7 +69,7 @@ class IntelEmbeddingManager:
         try:
             self.collection.delete(ids=[item_id])
         except Exception:
-            pass
+            pass  # ChromaDB edge case
 
     def query(
         self,
@@ -118,7 +120,7 @@ class IntelEmbeddingManager:
             existing_data = self.collection.get()
             existing = set(existing_data["ids"]) if existing_data["ids"] else set()
         except Exception:
-            pass
+            pass  # ChromaDB edge case
 
         current_ids = {str(item["id"]) for item in items}
 
@@ -142,7 +144,7 @@ class IntelEmbeddingManager:
         """Get total number of embedded items."""
         return self.collection.count()
 
-    def find_similar(self, text: str, threshold: float = 0.85) -> bool:
+    def find_similar(self, text: str, threshold: float | None = None) -> bool:
         """Check if similar content exists.
 
         Args:
@@ -152,6 +154,7 @@ class IntelEmbeddingManager:
         Returns:
             True if similar content found
         """
+        threshold = threshold if threshold is not None else self.similarity_threshold
         if self.collection.count() == 0:
             return False
 

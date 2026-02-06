@@ -1,13 +1,16 @@
 """Reddit scraper for career and startup subreddits."""
 
-import logging
+import structlog
 from datetime import datetime
 from typing import Optional
 
+import httpx
+
+from cli.retry import http_retry
 from intelligence.scraper import BaseScraper, IntelItem, IntelStorage
 from intelligence.utils import detect_tags
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger().bind(source="reddit")
 
 # Default subreddits for career/startup content
 DEFAULT_SUBREDDITS = [
@@ -50,6 +53,7 @@ class RedditScraper(BaseScraper):
         logger.info("Scraped %d posts from Reddit", len(items))
         return items
 
+    @http_retry(exceptions=(httpx.HTTPStatusError, httpx.ConnectError, httpx.RequestError))
     async def _scrape_subreddit(self, subreddit: str) -> list[IntelItem]:
         """Fetch top posts from single subreddit."""
         url = f"https://www.reddit.com/r/{subreddit}/top.json"
@@ -60,7 +64,7 @@ class RedditScraper(BaseScraper):
             response.raise_for_status()
             data = response.json()
             return self._parse_listing(data, subreddit)
-        except Exception as e:
+        except (httpx.HTTPStatusError, httpx.RequestError) as e:
             logger.warning("Failed to fetch r/%s: %s", subreddit, e)
             return []
 
@@ -123,6 +127,6 @@ class RedditScraper(BaseScraper):
                 tags=tags,
             )
 
-        except Exception as e:
+        except (KeyError, TypeError, ValueError) as e:
             logger.debug("Failed to parse Reddit post: %s", e)
             return None

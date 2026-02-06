@@ -1,6 +1,6 @@
 """Weekly action brief generator."""
 
-import logging
+import structlog
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -9,7 +9,7 @@ from .prompts import PromptTemplates
 from .recommendation_storage import Recommendation, RecommendationStorage
 from .rag import RAGRetriever
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 class ActionBriefGenerator:
