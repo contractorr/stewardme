@@ -6,8 +6,8 @@ import click
 from rich.console import Console
 from rich.markdown import Markdown
 
-from cli.utils import get_components
 from advisor.engine import LLMError
+from cli.utils import get_components
 
 console = Console()
 
@@ -89,7 +89,9 @@ def goals_analyze(goal: str):
 def goals_list(show_all: bool, stale: bool):
     """List goals with staleness indicator."""
     from pathlib import Path
+
     from rich.table import Table
+
     from advisor.goals import GoalTracker
 
     c = get_components(skip_advisor=True)
@@ -140,17 +142,18 @@ def goals_list(show_all: bool, stale: bool):
 def goals_checkin(goal_path: str, notes: str):
     """Record a check-in for a goal."""
     from pathlib import Path
+
     from advisor.goals import GoalTracker
 
     c = get_components(skip_advisor=True)
     tracker = GoalTracker(c["storage"])
 
     if tracker.check_in_goal(Path(goal_path), notes):
-        console.print(f"[green]Checked in on goal![/]")
+        console.print("[green]Checked in on goal![/]")
         if notes:
             console.print(f"[dim]Notes: {notes}[/]")
     else:
-        console.print(f"[red]Failed to check in on goal[/]")
+        console.print("[red]Failed to check in on goal[/]")
 
 
 @goals.command("status")
@@ -161,6 +164,7 @@ def goals_checkin(goal_path: str, notes: str):
 def goals_status(goal_path: str, status: str):
     """Update goal status."""
     from pathlib import Path
+
     from advisor.goals import GoalTracker
 
     c = get_components(skip_advisor=True)
@@ -169,7 +173,7 @@ def goals_status(goal_path: str, status: str):
     if tracker.update_goal_status(Path(goal_path), status):
         console.print(f"[green]Updated goal status to: {status}[/]")
     else:
-        console.print(f"[red]Failed to update goal status[/]")
+        console.print("[red]Failed to update goal status[/]")
 
 
 @goals.command("add")
@@ -208,6 +212,7 @@ def goals_milestone():
 def milestone_add(goal_path: str, title: str):
     """Add a milestone to a goal."""
     from pathlib import Path
+
     from advisor.goals import GoalTracker
 
     c = get_components(skip_advisor=True)
@@ -225,6 +230,7 @@ def milestone_add(goal_path: str, title: str):
 def milestone_complete(goal_path: str, index: int):
     """Complete a milestone by index (0-based)."""
     from pathlib import Path
+
     from advisor.goals import GoalTracker
 
     c = get_components(skip_advisor=True)
@@ -242,8 +248,10 @@ def milestone_complete(goal_path: str, index: int):
 def goals_progress(goal_path: str):
     """Show progress bar and milestone list for a goal."""
     from pathlib import Path
-    from rich.progress import Progress, BarColumn, TextColumn
+
+    from rich.progress import BarColumn, Progress, TextColumn
     from rich.table import Table
+
     from advisor.goals import GoalTracker
 
     c = get_components(skip_advisor=True)

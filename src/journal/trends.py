@@ -1,6 +1,5 @@
 """Topic trend detection via journal embedding clustering."""
 
-import os
 from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Optional
@@ -238,7 +237,7 @@ Summarize:
         if titles:
             return titles[0][:50]
 
-        return f"Topic cluster"
+        return "Topic cluster"
 
     @staticmethod
     def _format_trends_text(trends: list[dict]) -> str:

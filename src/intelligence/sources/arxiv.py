@@ -1,16 +1,17 @@
 """arXiv papers scraper for AI/ML research."""
 
-import structlog
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from typing import Optional
 from urllib.parse import urlencode
 
 import httpx
+import structlog
 
 from cli.retry import http_retry
 from intelligence.scraper import BaseScraper, IntelItem, IntelStorage
 from intelligence.utils import detect_tags
+from shared_types import IntelSource
 
 logger = structlog.get_logger().bind(source="arxiv")
 
@@ -35,7 +36,7 @@ class ArxivScraper(BaseScraper):
 
     @property
     def source_name(self) -> str:
-        return "arxiv"
+        return IntelSource.ARXIV
 
     @http_retry(exceptions=(httpx.HTTPStatusError, httpx.ConnectError, httpx.RequestError))
     async def scrape(self) -> list[IntelItem]:

@@ -1,8 +1,8 @@
 """Intelligence gathering module."""
 
-from .scraper import BaseScraper, IntelStorage, IntelItem
-from .scheduler import IntelScheduler
 from .embeddings import IntelEmbeddingManager
+from .scheduler import IntelScheduler
+from .scraper import BaseScraper, IntelItem, IntelStorage
 from .search import IntelSearch
 
 __all__ = [

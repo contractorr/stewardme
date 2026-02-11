@@ -1,14 +1,15 @@
 """Dev.to scraper for trending developer articles."""
 
-import structlog
 from datetime import datetime
 from typing import Optional
 
 import httpx
+import structlog
 
 from cli.retry import http_retry
 from intelligence.scraper import BaseScraper, IntelItem, IntelStorage
 from intelligence.utils import detect_tags
+from shared_types import IntelSource
 
 logger = structlog.get_logger().bind(source="devto")
 
@@ -30,7 +31,7 @@ class DevToScraper(BaseScraper):
 
     @property
     def source_name(self) -> str:
-        return "devto"
+        return IntelSource.DEVTO
 
     @http_retry(exceptions=(httpx.HTTPStatusError, httpx.ConnectError, httpx.RequestError))
     async def scrape(self) -> list[IntelItem]:

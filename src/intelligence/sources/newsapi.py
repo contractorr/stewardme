@@ -1,14 +1,15 @@
 """NewsAPI scraper for aggregated tech news."""
 
-import structlog
 from datetime import datetime, timedelta
 from typing import Optional
 
 import httpx
+import structlog
 
 from cli.retry import http_retry
 from intelligence.scraper import BaseScraper, IntelItem, IntelStorage
 from intelligence.utils import detect_tags
+from shared_types import IntelSource
 
 logger = structlog.get_logger().bind(source="newsapi")
 
@@ -42,7 +43,7 @@ class NewsAPIScraper(BaseScraper):
 
     @property
     def source_name(self) -> str:
-        return "newsapi"
+        return IntelSource.NEWSAPI
 
     async def scrape(self) -> list[IntelItem]:
         """Fetch news from multiple queries."""

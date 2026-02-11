@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 
 from cli.retry import http_retry
 from intelligence.scraper import BaseScraper, IntelItem, IntelStorage
+from shared_types import IntelSource
 
 
 class GitHubTrendingScraper(BaseScraper):
@@ -28,7 +29,7 @@ class GitHubTrendingScraper(BaseScraper):
 
     @property
     def source_name(self) -> str:
-        return "github_trending"
+        return IntelSource.GITHUB_TRENDING
 
     async def scrape(self) -> list[IntelItem]:
         """Scrape trending repos for configured languages."""

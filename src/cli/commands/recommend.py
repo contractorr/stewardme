@@ -7,9 +7,9 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.table import Table
 
-from cli.utils import get_components, get_rec_db_path
 from advisor.engine import LLMError
 from advisor.recommendation_storage import RecommendationStorage
+from cli.utils import get_components, get_rec_db_path
 
 console = Console()
 
@@ -248,7 +248,7 @@ def recommend_view(rec_id: int):
 
     # Show action plan if present
     if rec.metadata and rec.metadata.get("action_plan"):
-        console.print(f"\n[bold green]Action Plan:[/]")
+        console.print("\n[bold green]Action Plan:[/]")
         console.print(Markdown(rec.metadata["action_plan"]))
 
     if rec.metadata and rec.metadata.get("feedback_comment"):

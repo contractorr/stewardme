@@ -1,25 +1,52 @@
 """Markdown journal CRUD operations."""
 
-import os
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 import frontmatter
 
+from shared_types import EntryType
+
+ALLOWED_ENTRY_TYPES = tuple(EntryType)
+MAX_CONTENT_LENGTH = 100_000  # 100KB
+MAX_TAG_LENGTH = 50
+MAX_TAGS = 20
+
+
+def _sanitize_slug(text: str) -> str:
+    """Sanitize text into safe filename slug. Only [a-z0-9-] allowed."""
+    slug = text.lower().replace(" ", "-")
+    slug = re.sub(r"[^a-z0-9-]", "", slug)
+    return slug[:50]
+
+
+def _sanitize_tag(tag: str) -> str:
+    """Sanitize a single tag."""
+    return re.sub(r"[^\w\s-]", "", tag).strip()[:MAX_TAG_LENGTH]
+
 
 class JournalStorage:
     """Manages markdown journal files with YAML frontmatter."""
 
     def __init__(self, journal_dir: str | Path):
-        self.journal_dir = Path(journal_dir).expanduser()
+        self.journal_dir = Path(journal_dir).expanduser().resolve()
         self.journal_dir.mkdir(parents=True, exist_ok=True)
 
     def _generate_filename(self, entry_type: str, title: str) -> str:
         """Generate filename from type, date, and title."""
         date_str = datetime.now().strftime("%Y-%m-%d")
-        slug = title.lower().replace(" ", "-")[:50]
-        return f"{date_str}_{entry_type}_{slug}.md"
+        slug = _sanitize_slug(title)
+        safe_type = _sanitize_slug(entry_type)
+        return f"{date_str}_{safe_type}_{slug}.md"
+
+    def _validate_path(self, filepath: Path) -> Path:
+        """Ensure resolved path is inside journal_dir."""
+        resolved = filepath.resolve()
+        if not resolved.is_relative_to(self.journal_dir):
+            raise ValueError(f"Path escapes journal directory: {filepath}")
+        return resolved
 
     def create(
         self,
@@ -40,9 +67,22 @@ class JournalStorage:
 
         Returns:
             Path to created file
+
+        Raises:
+            ValueError: If entry_type invalid, content too long, or path escapes journal dir
         """
+        if entry_type not in ALLOWED_ENTRY_TYPES:
+            raise ValueError(f"Invalid entry_type '{entry_type}'. Must be one of {ALLOWED_ENTRY_TYPES}")
+
+        if len(content) > MAX_CONTENT_LENGTH:
+            raise ValueError(f"Content exceeds max length ({MAX_CONTENT_LENGTH} chars)")
+
         now = datetime.now()
         title = title or now.strftime("%B %d, %Y")
+
+        # Sanitize tags
+        if tags:
+            tags = [_sanitize_tag(t) for t in tags[:MAX_TAGS] if t.strip()]
 
         fm = frontmatter.Post(content)
         fm["title"] = title
@@ -55,13 +95,13 @@ class JournalStorage:
                 fm[k] = v
 
         filename = self._generate_filename(entry_type, title)
-        filepath = self.journal_dir / filename
+        filepath = self._validate_path(self.journal_dir / filename)
 
         # Handle duplicates
         counter = 1
         while filepath.exists():
             base = filename.rsplit(".", 1)[0]
-            filepath = self.journal_dir / f"{base}_{counter}.md"
+            filepath = self._validate_path(self.journal_dir / f"{base}_{counter}.md")
             counter += 1
 
         with open(filepath, "w") as f:

@@ -1,10 +1,9 @@
 """Configuration loading and management."""
 
-import os
-import structlog
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
+import structlog
 import yaml
 
 from .config_models import CoachConfig, LimitsConfig

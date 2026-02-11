@@ -1,0 +1,173 @@
+"""CLI command tests using Click CliRunner.
+
+Strategy: mock get_components at each command module's import point to avoid
+touching real config/DB/API. Each test patches exactly what it needs.
+"""
+
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+from click.testing import CliRunner
+
+from cli.main import cli
+
+
+@pytest.fixture
+def runner():
+    return CliRunner()
+
+
+def _make_components(tmp_path, skip_advisor=False):
+    """Build a fake components dict matching cli.utils.get_components return."""
+    mock_storage = MagicMock()
+    mock_storage.create.return_value = tmp_path / "journal" / "test.md"
+    mock_storage.list_entries.return_value = [
+        {"created": "2024-01-01T10:00:00", "type": "daily", "title": "Day 1", "tags": ["test"], "path": tmp_path / "journal" / "test.md"}
+    ]
+    post_mock = MagicMock(content="Test body")
+    post_mock.get = lambda k, d=None: {"title": "Day 1", "type": "daily", "created": "2024-01-01"}.get(k, d)
+    mock_storage.read.return_value = post_mock
+
+    mock_advisor = MagicMock()
+    mock_advisor.ask.return_value = "AI response text"
+    mock_advisor.weekly_review.return_value = "Review text"
+    mock_advisor.detect_opportunities.return_value = "Opportunities text"
+    mock_advisor.analyze_goals.return_value = "Goals analysis"
+    mock_advisor.generate_recommendations.return_value = []
+    mock_advisor.generate_action_brief.return_value = "# Brief"
+
+    return {
+        "storage": mock_storage,
+        "embeddings": MagicMock(count=MagicMock(return_value=5)),
+        "search": MagicMock(sync_embeddings=MagicMock(return_value=(2, 0)), semantic_search=MagicMock(return_value=[])),
+        "intel_storage": MagicMock(get_recent=MagicMock(return_value=[
+            {"title": "HN Story", "source": "hackernews", "scraped_at": "2024-01-01T00:00:00", "summary": "A story", "url": "https://example.com"}
+        ])),
+        "intel_search": MagicMock(),
+        "advisor": None if skip_advisor else mock_advisor,
+        "config": {
+            "sources": {"enabled": ["hn_top"], "rss_feeds": [], "custom_blogs": []},
+            "recommendations": {},
+            "research": {"enabled": False},
+            "paths": {"intel_db": str(tmp_path / "intel.db")},
+            "llm": {"model": "claude-sonnet-4-20250514"},
+        },
+        "config_model": MagicMock(),
+        "paths": {"journal_dir": tmp_path / "journal", "chroma_dir": tmp_path / "chroma", "intel_db": tmp_path / "intel.db"},
+        "rag": MagicMock(),
+    }
+
+
+@pytest.fixture
+def patch_components(tmp_path):
+    """Patch get_components everywhere it's imported."""
+    comps = _make_components(tmp_path)
+
+    def fake_get_components(skip_advisor=False):
+        c = dict(comps)
+        if skip_advisor:
+            c["advisor"] = None
+        return c
+
+    targets = [
+        "cli.commands.journal.get_components",
+        "cli.commands.advisor.get_components",
+        "cli.commands.intelligence.get_components",
+        "cli.commands.research.get_components",
+        "cli.commands.recommend.get_components",
+        "cli.commands.trends.get_components",
+        "cli.commands.daemon.get_components",
+    ]
+    patches = [patch(t, side_effect=fake_get_components) for t in targets]
+    for p in patches:
+        p.start()
+    yield comps
+    for p in patches:
+        p.stop()
+
+
+# -- Journal commands --
+
+class TestJournalCommands:
+    def test_add(self, runner, patch_components):
+        result = runner.invoke(cli, ["journal", "add", "Test content"])
+        assert result.exit_code == 0
+        assert "Created" in result.output
+
+    def test_list(self, runner, patch_components):
+        result = runner.invoke(cli, ["journal", "list"])
+        assert result.exit_code == 0
+
+    def test_export_json(self, runner, patch_components, tmp_path):
+        out = tmp_path / "out.json"
+        with patch("journal.export.JournalExporter") as cls:
+            cls.return_value.export_json.return_value = 3
+            result = runner.invoke(cli, ["journal", "export", "-o", str(out), "-f", "json"])
+        assert result.exit_code == 0
+        assert "Exported" in result.output
+
+
+# -- Advisor commands --
+
+class TestAdvisorCommands:
+    def test_ask(self, runner, patch_components):
+        result = runner.invoke(cli, ["ask", "What should I learn?"])
+        assert result.exit_code == 0
+
+    def test_review(self, runner, patch_components):
+        result = runner.invoke(cli, ["review"])
+        assert result.exit_code == 0
+
+    def test_opportunities(self, runner, patch_components):
+        result = runner.invoke(cli, ["opportunities"])
+        assert result.exit_code == 0
+
+
+# -- Intelligence commands --
+
+class TestIntelCommands:
+    def test_scrape(self, runner, patch_components):
+        with patch("cli.commands.intelligence.IntelScheduler") as cls:
+            cls.return_value.run_now.return_value = {"hackernews": {"scraped": 10, "new": 5}}
+            result = runner.invoke(cli, ["scrape"])
+        assert result.exit_code == 0
+
+    def test_brief(self, runner, patch_components):
+        result = runner.invoke(cli, ["brief"])
+        assert result.exit_code == 0
+
+    def test_sources(self, runner, patch_components):
+        result = runner.invoke(cli, ["sources"])
+        assert result.exit_code == 0
+
+
+# -- Goals command --
+
+class TestGoalsCommands:
+    def test_add(self, runner, patch_components):
+        result = runner.invoke(cli, ["goals", "add", "-t", "Learn Rust", "-d", "Systems programming"])
+        assert result.exit_code == 0
+        assert "Created goal" in result.output
+
+    def test_list(self, runner, patch_components):
+        with patch("advisor.goals.GoalTracker") as cls:
+            cls.return_value.get_goals.return_value = [
+                {"path": "/g.md", "title": "Learn Rust", "status": "active",
+                 "last_checked": "2024-01-01", "days_since_check": 3, "is_stale": False}
+            ]
+            result = runner.invoke(cli, ["goals", "list"])
+        assert result.exit_code == 0
+
+
+# -- Init command --
+
+class TestInitCommand:
+    def test_init(self, runner, tmp_path):
+        with patch("cli.commands.init.load_config") as mock_cfg, \
+             patch("cli.commands.init.get_paths") as mock_paths:
+            mock_cfg.return_value = {}
+            mock_paths.return_value = {"journal_dir": tmp_path / "j", "chroma_dir": tmp_path / "c", "intel_db": tmp_path / "i.db"}
+            result = runner.invoke(cli, ["init"])
+        assert result.exit_code == 0
+        assert "Ready!" in result.output

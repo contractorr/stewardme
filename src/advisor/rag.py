@@ -1,11 +1,11 @@
 """RAG retrieval combining journal and intelligence sources."""
 
 import sqlite3
-from typing import Optional
 from pathlib import Path
+from typing import Optional
 
-from journal.search import JournalSearch
 from intelligence.search import IntelSearch
+from journal.search import JournalSearch
 
 
 class RAGRetriever:

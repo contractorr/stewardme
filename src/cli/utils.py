@@ -1,10 +1,9 @@
 """Shared CLI utilities."""
 
-import structlog
 import sys
 from pathlib import Path
-from typing import Optional
 
+import structlog
 from rich.console import Console
 
 console = Console()
@@ -17,13 +16,13 @@ def get_components(skip_advisor: bool = False):
     Args:
         skip_advisor: If True, skip advisor init (for commands that don't need LLM)
     """
-    from cli.config import load_config, load_config_model, get_paths
-    from journal import JournalStorage, EmbeddingManager, JournalSearch
     from advisor import RAGRetriever
-    from advisor.engine import APIKeyMissingError, AdvisorEngine
+    from advisor.engine import AdvisorEngine, APIKeyMissingError
+    from cli.config import get_paths, load_config, load_config_model
+    from intelligence.embeddings import IntelEmbeddingManager
     from intelligence.scraper import IntelStorage
     from intelligence.search import IntelSearch
-    from intelligence.embeddings import IntelEmbeddingManager
+    from journal import EmbeddingManager, JournalSearch, JournalStorage
 
     config = load_config()
     config_model = load_config_model()

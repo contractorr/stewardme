@@ -5,8 +5,8 @@ from typing import Optional
 
 import frontmatter
 
-from .storage import JournalStorage
 from .embeddings import EmbeddingManager
+from .storage import JournalStorage
 
 
 class JournalSearch:

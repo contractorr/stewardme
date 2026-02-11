@@ -1,10 +1,11 @@
 """Topic selection for deep research."""
 
 import re
-import structlog
 from collections import Counter
 from datetime import datetime, timedelta
 from typing import Optional
+
+import structlog
 
 from journal import JournalStorage
 

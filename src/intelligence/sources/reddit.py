@@ -1,14 +1,15 @@
 """Reddit scraper for career and startup subreddits."""
 
-import structlog
 from datetime import datetime
 from typing import Optional
 
 import httpx
+import structlog
 
 from cli.retry import http_retry
 from intelligence.scraper import BaseScraper, IntelItem, IntelStorage
 from intelligence.utils import detect_tags
+from shared_types import IntelSource
 
 logger = structlog.get_logger().bind(source="reddit")
 
@@ -40,7 +41,7 @@ class RedditScraper(BaseScraper):
 
     @property
     def source_name(self) -> str:
-        return "reddit"
+        return IntelSource.REDDIT
 
     async def scrape(self) -> list[IntelItem]:
         """Fetch top posts from configured subreddits."""

@@ -72,18 +72,18 @@ class JournalExporter:
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         lines = [
-            f"# Journal Export",
-            f"",
+            "# Journal Export",
+            "",
             f"Exported: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
             f"Entries: {len(entries)}",
-            f"",
+            "",
             "---",
             "",
         ]
 
         for entry in entries:
             lines.append(f"## {entry['title']}")
-            lines.append(f"")
+            lines.append("")
             lines.append(f"**Type:** {entry['type']} | **Date:** {entry['created'][:10] if entry.get('created') else 'N/A'}")
             if entry.get("tags"):
                 lines.append(f"**Tags:** {', '.join(entry['tags'])}")

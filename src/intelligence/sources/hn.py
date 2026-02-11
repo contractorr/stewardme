@@ -1,16 +1,17 @@
 """Hacker News scraper."""
 
 import asyncio
-import structlog
 from datetime import datetime
 from typing import Optional
 
 import httpx
+import structlog
 from bs4 import BeautifulSoup
 
 from cli.retry import http_retry
 from intelligence.scraper import BaseScraper, IntelItem, IntelStorage
 from intelligence.utils import detect_hn_tags
+from shared_types import IntelSource
 
 logger = structlog.get_logger().bind(source="hackernews")
 
@@ -27,7 +28,7 @@ class HackerNewsScraper(BaseScraper):
 
     @property
     def source_name(self) -> str:
-        return "hackernews"
+        return IntelSource.HACKERNEWS
 
     @http_retry(exceptions=(httpx.HTTPStatusError, httpx.ConnectError, httpx.RequestError))
     async def scrape(self) -> list[IntelItem]:

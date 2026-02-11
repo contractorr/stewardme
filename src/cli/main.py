@@ -8,23 +8,23 @@ import click
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from cli.config import load_config, setup_logging
 from cli.commands import (
-    journal,
     ask,
-    review,
-    opportunities,
-    goals,
-    scrape,
     brief,
-    sources,
-    intel_export,
     daemon,
-    research,
-    recommend,
+    goals,
     init,
+    intel_export,
+    journal,
+    opportunities,
+    recommend,
+    research,
+    review,
+    scrape,
+    sources,
     trends,
 )
+from cli.config import load_config, setup_logging
 
 
 @click.group()

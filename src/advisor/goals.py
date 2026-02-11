@@ -1,11 +1,13 @@
 """Goal tracking and check-in management."""
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 import frontmatter
 import structlog
+
+from shared_types import GoalStatus
 
 logger = structlog.get_logger()
 
@@ -36,7 +38,7 @@ class GoalTracker:
                 meta = dict(post.metadata)
 
                 status = meta.get("status", "active")
-                if not include_inactive and status in ("completed", "abandoned"):
+                if not include_inactive and status in (GoalStatus.COMPLETED, GoalStatus.ABANDONED):
                     continue
 
                 last_checked = meta.get("last_checked", meta.get("created"))
@@ -129,7 +131,7 @@ class GoalTracker:
         Returns:
             True if successful
         """
-        valid = ("active", "paused", "completed", "abandoned")
+        valid = tuple(GoalStatus)
         if status not in valid:
             return False
 
@@ -250,7 +252,7 @@ class GoalTracker:
 def get_goal_defaults() -> dict:
     """Get default metadata for new goal entries."""
     return {
-        "status": "active",
+        "status": str(GoalStatus.ACTIVE),
         "last_checked": datetime.now().isoformat(),
         "check_in_days": 14,
     }

@@ -1,16 +1,17 @@
 """Deep research agent orchestrating the full research flow."""
 
-import structlog
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from journal import JournalStorage, EmbeddingManager
-from intelligence.scraper import IntelStorage, IntelItem
+import structlog
 
-from .topics import TopicSelector
-from .web_search import WebSearchClient, AsyncWebSearchClient
+from intelligence.scraper import IntelItem, IntelStorage
+from journal import EmbeddingManager, JournalStorage
+
 from .synthesis import ResearchSynthesizer
+from .topics import TopicSelector
+from .web_search import AsyncWebSearchClient, WebSearchClient
 
 logger = structlog.get_logger()
 

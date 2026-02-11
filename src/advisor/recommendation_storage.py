@@ -2,10 +2,12 @@
 
 import json
 import sqlite3
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
-from dataclasses import dataclass, asdict
+
+from shared_types import RecommendationStatus
 
 
 @dataclass
@@ -18,7 +20,7 @@ class Recommendation:
     rationale: str = ""
     score: float = 0.0
     created_at: Optional[str] = None
-    status: str = "suggested"  # suggested, in_progress, completed, dismissed
+    status: str = RecommendationStatus.SUGGESTED
     metadata: Optional[dict] = None
     embedding_hash: Optional[str] = None
 

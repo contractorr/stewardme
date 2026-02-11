@@ -6,7 +6,7 @@ import click
 import yaml
 from rich.console import Console
 
-from cli.config import load_config, get_paths
+from cli.config import get_paths, load_config
 
 console = Console()
 

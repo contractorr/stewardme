@@ -1,13 +1,14 @@
 """Weekly action brief generator."""
 
-import structlog
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+import structlog
+
 from .prompts import PromptTemplates
-from .recommendation_storage import Recommendation, RecommendationStorage
 from .rag import RAGRetriever
+from .recommendation_storage import Recommendation, RecommendationStorage
 
 logger = structlog.get_logger()
 

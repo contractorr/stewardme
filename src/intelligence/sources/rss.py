@@ -1,6 +1,5 @@
 """RSS feed scraper."""
 
-import structlog
 from datetime import datetime
 from time import mktime
 from typing import Optional
@@ -8,11 +7,13 @@ from urllib.parse import urlparse
 
 import feedparser
 import httpx
+import structlog
 from bs4 import BeautifulSoup
 
 from cli.retry import http_retry
 from intelligence.scraper import BaseScraper, IntelItem, IntelStorage
 from intelligence.utils import detect_tags
+from shared_types import IntelSource
 
 logger = structlog.get_logger().bind(source="rss")
 
@@ -41,7 +42,7 @@ class RSSFeedScraper(BaseScraper):
 
     @property
     def source_name(self) -> str:
-        return f"rss:{self._name}"
+        return f"{IntelSource.RSS}:{self._name}"
 
     @http_retry(exceptions=(httpx.HTTPStatusError, httpx.ConnectError, httpx.RequestError))
     async def scrape(self) -> list[IntelItem]:

@@ -1,10 +1,10 @@
 """LLM orchestration for advice generation."""
 
-import structlog
 import os
 from pathlib import Path
 from typing import Optional
 
+import structlog
 from anthropic import Anthropic, APIError, AuthenticationError, RateLimitError
 
 from .prompts import PromptTemplates

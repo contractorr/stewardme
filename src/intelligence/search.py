@@ -1,7 +1,6 @@
 """Semantic and keyword search for intelligence items."""
 
 import sqlite3
-from pathlib import Path
 from typing import Optional
 
 from .embeddings import IntelEmbeddingManager

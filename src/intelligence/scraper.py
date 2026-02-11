@@ -2,17 +2,39 @@
 
 import hashlib
 import sqlite3
-import structlog
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 
 import httpx
+import structlog
 from bs4 import BeautifulSoup
 
 logger = structlog.get_logger().bind(source="intel_storage")
+
+_ALLOWED_SCHEMES = {"http", "https"}
+_INTERNAL_SCHEMES = {"research"}
+
+
+def validate_url(url: str) -> bool:
+    """Validate URL has allowed scheme and reasonable structure."""
+    if not url:
+        return False
+    try:
+        parsed = urlparse(url)
+        # Internal schemes (research://) are always valid
+        if parsed.scheme in _INTERNAL_SCHEMES:
+            return True
+        if parsed.scheme not in _ALLOWED_SCHEMES:
+            return False
+        if not parsed.netloc or "." not in parsed.netloc:
+            return False
+        return True
+    except Exception:
+        return False
 
 
 @dataclass
@@ -74,7 +96,11 @@ class IntelStorage:
                 pass  # Column already exists
 
     def save(self, item: IntelItem) -> bool:
-        """Save intel item, skip if URL or content hash exists."""
+        """Save intel item, skip if URL invalid/exists or content hash exists."""
+        if not validate_url(item.url):
+            logger.warning("Invalid URL rejected: %s", item.url[:100])
+            return False
+
         content_hash = item.content_hash or item.compute_hash()
 
         # Check for hash-based duplicate

@@ -1,15 +1,15 @@
 """Recommendation engine with specialized recommenders."""
 
-import structlog
 from abc import ABC, abstractmethod
 from typing import Optional
 
 import anthropic
+import structlog
 
-from .scoring import RecommendationScorer, parse_llm_scores
-from .recommendation_storage import Recommendation, RecommendationStorage
 from .prompts import PromptTemplates
 from .rag import RAGRetriever
+from .recommendation_storage import Recommendation, RecommendationStorage
+from .scoring import RecommendationScorer
 
 logger = structlog.get_logger()
 

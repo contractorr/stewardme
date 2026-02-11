@@ -7,6 +7,7 @@ import structlog
 from anthropic import Anthropic, APIError
 
 from cli.retry import llm_retry
+
 from .web_search import SearchResult
 
 logger = structlog.get_logger()
