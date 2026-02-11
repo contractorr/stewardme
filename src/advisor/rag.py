@@ -4,8 +4,12 @@ import sqlite3
 from pathlib import Path
 from typing import Optional
 
+import structlog
+
 from intelligence.search import IntelSearch
 from journal.search import JournalSearch
+
+logger = structlog.get_logger()
 
 
 class RAGRetriever:
@@ -155,7 +159,8 @@ class RAGRetriever:
                 recent.append(entry_text)
                 total_chars += len(entry_text)
 
-            except (OSError, ValueError):
+            except (OSError, ValueError) as e:
+                logger.warning("journal_entry_read_failed", path=str(entry.get("path")), error=str(e))
                 continue
 
         if not recent:
@@ -218,7 +223,8 @@ class RAGRetriever:
                     break
                 context_parts.append(text)
                 total_chars += len(text)
-            except (OSError, ValueError):
+            except (OSError, ValueError) as e:
+                logger.warning("research_entry_read_failed", path=str(entry.get("path")), error=str(e))
                 continue
 
         return "\n".join(context_parts) if context_parts else ""

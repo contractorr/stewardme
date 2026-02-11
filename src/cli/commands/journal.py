@@ -1,6 +1,7 @@
 """Journal CLI commands."""
 
 from pathlib import Path
+from typing import Optional
 
 import click
 from rich.console import Console
@@ -10,6 +11,27 @@ from rich.table import Table
 from cli.utils import get_components
 
 console = Console()
+
+
+def resolve_journal_path(journal_dir: Path, filename: str) -> Optional[Path]:
+    """Resolve and validate a journal file path.
+
+    Returns resolved Path if valid and found, None otherwise.
+    """
+    filepath = (journal_dir / filename).resolve()
+
+    if not filepath.is_relative_to(journal_dir):
+        return None
+
+    if filepath.exists():
+        return filepath
+
+    # Glob fallback for partial match
+    matches = [
+        m for m in journal_dir.glob(f"*{filename}*")
+        if m.resolve().is_relative_to(journal_dir)
+    ]
+    return matches[0] if matches else None
 
 
 @click.group()
@@ -149,22 +171,10 @@ def journal_view(filename: str):
     """View a journal entry."""
     c = get_components()
     journal_dir = c["paths"]["journal_dir"].resolve()
-    filepath = (journal_dir / filename).resolve()
-
-    # Security: validate path is within journal_dir
-    if not str(filepath).startswith(str(journal_dir)):
-        console.print("[red]Error:[/] Invalid path")
+    filepath = resolve_journal_path(journal_dir, filename)
+    if filepath is None:
+        console.print(f"[red]Not found:[/] {filename}")
         return
-
-    if not filepath.exists():
-        # Try to find by partial match (safe - glob is within journal_dir)
-        matches = [m for m in journal_dir.glob(f"*{filename}*")
-                   if m.resolve().is_relative_to(journal_dir)]
-        if matches:
-            filepath = matches[0]
-        else:
-            console.print(f"[red]Not found:[/] {filename}")
-            return
 
     post = c["storage"].read(filepath)
     console.print(f"\n[cyan bold]{post.get('title', filepath.stem)}[/]")
@@ -184,21 +194,10 @@ def journal_edit(filename: str):
 
     c = get_components(skip_advisor=True)
     journal_dir = c["paths"]["journal_dir"].resolve()
-    filepath = (journal_dir / filename).resolve()
-
-    # Security: validate path
-    if not str(filepath).startswith(str(journal_dir)):
-        console.print("[red]Error:[/] Invalid path")
+    filepath = resolve_journal_path(journal_dir, filename)
+    if filepath is None:
+        console.print(f"[red]Not found:[/] {filename}")
         return
-
-    if not filepath.exists():
-        matches = [m for m in journal_dir.glob(f"*{filename}*")
-                   if m.resolve().is_relative_to(journal_dir)]
-        if matches:
-            filepath = matches[0]
-        else:
-            console.print(f"[red]Not found:[/] {filename}")
-            return
 
     editor = os.environ.get("EDITOR", "vim")
     try:
@@ -224,21 +223,10 @@ def journal_delete(filename: str, yes: bool):
     """Delete a journal entry."""
     c = get_components(skip_advisor=True)
     journal_dir = c["paths"]["journal_dir"].resolve()
-    filepath = (journal_dir / filename).resolve()
-
-    # Security: validate path
-    if not str(filepath).startswith(str(journal_dir)):
-        console.print("[red]Error:[/] Invalid path")
+    filepath = resolve_journal_path(journal_dir, filename)
+    if filepath is None:
+        console.print(f"[red]Not found:[/] {filename}")
         return
-
-    if not filepath.exists():
-        matches = [m for m in journal_dir.glob(f"*{filename}*")
-                   if m.resolve().is_relative_to(journal_dir)]
-        if matches:
-            filepath = matches[0]
-        else:
-            console.print(f"[red]Not found:[/] {filename}")
-            return
 
     if not yes:
         if not click.confirm(f"Delete {filepath.name}?"):

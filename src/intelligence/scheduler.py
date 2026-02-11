@@ -310,6 +310,7 @@ class IntelScheduler:
                     metrics.counter("scraper_failure")
                     return scraper.source_name, {"error": "timeout"}
                 except Exception as e:
+                    logger.warning("scraper_failed", source=scraper.source_name, error=str(e), error_type=type(e).__name__)
                     metrics.counter("scraper_failure")
                     return scraper.source_name, {"error": str(e)}
                 finally:
@@ -323,6 +324,7 @@ class IntelScheduler:
                     name, data = result
                     results[name] = data
                 elif isinstance(result, Exception):
+                    logger.warning("scraper_gather_exception", error=str(result), error_type=type(result).__name__)
                     metrics.counter("scraper_failure")
                     results["unknown"] = {"error": str(result)}
 

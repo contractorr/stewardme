@@ -4,7 +4,10 @@ from pathlib import Path
 from typing import Optional
 
 import chromadb
+import structlog
 from chromadb.config import Settings
+
+logger = structlog.get_logger()
 
 
 class EmbeddingManager:
@@ -52,8 +55,8 @@ class EmbeddingManager:
         """Remove entry from vector store."""
         try:
             self.collection.delete(ids=[entry_id])
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("embedding_remove_failed", entry_id=entry_id, error=str(e))
 
     def query(
         self,

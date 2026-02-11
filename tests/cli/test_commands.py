@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from click.testing import CliRunner
 
+from cli.commands.journal import resolve_journal_path
 from cli.main import cli
 
 
@@ -161,6 +162,36 @@ class TestGoalsCommands:
 
 
 # -- Init command --
+
+class TestPathValidation:
+    def test_resolve_normal_path(self, tmp_path):
+        journal_dir = tmp_path / "journal"
+        journal_dir.mkdir()
+        (journal_dir / "entry.md").write_text("hello")
+        result = resolve_journal_path(journal_dir, "entry.md")
+        assert result is not None
+        assert result.name == "entry.md"
+
+    def test_resolve_traversal_blocked(self, tmp_path):
+        journal_dir = tmp_path / "journal"
+        journal_dir.mkdir()
+        result = resolve_journal_path(journal_dir, "../../etc/passwd")
+        assert result is None
+
+    def test_resolve_partial_match(self, tmp_path):
+        journal_dir = tmp_path / "journal"
+        journal_dir.mkdir()
+        (journal_dir / "2024-01-01_daily_day-1.md").write_text("hello")
+        result = resolve_journal_path(journal_dir, "day-1")
+        assert result is not None
+        assert "day-1" in result.name
+
+    def test_resolve_nonexistent(self, tmp_path):
+        journal_dir = tmp_path / "journal"
+        journal_dir.mkdir()
+        result = resolve_journal_path(journal_dir, "nope.md")
+        assert result is None
+
 
 class TestInitCommand:
     def test_init(self, runner, tmp_path):
