@@ -7,12 +7,21 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+VALID_LLM_PROVIDERS = {"auto", "claude", "openai", "gemini"}
+
 
 class LLMConfig(BaseModel):
     """LLM provider configuration."""
-    provider: str = "claude"
-    model: str = "claude-sonnet-4-20250514"
+    provider: str = "auto"
+    model: Optional[str] = None  # None = use provider default
     api_key: Optional[str] = None
+
+    @field_validator("provider")
+    @classmethod
+    def validate_provider(cls, v: str) -> str:
+        if v not in VALID_LLM_PROVIDERS:
+            raise ValueError(f"Invalid LLM provider: {v}. Must be one of {VALID_LLM_PROVIDERS}")
+        return v
 
 
 class PathsConfig(BaseModel):

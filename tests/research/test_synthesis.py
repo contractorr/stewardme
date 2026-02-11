@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 from research.synthesis import ResearchSynthesizer
 from research.web_search import SearchResult
+from llm import LLMError
 
 
 @pytest.fixture
@@ -56,7 +57,7 @@ class TestResearchSynthesizer:
 
     def test_synthesize_with_results(self, mock_claude_client, sample_search_results):
         """Test synthesis generates report."""
-        synth = ResearchSynthesizer(client=mock_claude_client)
+        synth = ResearchSynthesizer(provider="claude", client=mock_claude_client)
         report = synth.synthesize(
             topic="Machine Learning",
             results=sample_search_results,
@@ -69,7 +70,7 @@ class TestResearchSynthesizer:
 
     def test_synthesize_empty_results(self, mock_claude_client):
         """Test synthesis with no results."""
-        synth = ResearchSynthesizer(client=mock_claude_client)
+        synth = ResearchSynthesizer(provider="claude", client=mock_claude_client)
         report = synth.synthesize(topic="Unknown Topic", results=[])
 
         assert "No sources found" in report
@@ -77,7 +78,7 @@ class TestResearchSynthesizer:
 
     def test_synthesize_with_user_context(self, mock_claude_client, sample_search_results):
         """Test that user context is included in prompt."""
-        synth = ResearchSynthesizer(client=mock_claude_client)
+        synth = ResearchSynthesizer(provider="claude", client=mock_claude_client)
         synth.synthesize(
             topic="Test",
             results=sample_search_results,
@@ -90,7 +91,7 @@ class TestResearchSynthesizer:
 
     def test_format_sources(self, mock_claude_client, sample_search_results):
         """Test source formatting."""
-        synth = ResearchSynthesizer(client=mock_claude_client)
+        synth = ResearchSynthesizer(provider="claude", client=mock_claude_client)
         formatted = synth._format_sources(sample_search_results)
 
         assert "[Source 1]" in formatted
@@ -104,7 +105,7 @@ class TestResearchSynthesizer:
         from anthropic import APIError
         mock_client.messages.create.side_effect = APIError("API Error", request=MagicMock(), body=None)
 
-        synth = ResearchSynthesizer(client=mock_client)
+        synth = ResearchSynthesizer(provider="claude", client=mock_client)
         report = synth.synthesize(topic="Test", results=sample_search_results)
 
         assert "synthesis unavailable" in report.lower()

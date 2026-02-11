@@ -1,12 +1,11 @@
 """Research report synthesis using LLM."""
 
-import os
 from typing import Optional
 
 import structlog
-from anthropic import Anthropic, APIError
 
 from cli.retry import llm_retry
+from llm import LLMError, LLMRateLimitError, create_llm_provider
 
 from .web_search import SearchResult
 
@@ -52,14 +51,18 @@ Be specific and practical. Cite sources when making claims."""
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model: str = "claude-sonnet-4-20250514",
-        client: Optional[Anthropic] = None,
+        model: Optional[str] = None,
+        provider: Optional[str] = None,
+        client=None,
     ):
-        resolved_key = api_key or os.getenv("ANTHROPIC_API_KEY")
-        self.client = client or Anthropic(api_key=resolved_key)
-        self.model = model
+        self.llm = create_llm_provider(
+            provider=provider,
+            api_key=api_key,
+            model=model,
+            client=client,
+        )
 
-    @llm_retry(exceptions=(APIError,))
+    @llm_retry(exceptions=(LLMRateLimitError, LLMError))
     def synthesize(
         self,
         topic: str,
@@ -91,14 +94,12 @@ Be specific and practical. Cite sources when making claims."""
         )
 
         try:
-            response = self.client.messages.create(
-                model=self.model,
-                max_tokens=max_tokens,
-                system=self.SYSTEM_PROMPT,
+            return self.llm.generate(
                 messages=[{"role": "user", "content": prompt}],
+                system=self.SYSTEM_PROMPT,
+                max_tokens=max_tokens,
             )
-            return response.content[0].text
-        except APIError as e:
+        except LLMError as e:
             logger.error("LLM synthesis failed: %s", e)
             return self._fallback_report(topic, results)
 

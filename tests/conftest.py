@@ -31,7 +31,7 @@ def temp_dirs(tmp_path):
 
 @pytest.fixture
 def mock_anthropic(monkeypatch):
-    """Mock Claude API responses."""
+    """Mock Claude API responses (legacy, prefer mock_llm_provider)."""
     mock_client = MagicMock()
     mock_response = MagicMock()
     mock_response.content = [MagicMock(text="This is a mocked AI response.")]
@@ -43,6 +43,17 @@ def mock_anthropic(monkeypatch):
 
     monkeypatch.setattr("anthropic.Anthropic", lambda **kwargs: mock_client)
     return mock_client
+
+
+@pytest.fixture
+def mock_llm_provider():
+    """Mock LLMProvider for testing any LLM-consuming code."""
+    from llm import LLMProvider
+
+    provider = MagicMock(spec=LLMProvider)
+    provider.provider_name = "mock"
+    provider.generate.return_value = "Mocked LLM response"
+    return provider
 
 
 @pytest.fixture

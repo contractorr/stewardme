@@ -11,6 +11,12 @@ from journal.embeddings import EmbeddingManager
 from intelligence.scraper import IntelStorage
 
 
+@pytest.fixture(autouse=True)
+def _set_mock_api_key(monkeypatch):
+    """Ensure auto-detect finds a key for ResearchSynthesizer init."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-fake")
+
+
 @pytest.fixture
 def agent_components(temp_dirs):
     """Components needed for DeepResearchAgent."""

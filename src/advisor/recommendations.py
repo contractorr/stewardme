@@ -3,8 +3,9 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
-import anthropic
 import structlog
+
+from llm import LLMError
 
 from .prompts import PromptTemplates
 from .rag import RAGRetriever
@@ -75,7 +76,7 @@ class BaseRecommender(ABC):
                         action_plan = self.generate_action_plan(rec)
                         rec.metadata = rec.metadata or {}
                         rec.metadata["action_plan"] = action_plan
-                    except (anthropic.APIError, KeyError, ValueError) as e:
+                    except (LLMError, KeyError, ValueError) as e:
                         logger.warning("Failed to generate action plan", error=str(e))
 
         return recs

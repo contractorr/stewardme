@@ -49,7 +49,13 @@ def get_components(skip_advisor: bool = False):
     advisor = None
     if not skip_advisor:
         try:
-            advisor = AdvisorEngine(rag, model=config["llm"].get("model", "claude-sonnet-4-20250514"))
+            llm_cfg = config.get("llm", {})
+            advisor = AdvisorEngine(
+                rag,
+                model=llm_cfg.get("model"),
+                provider=llm_cfg.get("provider"),
+                api_key=llm_cfg.get("api_key"),
+            )
         except APIKeyMissingError as e:
             console.print(f"[red]Config error:[/] {e}")
             sys.exit(1)

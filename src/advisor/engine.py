@@ -1,11 +1,12 @@
 """LLM orchestration for advice generation."""
 
-import os
 from pathlib import Path
 from typing import Optional
 
 import structlog
-from anthropic import Anthropic, APIError, AuthenticationError, RateLimitError
+
+from llm import LLMError as BaseLLMError
+from llm import LLMRateLimitError, create_llm_provider
 
 from .prompts import PromptTemplates
 from .rag import RAGRetriever
@@ -19,7 +20,7 @@ try:
         max_attempts=3,
         min_wait=2.0,
         max_wait=30.0,
-        exceptions=(RateLimitError, APIError),
+        exceptions=(LLMRateLimitError, BaseLLMError),
     )
 except ImportError:
     def _llm_retry(func):
@@ -42,45 +43,42 @@ class LLMError(AdvisorError):
 
 
 class AdvisorEngine:
-    """Main advisor engine using Claude API."""
+    """Main advisor engine using pluggable LLM providers."""
 
     def __init__(
         self,
         rag: RAGRetriever,
         api_key: Optional[str] = None,
-        model: str = "claude-sonnet-4-20250514",
-        client: Optional[Anthropic] = None,  # Dependency injection for testing
+        model: Optional[str] = None,
+        provider: Optional[str] = None,
+        client=None,  # Dependency injection for testing
     ):
         self.rag = rag
         self.model = model
 
-        # Validate API key
-        resolved_key = api_key or os.getenv("ANTHROPIC_API_KEY")
-        if not resolved_key and client is None:
-            raise APIKeyMissingError(
-                "ANTHROPIC_API_KEY not set. Run: export ANTHROPIC_API_KEY=your-key"
+        try:
+            self.llm = create_llm_provider(
+                provider=provider,
+                api_key=api_key,
+                model=model,
+                client=client,
             )
-
-        self.client = client or Anthropic(api_key=resolved_key)
+        except BaseLLMError as e:
+            raise APIKeyMissingError(str(e)) from e
 
     @_llm_retry
     def _call_llm(self, system: str, user_prompt: str, max_tokens: int = 2000) -> str:
         """Make LLM API call with retry on transient errors."""
         try:
-            logger.debug("Calling LLM model=%s tokens=%d", self.model, max_tokens)
-            response = self.client.messages.create(
-                model=self.model,
-                max_tokens=max_tokens,
-                system=system,
+            logger.debug("Calling LLM provider=%s tokens=%d", self.llm.provider_name, max_tokens)
+            return self.llm.generate(
                 messages=[{"role": "user", "content": user_prompt}],
+                system=system,
+                max_tokens=max_tokens,
             )
-            return response.content[0].text
-        except AuthenticationError as e:
-            logger.error("API authentication failed: %s", e)
-            raise LLMError("Invalid API key. Check ANTHROPIC_API_KEY.") from e
-        except APIError as e:
-            logger.error("API call failed: %s", e)
-            raise LLMError(f"LLM API error: {e}") from e
+        except BaseLLMError as e:
+            logger.error("LLM call failed: %s", e)
+            raise LLMError(str(e)) from e
 
     def ask(
         self,

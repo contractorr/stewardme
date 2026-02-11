@@ -1,7 +1,7 @@
 llm:
-  provider: claude  # or gemini
-  api_key: ${ANTHROPIC_API_KEY}
-  model: claude-sonnet-4-20250514
+  provider: auto  # auto-detect from API key, or: claude, openai, gemini
+  api_key: ${ANTHROPIC_API_KEY}  # or ${OPENAI_API_KEY} or ${GOOGLE_API_KEY}
+  model: null  # null = provider default
 
 paths:
   journal_dir: ~/coach/journal

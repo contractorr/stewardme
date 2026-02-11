@@ -46,8 +46,11 @@ class DeepResearchAgent:
             max_results=research_config.get("sources_per_topic", 8),
         )
 
+        llm_config = self.config.get("llm", {})
         self.synthesizer = ResearchSynthesizer(
-            model=self.config.get("llm", {}).get("model", "claude-sonnet-4-20250514"),
+            model=llm_config.get("model"),
+            provider=llm_config.get("provider"),
+            api_key=llm_config.get("api_key"),
         )
 
     def run(self, specific_topic: Optional[str] = None) -> list[dict]:
@@ -215,8 +218,11 @@ class AsyncDeepResearchAgent:
             max_results=research_config.get("sources_per_topic", 8),
         )
 
+        llm_config = self.config.get("llm", {})
         self.synthesizer = ResearchSynthesizer(
-            model=self.config.get("llm", {}).get("model", "claude-sonnet-4-20250514"),
+            model=llm_config.get("model"),
+            provider=llm_config.get("provider"),
+            api_key=llm_config.get("api_key"),
         )
 
     async def run(self, specific_topic: Optional[str] = None) -> list[dict]:

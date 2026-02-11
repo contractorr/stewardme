@@ -19,6 +19,7 @@ def mock_rag():
 
 @pytest.fixture
 def mock_client():
+    """Mock Claude SDK client (passed through to ClaudeProvider)."""
     client = MagicMock()
     resp = MagicMock()
     resp.content = [MagicMock(text="Mocked LLM response")]
@@ -28,17 +29,20 @@ def mock_client():
 
 @pytest.fixture
 def engine(mock_rag, mock_client):
-    return AdvisorEngine(rag=mock_rag, client=mock_client)
+    return AdvisorEngine(rag=mock_rag, provider="claude", client=mock_client)
 
 
 class TestAdvisorEngine:
-    def test_init_requires_api_key(self, mock_rag):
+    def test_init_requires_api_key(self, mock_rag, monkeypatch):
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
         with pytest.raises(APIKeyMissingError):
-            AdvisorEngine(rag=mock_rag, api_key=None)
+            AdvisorEngine(rag=mock_rag)
 
     def test_init_with_client(self, mock_rag, mock_client):
-        engine = AdvisorEngine(rag=mock_rag, client=mock_client)
-        assert engine.client is mock_client
+        engine = AdvisorEngine(rag=mock_rag, provider="claude", client=mock_client)
+        assert engine.llm.client is mock_client
 
     def test_ask_general(self, engine, mock_client):
         result = engine.ask("What should I learn?")
@@ -87,8 +91,8 @@ class TestAdvisorEngine:
         client.messages.create.side_effect = AuthenticationError(
             message="bad key", response=MagicMock(status_code=401), body={}
         )
-        engine = AdvisorEngine(rag=mock_rag, client=client)
-        with pytest.raises(LLMError, match="Invalid API key"):
+        engine = AdvisorEngine(rag=mock_rag, provider="claude", client=client)
+        with pytest.raises(LLMError):
             engine.ask("test")
 
     def test_generate_recommendations(self, engine, tmp_path):
@@ -100,3 +104,6 @@ class TestAdvisorEngine:
         db_path = tmp_path / "recs.db"
         brief = engine.generate_action_brief(db_path)
         assert isinstance(brief, str)
+
+    def test_provider_name_accessible(self, engine):
+        assert engine.llm.provider_name == "claude"

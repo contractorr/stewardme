@@ -138,7 +138,7 @@ class TestRecommendationEngine:
 
     @pytest.fixture
     def mock_llm(self):
-        def llm_caller(system, prompt):
+        def llm_caller(system, prompt, **kwargs):
             return """
 ### Learn Rust Async
 **Description**: Master async programming in Rust
