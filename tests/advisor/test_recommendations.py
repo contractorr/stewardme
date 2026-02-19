@@ -1,33 +1,16 @@
 """Tests for recommendation engine."""
 
-import pytest
-from pathlib import Path
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 
-from advisor.scoring import RecommendationScorer, ScoringWeights, parse_llm_scores
+import pytest
+
 from advisor.recommendation_storage import Recommendation, RecommendationStorage
-from advisor.recommendations import (
-    RecommendationEngine,
-    LearningRecommender,
-    CareerRecommender,
-)
+from advisor.recommendations import RecommendationEngine
+from advisor.scoring import RecommendationScorer
 
 
 class TestRecommendationScorer:
     """Tests for scoring functionality."""
-
-    def test_default_weights(self):
-        scorer = RecommendationScorer()
-        assert scorer.weights.relevance == 0.4
-        assert scorer.weights.urgency == 0.2
-
-    def test_score_calculation(self):
-        scorer = RecommendationScorer()
-        score = scorer.score(
-            relevance=8.0, urgency=6.0, feasibility=7.0, impact=9.0
-        )
-        expected = 0.4 * 8.0 + 0.2 * 6.0 + 0.2 * 7.0 + 0.2 * 9.0
-        assert score == expected
 
     def test_passes_threshold(self):
         scorer = RecommendationScorer(min_threshold=6.0)
@@ -42,50 +25,18 @@ class TestRecommendationScorer:
         assert h1 == h2
         assert h1 != h3
 
-    def test_cosine_similarity(self):
-        scorer = RecommendationScorer()
-        vec1 = [1.0, 0.0, 0.0]
-        vec2 = [1.0, 0.0, 0.0]
-        vec3 = [0.0, 1.0, 0.0]
-        assert scorer.cosine_similarity(vec1, vec2) == pytest.approx(1.0)
-        assert scorer.cosine_similarity(vec1, vec3) == pytest.approx(0.0)
-
-
-class TestParseLLMScores:
-    """Tests for LLM response parsing."""
-
-    def test_parse_scores(self):
-        response = """
-        RELEVANCE: 8.5
-        URGENCY: 6.0
-        FEASIBILITY: 7.5
-        IMPACT: 9.0
-        """
-        scores = parse_llm_scores(response)
-        assert scores["relevance"] == 8.5
-        assert scores["urgency"] == 6.0
-
-    def test_parse_clamps_values(self):
-        response = "RELEVANCE: 15.0\nURGENCY: -5.0"
-        scores = parse_llm_scores(response)
-        assert scores["relevance"] == 10.0
-        assert scores["urgency"] == 0.0
-
 
 class TestRecommendationStorage:
-    """Tests for SQLite storage."""
+    """Tests for markdown-based storage."""
 
     @pytest.fixture
-    def db_path(self, tmp_path):
-        return tmp_path / "rec_test.db"
+    def storage(self, tmp_path):
+        return RecommendationStorage(tmp_path / "recs")
 
-    @pytest.fixture
-    def storage(self, db_path):
-        return RecommendationStorage(db_path)
-
-    def test_init_creates_db(self, db_path):
-        storage = RecommendationStorage(db_path)
-        assert db_path.exists()
+    def test_init_creates_dir(self, tmp_path):
+        path = tmp_path / "recs"
+        RecommendationStorage(path)
+        assert path.exists()
 
     def test_save_and_get(self, storage):
         rec = Recommendation(
@@ -125,6 +76,14 @@ class TestRecommendationStorage:
         assert storage.hash_exists("abc123")
         assert not storage.hash_exists("xyz789")
 
+    def test_add_feedback(self, storage):
+        rec = Recommendation(category="learning", title="Test", score=7.0)
+        rec_id = storage.save(rec)
+        assert storage.add_feedback(rec_id, 4, comment="useful")
+        retrieved = storage.get(rec_id)
+        assert retrieved.metadata["user_rating"] == 4
+        assert retrieved.metadata["feedback_comment"] == "useful"
+
 
 class TestRecommendationEngine:
     """Tests for engine orchestration."""
@@ -143,21 +102,18 @@ class TestRecommendationEngine:
 ### Learn Rust Async
 **Description**: Master async programming in Rust
 **Why**: Mentioned interest in systems programming
-RELEVANCE: 8.0
-URGENCY: 7.0
-FEASIBILITY: 6.0
-IMPACT: 8.0
+SCORE: 8.0
 """
         return llm_caller
 
     @pytest.fixture
     def storage(self, tmp_path):
-        return RecommendationStorage(tmp_path / "rec.db")
+        return RecommendationStorage(tmp_path / "recs")
 
-    def test_init_recommenders(self, mock_rag, mock_llm, storage):
+    def test_init_categories(self, mock_rag, mock_llm, storage):
         engine = RecommendationEngine(mock_rag, mock_llm, storage)
-        assert "learning" in engine.recommenders
-        assert "career" in engine.recommenders
+        assert "learning" in engine.enabled_categories
+        assert "career" in engine.enabled_categories
 
     def test_generate_category(self, mock_rag, mock_llm, storage):
         engine = RecommendationEngine(mock_rag, mock_llm, storage)
@@ -167,5 +123,5 @@ IMPACT: 8.0
     def test_config_disables_categories(self, mock_rag, mock_llm, storage):
         config = {"categories": {"learning": True, "career": False}}
         engine = RecommendationEngine(mock_rag, mock_llm, storage, config)
-        assert "learning" in engine.recommenders
-        assert "career" not in engine.recommenders
+        assert "learning" in engine.enabled_categories
+        assert "career" not in engine.enabled_categories

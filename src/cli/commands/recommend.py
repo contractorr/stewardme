@@ -13,6 +13,8 @@ from cli.utils import get_components, get_rec_db_path
 
 console = Console()
 
+CATEGORIES = ["learning", "career", "entrepreneurial", "investment", "events", "projects"]
+
 
 def _display_recommendations(recs: list):
     """Display recommendations in formatted output."""
@@ -36,94 +38,20 @@ def recommend():
     pass
 
 
-@recommend.command("learning")
-@click.option("-n", "--limit", default=3, help="Max recommendations")
-def recommend_learning(limit: int):
-    """Get learning/skills recommendations."""
+@recommend.command("generate")
+@click.option("-c", "--category", type=click.Choice(CATEGORIES + ["all"]), default="all",
+              help="Category to generate")
+@click.option("-n", "--limit", default=3, help="Max recommendations per category")
+def recommend_generate(category: str, limit: int):
+    """Generate recommendations."""
     c = get_components()
     rec_config = c["config"].get("recommendations", {})
-    db_path = get_rec_db_path(c["config"])
+    rec_path = get_rec_db_path(c["config"])
 
     try:
-        with console.status("Analyzing skills to learn..."):
+        with console.status(f"Generating {category} recommendations..."):
             recs = c["advisor"].generate_recommendations(
-                "learning", db_path, rec_config, max_items=limit
-            )
-        _display_recommendations(recs)
-    except LLMError as e:
-        console.print(f"[red]Error:[/] {e}")
-        sys.exit(1)
-
-
-@recommend.command("career")
-@click.option("-n", "--limit", default=3, help="Max recommendations")
-def recommend_career(limit: int):
-    """Get career move recommendations."""
-    c = get_components()
-    rec_config = c["config"].get("recommendations", {})
-    db_path = get_rec_db_path(c["config"])
-
-    try:
-        with console.status("Analyzing career opportunities..."):
-            recs = c["advisor"].generate_recommendations(
-                "career", db_path, rec_config, max_items=limit
-            )
-        _display_recommendations(recs)
-    except LLMError as e:
-        console.print(f"[red]Error:[/] {e}")
-        sys.exit(1)
-
-
-@recommend.command("entrepreneurial")
-@click.option("-n", "--limit", default=3, help="Max recommendations")
-def recommend_entrepreneurial(limit: int):
-    """Get entrepreneurial opportunity recommendations."""
-    c = get_components()
-    rec_config = c["config"].get("recommendations", {})
-    db_path = get_rec_db_path(c["config"])
-
-    try:
-        with console.status("Identifying business opportunities..."):
-            recs = c["advisor"].generate_recommendations(
-                "entrepreneurial", db_path, rec_config, max_items=limit
-            )
-        _display_recommendations(recs)
-    except LLMError as e:
-        console.print(f"[red]Error:[/] {e}")
-        sys.exit(1)
-
-
-@recommend.command("investment")
-@click.option("-n", "--limit", default=3, help="Max recommendations")
-def recommend_investment(limit: int):
-    """Get investment opportunity recommendations."""
-    c = get_components()
-    rec_config = c["config"].get("recommendations", {})
-    db_path = get_rec_db_path(c["config"])
-
-    try:
-        with console.status("Analyzing investment opportunities..."):
-            recs = c["advisor"].generate_recommendations(
-                "investment", db_path, rec_config, max_items=limit
-            )
-        _display_recommendations(recs)
-    except LLMError as e:
-        console.print(f"[red]Error:[/] {e}")
-        sys.exit(1)
-
-
-@recommend.command("all")
-@click.option("-n", "--limit", default=3, help="Max per category")
-def recommend_all(limit: int):
-    """Get recommendations across all categories."""
-    c = get_components()
-    rec_config = c["config"].get("recommendations", {})
-    db_path = get_rec_db_path(c["config"])
-
-    try:
-        with console.status("Generating all recommendations..."):
-            recs = c["advisor"].generate_recommendations(
-                "all", db_path, rec_config, max_items=limit
+                category, rec_path, rec_config, max_items=limit
             )
         _display_recommendations(recs)
     except LLMError as e:
@@ -138,13 +66,13 @@ def recommend_brief(limit: int, save: bool):
     """Generate weekly action brief."""
     c = get_components()
     rec_config = c["config"].get("recommendations", {})
-    db_path = get_rec_db_path(c["config"])
+    rec_path = get_rec_db_path(c["config"])
     min_score = rec_config.get("scoring", {}).get("min_threshold", 6.0)
 
     try:
         with console.status("Generating action brief..."):
             brief = c["advisor"].generate_action_brief(
-                db_path,
+                rec_path,
                 journal_storage=c["storage"] if save else None,
                 max_items=limit,
                 min_score=min_score,
@@ -166,8 +94,8 @@ def recommend_brief(limit: int, save: bool):
 def recommend_history(limit: int, category: str, status: str):
     """View recommendation history."""
     c = get_components(skip_advisor=True)
-    db_path = get_rec_db_path(c["config"])
-    storage = RecommendationStorage(db_path)
+    rec_path = get_rec_db_path(c["config"])
+    storage = RecommendationStorage(rec_path)
 
     if category:
         recs = storage.list_by_category(category, status=status, limit=limit)
@@ -201,15 +129,15 @@ def recommend_history(limit: int, category: str, status: str):
 
 
 @recommend.command("update")
-@click.argument("rec_id", type=int)
+@click.argument("rec_id", type=str)
 @click.option("--status", "-s", required=True,
               type=click.Choice(["suggested", "in_progress", "completed", "dismissed"]),
               help="New status")
-def recommend_update(rec_id: int, status: str):
+def recommend_update(rec_id: str, status: str):
     """Update recommendation status."""
     c = get_components(skip_advisor=True)
-    db_path = get_rec_db_path(c["config"])
-    storage = RecommendationStorage(db_path)
+    rec_path = get_rec_db_path(c["config"])
+    storage = RecommendationStorage(rec_path)
 
     if storage.update_status(rec_id, status):
         console.print(f"[green]Updated recommendation {rec_id} to {status}[/]")
@@ -218,12 +146,12 @@ def recommend_update(rec_id: int, status: str):
 
 
 @recommend.command("view")
-@click.argument("rec_id", type=int)
-def recommend_view(rec_id: int):
+@click.argument("rec_id", type=str)
+def recommend_view(rec_id: str):
     """View a specific recommendation."""
     c = get_components(skip_advisor=True)
-    db_path = get_rec_db_path(c["config"])
-    storage = RecommendationStorage(db_path)
+    rec_path = get_rec_db_path(c["config"])
+    storage = RecommendationStorage(rec_path)
 
     rec = storage.get(rec_id)
     if not rec:
@@ -234,7 +162,6 @@ def recommend_view(rec_id: int):
     console.print(f"[dim]Category: {rec.category} | Score: {rec.score:.1f} | Status: {rec.status}[/]")
     console.print(f"[dim]Created: {rec.created_at[:10] if rec.created_at else '?'}[/]")
 
-    # Show rating if present
     if rec.metadata and rec.metadata.get("user_rating"):
         rating = rec.metadata["user_rating"]
         stars = "★" * rating + "☆" * (5 - rating)
@@ -246,7 +173,6 @@ def recommend_view(rec_id: int):
     if rec.rationale:
         console.print(f"\n[bold]Rationale:[/] {rec.rationale}")
 
-    # Show action plan if present
     if rec.metadata and rec.metadata.get("action_plan"):
         console.print("\n[bold green]Action Plan:[/]")
         console.print(Markdown(rec.metadata["action_plan"]))
@@ -256,14 +182,14 @@ def recommend_view(rec_id: int):
 
 
 @recommend.command("rate")
-@click.argument("rec_id", type=int)
+@click.argument("rec_id", type=str)
 @click.option("-r", "--rating", type=click.IntRange(1, 5), required=True, help="Rating 1-5")
 @click.option("-c", "--comment", help="Optional feedback comment")
-def recommend_rate(rec_id: int, rating: int, comment: str):
+def recommend_rate(rec_id: str, rating: int, comment: str):
     """Rate a recommendation's usefulness."""
     c = get_components(skip_advisor=True)
-    db_path = get_rec_db_path(c["config"])
-    storage = RecommendationStorage(db_path)
+    rec_path = get_rec_db_path(c["config"])
+    storage = RecommendationStorage(rec_path)
 
     if storage.add_feedback(rec_id, rating, comment):
         stars = "★" * rating + "☆" * (5 - rating)
@@ -272,3 +198,44 @@ def recommend_rate(rec_id: int, rating: int, comment: str):
             console.print(f"[dim]Comment: {comment}[/]")
     else:
         console.print(f"[red]Recommendation {rec_id} not found[/]")
+
+
+@recommend.command("events")
+@click.option("-n", "--limit", default=10, help="Max events to show")
+@click.option("--days", default=90, help="Lookback/forward window in days")
+def recommend_events(limit: int, days: int):
+    """Show upcoming events sorted by relevance and deadline."""
+    from advisor.events import get_upcoming_events
+    from cli.utils import get_profile_storage
+
+    c = get_components(skip_advisor=True)
+    ps = get_profile_storage(c["config"])
+    profile = ps.load()
+
+    events = get_upcoming_events(
+        c["intel_storage"], profile=profile, days=days, limit=limit,
+    )
+
+    if not events:
+        console.print("[yellow]No upcoming events found. Run [cyan]coach scrape[/] to fetch events.[/]")
+        return
+
+    from rich.table import Table
+    table = Table(title="Upcoming Events", show_header=True)
+    table.add_column("Score", justify="right", style="green")
+    table.add_column("Event")
+    table.add_column("Date", style="cyan")
+    table.add_column("Location", style="dim")
+    table.add_column("CFP Deadline", style="yellow")
+
+    for e in events:
+        meta = e.get("_metadata", {})
+        score = f"{e['_score']:.1f}"
+        date = meta.get("event_date", "?")[:10]
+        location = meta.get("location", "")
+        if meta.get("online"):
+            location = "Online" + (f" + {location}" if location else "")
+        cfp = meta.get("cfp_deadline", "")[:10] if meta.get("cfp_deadline") else ""
+        table.add_row(score, e["title"][:45], date, location[:25], cfp)
+
+    console.print(table)

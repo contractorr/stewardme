@@ -1,6 +1,5 @@
 """Tests for journal embeddings operations."""
 
-import pytest
 
 
 class TestEmbeddingManager:

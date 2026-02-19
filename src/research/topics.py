@@ -13,17 +13,19 @@ logger = structlog.get_logger()
 
 
 class TopicSelector:
-    """Selects research topics from goals and journal themes."""
+    """Selects research topics from goals, journal themes, and detected trends."""
 
     def __init__(
         self,
         storage: JournalStorage,
+        journal_search=None,
         max_topics: int = 2,
         theme_window_days: int = 30,
         min_mentions: int = 3,
         skip_researched_days: int = 60,
     ):
         self.storage = storage
+        self.journal_search = journal_search
         self.max_topics = max_topics
         self.theme_window_days = theme_window_days
         self.min_mentions = min_mentions
@@ -47,11 +49,17 @@ class TopicSelector:
             if topic["topic"].lower() not in researched:
                 candidates.append(topic)
 
-        # 2. Clustered themes from journal
+        # 2. Emerging trends from journal embeddings
+        trend_topics = self._extract_trend_topics()
+        for topic in trend_topics:
+            if topic["topic"].lower() not in researched:
+                if not any(c["topic"].lower() == topic["topic"].lower() for c in candidates):
+                    candidates.append(topic)
+
+        # 3. Clustered themes from journal
         theme_topics = self._cluster_journal_themes()
         for topic in theme_topics:
             if topic["topic"].lower() not in researched:
-                # Avoid duplicates with goals
                 if not any(c["topic"].lower() == topic["topic"].lower() for c in candidates):
                     candidates.append(topic)
 
@@ -59,6 +67,26 @@ class TopicSelector:
         candidates.sort(key=lambda x: x["score"], reverse=True)
 
         return candidates[:self.max_topics]
+
+    def _extract_trend_topics(self) -> list[dict]:
+        """Extract emerging topics from TrendDetector."""
+        if not self.journal_search:
+            return []
+        try:
+            from journal.trends import TrendDetector
+            detector = TrendDetector(self.journal_search)
+            emerging = detector.get_emerging_topics(threshold=0.2, days=60)
+            topics = []
+            for trend in emerging[:5]:
+                topics.append({
+                    "topic": trend["topic"].title(),
+                    "source": "trend",
+                    "score": min(9, 5 + trend["growth_rate"] * 10),
+                    "reason": f"Emerging trend (growth={trend['growth_rate']:+.0%})",
+                })
+            return topics
+        except Exception:
+            return []
 
     def _extract_goal_topics(self) -> list[dict]:
         """Extract explicit research requests from goals."""

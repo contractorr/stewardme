@@ -1,11 +1,11 @@
 """Tests for ResearchSynthesizer."""
 
+from unittest.mock import MagicMock
+
 import pytest
-from unittest.mock import MagicMock, patch
 
 from research.synthesis import ResearchSynthesizer
 from research.web_search import SearchResult
-from llm import LLMError
 
 
 @pytest.fixture

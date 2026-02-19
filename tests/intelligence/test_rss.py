@@ -1,7 +1,8 @@
 """Tests for RSS feed scraper."""
 
+from unittest.mock import MagicMock
+
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
 
 
 @pytest.mark.asyncio

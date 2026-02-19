@@ -3,7 +3,6 @@
 import csv
 import json
 from datetime import datetime
-from pathlib import Path
 
 import pytest
 
@@ -112,8 +111,8 @@ class TestIntelExportMarkdown:
         db = tmp_path / "unicode.db"
         storage = IntelStorage(db)
         storage.save(IntelItem(
-            source="devto", title="Unicode: caf\u00e9 \u2603",
-            url="https://dev.to/unicode", summary="test",
+            source="hackernews", title="Unicode: caf\u00e9 \u2603",
+            url="https://example.com/unicode", summary="test",
         ))
         exporter = IntelExporter(storage)
         out = tmp_path / "unicode.md"

@@ -1,10 +1,11 @@
 """Tests for TopicSelector."""
 
-import pytest
 from datetime import datetime, timedelta
 
-from research.topics import TopicSelector
+import pytest
+
 from journal.storage import JournalStorage
+from research.topics import TopicSelector
 
 
 @pytest.fixture
@@ -23,7 +24,7 @@ def research_journal(temp_dirs):
     # Create entries with recurring themes
     for i in range(5):
         storage.create(
-            content=f"Today I worked on kubernetes deployment. Kubernetes is powerful for orchestration. Also explored kubernetes networking.",
+            content="Today I worked on kubernetes deployment. Kubernetes is powerful for orchestration. Also explored kubernetes networking.",
             entry_type="daily",
             title=f"Day {i+1} Notes",
             tags=["work", "kubernetes"],

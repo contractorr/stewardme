@@ -22,12 +22,26 @@ class RAGRetriever:
         intel_search: Optional[IntelSearch] = None,
         max_context_chars: int = 8000,
         journal_weight: float = 0.7,
+        profile_path: Optional[str] = None,
     ):
         self.journal = journal_search
         self.intel_db_path = Path(intel_db_path).expanduser() if intel_db_path else None
         self.intel_search = intel_search
         self.max_context_chars = max_context_chars
         self.journal_weight = journal_weight
+        self._profile_path = profile_path or "~/coach/profile.yaml"
+
+    def get_profile_context(self) -> str:
+        """Load user profile summary for LLM context injection."""
+        try:
+            from profile.storage import ProfileStorage
+            ps = ProfileStorage(self._profile_path)
+            profile = ps.load()
+            if profile:
+                return f"\nUSER PROFILE: {profile.summary()}\n"
+        except Exception as e:
+            logger.debug("profile_load_skipped", error=str(e))
+        return ""
 
     def get_journal_context(
         self,

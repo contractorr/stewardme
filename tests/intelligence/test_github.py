@@ -1,7 +1,7 @@
 """Tests for GitHub trending scraper."""
 
+
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
 
 
 @pytest.mark.asyncio
@@ -67,7 +67,7 @@ class TestGitHubTrendingScraper:
 
     async def test_save_items(self, temp_dirs):
         """Test save_items method."""
-        from intelligence.scraper import IntelStorage, IntelItem
+        from intelligence.scraper import IntelItem, IntelStorage
         from intelligence.sources.github import GitHubTrendingScraper
 
         storage = IntelStorage(temp_dirs["intel_db"])

@@ -1,6 +1,5 @@
 """Tests for intelligence scraper and storage."""
 
-import pytest
 from datetime import datetime
 
 
@@ -17,7 +16,7 @@ class TestIntelStorage:
 
     def test_save_item(self, temp_dirs):
         """Test saving an intel item."""
-        from intelligence.scraper import IntelStorage, IntelItem
+        from intelligence.scraper import IntelItem, IntelStorage
 
         storage = IntelStorage(temp_dirs["intel_db"])
 
@@ -34,7 +33,7 @@ class TestIntelStorage:
 
     def test_save_duplicate_url_ignored(self, temp_dirs):
         """Test that duplicate URLs are ignored."""
-        from intelligence.scraper import IntelStorage, IntelItem
+        from intelligence.scraper import IntelItem, IntelStorage
 
         storage = IntelStorage(temp_dirs["intel_db"])
 
@@ -78,7 +77,7 @@ class TestIntelStorage:
 
     def test_tags_stored_correctly(self, temp_dirs):
         """Test that tags are stored and retrieved."""
-        from intelligence.scraper import IntelStorage, IntelItem
+        from intelligence.scraper import IntelItem, IntelStorage
 
         storage = IntelStorage(temp_dirs["intel_db"])
 

@@ -4,7 +4,6 @@ Strategy: mock get_components at each command module's import point to avoid
 touching real config/DB/API. Each test patches exactly what it needs.
 """
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -201,4 +200,4 @@ class TestInitCommand:
             mock_paths.return_value = {"journal_dir": tmp_path / "j", "chroma_dir": tmp_path / "c", "intel_db": tmp_path / "i.db"}
             result = runner.invoke(cli, ["init"])
         assert result.exit_code == 0
-        assert "Ready!" in result.output
+        assert "Minimal setup" in result.output

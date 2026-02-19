@@ -1,7 +1,8 @@
 """Tests for LLM factory and auto-detection."""
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from llm import LLMError, create_llm_provider
 from llm.factory import _auto_detect_provider

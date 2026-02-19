@@ -97,6 +97,7 @@ class AdvisorEngine:
             LLM-generated advice
         """
         journal_ctx, intel_ctx = self.rag.get_combined_context(question)
+        profile_ctx = self.rag.get_profile_context()
 
         # Get research context if available
         research_ctx = ""
@@ -107,7 +108,7 @@ class AdvisorEngine:
         prompt_template = PromptTemplates.get_prompt(advice_type, with_research=has_research)
 
         user_prompt = prompt_template.format(
-            journal_context=journal_ctx,
+            journal_context=profile_ctx + journal_ctx,
             intel_context=intel_ctx,
             research_context=research_ctx if has_research else "",
             question=question,
@@ -135,8 +136,9 @@ class AdvisorEngine:
                 for g in stale[:5]:
                     stale_goals_ctx += f"- {g['title']} (last check: {g.get('days_since_check', '?')} days ago)\n"
 
+        profile_ctx = self.rag.get_profile_context()
         prompt = PromptTemplates.WEEKLY_REVIEW.format(
-            journal_context=journal_ctx + stale_goals_ctx,
+            journal_context=profile_ctx + journal_ctx + stale_goals_ctx,
             intel_context=intel_ctx,
         )
 
@@ -155,8 +157,9 @@ class AdvisorEngine:
             max_chars=3000,
         )
 
+        profile_ctx = self.rag.get_profile_context()
         prompt = PromptTemplates.OPPORTUNITY_DETECTION.format(
-            journal_context=journal_ctx,
+            journal_context=profile_ctx + journal_ctx,
             intel_context=intel_ctx,
         )
 
@@ -174,12 +177,33 @@ class AdvisorEngine:
 
         return self._call_llm(PromptTemplates.SYSTEM, prompt)
 
+    # === Skill & Learning Methods ===
+
+    def analyze_skill_gaps(self) -> str:
+        """Analyze skill gaps between current state and aspirations."""
+        from .skills import SkillGapAnalyzer
+        analyzer = SkillGapAnalyzer(self.rag, self._call_llm)
+        return analyzer.analyze()
+
+    def generate_learning_path(
+        self,
+        skill: str,
+        lp_dir: str | Path = "~/coach/learning_paths",
+        current_level: int = 1,
+        target_level: int = 4,
+    ) -> Path:
+        """Generate a structured learning path for a skill."""
+        from .learning_paths import LearningPathGenerator, LearningPathStorage
+        storage = LearningPathStorage(lp_dir)
+        generator = LearningPathGenerator(self.rag, self._call_llm, storage)
+        return generator.generate(skill, current_level=current_level, target_level=target_level)
+
     # === Recommendation Methods ===
 
-    def _get_rec_storage(self, db_path: Path):
+    def _get_rec_storage(self, rec_path: Path):
         """Lazy init recommendation storage."""
         from .recommendation_storage import RecommendationStorage
-        return RecommendationStorage(db_path)
+        return RecommendationStorage(rec_path)
 
     def _get_rec_engine(self, db_path: Path, config: Optional[dict] = None):
         """Lazy init recommendation engine."""

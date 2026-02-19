@@ -46,24 +46,41 @@ def journal():
               help="Entry type")
 @click.option("--title", help="Entry title (defaults to date)")
 @click.option("--tags", help="Comma-separated tags")
+@click.option("--template", "template_name", help="Use template (daily, weekly, goal, project, learning)")
 @click.argument("content", required=False)
-def journal_add(entry_type: str, title: str, tags: str, content: str):
+def journal_add(entry_type: str, title: str, tags: str, template_name: str, content: str):
     """Add new journal entry. Opens editor if no content provided."""
     c = get_components()
 
     if not content:
-        content = click.edit("# Write your entry here\n\n")
+        initial = "# Write your entry here\n\n"
+        if template_name:
+            from journal.templates import get_template
+            custom = c["config"].get("journal", {}).get("templates", {})
+            tmpl = get_template(template_name, custom)
+            if tmpl:
+                entry_type = tmpl.get("type", entry_type)
+                initial = f"# {tmpl['name']}\n\n{tmpl['content']}"
+            else:
+                console.print(f"[yellow]Unknown template '{template_name}'[/]")
+                return
+        content = click.edit(initial)
         if not content:
             console.print("[yellow]No content provided, cancelled.[/]")
             return
 
     tag_list = [t.strip() for t in tags.split(",")] if tags else []
 
+    # Analyze sentiment
+    from journal.sentiment import analyze_sentiment
+    mood = analyze_sentiment(content)
+
     filepath = c["storage"].create(
         content=content,
         entry_type=entry_type,
         title=title,
         tags=tag_list,
+        metadata={"mood": mood},
     )
 
     # Add to embeddings
@@ -73,7 +90,8 @@ def journal_add(entry_type: str, title: str, tags: str, content: str):
         {"type": entry_type, "tags": ",".join(tag_list)},
     )
 
-    console.print(f"[green]Created:[/] {filepath.name}")
+    mood_indicator = {"positive": "[green]↑[/]", "negative": "[red]↓[/]", "mixed": "[yellow]~[/]"}.get(mood["label"], "[dim]-[/]")
+    console.print(f"[green]Created:[/] {filepath.name}  {mood_indicator} {mood['label']}")
 
 
 @journal.command("list")

@@ -1,7 +1,7 @@
 """Tests for journal storage operations."""
 
+
 import pytest
-from datetime import datetime
 
 
 class TestJournalStorage:

@@ -1,6 +1,5 @@
 """Tests for journal search operations."""
 
-import pytest
 
 
 class TestJournalSearch:
@@ -8,8 +7,8 @@ class TestJournalSearch:
 
     def test_init_with_storage(self, populated_journal, temp_dirs):
         """Test initialization with journal storage."""
-        from journal.search import JournalSearch
         from journal.embeddings import EmbeddingManager
+        from journal.search import JournalSearch
 
         embeddings = EmbeddingManager(temp_dirs["chroma_dir"])
         search = JournalSearch(
@@ -22,8 +21,8 @@ class TestJournalSearch:
 
     def test_semantic_search(self, populated_journal, temp_dirs):
         """Test semantic search returns relevant results."""
-        from journal.search import JournalSearch
         from journal.embeddings import EmbeddingManager
+        from journal.search import JournalSearch
 
         embeddings = EmbeddingManager(temp_dirs["chroma_dir"])
         search = JournalSearch(
@@ -67,8 +66,8 @@ class TestJournalSearch:
 
     def test_get_context_for_query(self, populated_journal, temp_dirs):
         """Test getting formatted context for RAG."""
-        from journal.search import JournalSearch
         from journal.embeddings import EmbeddingManager
+        from journal.search import JournalSearch
 
         embeddings = EmbeddingManager(temp_dirs["chroma_dir"])
         search = JournalSearch(
@@ -97,8 +96,8 @@ class TestJournalSearch:
 
     def test_sync_embeddings(self, populated_journal, temp_dirs):
         """Test syncing embeddings from storage."""
-        from journal.search import JournalSearch
         from journal.embeddings import EmbeddingManager
+        from journal.search import JournalSearch
 
         embeddings = EmbeddingManager(temp_dirs["chroma_dir"])
         search = JournalSearch(

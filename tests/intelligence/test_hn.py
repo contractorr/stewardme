@@ -1,8 +1,7 @@
 """Tests for Hacker News scraper."""
 
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
-from datetime import datetime
 
 
 @pytest.mark.asyncio

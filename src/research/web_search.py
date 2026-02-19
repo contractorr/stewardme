@@ -50,14 +50,14 @@ class WebSearchClient:
         Returns:
             List of SearchResult with extracted content
         """
-        if not self.api_key:
-            logger.warning("No TAVILY_API_KEY configured, returning empty results")
-            return []
-
         self._rate_limit()
 
-        if self.provider == "tavily":
+        if self.provider == "tavily" and self.api_key:
             return self._tavily_search(query, search_depth)
+        elif self.provider == "duckduckgo" or not self.api_key:
+            if not self.api_key:
+                logger.info("No TAVILY_API_KEY, falling back to DuckDuckGo")
+            return self._duckduckgo_search(query)
         else:
             logger.error("Unknown search provider: %s", self.provider)
             return []
@@ -106,6 +106,45 @@ class WebSearchClient:
             logger.error("Unexpected error in Tavily search: %s", e)
             return []
 
+    def _duckduckgo_search(self, query: str) -> list[SearchResult]:
+        """Search via DuckDuckGo HTML (no API key needed)."""
+        try:
+            response = self.client.get(
+                "https://html.duckduckgo.com/html/",
+                params={"q": query},
+                headers={"User-Agent": "Mozilla/5.0 (compatible; ai-coach/0.1)"},
+            )
+            response.raise_for_status()
+
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(response.text, "html.parser")
+
+            results = []
+            for item in soup.select(".result")[:self.max_results]:
+                title_el = item.select_one(".result__a")
+                snippet_el = item.select_one(".result__snippet")
+                if not title_el:
+                    continue
+
+                title = title_el.get_text(strip=True)
+                url = title_el.get("href", "")
+                content = snippet_el.get_text(strip=True) if snippet_el else ""
+
+                if title and url:
+                    results.append(SearchResult(
+                        title=title,
+                        url=url,
+                        content=content[:self.max_content_chars],
+                        score=0.5,
+                    ))
+
+            logger.info("DuckDuckGo search for '%s' returned %d results", query, len(results))
+            return results
+
+        except Exception as e:
+            logger.error("DuckDuckGo search failed: %s", e)
+            return []
+
     def close(self):
         """Close the HTTP client."""
         self.client.close()
@@ -135,13 +174,45 @@ class AsyncWebSearchClient:
 
     async def search(self, query: str, search_depth: str = "advanced") -> list[SearchResult]:
         """Async search for a topic."""
-        if not self.api_key:
-            logger.warning("No TAVILY_API_KEY configured")
-            return []
-
-        if self.provider == "tavily":
+        if self.provider == "tavily" and self.api_key:
             return await self._tavily_search(query, search_depth)
+        elif self.provider == "duckduckgo" or not self.api_key:
+            if not self.api_key:
+                logger.info("No TAVILY_API_KEY, falling back to DuckDuckGo")
+            return await self._duckduckgo_search(query)
         return []
+
+    async def _duckduckgo_search(self, query: str) -> list[SearchResult]:
+        """Async DuckDuckGo search (no API key needed)."""
+        try:
+            response = await self.client.get(
+                "https://html.duckduckgo.com/html/",
+                params={"q": query},
+                headers={"User-Agent": "Mozilla/5.0 (compatible; ai-coach/0.1)"},
+            )
+            response.raise_for_status()
+
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(response.text, "html.parser")
+
+            results = []
+            for item in soup.select(".result")[:self.max_results]:
+                title_el = item.select_one(".result__a")
+                snippet_el = item.select_one(".result__snippet")
+                if not title_el:
+                    continue
+                title = title_el.get_text(strip=True)
+                url = title_el.get("href", "")
+                content = snippet_el.get_text(strip=True) if snippet_el else ""
+                if title and url:
+                    results.append(SearchResult(
+                        title=title, url=url,
+                        content=content[:self.max_content_chars], score=0.5,
+                    ))
+            return results
+        except Exception as e:
+            logger.error("Async DuckDuckGo search failed: %s", e)
+            return []
 
     async def _tavily_search(self, query: str, search_depth: str) -> list[SearchResult]:
         """Execute async Tavily API search."""

@@ -1,8 +1,9 @@
 """Tests for arXiv scraper."""
 
 import pytest
+
 from intelligence.scraper import IntelStorage
-from intelligence.sources.arxiv import ArxivScraper, DEFAULT_CATEGORIES
+from intelligence.sources.arxiv import DEFAULT_CATEGORIES, ArxivScraper
 
 
 class TestArxivScraper:

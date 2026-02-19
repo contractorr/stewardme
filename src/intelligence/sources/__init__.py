@@ -1,11 +1,10 @@
 """Intelligence sources - async only."""
 
 from .arxiv import ArxivScraper
-from .crunchbase import CrunchbaseScraper
-from .devto import DevToScraper
+from .events import EventScraper
 from .github import GitHubTrendingScraper
+from .github_issues import GitHubIssuesScraper
 from .hn import HackerNewsScraper
-from .newsapi import NewsAPIScraper
 from .reddit import RedditScraper
 from .rss import RSSFeedScraper
 
@@ -15,7 +14,6 @@ __all__ = [
     "GitHubTrendingScraper",
     "ArxivScraper",
     "RedditScraper",
-    "DevToScraper",
-    "CrunchbaseScraper",
-    "NewsAPIScraper",
+    "EventScraper",
+    "GitHubIssuesScraper",
 ]

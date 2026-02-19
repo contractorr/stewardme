@@ -1,6 +1,5 @@
 """Tests for prompt templates."""
 
-import pytest
 
 
 class TestPromptTemplates:

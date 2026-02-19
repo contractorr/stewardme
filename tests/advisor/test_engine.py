@@ -1,6 +1,7 @@
 """Tests for AdvisorEngine."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
+
 import pytest
 
 from advisor.engine import AdvisorEngine, APIKeyMissingError, LLMError

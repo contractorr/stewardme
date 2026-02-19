@@ -12,12 +12,18 @@ from cli.commands import (
     ask,
     brief,
     daemon,
+    export,
     goals,
     init,
     intel_export,
     journal,
+    learn,
+    mood,
     opportunities,
+    profile,
+    projects,
     recommend,
+    reflect,
     research,
     review,
     scrape,
@@ -43,6 +49,10 @@ cli.add_command(journal)
 cli.add_command(daemon)
 cli.add_command(research)
 cli.add_command(recommend)
+cli.add_command(export)
+cli.add_command(profile)
+cli.add_command(learn)
+cli.add_command(projects)
 
 # Register standalone commands
 cli.add_command(ask)
@@ -55,6 +65,8 @@ cli.add_command(sources)
 cli.add_command(intel_export)
 cli.add_command(init)
 cli.add_command(trends)
+cli.add_command(mood)
+cli.add_command(reflect)
 
 
 if __name__ == "__main__":

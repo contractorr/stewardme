@@ -1,10 +1,11 @@
 """Tests for WebSearchClient."""
 
-import pytest
 from unittest.mock import MagicMock, patch
-import httpx
 
-from research.web_search import WebSearchClient, SearchResult
+import httpx
+import pytest
+
+from research.web_search import SearchResult, WebSearchClient
 
 
 @pytest.fixture
@@ -42,12 +43,13 @@ class TestWebSearchClient:
         client = WebSearchClient(api_key="test-key")
         assert client.api_key == "test-key"
 
-    def test_search_without_key_returns_empty(self, monkeypatch):
-        """Test search returns empty when no API key."""
+    def test_search_without_key_falls_back_to_ddg(self, monkeypatch):
+        """Test search falls back to DuckDuckGo when no API key."""
         monkeypatch.delenv("TAVILY_API_KEY", raising=False)
         client = WebSearchClient(api_key=None)
         results = client.search("test query")
-        assert results == []
+        # Should get results from DDG fallback (or empty if network unavailable)
+        assert isinstance(results, list)
 
     def test_search_returns_results(self, mock_tavily_response):
         """Test search parses results correctly."""

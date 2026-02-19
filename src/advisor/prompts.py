@@ -102,94 +102,25 @@ USER QUESTION: {question}
 
 Use the research context when relevant to provide more informed, thorough answers. Cite specific insights from research when applicable:"""
 
-    # === Recommendation Prompts ===
+    # === Recommendation Prompt ===
 
-    LEARNING_RECOMMENDATIONS = """Based on the user's goals, interests, and industry trends, recommend skills or courses to learn.
+    UNIFIED_RECOMMENDATIONS = """Generate {category} recommendations based on the user's profile and market conditions.
 
 USER PROFILE (from journal):
 {journal_context}
 
-INDUSTRY INTELLIGENCE:
+INTELLIGENCE:
 {intel_context}
 
-Generate {max_items} learning recommendations. For each:
+Generate {max_items} actionable {category} recommendations. For each:
 
-### [Skill/Course Name]
-**Description**: What to learn and why it matters
+### [Title]
+**Description**: What this is and why it matters
 **Why**: Why this is relevant to them specifically (cite journal entries)
-RELEVANCE: [0-10 score]
-URGENCY: [0-10 score based on market demand]
-FEASIBILITY: [0-10 score based on their current skills]
-IMPACT: [0-10 score for career/project impact]
-**Next Steps**: Specific resources or actions to start learning
+SCORE: [0-10 single score weighing relevance, feasibility, and impact]
+**Next Steps**: Concrete actions to take
 
-Focus on actionable, specific skills with clear ROI. Prioritize skills that bridge their current abilities with emerging opportunities."""
-
-    CAREER_CHANGE_ANALYSIS = """Analyze potential career moves based on the user's trajectory and market conditions.
-
-USER PROFILE (from journal):
-{journal_context}
-
-MARKET INTELLIGENCE:
-{intel_context}
-
-Generate {max_items} career recommendations. For each:
-
-### [Role/Direction]
-**Description**: What this career move entails
-**Why**: Why this fits their profile and goals
-RELEVANCE: [0-10 score]
-URGENCY: [0-10 score based on market timing]
-FEASIBILITY: [0-10 score based on skill gaps]
-IMPACT: [0-10 score for income/satisfaction]
-**Risk/Reward**: Honest assessment of tradeoffs
-**Bridge Actions**: Steps to make this transition
-
-Consider adjacent roles, industry pivots, and leadership paths. Be realistic about timelines and prerequisites."""
-
-    ENTREPRENEURIAL_OPPORTUNITIES = """Identify business opportunities based on problems mentioned in journal and market gaps.
-
-USER PROFILE (from journal):
-{journal_context}
-
-MARKET INTELLIGENCE:
-{intel_context}
-
-Generate {max_items} entrepreneurial recommendations. For each:
-
-### [Business Idea/Project]
-**Description**: What the opportunity is
-**Why**: Why this matches their skills and observed problems
-RELEVANCE: [0-10 score]
-URGENCY: [0-10 score based on market timing]
-FEASIBILITY: [0-10 score based on resources needed]
-IMPACT: [0-10 score for potential outcome]
-**Validation Steps**: How to test this idea quickly
-**First Week Actions**: Concrete steps to start
-
-Focus on problems they've complained about, skills they have, and market gaps from intel. Prefer ideas with low initial investment."""
-
-    INVESTMENT_OPPORTUNITIES = """Identify investment-relevant trends based on the user's expertise and market conditions.
-
-USER PROFILE (from journal):
-{journal_context}
-
-MARKET INTELLIGENCE:
-{intel_context}
-
-Generate {max_items} investment-related recommendations. For each:
-
-### [Investment Theme/Area]
-**Description**: What the opportunity is
-**Why**: Why their expertise gives them an edge here
-RELEVANCE: [0-10 score]
-URGENCY: [0-10 score based on market timing]
-FEASIBILITY: [0-10 score based on capital/access]
-IMPACT: [0-10 score for potential returns]
-**Options**: Different ways to participate (invest, build, consult, angel)
-**Due Diligence**: What to research before acting
-
-Focus on areas where their domain knowledge provides insight advantage. Not financial advice - highlight information edges from their expertise."""
+Be specific and actionable. Prioritize practical value over theoretical interest."""
 
     WEEKLY_ACTION_BRIEF = """Generate a weekly action brief with the top prioritized recommendations.
 
@@ -253,6 +184,122 @@ Create a step-by-step action plan with:
 - 2-3 measurable outcomes
 
 Be specific and practical. Each step should be completable in 1-2 hours."""
+
+    EVENT_RECOMMENDATIONS = """Based on the user's profile and upcoming events, recommend events to attend.
+
+USER PROFILE:
+{journal_context}
+
+UPCOMING EVENTS:
+{intel_context}
+
+For each recommended event:
+
+### [Event Name]
+**Date**: When it happens
+**Location**: Where (or Online)
+**Why Attend**: Why this is relevant to them specifically (cite profile/journal)
+**What to Get Out of It**: Networking, skills, speaking opportunity, etc.
+**Deadlines**: CFP deadline, early-bird registration, etc.
+SCORE: [0-10]
+**Action**: Specific next step (register, submit CFP, etc.)
+
+Prioritize time-sensitive items first (CFP deadlines closing soon, early-bird pricing ending)."""
+
+    SKILL_GAP_ANALYSIS = """Analyze the gap between the user's current skills and their career aspirations.
+
+USER PROFILE:
+{profile_context}
+
+JOURNAL CONTEXT (goals, reflections):
+{journal_context}
+
+Provide:
+1. **Current Strengths** — What they're already good at
+2. **Critical Gaps** — Skills they need for their aspirations but lack or are weak in
+3. **Recommended Priority** — Which gaps to close first and why
+4. **Industry Context** — How these gaps relate to market demand
+
+For each gap:
+- Skill name
+- Current level (from profile, 1-5)
+- Target level needed
+- Importance (high/medium/low)
+- Why it matters for their aspirations"""
+
+    LEARNING_PATH_GENERATION = """Generate a structured learning path for the specified skill.
+
+USER PROFILE:
+{profile_context}
+
+TARGET SKILL: {skill_name}
+CURRENT LEVEL: {current_level}
+TARGET LEVEL: {target_level}
+LEARNING STYLE: {learning_style}
+WEEKLY HOURS AVAILABLE: {weekly_hours}
+
+Create a multi-week curriculum:
+
+# Learning Path: {skill_name}
+
+## Overview
+Brief description of the path and expected outcomes.
+
+## Modules
+
+For each module (~1 week):
+### Module N: [Title]
+**Focus**: What you'll learn
+**Resources**:
+- Specific courses, docs, tutorials (include URLs where possible)
+- Match to learning style ({learning_style})
+**Project**: Small hands-on exercise
+**Milestone**: How to know you've completed this module
+
+## Final Project
+A capstone project that demonstrates mastery.
+
+## Success Criteria
+How to know the learning path is complete.
+
+Keep resources practical and specific. Prefer free resources when available."""
+
+    PROJECT_RECOMMENDATIONS = """Based on the user's skills and interests, recommend open-source projects to contribute to.
+
+USER PROFILE:
+{journal_context}
+
+AVAILABLE ISSUES/PROJECTS:
+{intel_context}
+
+For each recommendation:
+
+### [Project/Issue Title]
+**Repository**: Name and URL
+**Why**: Why this matches their skills and interests
+**Difficulty**: Easy/Medium/Hard
+**Learning Potential**: What they'll learn from contributing
+**First Step**: How to get started
+SCORE: [0-10]"""
+
+    SIDE_PROJECT_IDEAS = """Based on the user's journal entries (pain points, interests, ideas), suggest side-project ideas.
+
+USER PROFILE:
+{profile_context}
+
+JOURNAL CONTEXT (frustrations, ideas, interests):
+{journal_context}
+
+Generate 3-5 side-project ideas. For each:
+
+### [Project Idea Name]
+**Problem**: What pain point this solves (cite journal entries)
+**Description**: What the project does
+**Tech Stack**: Suggested technologies (aligned with user's skills)
+**Scope**: Weekend project / 1-month / 3-month
+**Learning Value**: What new skills they'd develop
+**Market Potential**: Could this become a product? (honest assessment)
+SCORE: [0-10]"""
 
     @classmethod
     def get_prompt(cls, prompt_type: str, with_research: bool = False) -> str:

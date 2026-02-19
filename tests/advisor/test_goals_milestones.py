@@ -1,6 +1,5 @@
 """Tests for goal milestone tracking."""
 
-import pytest
 import frontmatter
 
 from advisor.goals import GoalTracker, get_goal_defaults

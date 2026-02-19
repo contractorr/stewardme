@@ -8,24 +8,81 @@ paths:
   chroma_dir: ~/coach/chroma
   intel_db: ~/coach/intel.db
 
+# --- Free sources (no API keys needed) ---
 sources:
   custom_blogs:
     - https://paulgraham.com/articles.html
     - https://www.joelonsoftware.com/
-    # add your blogs here
   rss_feeds:
     - https://news.ycombinator.com/rss
     - https://feeds.arstechnica.com/arstechnica/technology-lab
   github_trending:
     enabled: true
     languages: [python, rust, go]
-    timeframe: daily  # daily, weekly, monthly
+    timeframe: daily
+  reddit:
+    subreddits: [programming, MachineLearning]
+    limit: 25
   enabled:
-    - custom_blogs
-    - rss_feeds
     - hn_top
-    - github_trending
+    - rss_feeds
+    # - custom_blogs     # uncomment to enable
+    # - github_trending  # uncomment to enable
+    # - reddit           # uncomment to enable
+    # - arxiv            # uncomment to enable
 
 schedule:
   weekly_review: "sunday 9am"
   intelligence_gather: "daily 6am"
+
+# --- Optional: journal templates ---
+# journal:
+#   templates:
+#     standup:
+#       name: "Standup"
+#       type: "daily"
+#       content: "## Yesterday\n\n## Today\n\n## Blockers\n"
+
+# --- Optional: email digests ---
+# email:
+#   smtp_host: smtp.gmail.com
+#   smtp_port: 587
+#   username: you@gmail.com
+#   password: app-password
+#   to: you@gmail.com
+
+# --- Optional: paid features ---
+# Uncomment and set TAVILY_API_KEY for deep research
+# research:
+#   search_provider: tavily  # or duckduckgo (free, no key needed)
+
+recommendations:
+  enabled: false  # enable after 5+ journal entries
+  delivery:
+    methods: [journal]  # add "email" if email configured
+
+# --- Profile ---
+profile:
+  path: ~/coach/profile.yaml
+  interview_refresh_days: 90
+
+# --- Events ---
+events:
+  enabled: true
+  sources: [confs_tech, rss_events]
+  location_filter: true  # use profile.location
+  rss_feeds:
+    - https://confs.tech/rss
+  # eventbrite_token: ${EVENTBRITE_TOKEN}  # optional
+
+# --- Learning Paths ---
+learning_paths:
+  dir: ~/coach/learning_paths
+  default_weekly_hours: 5
+
+# --- Project Discovery ---
+projects:
+  github_issues:
+    enabled: true
+    # token: ${GITHUB_TOKEN}  # optional, increases rate limit
+    labels: [good-first-issue, help-wanted]

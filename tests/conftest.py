@@ -1,10 +1,9 @@
 """Shared test fixtures for AI Coach."""
 
-import os
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -177,7 +176,7 @@ def populated_journal(temp_dirs, sample_journal_entries):
 @pytest.fixture
 def populated_intel(temp_dirs, sample_intel_items):
     """Intel storage with pre-populated items."""
-    from intelligence.scraper import IntelStorage, IntelItem
+    from intelligence.scraper import IntelItem, IntelStorage
 
     storage = IntelStorage(temp_dirs["intel_db"])
 

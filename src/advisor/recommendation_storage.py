@@ -1,11 +1,14 @@
-"""SQLite persistence for recommendations."""
+"""Markdown-based persistence for recommendations."""
 
 import json
-import sqlite3
-from dataclasses import asdict, dataclass
-from datetime import datetime
+import re
+import uuid
+from dataclasses import dataclass
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
+
+import frontmatter
 
 from shared_types import RecommendationStatus
 
@@ -13,8 +16,8 @@ from shared_types import RecommendationStatus
 @dataclass
 class Recommendation:
     """A single recommendation."""
-    id: Optional[int] = None
-    category: str = ""  # learning, career, entrepreneurial, investment
+    id: Optional[str] = None
+    category: str = ""
     title: str = ""
     description: str = ""
     rationale: str = ""
@@ -24,140 +27,104 @@ class Recommendation:
     metadata: Optional[dict] = None
     embedding_hash: Optional[str] = None
 
-    def to_dict(self) -> dict:
-        d = asdict(self)
-        d["metadata"] = json.dumps(d["metadata"]) if d["metadata"] else None
-        return d
+
+def _slug(text: str) -> str:
+    """Generate filename-safe slug."""
+    s = re.sub(r"[^\w\s-]", "", text.lower().strip())
+    return re.sub(r"[\s_]+", "-", s)[:40]
 
 
 class RecommendationStorage:
-    """SQLite storage for recommendations with deduplication."""
+    """Markdown file storage for recommendations."""
 
-    def __init__(self, db_path: Path, dedup_window_days: int = 30):
-        self.db_path = Path(db_path)
+    def __init__(self, path: Path, dedup_window_days: int = 30):
+        self.dir = Path(path)
+        self.dir.mkdir(parents=True, exist_ok=True)
         self.dedup_window_days = dedup_window_days
-        self._init_db()
 
-    def _init_db(self):
-        """Create recommendations table if not exists."""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS recommendations (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    category TEXT NOT NULL,
-                    title TEXT NOT NULL,
-                    description TEXT,
-                    rationale TEXT,
-                    score REAL DEFAULT 0.0,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    status TEXT DEFAULT 'suggested',
-                    metadata JSON,
-                    embedding_hash TEXT
-                )
-            """)
-            conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_rec_category ON recommendations(category)
-            """)
-            conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_rec_status ON recommendations(status)
-            """)
-            conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_rec_hash ON recommendations(embedding_hash)
-            """)
+    def save(self, rec: Recommendation) -> str:
+        """Save recommendation as markdown file. Returns id."""
+        rec_id = rec.id or uuid.uuid4().hex[:8]
+        now = rec.created_at or datetime.now().isoformat()
+        date_prefix = now[:10]
 
-    def save(self, rec: Recommendation) -> int:
-        """Save recommendation, return id."""
-        with sqlite3.connect(self.db_path) as conn:
-            cur = conn.execute("""
-                INSERT INTO recommendations
-                (category, title, description, rationale, score, status, metadata, embedding_hash)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                rec.category,
-                rec.title,
-                rec.description,
-                rec.rationale,
-                rec.score,
-                rec.status,
-                json.dumps(rec.metadata) if rec.metadata else None,
-                rec.embedding_hash,
-            ))
-            return cur.lastrowid
+        filename = f"{date_prefix}_{rec.category}_{_slug(rec.title)}_{rec_id}.md"
+        filepath = self.dir / filename
 
-    def get(self, rec_id: int) -> Optional[Recommendation]:
+        post = frontmatter.Post("")
+        post.metadata = {
+            "id": rec_id,
+            "category": str(rec.category),
+            "title": str(rec.title),
+            "score": float(rec.score),
+            "status": str(rec.status),
+            "created_at": str(now),
+            "embedding_hash": str(rec.embedding_hash) if rec.embedding_hash else None,
+        }
+        if rec.metadata:
+            post.metadata["metadata"] = rec.metadata
+
+        body_parts = []
+        if rec.description:
+            body_parts.append(rec.description)
+        if rec.rationale:
+            body_parts.append(f"\n## Rationale\n\n{rec.rationale}")
+        if rec.metadata and rec.metadata.get("action_plan"):
+            body_parts.append(f"\n## Action Plan\n\n{rec.metadata['action_plan']}")
+        post.content = "\n".join(body_parts)
+
+        filepath.write_text(frontmatter.dumps(post))
+        return rec_id
+
+    def get(self, rec_id) -> Optional[Recommendation]:
         """Get recommendation by id."""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            row = conn.execute(
-                "SELECT * FROM recommendations WHERE id = ?", (rec_id,)
-            ).fetchone()
-            if row:
-                return self._row_to_rec(row)
+        rec_id = str(rec_id)
+        for f in self.dir.glob("*.md"):
+            rec = self._read_file(f)
+            if rec and str(rec.id) == rec_id:
+                return rec
         return None
 
-    def update_status(self, rec_id: int, status: str) -> bool:
+    def update_status(self, rec_id, status: str) -> bool:
         """Update recommendation status."""
-        with sqlite3.connect(self.db_path) as conn:
-            cur = conn.execute(
-                "UPDATE recommendations SET status = ? WHERE id = ?",
-                (status, rec_id)
-            )
-            return cur.rowcount > 0
+        rec_id = str(rec_id)
+        for f in self.dir.glob("*.md"):
+            post = frontmatter.load(f)
+            if str(post.metadata.get("id")) == rec_id:
+                post.metadata["status"] = status
+                f.write_text(frontmatter.dumps(post))
+                return True
+        return False
 
     def list_by_category(
-        self,
-        category: str,
-        status: Optional[str] = None,
-        limit: int = 10,
+        self, category: str, status: Optional[str] = None, limit: int = 10
     ) -> list[Recommendation]:
         """List recommendations by category."""
-        query = "SELECT * FROM recommendations WHERE category = ?"
-        params = [category]
+        recs = [r for r in self._all() if r.category == category]
         if status:
-            query += " AND status = ?"
-            params.append(status)
-        query += " ORDER BY score DESC, created_at DESC LIMIT ?"
-        params.append(limit)
-
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            rows = conn.execute(query, params).fetchall()
-            return [self._row_to_rec(r) for r in rows]
+            recs = [r for r in recs if r.status == status]
+        recs.sort(key=lambda r: r.score, reverse=True)
+        return recs[:limit]
 
     def list_recent(
-        self,
-        days: int = 7,
-        status: Optional[str] = None,
-        limit: int = 20,
+        self, days: int = 7, status: Optional[str] = None, limit: int = 20
     ) -> list[Recommendation]:
         """List recent recommendations."""
-        query = """
-            SELECT * FROM recommendations
-            WHERE created_at >= datetime('now', ?)
-        """
-        params = [f"-{days} days"]
+        cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+        recs = [r for r in self._all() if (r.created_at or "") >= cutoff]
         if status:
-            query += " AND status = ?"
-            params.append(status)
-        query += " ORDER BY score DESC, created_at DESC LIMIT ?"
-        params.append(limit)
-
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            rows = conn.execute(query, params).fetchall()
-            return [self._row_to_rec(r) for r in rows]
+            recs = [r for r in recs if r.status == status]
+        recs.sort(key=lambda r: r.score, reverse=True)
+        return recs[:limit]
 
     def hash_exists(self, embedding_hash: str, days: int | None = None) -> bool:
         """Check if similar recommendation exists recently."""
         days = days if days is not None else self.dedup_window_days
-        with sqlite3.connect(self.db_path) as conn:
-            row = conn.execute("""
-                SELECT 1 FROM recommendations
-                WHERE embedding_hash = ?
-                AND created_at >= datetime('now', ?)
-                LIMIT 1
-            """, (embedding_hash, f"-{days} days")).fetchone()
-            return row is not None
+        cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+        for r in self._all():
+            if r.embedding_hash == embedding_hash and (r.created_at or "") >= cutoff:
+                return True
+        return False
 
     def get_top_by_score(
         self,
@@ -166,108 +133,40 @@ class RecommendationStorage:
         exclude_status: Optional[list[str]] = None,
     ) -> list[Recommendation]:
         """Get top recommendations by score."""
-        query = "SELECT * FROM recommendations WHERE score >= ?"
-        params = [min_score]
-        if exclude_status:
-            placeholders = ",".join("?" * len(exclude_status))
-            query += f" AND status NOT IN ({placeholders})"
-            params.extend(exclude_status)
-        query += " ORDER BY score DESC LIMIT ?"
-        params.append(limit)
+        exclude = set(exclude_status or [])
+        recs = [r for r in self._all() if r.score >= min_score and r.status not in exclude]
+        recs.sort(key=lambda r: r.score, reverse=True)
+        return recs[:limit]
 
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            rows = conn.execute(query, params).fetchall()
-            return [self._row_to_rec(r) for r in rows]
+    def add_feedback(self, rec_id, rating: int, comment: Optional[str] = None) -> bool:
+        """Add user feedback to recommendation."""
+        rec_id = str(rec_id)
+        for f in self.dir.glob("*.md"):
+            post = frontmatter.load(f)
+            if str(post.metadata.get("id")) == rec_id:
+                meta = post.metadata.get("metadata") or {}
+                meta["user_rating"] = rating
+                meta["feedback_at"] = datetime.now().isoformat()
+                if comment:
+                    meta["feedback_comment"] = comment
+                post.metadata["metadata"] = meta
+                f.write_text(frontmatter.dumps(post))
+                return True
+        return False
 
-    def _row_to_rec(self, row: sqlite3.Row) -> Recommendation:
-        """Convert DB row to Recommendation."""
-        return Recommendation(
-            id=row["id"],
-            category=row["category"],
-            title=row["title"],
-            description=row["description"],
-            rationale=row["rationale"],
-            score=row["score"],
-            created_at=row["created_at"],
-            status=row["status"],
-            metadata=json.loads(row["metadata"]) if row["metadata"] else None,
-            embedding_hash=row["embedding_hash"],
-        )
+    def get_feedback_stats(self, category: Optional[str] = None, days: int = 90) -> dict:
+        """Get feedback statistics."""
+        cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+        ratings_by_cat: dict[str, list] = {}
 
-    def add_feedback(
-        self,
-        rec_id: int,
-        rating: int,
-        comment: Optional[str] = None,
-    ) -> bool:
-        """Add user feedback to recommendation.
-
-        Args:
-            rec_id: Recommendation ID
-            rating: 1-5 rating
-            comment: Optional feedback comment
-
-        Returns:
-            True if updated
-        """
-        rec = self.get(rec_id)
-        if not rec:
-            return False
-
-        metadata = rec.metadata or {}
-        metadata["user_rating"] = rating
-        metadata["feedback_at"] = datetime.now().isoformat()
-        if comment:
-            metadata["feedback_comment"] = comment
-
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute(
-                "UPDATE recommendations SET metadata = ? WHERE id = ?",
-                (json.dumps(metadata), rec_id)
-            )
-        return True
-
-    def get_feedback_stats(
-        self,
-        category: Optional[str] = None,
-        days: int = 90,
-    ) -> dict:
-        """Get feedback statistics for scoring adjustment.
-
-        Args:
-            category: Filter by category
-            days: Lookback period
-
-        Returns:
-            Dict with avg_rating, count, by_category
-        """
-        query = """
-            SELECT category, metadata FROM recommendations
-            WHERE metadata IS NOT NULL
-            AND created_at >= datetime('now', ?)
-        """
-        params = [f"-{days} days"]
-        if category:
-            query += " AND category = ?"
-            params.append(category)
-
-        with sqlite3.connect(self.db_path) as conn:
-            rows = conn.execute(query, params).fetchall()
-
-        ratings_by_cat = {}
-        for row in rows:
-            cat = row[0]
-            try:
-                meta = json.loads(row[1])
-                if "user_rating" in meta:
-                    if cat not in ratings_by_cat:
-                        ratings_by_cat[cat] = []
-                    ratings_by_cat[cat].append(meta["user_rating"])
-            except (json.JSONDecodeError, TypeError):
+        for r in self._all():
+            if (r.created_at or "") < cutoff:
                 continue
+            if category and r.category != category:
+                continue
+            if r.metadata and "user_rating" in r.metadata:
+                ratings_by_cat.setdefault(r.category, []).append(r.metadata["user_rating"])
 
-        # Calculate stats
         all_ratings = []
         by_category = {}
         for cat, ratings in ratings_by_cat.items():
@@ -280,3 +179,50 @@ class RecommendationStorage:
             "count": len(all_ratings),
             "by_category": by_category,
         }
+
+    def _all(self) -> list[Recommendation]:
+        """Read all recommendations from disk."""
+        recs = []
+        for f in sorted(self.dir.glob("*.md"), reverse=True):
+            rec = self._read_file(f)
+            if rec:
+                recs.append(rec)
+        return recs
+
+    def _read_file(self, path: Path) -> Optional[Recommendation]:
+        """Parse a recommendation markdown file."""
+        try:
+            post = frontmatter.load(path)
+            m = post.metadata
+
+            # Extract description and rationale from body
+            body = post.content
+            description = body.split("\n## Rationale")[0].strip() if body else ""
+            rationale = ""
+            if "## Rationale" in body:
+                rationale = body.split("## Rationale")[-1].split("## Action Plan")[0].strip()
+
+            meta = m.get("metadata")
+            if isinstance(meta, str):
+                meta = json.loads(meta)
+
+            # Reconstruct action_plan into metadata
+            if "## Action Plan" in body:
+                action_plan = body.split("## Action Plan")[-1].strip()
+                meta = meta or {}
+                meta["action_plan"] = action_plan
+
+            return Recommendation(
+                id=str(m.get("id", "")),
+                category=m.get("category", ""),
+                title=m.get("title", ""),
+                description=description,
+                rationale=rationale,
+                score=float(m.get("score", 0)),
+                created_at=m.get("created_at"),
+                status=m.get("status", "suggested"),
+                metadata=meta,
+                embedding_hash=m.get("embedding_hash"),
+            )
+        except Exception:
+            return None

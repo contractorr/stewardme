@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import re
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -19,30 +18,15 @@ from observability import metrics
 from .scraper import IntelStorage
 from .sources import (
     ArxivScraper,
-    CrunchbaseScraper,
-    DevToScraper,
+    EventScraper,
+    GitHubIssuesScraper,
     GitHubTrendingScraper,
     HackerNewsScraper,
-    NewsAPIScraper,
     RedditScraper,
     RSSFeedScraper,
 )
 
 logger = structlog.get_logger().bind(source="scheduler")
-
-# Pattern matching unexpanded env vars like $VAR, ${VAR}
-_UNEXPANDED_VAR_RE = re.compile(r"^\$\{?[\w]+\}?$")
-
-
-def _is_valid_api_key(key: Optional[str]) -> bool:
-    """Validate API key is not empty, not an unexpanded env var, and has reasonable length."""
-    if not key or not key.strip():
-        return False
-    if _UNEXPANDED_VAR_RE.match(key):
-        return False
-    if len(key.strip()) < 10:
-        return False
-    return True
 
 
 def _parse_cron(expr: str, defaults: Optional[dict] = None) -> CronTrigger:
@@ -150,7 +134,7 @@ class RecommendationRunner:
 
             advisor = AdvisorEngine(rag)
 
-            rec_db = self.storage.db_path.parent / "recommendations.db"
+            rec_db = self.storage.db_path.parent / "recommendations"
 
             max_per_cat = rec_config.get("scoring", {}).get("max_per_category", 3)
             recs = advisor.generate_recommendations(
@@ -158,13 +142,26 @@ class RecommendationRunner:
             )
 
             delivery = rec_config.get("delivery", {})
+            brief_text = None
             if "journal" in delivery.get("methods", ["journal"]):
-                advisor.generate_action_brief(
+                brief_text = advisor.generate_action_brief(
                     rec_db,
                     journal_storage=self.journal_storage,
                     save=True,
                 )
                 logger.info("Action brief saved to journal")
+
+            # Send email digest if configured
+            if brief_text and "email" in delivery.get("methods", []):
+                try:
+                    from cli.email_digest import send_digest
+                    send_digest(
+                        subject="AI Coach - Weekly Action Brief",
+                        body_markdown=brief_text,
+                        config=self.config,
+                    )
+                except Exception as e:
+                    logger.warning("Email digest failed", error=str(e))
 
             return {"recommendations": len(recs), "brief_saved": True}
 
@@ -246,42 +243,49 @@ class IntelScheduler:
                 timeframe=reddit_config.get("timeframe", "day"),
             ))
 
-        # Dev.to
-        devto_config = self.config.get("devto", {})
-        if "devto" in enabled or devto_config.get("enabled", False):
-            self._scrapers.append(DevToScraper(
+        # Events (confs.tech + RSS)
+        events_config = self.full_config.get("events", {})
+        if events_config.get("enabled", False):
+            # Load profile for location filter
+            location = ""
+            if events_config.get("location_filter", False):
+                try:
+                    from profile.storage import ProfileStorage
+                    profile_path = self.full_config.get("profile", {}).get("path", "~/coach/profile.yaml")
+                    ps = ProfileStorage(profile_path)
+                    p = ps.load()
+                    if p:
+                        location = p.location
+                except Exception:
+                    pass
+            self._scrapers.append(EventScraper(
                 self.storage,
-                per_page=devto_config.get("per_page", 30),
-                top_period=devto_config.get("top_period", "week"),
+                topics=events_config.get("topics"),
+                location_filter=location,
+                rss_feeds=events_config.get("rss_feeds", []),
             ))
 
-        # Crunchbase (paid)
-        cb_config = self.config.get("crunchbase", {})
-        if "crunchbase" in enabled or cb_config.get("enabled", False):
-            api_key = cb_config.get("api_key")
-            if _is_valid_api_key(api_key):
-                self._scrapers.append(CrunchbaseScraper(
-                    self.storage,
-                    api_key=api_key,
-                    limit=cb_config.get("limit", 30),
-                ))
-            else:
-                logger.warning("Crunchbase enabled but API key invalid/missing")
+        # GitHub Issues (good-first-issue / help-wanted)
+        gh_issues_config = self.full_config.get("projects", {}).get("github_issues", {})
+        if gh_issues_config.get("enabled", False):
+            langs = gh_issues_config.get("languages")
+            if not langs:
+                try:
+                    from profile.storage import ProfileStorage
+                    profile_path = self.full_config.get("profile", {}).get("path", "~/coach/profile.yaml")
+                    ps = ProfileStorage(profile_path)
+                    p = ps.load()
+                    if p:
+                        langs = p.languages_frameworks[:5]
+                except Exception:
+                    pass
+            self._scrapers.append(GitHubIssuesScraper(
+                self.storage,
+                languages=langs or ["python"],
+                labels=gh_issues_config.get("labels", ["good-first-issue", "help-wanted"]),
+                token=gh_issues_config.get("token"),
+            ))
 
-        # NewsAPI (paid)
-        news_config = self.config.get("newsapi", {})
-        if "newsapi" in enabled or news_config.get("enabled", False):
-            api_key = news_config.get("api_key")
-            if _is_valid_api_key(api_key):
-                self._scrapers.append(NewsAPIScraper(
-                    self.storage,
-                    api_key=api_key,
-                    queries=news_config.get("queries"),
-                    page_size=news_config.get("page_size", 20),
-                    days_back=news_config.get("days_back", 7),
-                ))
-            else:
-                logger.warning("NewsAPI enabled but API key invalid/missing")
 
     async def _run_async(self) -> dict:
         """Run all scrapers concurrently."""

@@ -1,8 +1,9 @@
 """Tests for Reddit scraper."""
 
 import pytest
+
 from intelligence.scraper import IntelStorage
-from intelligence.sources.reddit import RedditScraper, DEFAULT_SUBREDDITS
+from intelligence.sources.reddit import DEFAULT_SUBREDDITS, RedditScraper
 
 
 class TestRedditScraper:

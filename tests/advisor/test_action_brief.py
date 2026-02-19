@@ -1,7 +1,6 @@
 """Tests for action brief generator."""
 
 from datetime import datetime
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -38,6 +37,7 @@ def mock_rag():
     rag = MagicMock()
     rag.get_recent_entries.return_value = "recent journal entries"
     rag.get_intel_context.return_value = "intel trends"
+    rag.get_profile_context.return_value = ""
     return rag
 
 

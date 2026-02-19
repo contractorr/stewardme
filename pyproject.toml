@@ -22,6 +22,7 @@ dependencies = [
     "tenacity>=8.2.0",
     "structlog>=23.2.0",
     "scikit-learn>=1.3.0",
+    "mcp[cli]>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -39,6 +40,7 @@ dev = [
 
 [project.scripts]
 coach = "cli.main:cli"
+ai-coach-mcp = "coach_mcp.server:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

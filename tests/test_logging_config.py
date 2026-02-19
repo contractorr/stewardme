@@ -1,6 +1,5 @@
 """Tests for structured logging configuration."""
 
-import json
 import logging
 
 import structlog

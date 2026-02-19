@@ -1,14 +1,14 @@
 """Tests for DeepResearchAgent."""
 
-import pytest
 from unittest.mock import MagicMock, patch
-from pathlib import Path
 
+import pytest
+
+from intelligence.scraper import IntelStorage
+from journal.embeddings import EmbeddingManager
+from journal.storage import JournalStorage
 from research.agent import DeepResearchAgent
 from research.web_search import SearchResult
-from journal.storage import JournalStorage
-from journal.embeddings import EmbeddingManager
-from intelligence.scraper import IntelStorage
 
 
 @pytest.fixture(autouse=True)

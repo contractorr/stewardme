@@ -68,8 +68,9 @@ class TestConfigValidation:
 
     def test_path_expansion(self):
         """Test ~ expansion in paths."""
-        from cli.config_models import CoachConfig
         import os
+
+        from cli.config_models import CoachConfig
 
         config = CoachConfig.from_dict({
             "paths": {"journal_dir": "~/coach/journal"},
@@ -139,9 +140,9 @@ class TestJournalFlow:
 
     def test_create_embed_search(self, temp_dirs):
         """Test full journal flow."""
-        from journal.storage import JournalStorage
         from journal.embeddings import EmbeddingManager
         from journal.search import JournalSearch
+        from journal.storage import JournalStorage
 
         # Create storage and add entries
         storage = JournalStorage(temp_dirs["journal_dir"])
@@ -178,9 +179,9 @@ class TestJournalFlow:
 
     def test_update_reflects_in_search(self, temp_dirs):
         """Test that updates are reflected in search."""
-        from journal.storage import JournalStorage
         from journal.embeddings import EmbeddingManager
         from journal.search import JournalSearch
+        from journal.storage import JournalStorage
 
         storage = JournalStorage(temp_dirs["journal_dir"])
         embeddings = EmbeddingManager(temp_dirs["chroma_dir"])
@@ -207,10 +208,11 @@ class TestIntelFlow:
 
     def test_scrape_embed_query(self, temp_dirs):
         """Test intelligence flow with mocked data."""
-        from intelligence.scraper import IntelStorage, IntelItem
-        from intelligence.embeddings import IntelEmbeddingManager
-        from intelligence.search import IntelSearch
         from datetime import datetime
+
+        from intelligence.embeddings import IntelEmbeddingManager
+        from intelligence.scraper import IntelItem, IntelStorage
+        from intelligence.search import IntelSearch
 
         # Create storage and add items
         storage = IntelStorage(temp_dirs["intel_db"])
@@ -251,14 +253,15 @@ class TestIntelFlow:
 
     def test_rag_with_intel_search(self, temp_dirs):
         """Test RAG retriever with semantic intel search."""
-        from journal.storage import JournalStorage
+        from datetime import datetime
+
+        from advisor.rag import RAGRetriever
+        from intelligence.embeddings import IntelEmbeddingManager
+        from intelligence.scraper import IntelItem, IntelStorage
+        from intelligence.search import IntelSearch
         from journal.embeddings import EmbeddingManager
         from journal.search import JournalSearch
-        from intelligence.scraper import IntelStorage, IntelItem
-        from intelligence.embeddings import IntelEmbeddingManager
-        from intelligence.search import IntelSearch
-        from advisor.rag import RAGRetriever
-        from datetime import datetime
+        from journal.storage import JournalStorage
 
         # Set up journal with embeddings
         journal_storage = JournalStorage(temp_dirs["journal_dir"])
@@ -302,9 +305,10 @@ class TestSchedulerFlow:
 
     def test_scheduler_run_now(self, temp_dirs, monkeypatch):
         """Test running scheduler immediately with mocked HTTP."""
-        from intelligence.scraper import IntelStorage
-        from intelligence.scheduler import IntelScheduler
         from unittest.mock import MagicMock
+
+        from intelligence.scheduler import IntelScheduler
+        from intelligence.scraper import IntelStorage
 
         # Mock all HTTP requests
         mock_client = MagicMock()
@@ -332,9 +336,10 @@ class TestSchedulerFlow:
 
     def test_scheduler_with_multiple_sources(self, temp_dirs, monkeypatch):
         """Test scheduler with multiple sources configured."""
-        from intelligence.scraper import IntelStorage
-        from intelligence.scheduler import IntelScheduler
         from unittest.mock import MagicMock
+
+        from intelligence.scheduler import IntelScheduler
+        from intelligence.scraper import IntelStorage
 
         # Mock HTTP client
         mock_client = MagicMock()
@@ -367,8 +372,8 @@ class TestGoalsFlow:
 
     def test_goal_create_and_checkin(self, temp_dirs):
         """Test creating goal and adding check-ins."""
-        from journal.storage import JournalStorage
         from advisor.goals import GoalTracker, get_goal_defaults
+        from journal.storage import JournalStorage
 
         storage = JournalStorage(temp_dirs["journal_dir"])
         tracker = GoalTracker(storage)
@@ -391,8 +396,8 @@ class TestGoalsFlow:
 
     def test_goal_staleness_detection(self, temp_dirs):
         """Test that stale goals are detected."""
-        from journal.storage import JournalStorage
         from advisor.goals import GoalTracker, get_goal_defaults
+        from journal.storage import JournalStorage
 
         storage = JournalStorage(temp_dirs["journal_dir"])
         tracker = GoalTracker(storage)
@@ -415,7 +420,7 @@ class TestRecommendationsFlow:
 
     def test_recommendation_storage(self, temp_dirs):
         """Test storing and retrieving recommendations."""
-        from advisor.recommendation_storage import RecommendationStorage, Recommendation
+        from advisor.recommendation_storage import Recommendation, RecommendationStorage
 
         storage = RecommendationStorage(temp_dirs["intel_db"])
 
@@ -438,8 +443,9 @@ class TestRecommendationsFlow:
 
     def test_recommendation_deduplication(self, temp_dirs):
         """Test that duplicate recommendations are detected via hash."""
-        from advisor.recommendation_storage import RecommendationStorage, Recommendation
         import hashlib
+
+        from advisor.recommendation_storage import Recommendation, RecommendationStorage
 
         storage = RecommendationStorage(temp_dirs["intel_db"])
 
@@ -473,11 +479,11 @@ class TestCLIIntegration:
         # Set environment
         monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
 
-        from journal.storage import JournalStorage
+        from intelligence.scheduler import IntelScheduler
+        from intelligence.scraper import IntelStorage
         from journal.embeddings import EmbeddingManager
         from journal.search import JournalSearch
-        from intelligence.scraper import IntelStorage
-        from intelligence.scheduler import IntelScheduler
+        from journal.storage import JournalStorage
 
         # Initialize all components like CLI would
         journal_storage = JournalStorage(temp_dirs["journal_dir"])
@@ -495,14 +501,15 @@ class TestCLIIntegration:
         """Test full advisor flow: journal -> intel -> RAG -> response."""
         monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
 
-        from journal.storage import JournalStorage
+        from datetime import datetime
+
+        from advisor.rag import RAGRetriever
+        from intelligence.embeddings import IntelEmbeddingManager
+        from intelligence.scraper import IntelItem, IntelStorage
+        from intelligence.search import IntelSearch
         from journal.embeddings import EmbeddingManager
         from journal.search import JournalSearch
-        from intelligence.scraper import IntelStorage, IntelItem
-        from intelligence.embeddings import IntelEmbeddingManager
-        from intelligence.search import IntelSearch
-        from advisor.rag import RAGRetriever
-        from datetime import datetime
+        from journal.storage import JournalStorage
 
         # Setup journal with goal
         journal_storage = JournalStorage(temp_dirs["journal_dir"])

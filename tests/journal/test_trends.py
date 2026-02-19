@@ -1,7 +1,5 @@
 """Tests for topic trend detection."""
 
-import numpy as np
-import pytest
 
 from journal.trends import TrendDetector
 
@@ -61,9 +59,9 @@ class TestTrendDetector:
 
     def test_detect_trends_few_entries(self, temp_dirs):
         """Too few entries returns empty list."""
-        from journal.storage import JournalStorage
         from journal.embeddings import EmbeddingManager
         from journal.search import JournalSearch
+        from journal.storage import JournalStorage
 
         storage = JournalStorage(temp_dirs["journal_dir"])
         embeddings = EmbeddingManager(temp_dirs["chroma_dir"])

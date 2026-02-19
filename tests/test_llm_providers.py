@@ -1,12 +1,13 @@
 """Tests for LLM provider adapters."""
 
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 from llm import LLMAuthError, LLMError, LLMRateLimitError
 from llm.providers.claude import ClaudeProvider
-from llm.providers.openai import OpenAIProvider
 from llm.providers.gemini import GeminiProvider
+from llm.providers.openai import OpenAIProvider
 
 
 class TestClaudeProvider:

@@ -38,12 +38,14 @@ def get_components(skip_advisor: bool = False):
     intel_search = IntelSearch(intel_storage, intel_embeddings)
 
     # Pass intel_search to RAG for semantic intel retrieval
+    profile_path = get_profile_path(config)
     rag = RAGRetriever(
         search,
         paths["intel_db"],
         intel_search=intel_search,
         max_context_chars=config_model.rag.max_context_chars,
         journal_weight=config_model.rag.journal_weight,
+        profile_path=profile_path,
     )
 
     advisor = None
@@ -75,6 +77,22 @@ def get_components(skip_advisor: bool = False):
 
 
 def get_rec_db_path(config: dict) -> Path:
-    """Get recommendations DB path (same as intel.db directory)."""
+    """Get recommendations directory path."""
     intel_db = Path(config["paths"]["intel_db"]).expanduser()
-    return intel_db.parent / "recommendations.db"
+    return intel_db.parent / "recommendations"
+
+
+def get_profile_storage(config: dict | None = None):
+    """Get ProfileStorage instance from config."""
+    from profile.storage import ProfileStorage
+
+    if config is None:
+        from cli.config import load_config
+        config = load_config()
+    path = config.get("profile", {}).get("path", "~/coach/profile.yaml")
+    return ProfileStorage(path)
+
+
+def get_profile_path(config: dict) -> str:
+    """Get profile YAML path from config."""
+    return config.get("profile", {}).get("path", "~/coach/profile.yaml")

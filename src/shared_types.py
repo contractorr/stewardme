@@ -17,15 +17,23 @@ class RecommendationStatus(StrEnum):
     DISMISSED = "dismissed"
 
 
+class CareerStage(StrEnum):
+    JUNIOR = "junior"
+    MID = "mid"
+    SENIOR = "senior"
+    LEAD = "lead"
+    EXEC = "exec"
+
+
 class IntelSource(StrEnum):
     HACKERNEWS = "hackernews"
     REDDIT = "reddit"
     RSS = "rss"
     GITHUB_TRENDING = "github_trending"
     ARXIV = "arxiv"
-    DEVTO = "devto"
-    CRUNCHBASE = "crunchbase"
-    NEWSAPI = "newsapi"
+    EVENTS = "events"
+    CONFS_TECH = "confs_tech"
+    GITHUB_ISSUES = "github_issues"
 
 
 class EntryType(StrEnum):

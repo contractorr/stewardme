@@ -2,10 +2,10 @@
 
 import pytest
 
-from journal.storage import JournalStorage, _sanitize_slug, _sanitize_tag
-from intelligence.scraper import validate_url, IntelItem, IntelStorage
-from intelligence.scheduler import _is_valid_api_key, _parse_cron
 from cli.logging_config import _redact_sensitive
+from intelligence.scheduler import _parse_cron
+from intelligence.scraper import IntelItem, IntelStorage, validate_url
+from journal.storage import JournalStorage, _sanitize_slug, _sanitize_tag
 
 
 class TestPathTraversal:
@@ -61,26 +61,6 @@ class TestInputSanitization:
         tag = _sanitize_tag("tag<script>alert</script>")
         assert "<" not in tag
 
-
-class TestAPIKeyValidation:
-    """T1.3: Weak API key validation."""
-
-    def test_empty_key(self):
-        assert not _is_valid_api_key("")
-        assert not _is_valid_api_key(None)
-        assert not _is_valid_api_key("   ")
-
-    def test_unexpanded_env_vars(self):
-        assert not _is_valid_api_key("$CRUNCHBASE_KEY")
-        assert not _is_valid_api_key("${NEWSAPI_KEY}")
-        assert not _is_valid_api_key("$API_KEY")
-
-    def test_too_short(self):
-        assert not _is_valid_api_key("short")
-
-    def test_valid_key(self):
-        assert _is_valid_api_key("sk-ant-abcdef1234567890")
-        assert _is_valid_api_key("a" * 32)
 
 
 class TestPIIRedaction:

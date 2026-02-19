@@ -1,6 +1,5 @@
 """Tests for RAG retrieval."""
 
-import pytest
 
 
 class TestRAGRetriever:
@@ -8,8 +7,8 @@ class TestRAGRetriever:
 
     def test_init(self, populated_journal, temp_dirs):
         """Test RAG retriever initialization."""
-        from journal.search import JournalSearch
         from advisor.rag import RAGRetriever
+        from journal.search import JournalSearch
 
         search = JournalSearch(
             storage=populated_journal["storage"],
@@ -25,9 +24,9 @@ class TestRAGRetriever:
 
     def test_get_journal_context(self, populated_journal, temp_dirs):
         """Test getting journal context."""
-        from journal.search import JournalSearch
-        from journal.embeddings import EmbeddingManager
         from advisor.rag import RAGRetriever
+        from journal.embeddings import EmbeddingManager
+        from journal.search import JournalSearch
 
         embeddings = EmbeddingManager(temp_dirs["chroma_dir"])
         search = JournalSearch(
@@ -45,9 +44,10 @@ class TestRAGRetriever:
 
     def test_get_intel_context_no_db(self, populated_journal, temp_dirs):
         """Test intel context when no DB exists."""
-        from journal.search import JournalSearch
-        from advisor.rag import RAGRetriever
         from pathlib import Path
+
+        from advisor.rag import RAGRetriever
+        from journal.search import JournalSearch
 
         search = JournalSearch(
             storage=populated_journal["storage"],
@@ -65,8 +65,8 @@ class TestRAGRetriever:
 
     def test_get_intel_context_with_data(self, populated_journal, populated_intel, temp_dirs):
         """Test intel context with populated data."""
-        from journal.search import JournalSearch
         from advisor.rag import RAGRetriever
+        from journal.search import JournalSearch
 
         search = JournalSearch(
             storage=populated_journal["storage"],
@@ -85,10 +85,10 @@ class TestRAGRetriever:
 
     def test_get_intel_context_with_semantic_search(self, populated_journal, populated_intel, temp_dirs):
         """Test intel context using semantic search."""
-        from journal.search import JournalSearch
-        from intelligence.search import IntelSearch
-        from intelligence.embeddings import IntelEmbeddingManager
         from advisor.rag import RAGRetriever
+        from intelligence.embeddings import IntelEmbeddingManager
+        from intelligence.search import IntelSearch
+        from journal.search import JournalSearch
 
         intel_embeddings = IntelEmbeddingManager(temp_dirs["chroma_dir"])
         intel_search = IntelSearch(populated_intel, intel_embeddings)
@@ -110,9 +110,9 @@ class TestRAGRetriever:
 
     def test_get_combined_context(self, populated_journal, populated_intel, temp_dirs):
         """Test combined journal + intel context."""
-        from journal.search import JournalSearch
-        from journal.embeddings import EmbeddingManager
         from advisor.rag import RAGRetriever
+        from journal.embeddings import EmbeddingManager
+        from journal.search import JournalSearch
 
         embeddings = EmbeddingManager(temp_dirs["chroma_dir"])
         search = JournalSearch(
@@ -133,8 +133,8 @@ class TestRAGRetriever:
 
     def test_context_char_limits(self, populated_journal, temp_dirs):
         """Test that context respects character limits."""
-        from journal.search import JournalSearch
         from advisor.rag import RAGRetriever
+        from journal.search import JournalSearch
 
         search = JournalSearch(
             storage=populated_journal["storage"],
@@ -153,8 +153,8 @@ class TestRAGRetriever:
 
     def test_get_recent_entries(self, populated_journal, temp_dirs):
         """Test getting recent entries for weekly review."""
-        from journal.search import JournalSearch
         from advisor.rag import RAGRetriever
+        from journal.search import JournalSearch
 
         search = JournalSearch(
             storage=populated_journal["storage"],
@@ -170,8 +170,8 @@ class TestRAGRetriever:
 
     def test_journal_weight_affects_allocation(self, populated_journal, populated_intel, temp_dirs):
         """Test that journal_weight parameter affects context allocation."""
-        from journal.search import JournalSearch
         from advisor.rag import RAGRetriever
+        from journal.search import JournalSearch
 
         search = JournalSearch(
             storage=populated_journal["storage"],

@@ -1,0 +1,183 @@
+"""LLM-driven adaptive profile interview."""
+
+import json
+import re
+
+import structlog
+
+from .storage import ProfileStorage, Skill, UserProfile
+
+logger = structlog.get_logger()
+
+INTERVIEW_SYSTEM = """You are a career coach conducting a profile interview. Ask one clear question at a time.
+Your job is to gather enough information to fill out a professional profile.
+
+You need to learn:
+1. Current role and career stage (junior/mid/senior/lead/exec)
+2. Technical skills and proficiency levels (1-5 scale)
+3. Programming languages and frameworks used
+4. Professional interests and passions
+5. Career aspirations and goals
+6. Location (city/country)
+7. Preferred learning style (visual/reading/hands-on/mixed)
+8. Weekly hours available for professional development
+
+Adapt your questions based on previous answers. Be conversational but efficient.
+After gathering enough info (5-7 questions), output EXACTLY this JSON block:
+
+```json
+{"done": true, "profile": {
+  "current_role": "...",
+  "career_stage": "junior|mid|senior|lead|exec",
+  "skills": [{"name": "...", "proficiency": 1-5}, ...],
+  "languages_frameworks": ["python", "react", ...],
+  "interests": ["...", ...],
+  "aspirations": "...",
+  "location": "...",
+  "learning_style": "visual|reading|hands-on|mixed",
+  "weekly_hours_available": N
+}}
+```"""
+
+INTERVIEW_START = """Start the profile interview. Ask your first question to understand
+who this person is professionally. Be warm but concise."""
+
+
+def _extract_profile_json(text: str) -> dict | None:
+    """Extract profile JSON from LLM response."""
+    # Try ```json block first
+    match = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
+    if match:
+        try:
+            data = json.loads(match.group(1))
+            if data.get("done") and "profile" in data:
+                return data["profile"]
+        except json.JSONDecodeError:
+            pass
+
+    # Try bare JSON
+    match = re.search(r'\{"done"\s*:\s*true.*?"profile"\s*:\s*\{.*\}\s*\}', text, re.DOTALL)
+    if match:
+        try:
+            data = json.loads(match.group(0))
+            if "profile" in data:
+                return data["profile"]
+        except json.JSONDecodeError:
+            pass
+
+    return None
+
+
+def _build_profile(data: dict) -> UserProfile:
+    """Build UserProfile from extracted JSON."""
+    skills = []
+    for s in data.get("skills", []):
+        if isinstance(s, dict) and "name" in s:
+            prof = max(1, min(5, int(s.get("proficiency", 3))))
+            skills.append(Skill(name=s["name"], proficiency=prof))
+
+    stage = data.get("career_stage", "mid")
+    valid_stages = {"junior", "mid", "senior", "lead", "exec"}
+    if stage not in valid_stages:
+        stage = "mid"
+
+    style = data.get("learning_style", "mixed")
+    if style not in {"visual", "reading", "hands-on", "mixed"}:
+        style = "mixed"
+
+    hours = data.get("weekly_hours_available", 5)
+    try:
+        hours = max(1, min(40, int(hours)))
+    except (ValueError, TypeError):
+        hours = 5
+
+    return UserProfile(
+        skills=skills,
+        interests=data.get("interests", []),
+        career_stage=stage,
+        current_role=data.get("current_role", ""),
+        aspirations=data.get("aspirations", ""),
+        location=data.get("location", ""),
+        languages_frameworks=data.get("languages_frameworks", []),
+        learning_style=style,
+        weekly_hours_available=hours,
+    )
+
+
+class ProfileInterviewer:
+    """Conducts adaptive profile interview via LLM."""
+
+    def __init__(self, llm_caller, storage: ProfileStorage):
+        self.llm_caller = llm_caller
+        self.storage = storage
+
+    def run_interactive(self, input_fn=None, output_fn=None) -> UserProfile:
+        """Run interactive interview loop. Returns completed profile.
+
+        Args:
+            input_fn: Callable to get user input (default: built-in input)
+            output_fn: Callable to display text (default: print)
+        """
+        input_fn = input_fn or input
+        output_fn = output_fn or print
+
+        conversation = []
+
+        # Get first question
+        response = self.llm_caller(INTERVIEW_SYSTEM, INTERVIEW_START)
+        output_fn(f"\n{response}\n")
+        conversation.append(("assistant", response))
+
+        for _ in range(10):  # max 10 turns
+            answer = input_fn("> ")
+            if not answer.strip():
+                continue
+
+            conversation.append(("user", answer))
+
+            # Build conversation history for LLM
+            history = "\n".join(
+                f"{'Coach' if role == 'assistant' else 'User'}: {msg}"
+                for role, msg in conversation
+            )
+            prompt = f"Interview so far:\n{history}\n\nContinue the interview or finalize the profile if you have enough info."
+
+            response = self.llm_caller(INTERVIEW_SYSTEM, prompt, max_tokens=1500)
+            conversation.append(("assistant", response))
+
+            # Check if interview is done
+            profile_data = _extract_profile_json(response)
+            if profile_data:
+                profile = _build_profile(profile_data)
+                self.storage.save(profile)
+                logger.info("profile_created", skills=len(profile.skills))
+                return profile
+
+            output_fn(f"\n{response}\n")
+
+        # Fallback: force extraction
+        history = "\n".join(f"{'Coach' if r == 'assistant' else 'User'}: {m}" for r, m in conversation)
+        force_prompt = f"""Based on this interview, generate the profile JSON now.
+
+{history}
+
+Output the JSON profile block now."""
+        response = self.llm_caller(INTERVIEW_SYSTEM, force_prompt, max_tokens=1500)
+        profile_data = _extract_profile_json(response)
+        if profile_data:
+            profile = _build_profile(profile_data)
+            self.storage.save(profile)
+            return profile
+
+        # Absolute fallback: empty profile
+        logger.warning("interview_extraction_failed")
+        profile = UserProfile()
+        self.storage.save(profile)
+        return profile
+
+    def needs_refresh(self, days: int = 90) -> bool:
+        """Check if profile needs re-interview."""
+        profile = self.storage.load()
+        if not profile:
+            return True
+        return profile.is_stale(days)
