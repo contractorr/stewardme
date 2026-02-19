@@ -252,6 +252,63 @@ All data stored in `~/coach/`:
 - `chroma/` - ChromaDB vector embeddings
 - `intel.db` - SQLite database for scraped intelligence
 
+## Web UI
+
+Browser dashboard wrapping the same modules the CLI uses. FastAPI backend + Next.js 14 + NextAuth (GitHub/Google OAuth).
+
+### Setup
+
+```bash
+# Backend
+pip install -e ".[web]"
+export SECRET_KEY=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+export NEXTAUTH_SECRET="generate-with-openssl-rand-base64-32"
+uvicorn web.app:app --reload  # :8000
+
+# Frontend
+cd web && npm install && npm run dev  # :3000
+```
+
+### Docker Compose
+
+```bash
+docker compose up
+# backend :8000, frontend :3000
+```
+
+### Pages
+
+| Route | Description |
+|-------|-------------|
+| `/login` | GitHub / Google OAuth |
+| `/` | Dashboard — recent journal, goals, intel |
+| `/journal` | Create/read/delete entries |
+| `/advisor` | Chat with AI advisor (RAG-powered) |
+| `/goals` | Goals + milestones + check-ins |
+| `/intel` | Intelligence feed + trigger scrape |
+| `/settings` | API key management (Fernet-encrypted) |
+
+### API Endpoints
+
+All routes require JWT via `Authorization: Bearer <token>`.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/health` | Health check |
+| GET/PUT | `/api/settings` | API keys (masked in GET) |
+| GET/POST | `/api/journal` | List / create entries |
+| GET/PUT/DELETE | `/api/journal/{path}` | Read / update / delete |
+| POST | `/api/advisor/ask` | Ask advisor |
+| GET/POST | `/api/goals` | List / create goals |
+| POST | `/api/goals/{path}/check-in` | Check in |
+| PUT | `/api/goals/{path}/status` | Update status |
+| POST | `/api/goals/{path}/milestones` | Add milestone |
+| GET | `/api/intel/recent` | Recent intel |
+| GET | `/api/intel/search?q=` | Search intel |
+| POST | `/api/intel/scrape` | Trigger scrape |
+| GET | `/api/research/topics` | Suggested topics |
+| POST | `/api/research/run` | Run research |
+
 ## Architecture
 
 ```
@@ -260,7 +317,9 @@ src/
 ├── advisor/       # LLM orchestration, RAG, recommendations, goals + milestones
 ├── intelligence/  # Scrapers (8 sources), scheduler, export
 ├── research/      # Deep research agent, topic selection, synthesis
-└── cli/           # Click commands, config (Pydantic), logging, retry, rate limiting
+├── web/           # FastAPI backend — auth, crypto, routes
+├── cli/           # Click commands, config (Pydantic), logging, retry, rate limiting
+web/               # Next.js 14 frontend — OAuth, dashboard, settings
 ```
 
 **Data Flow:**
@@ -280,6 +339,8 @@ src/
 
 Core: `click`, `rich`, `anthropic`, `chromadb`, `httpx`, `pydantic`, `structlog`, `tenacity`, `scikit-learn`, `numpy`, `frontmatter`, `pyyaml`
 
+Web: `fastapi`, `uvicorn`, `python-jose`, `cryptography`, `python-multipart`
+
 Dev: `pytest`, `ruff`, `mypy`
 
 ## Development
@@ -287,9 +348,11 @@ Dev: `pytest`, `ruff`, `mypy`
 ```bash
 # Install dev dependencies
 pip install -e ".[dev]"
+pip install -e ".[web]"  # web deps
 
 # Run tests
-pytest
+pytest                    # all (373 tests)
+pytest tests/web/ -v      # web API tests only
 
 # Lint
 ruff check src tests

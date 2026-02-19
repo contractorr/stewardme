@@ -14,5 +14,10 @@ data/
 # Config with secrets
 config.yaml
 
+# Next.js / Web
+web/node_modules/
+web/.next/
+web/.env.local
+
 # OS
 .DS_Store
