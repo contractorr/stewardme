@@ -41,11 +41,33 @@ interface Settings {
   smtp_to: string | null;
 }
 
+function SettingsSkeleton() {
+  return (
+    <div className="mx-auto max-w-2xl space-y-6">
+      <div className="h-7 w-24 animate-pulse rounded bg-muted" />
+      {Array.from({ length: 3 }).map((_, i) => (
+        <Card key={i}>
+          <CardHeader>
+            <div className="h-5 w-32 animate-pulse rounded bg-muted" />
+            <div className="h-3 w-48 animate-pulse rounded bg-muted" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="h-9 w-full animate-pulse rounded bg-muted" />
+            <div className="h-9 w-full animate-pulse rounded bg-muted" />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const token = useToken();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+
+  const isDirty = Object.keys(form).length > 0;
 
   useEffect(() => {
     if (!token) return;
@@ -77,7 +99,7 @@ export default function SettingsPage() {
     }
   };
 
-  if (!settings) return <div className="text-muted-foreground">Loading...</div>;
+  if (!settings) return <SettingsSkeleton />;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -199,9 +221,16 @@ export default function SettingsPage() {
       </Card>
 
       <Separator />
-      <Button onClick={handleSave} disabled={saving}>
-        {saving ? "Saving..." : "Save Settings"}
-      </Button>
+      <div className="flex items-center gap-3">
+        <Button onClick={handleSave} disabled={saving || !isDirty}>
+          {saving ? "Saving..." : isDirty ? "Save Changes" : "No Changes"}
+        </Button>
+        {isDirty && (
+          <span className="text-xs text-muted-foreground">
+            {Object.keys(form).length} unsaved {Object.keys(form).length === 1 ? "change" : "changes"}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

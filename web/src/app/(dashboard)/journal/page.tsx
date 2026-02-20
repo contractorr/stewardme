@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useToken } from "@/hooks/useToken";
-import { Plus } from "lucide-react";
+import { BookOpen, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -42,11 +42,33 @@ interface JournalEntry {
   content?: string;
 }
 
+function EntrySkeleton() {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <div className="h-4 w-40 animate-pulse rounded bg-muted" />
+          <div className="h-5 w-14 animate-pulse rounded bg-muted" />
+        </div>
+        <div className="h-3 w-24 animate-pulse rounded bg-muted" />
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-1.5">
+          <div className="h-3 w-full animate-pulse rounded bg-muted" />
+          <div className="h-3 w-3/4 animate-pulse rounded bg-muted" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function JournalPage() {
   const token = useToken();
   const [entries, setEntries] = useState<JournalEntry[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<JournalEntry | null>(null);
   const [creating, setCreating] = useState(false);
+  const [deletingPath, setDeletingPath] = useState<string | null>(null);
   const [form, setForm] = useState({
     title: "",
     content: "",
@@ -55,10 +77,14 @@ export default function JournalPage() {
   });
 
   const loadEntries = () => {
-    if (!token) return;
+    if (!token) {
+      setLoading(false);
+      return;
+    }
     apiFetch<JournalEntry[]>("/api/journal?limit=100", {}, token)
       .then(setEntries)
-      .catch((e) => toast.error(e.message));
+      .catch((e) => toast.error(e.message))
+      .finally(() => setLoading(false));
   };
 
   useEffect(loadEntries, [token]);
@@ -91,11 +117,12 @@ export default function JournalPage() {
   };
 
   const handleDelete = async (path: string) => {
-    if (!token || !confirm("Delete this entry?")) return;
+    if (!token) return;
     try {
       await apiFetch(`/api/journal/${encodeURIComponent(path)}`, { method: "DELETE" }, token);
       toast.success("Deleted");
       setSelected(null);
+      setDeletingPath(null);
       loadEntries();
     } catch (e) {
       toast.error((e as Error).message);
@@ -187,46 +214,71 @@ export default function JournalPage() {
         </Sheet>
       </div>
 
+      {/* Loading skeleton */}
+      {loading && (
+        <div className="grid gap-4 md:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <EntrySkeleton key={i} />
+          ))}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!loading && entries.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+            <BookOpen className="h-7 w-7 text-muted-foreground" />
+          </div>
+          <h3 className="text-lg font-medium">No journal entries yet</h3>
+          <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+            Start writing to capture your thoughts, reflections, and progress.
+            Your entries power the AI advisor&apos;s context.
+          </p>
+        </div>
+      )}
+
       {/* Entry list */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {entries.map((e) => (
-          <Card
-            key={e.path}
-            className="cursor-pointer transition-shadow hover:shadow-md"
-            onClick={() => viewEntry(e.path)}
-          >
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">{e.title}</CardTitle>
-                <Badge variant="outline">{e.type}</Badge>
-              </div>
-              {e.created && (
-                <CardDescription>
-                  {new Date(e.created).toLocaleDateString()}
-                </CardDescription>
-              )}
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground line-clamp-3">
-                {e.preview}
-              </p>
-              {e.tags.length > 0 && (
-                <div className="mt-2 flex gap-1">
-                  {e.tags.map((t) => (
-                    <Badge key={t} variant="secondary" className="text-xs">
-                      {t}
-                    </Badge>
-                  ))}
+      {!loading && entries.length > 0 && (
+        <div className="grid gap-4 md:grid-cols-2">
+          {entries.map((e) => (
+            <Card
+              key={e.path}
+              className="cursor-pointer transition-shadow hover:shadow-md"
+              onClick={() => viewEntry(e.path)}
+            >
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">{e.title}</CardTitle>
+                  <Badge variant="outline">{e.type}</Badge>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                {e.created && (
+                  <CardDescription>
+                    {new Date(e.created).toLocaleDateString()}
+                  </CardDescription>
+                )}
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground line-clamp-3">
+                  {e.preview}
+                </p>
+                {e.tags.length > 0 && (
+                  <div className="mt-2 flex gap-1">
+                    {e.tags.map((t) => (
+                      <Badge key={t} variant="secondary" className="text-xs">
+                        {t}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Selected entry detail */}
       {selected && (
-        <Sheet open={!!selected} onOpenChange={() => setSelected(null)}>
+        <Sheet open={!!selected} onOpenChange={() => { setSelected(null); setDeletingPath(null); }}>
           <SheetContent className="w-[600px] overflow-y-auto">
             <SheetHeader>
               <SheetTitle>{selected.title}</SheetTitle>
@@ -243,13 +295,34 @@ export default function JournalPage() {
               <pre className="whitespace-pre-wrap text-sm">
                 {selected.content}
               </pre>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => handleDelete(selected.path)}
-              >
-                Delete
-              </Button>
+              {/* Delete with confirmation */}
+              {deletingPath === selected.path ? (
+                <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/5 p-3">
+                  <p className="flex-1 text-sm">Delete this entry? This can&apos;t be undone.</p>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleDelete(selected.path)}
+                  >
+                    Confirm
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDeletingPath(null)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setDeletingPath(selected.path)}
+                >
+                  Delete
+                </Button>
+              )}
             </div>
           </SheetContent>
         </Sheet>

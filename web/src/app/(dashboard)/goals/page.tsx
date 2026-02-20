@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useToken } from "@/hooks/useToken";
-import { CheckCircle2, Circle, Plus } from "lucide-react";
+import { CheckCircle2, Circle, Plus, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -50,21 +50,41 @@ interface Progress {
   milestones: Milestone[];
 }
 
+function GoalSkeleton() {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <div className="h-4 w-48 animate-pulse rounded bg-muted" />
+          <div className="h-5 w-16 animate-pulse rounded bg-muted" />
+        </div>
+        <div className="h-3 w-32 animate-pulse rounded bg-muted" />
+      </CardHeader>
+    </Card>
+  );
+}
+
 export default function GoalsPage() {
   const token = useToken();
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ title: "", content: "", tags: "" });
   const [creating, setCreating] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
-  const [progress, setProgress] = useState<Progress | null>(null);
-  const [milestoneTitle, setMilestoneTitle] = useState("");
-  const [checkInNotes, setCheckInNotes] = useState("");
+  const [progressMap, setProgressMap] = useState<Record<string, Progress>>({});
+  // Per-goal input state
+  const [milestoneInputs, setMilestoneInputs] = useState<Record<string, string>>({});
+  const [checkInInputs, setCheckInInputs] = useState<Record<string, string>>({});
 
   const loadGoals = () => {
-    if (!token) return;
+    if (!token) {
+      setLoading(false);
+      return;
+    }
     apiFetch<Goal[]>("/api/goals?include_inactive=true", {}, token)
       .then(setGoals)
-      .catch((e) => toast.error(e.message));
+      .catch((e) => toast.error(e.message))
+      .finally(() => setLoading(false));
   };
 
   useEffect(loadGoals, [token]);
@@ -77,9 +97,9 @@ export default function GoalsPage() {
         {},
         token
       );
-      setProgress(p);
+      setProgressMap((prev) => ({ ...prev, [path]: p }));
     } catch {
-      setProgress(null);
+      /* no progress yet */
     }
   };
 
@@ -110,13 +130,14 @@ export default function GoalsPage() {
 
   const handleCheckIn = async (path: string) => {
     if (!token) return;
+    const notes = checkInInputs[path] || "";
     try {
       await apiFetch(
         `/api/goals/${encodeURIComponent(path)}/check-in`,
-        { method: "POST", body: JSON.stringify({ notes: checkInNotes || null }) },
+        { method: "POST", body: JSON.stringify({ notes: notes || null }) },
         token
       );
-      setCheckInNotes("");
+      setCheckInInputs((prev) => ({ ...prev, [path]: "" }));
       toast.success("Checked in");
       loadGoals();
       loadProgress(path);
@@ -141,14 +162,15 @@ export default function GoalsPage() {
   };
 
   const handleAddMilestone = async (path: string) => {
-    if (!token || !milestoneTitle) return;
+    const title = milestoneInputs[path] || "";
+    if (!token || !title) return;
     try {
       await apiFetch(
         `/api/goals/${encodeURIComponent(path)}/milestones`,
-        { method: "POST", body: JSON.stringify({ title: milestoneTitle }) },
+        { method: "POST", body: JSON.stringify({ title }) },
         token
       );
-      setMilestoneTitle("");
+      setMilestoneInputs((prev) => ({ ...prev, [path]: "" }));
       toast.success("Milestone added");
       loadProgress(path);
     } catch (e) {
@@ -224,145 +246,174 @@ export default function GoalsPage() {
         </Sheet>
       </div>
 
-      {/* Goals list */}
-      <div className="space-y-4">
-        {goals.map((g) => (
-          <Card key={g.path}>
-            <CardHeader
-              className="cursor-pointer pb-2"
-              onClick={() => {
-                setSelectedGoal(selectedGoal === g.path ? null : g.path);
-                if (selectedGoal !== g.path) loadProgress(g.path);
-              }}
-            >
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">{g.title}</CardTitle>
-                <div className="flex gap-2">
-                  {g.is_stale && (
-                    <Badge variant="destructive">Stale</Badge>
-                  )}
-                  <Badge variant={statusColor[g.status] as "default" | "secondary" | "outline" | "destructive"}>
-                    {g.status}
-                  </Badge>
-                </div>
-              </div>
-              <CardDescription>
-                Last check-in: {g.days_since_check}d ago
-              </CardDescription>
-            </CardHeader>
+      {/* Loading */}
+      {loading && (
+        <div className="space-y-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <GoalSkeleton key={i} />
+          ))}
+        </div>
+      )}
 
-            {selectedGoal === g.path && (
-              <CardContent className="space-y-4">
-                {/* Progress */}
-                {progress && progress.total > 0 && (
-                  <div>
-                    <div className="mb-2 text-sm font-medium">
-                      Progress: {progress.percent}% ({progress.completed}/{progress.total})
-                    </div>
-                    <div className="h-2 w-full rounded-full bg-muted">
-                      <div
-                        className="h-full rounded-full bg-primary transition-all"
-                        style={{ width: `${progress.percent}%` }}
-                      />
+      {/* Empty state */}
+      {!loading && goals.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+            <Target className="h-7 w-7 text-muted-foreground" />
+          </div>
+          <h3 className="text-lg font-medium">No goals yet</h3>
+          <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+            Create goals to track your progress and get AI-powered check-in reminders.
+          </p>
+        </div>
+      )}
+
+      {/* Goals list */}
+      {!loading && goals.length > 0 && (
+        <div className="space-y-4">
+          {goals.map((g) => {
+            const progress = progressMap[g.path];
+            return (
+              <Card key={g.path}>
+                <CardHeader
+                  className="cursor-pointer pb-2"
+                  onClick={() => {
+                    const next = selectedGoal === g.path ? null : g.path;
+                    setSelectedGoal(next);
+                    if (next) loadProgress(g.path);
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">{g.title}</CardTitle>
+                    <div className="flex gap-2">
+                      {g.is_stale && (
+                        <Badge variant="destructive">Stale</Badge>
+                      )}
+                      <Badge variant={statusColor[g.status] as "default" | "secondary" | "outline" | "destructive"}>
+                        {g.status}
+                      </Badge>
                     </div>
                   </div>
-                )}
+                  <CardDescription>
+                    Last check-in: {g.days_since_check}d ago
+                  </CardDescription>
+                </CardHeader>
 
-                {/* Milestones */}
-                {progress?.milestones && (
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium">Milestones</h4>
-                    {progress.milestones.map((m, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center gap-2 text-sm"
-                      >
-                        {m.completed ? (
-                          <CheckCircle2 className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <button onClick={() => handleCompleteMilestone(g.path, i)}>
-                            <Circle className="h-4 w-4 text-muted-foreground hover:text-primary" />
-                          </button>
-                        )}
-                        <span className={m.completed ? "line-through text-muted-foreground" : ""}>
-                          {m.title}
-                        </span>
+                {selectedGoal === g.path && (
+                  <CardContent className="space-y-4">
+                    {/* Progress */}
+                    {progress && progress.total > 0 && (
+                      <div>
+                        <div className="mb-2 text-sm font-medium">
+                          Progress: {progress.percent}% ({progress.completed}/{progress.total})
+                        </div>
+                        <div className="h-2 w-full rounded-full bg-muted">
+                          <div
+                            className="h-full rounded-full bg-primary transition-all"
+                            style={{ width: `${progress.percent}%` }}
+                          />
+                        </div>
                       </div>
-                    ))}
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="New milestone"
-                        value={milestoneTitle}
-                        onChange={(e) => setMilestoneTitle(e.target.value)}
-                        className="text-sm"
+                    )}
+
+                    {/* Milestones */}
+                    {progress?.milestones && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium">Milestones</h4>
+                        {progress.milestones.map((m, i) => (
+                          <div
+                            key={i}
+                            className="flex items-center gap-2 text-sm"
+                          >
+                            {m.completed ? (
+                              <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <button onClick={() => handleCompleteMilestone(g.path, i)}>
+                                <Circle className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                              </button>
+                            )}
+                            <span className={m.completed ? "line-through text-muted-foreground" : ""}>
+                              {m.title}
+                            </span>
+                          </div>
+                        ))}
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="New milestone"
+                            value={milestoneInputs[g.path] || ""}
+                            onChange={(e) =>
+                              setMilestoneInputs((prev) => ({ ...prev, [g.path]: e.target.value }))
+                            }
+                            className="text-sm"
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleAddMilestone(g.path)}
+                            disabled={!milestoneInputs[g.path]}
+                          >
+                            Add
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Check-in */}
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-medium">Check In</h4>
+                      <Textarea
+                        rows={2}
+                        placeholder="Progress notes..."
+                        value={checkInInputs[g.path] || ""}
+                        onChange={(e) =>
+                          setCheckInInputs((prev) => ({ ...prev, [g.path]: e.target.value }))
+                        }
                       />
                       <Button
                         size="sm"
-                        variant="outline"
-                        onClick={() => handleAddMilestone(g.path)}
-                        disabled={!milestoneTitle}
+                        onClick={() => handleCheckIn(g.path)}
                       >
-                        Add
+                        Check In
                       </Button>
                     </div>
-                  </div>
+
+                    {/* Status actions */}
+                    <div className="flex gap-2">
+                      {g.status !== "completed" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleStatusChange(g.path, "completed")}
+                        >
+                          Complete
+                        </Button>
+                      )}
+                      {g.status === "active" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleStatusChange(g.path, "paused")}
+                        >
+                          Pause
+                        </Button>
+                      )}
+                      {g.status === "paused" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleStatusChange(g.path, "active")}
+                        >
+                          Resume
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
                 )}
-
-                {/* Check-in */}
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium">Check In</h4>
-                  <Textarea
-                    rows={2}
-                    placeholder="Progress notes..."
-                    value={checkInNotes}
-                    onChange={(e) => setCheckInNotes(e.target.value)}
-                  />
-                  <Button
-                    size="sm"
-                    onClick={() => handleCheckIn(g.path)}
-                  >
-                    Check In
-                  </Button>
-                </div>
-
-                {/* Status actions */}
-                <div className="flex gap-2">
-                  {g.status !== "completed" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleStatusChange(g.path, "completed")}
-                    >
-                      Complete
-                    </Button>
-                  )}
-                  {g.status === "active" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleStatusChange(g.path, "paused")}
-                    >
-                      Pause
-                    </Button>
-                  )}
-                  {g.status === "paused" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleStatusChange(g.path, "active")}
-                    >
-                      Resume
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            )}
-          </Card>
-        ))}
-        {goals.length === 0 && (
-          <p className="text-muted-foreground">No goals yet. Create one to get started.</p>
-        )}
-      </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

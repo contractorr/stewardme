@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useToken } from "@/hooks/useToken";
+import { BookOpen, Newspaper, Plus, Target } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -11,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 
 interface JournalEntry {
@@ -30,112 +32,204 @@ interface Goal {
   is_stale: boolean;
 }
 
+function CardSkeleton() {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+        <div className="h-3 w-20 animate-pulse rounded bg-muted" />
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="h-3 w-full animate-pulse rounded bg-muted" />
+        <div className="h-3 w-3/4 animate-pulse rounded bg-muted" />
+        <div className="h-3 w-1/2 animate-pulse rounded bg-muted" />
+      </CardContent>
+    </Card>
+  );
+}
+
+function EmptyCard({
+  icon: Icon,
+  title,
+  description,
+  href,
+  action,
+}: {
+  icon: React.ElementType;
+  title: string;
+  description: string;
+  href: string;
+  action: string;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center py-6 text-center">
+      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+        <Icon className="h-5 w-5 text-muted-foreground" />
+      </div>
+      <p className="text-sm text-muted-foreground">{description}</p>
+      <Button asChild variant="link" size="sm" className="mt-1">
+        <Link href={href}>{action}</Link>
+      </Button>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const token = useToken();
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [intel, setIntel] = useState<Record<string, unknown>[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!token) return;
-    apiFetch<JournalEntry[]>("/api/journal?limit=5", {}, token).then(setEntries).catch(() => {});
-    apiFetch<Goal[]>("/api/goals", {}, token).then(setGoals).catch(() => {});
-    apiFetch<Record<string, unknown>[]>("/api/intel/recent?limit=5", {}, token).then(setIntel).catch(() => {});
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+    Promise.allSettled([
+      apiFetch<JournalEntry[]>("/api/journal?limit=5", {}, token).then(setEntries),
+      apiFetch<Goal[]>("/api/goals", {}, token).then(setGoals),
+      apiFetch<Record<string, unknown>[]>("/api/intel/recent?limit=5", {}, token).then(setIntel),
+    ]).finally(() => setLoading(false));
   }, [token]);
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Dashboard</h1>
+      <div>
+        <h1 className="text-2xl font-semibold">Dashboard</h1>
+        <p className="text-sm text-muted-foreground">
+          Your personal AI coaching overview
+        </p>
+      </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* Recent Journal */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              <Link href="/journal" className="hover:underline">
-                Recent Journal
-              </Link>
-            </CardTitle>
-            <CardDescription>{entries.length} recent entries</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {entries.map((e) => (
-              <div key={e.path} className="text-sm">
-                <span className="font-medium">{e.title}</span>
-                <Badge variant="outline" className="ml-2 text-xs">
-                  {e.type}
-                </Badge>
-              </div>
-            ))}
-            {entries.length === 0 && (
-              <p className="text-sm text-muted-foreground">No entries yet</p>
-            )}
-          </CardContent>
-        </Card>
+        {loading ? (
+          <CardSkeleton />
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                <Link href="/journal" className="hover:underline">
+                  Recent Journal
+                </Link>
+              </CardTitle>
+              <CardDescription>{entries.length} recent entries</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {entries.length > 0 ? (
+                <div className="space-y-2">
+                  {entries.map((e) => (
+                    <div key={e.path} className="text-sm">
+                      <span className="font-medium">{e.title}</span>
+                      <Badge variant="outline" className="ml-2 text-xs">
+                        {e.type}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyCard
+                  icon={BookOpen}
+                  title="Journal"
+                  description="Start journaling to track your thoughts"
+                  href="/journal"
+                  action="Write first entry"
+                />
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Goals */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              <Link href="/goals" className="hover:underline">
-                Active Goals
-              </Link>
-            </CardTitle>
-            <CardDescription>
-              {goals.filter((g) => g.status === "active").length} active
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {goals
-              .filter((g) => g.status === "active")
-              .slice(0, 5)
-              .map((g) => (
-                <div key={g.path} className="flex items-center gap-2 text-sm">
-                  <span className="font-medium">{g.title}</span>
-                  {g.is_stale && (
-                    <Badge variant="destructive" className="text-xs">
-                      Stale
-                    </Badge>
-                  )}
+        {loading ? (
+          <CardSkeleton />
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                <Link href="/goals" className="hover:underline">
+                  Active Goals
+                </Link>
+              </CardTitle>
+              <CardDescription>
+                {goals.filter((g) => g.status === "active").length} active
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {goals.length > 0 ? (
+                <div className="space-y-2">
+                  {goals
+                    .filter((g) => g.status === "active")
+                    .slice(0, 5)
+                    .map((g) => (
+                      <div key={g.path} className="flex items-center gap-2 text-sm">
+                        <span className="font-medium">{g.title}</span>
+                        {g.is_stale && (
+                          <Badge variant="destructive" className="text-xs">
+                            Stale
+                          </Badge>
+                        )}
+                      </div>
+                    ))}
                 </div>
-              ))}
-            {goals.length === 0 && (
-              <p className="text-sm text-muted-foreground">No goals yet</p>
-            )}
-          </CardContent>
-        </Card>
+              ) : (
+                <EmptyCard
+                  icon={Target}
+                  title="Goals"
+                  description="Set goals to track your progress"
+                  href="/goals"
+                  action="Create first goal"
+                />
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Intel */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              <Link href="/intel" className="hover:underline">
-                Latest Intel
-              </Link>
-            </CardTitle>
-            <CardDescription>{intel.length} recent items</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {intel.map((item, i) => (
-              <div key={i} className="text-sm">
-                <a
-                  href={item.url as string}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium hover:underline"
-                >
-                  {item.title as string}
-                </a>
-                <Badge variant="outline" className="ml-2 text-xs">
-                  {item.source as string}
-                </Badge>
-              </div>
-            ))}
-            {intel.length === 0 && (
-              <p className="text-sm text-muted-foreground">No intel yet</p>
-            )}
-          </CardContent>
-        </Card>
+        {loading ? (
+          <CardSkeleton />
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                <Link href="/intel" className="hover:underline">
+                  Latest Intel
+                </Link>
+              </CardTitle>
+              <CardDescription>{intel.length} recent items</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {intel.length > 0 ? (
+                <div className="space-y-2">
+                  {intel.map((item, i) => (
+                    <div key={i} className="text-sm">
+                      <a
+                        href={item.url as string}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium hover:underline"
+                      >
+                        {item.title as string}
+                      </a>
+                      <Badge variant="outline" className="ml-2 text-xs">
+                        {item.source as string}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyCard
+                  icon={Newspaper}
+                  title="Intel"
+                  description="Scrape sources to populate intelligence"
+                  href="/intel"
+                  action="Go to Intel"
+                />
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

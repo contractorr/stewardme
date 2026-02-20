@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Send } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import { Brain, Send } from "lucide-react";
 import { useToken } from "@/hooks/useToken";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +34,11 @@ export default function AdvisorPage() {
   const [input, setInput] = useState("");
   const [adviceType, setAdviceType] = useState("general");
   const [loading, setLoading] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, loading]);
 
   const handleSend = async () => {
     if (!token || !input.trim()) return;
@@ -83,12 +89,19 @@ export default function AdvisorPage() {
       </div>
 
       {/* Chat messages */}
-      <div className="mt-4 flex-1 space-y-4 overflow-y-auto">
+      <div ref={scrollRef} className="mt-4 flex-1 space-y-4 overflow-y-auto">
         {messages.length === 0 && (
-          <p className="text-center text-muted-foreground">
-            Ask your AI advisor anything. It uses your journal entries and
-            intelligence data for context.
-          </p>
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+              <Brain className="h-7 w-7 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-medium">Ask your AI advisor</h3>
+            <p className="mt-1 max-w-md text-sm text-muted-foreground">
+              Get personalized advice powered by your journal entries and
+              intelligence data. Try asking about career moves, goal strategies,
+              or emerging opportunities.
+            </p>
+          </div>
         )}
         {messages.map((msg, i) => (
           <Card
@@ -103,14 +116,27 @@ export default function AdvisorPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="whitespace-pre-wrap text-sm">{msg.content}</div>
+              {msg.role === "assistant" ? (
+                <div className="prose prose-sm max-w-none dark:prose-invert">
+                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                </div>
+              ) : (
+                <div className="text-sm">{msg.content}</div>
+              )}
             </CardContent>
           </Card>
         ))}
         {loading && (
           <Card className="mr-12">
             <CardContent className="py-4">
-              <div className="text-sm text-muted-foreground">Thinking...</div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="flex gap-1">
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:0ms]" />
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:150ms]" />
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:300ms]" />
+                </div>
+                Thinking...
+              </div>
             </CardContent>
           </Card>
         )}
