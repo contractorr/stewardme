@@ -13,6 +13,7 @@ data/
 
 # Config with secrets
 config.yaml
+.env
 
 # Next.js / Web
 web/node_modules/

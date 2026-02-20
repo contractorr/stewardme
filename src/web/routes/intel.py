@@ -46,7 +46,7 @@ async def scrape_now(user: dict = Depends(get_current_user)):
         paths = get_coach_paths()
         storage = _get_storage()
         journal_storage = JournalStorage(paths["journal_dir"])
-        embeddings = EmbeddingManager(paths["chroma_dir"], journal_storage)
+        embeddings = EmbeddingManager(paths["chroma_dir"])
 
         scheduler = IntelScheduler(
             storage=storage,

@@ -13,7 +13,7 @@ logger = structlog.get_logger()
 class EmbeddingManager:
     """Manages vector embeddings for journal entries."""
 
-    def __init__(self, chroma_dir: str | Path):
+    def __init__(self, chroma_dir: str | Path, collection_name: str = "journal"):
         self.chroma_dir = Path(chroma_dir).expanduser()
         self.chroma_dir.mkdir(parents=True, exist_ok=True)
 
@@ -22,7 +22,7 @@ class EmbeddingManager:
             settings=Settings(anonymized_telemetry=False),
         )
         self.collection = self.client.get_or_create_collection(
-            name="journal",
+            name=collection_name,
             metadata={"hnsw:space": "cosine"},
         )
 

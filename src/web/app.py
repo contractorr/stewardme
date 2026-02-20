@@ -8,12 +8,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from web.routes import advisor, goals, intel, journal, research, settings
+from web.user_store import init_db
 
 logger = structlog.get_logger()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    init_db()
     logger.info("web.startup")
     yield
     logger.info("web.shutdown")

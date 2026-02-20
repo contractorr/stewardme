@@ -1,4 +1,8 @@
-"""Fernet encryption for API keys. Stores encrypted JSON at ~/coach/secrets.enc."""
+"""Fernet encryption helpers.
+
+Stateless encrypt/decrypt for per-user secrets (user_store.py).
+Legacy file-based functions kept for backward compat / migration.
+"""
 
 import json
 from pathlib import Path
@@ -10,6 +14,27 @@ from cryptography.fernet import Fernet, InvalidToken
 def _get_fernet(secret_key: str) -> Fernet:
     """Create Fernet instance from SECRET_KEY (must be 32-byte url-safe base64)."""
     return Fernet(secret_key.encode() if isinstance(secret_key, str) else secret_key)
+
+
+# --- Stateless value-level encrypt/decrypt (used by user_store) ---
+
+
+def encrypt_value(fernet_key: str, plaintext: str) -> str:
+    """Encrypt a single string value, return base64 token."""
+    f = _get_fernet(fernet_key)
+    return f.encrypt(plaintext.encode()).decode()
+
+
+def decrypt_value(fernet_key: str, token: str) -> str | None:
+    """Decrypt a single token. Returns None on failure."""
+    try:
+        f = _get_fernet(fernet_key)
+        return f.decrypt(token.encode()).decode()
+    except (InvalidToken, Exception):
+        return None
+
+
+# --- Legacy file-based secrets (kept for CLI / migration) ---
 
 
 def _secrets_path() -> Path:

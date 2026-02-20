@@ -6,6 +6,8 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 
+from web.user_store import get_or_create_user
+
 ALGORITHM = "HS256"
 
 security = HTTPBearer()
@@ -24,7 +26,7 @@ def _get_jwt_secret() -> str:
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> dict:
-    """Decode JWT from Authorization header, extract user info."""
+    """Decode JWT, extract user info, auto-register on first login."""
     token = credentials.credentials
     try:
         payload = jwt.decode(token, _get_jwt_secret(), algorithms=[ALGORITHM])
@@ -34,6 +36,8 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token: missing sub",
             )
+        # Upsert user in DB on every auth
+        get_or_create_user(user_id, email=payload.get("email"), name=payload.get("name"))
         return {
             "id": user_id,
             "email": payload.get("email"),

@@ -1,4 +1,4 @@
-"""Journal CRUD routes wrapping src/journal/storage.py."""
+"""Journal CRUD routes wrapping src/journal/storage.py (per-user)."""
 
 from pathlib import Path
 
@@ -6,14 +6,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from journal.storage import JournalStorage
 from web.auth import get_current_user
-from web.deps import get_coach_paths
+from web.deps import get_user_paths
 from web.models import JournalCreate, JournalEntry, JournalUpdate
 
 router = APIRouter(prefix="/api/journal", tags=["journal"])
 
 
-def _get_storage() -> JournalStorage:
-    paths = get_coach_paths()
+def _get_storage(user_id: str) -> JournalStorage:
+    paths = get_user_paths(user_id)
     return JournalStorage(paths["journal_dir"])
 
 
@@ -34,7 +34,7 @@ async def list_entries(
     limit: int = 50,
     user: dict = Depends(get_current_user),
 ):
-    storage = _get_storage()
+    storage = _get_storage(user["id"])
     tags = [tag] if tag else None
     entries = storage.list_entries(entry_type=entry_type, tags=tags, limit=limit)
     return [
@@ -55,7 +55,7 @@ async def create_entry(
     body: JournalCreate,
     user: dict = Depends(get_current_user),
 ):
-    storage = _get_storage()
+    storage = _get_storage(user["id"])
     try:
         filepath = storage.create(
             content=body.content,
@@ -82,7 +82,7 @@ async def read_entry(
     filepath: str,
     user: dict = Depends(get_current_user),
 ):
-    storage = _get_storage()
+    storage = _get_storage(user["id"])
     resolved = _validate_journal_path(filepath, storage)
     post = storage.read(resolved)
     return JournalEntry(
@@ -101,7 +101,7 @@ async def update_entry(
     body: JournalUpdate,
     user: dict = Depends(get_current_user),
 ):
-    storage = _get_storage()
+    storage = _get_storage(user["id"])
     resolved = _validate_journal_path(filepath, storage)
     try:
         storage.update(resolved, content=body.content, metadata=body.metadata)
@@ -124,6 +124,6 @@ async def delete_entry(
     filepath: str,
     user: dict = Depends(get_current_user),
 ):
-    storage = _get_storage()
+    storage = _get_storage(user["id"])
     resolved = _validate_journal_path(filepath, storage)
     storage.delete(resolved)

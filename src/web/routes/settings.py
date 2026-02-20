@@ -1,19 +1,19 @@
-"""API key and settings management routes."""
+"""API key and settings management routes (per-user)."""
 
 from fastapi import APIRouter, Depends
 
 from web.auth import get_current_user
-from web.crypto import save_secrets
-from web.deps import get_secret_key, get_settings_mask, load_secrets
+from web.deps import get_secret_key, get_settings_mask_for_user
 from web.models import SettingsResponse, SettingsUpdate
+from web.user_store import set_user_secret
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
 
 @router.get("", response_model=SettingsResponse)
 async def get_settings(user: dict = Depends(get_current_user)):
-    """Return settings with bool mask for secrets. Never returns raw keys."""
-    return SettingsResponse(**get_settings_mask())
+    """Return per-user settings with bool mask for secrets."""
+    return SettingsResponse(**get_settings_mask_for_user(user["id"]))
 
 
 @router.put("", response_model=SettingsResponse)
@@ -21,13 +21,11 @@ async def update_settings(
     body: SettingsUpdate,
     user: dict = Depends(get_current_user),
 ):
-    """Encrypt and save settings. Only updates fields that are provided."""
-    secret_key = get_secret_key()
-    secrets = load_secrets(secret_key)
-
+    """Encrypt and save per-user settings."""
+    fernet_key = get_secret_key()
     update_data = body.model_dump(exclude_none=True)
-    secrets.update(update_data)
 
-    save_secrets(secret_key, secrets)
+    for key, value in update_data.items():
+        set_user_secret(user["id"], key, str(value), fernet_key)
 
-    return SettingsResponse(**get_settings_mask())
+    return SettingsResponse(**get_settings_mask_for_user(user["id"]))
