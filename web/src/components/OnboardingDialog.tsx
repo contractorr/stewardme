@@ -29,6 +29,7 @@ interface OnboardingDialogProps {
   onClose: () => void;
   onComplete?: () => void;
   token: string;
+  startPhase?: Phase;
 }
 
 type Phase = "welcome" | "chat" | "done";
@@ -45,8 +46,8 @@ const features = [
   { icon: Target, text: "Track goals and measure progress" },
 ];
 
-export function OnboardingDialog({ open, onClose, onComplete, token }: OnboardingDialogProps) {
-  const [phase, setPhase] = useState<Phase>("welcome");
+export function OnboardingDialog({ open, onClose, onComplete, token, startPhase = "welcome" }: OnboardingDialogProps) {
+  const [phase, setPhase] = useState<Phase>(startPhase);
   const [provider, setProvider] = useState("auto");
   const [apiKey, setApiKey] = useState("");
   const [saving, setSaving] = useState(false);
@@ -55,6 +56,28 @@ export function OnboardingDialog({ open, onClose, onComplete, token }: Onboardin
   const [sending, setSending] = useState(false);
   const [goalsCreated, setGoalsCreated] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // When opening in chat phase directly, start the interview
+  useEffect(() => {
+    if (!open) return;
+    setPhase(startPhase);
+    setMessages([]);
+    setGoalsCreated(0);
+    if (startPhase === "chat") {
+      (async () => {
+        try {
+          const res = await apiFetch<{ message: string; done: boolean }>(
+            "/api/onboarding/start",
+            { method: "POST" },
+            token
+          );
+          setMessages([{ role: "assistant", content: res.message }]);
+        } catch (e) {
+          toast.error((e as Error).message);
+        }
+      })();
+    }
+  }, [open]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });

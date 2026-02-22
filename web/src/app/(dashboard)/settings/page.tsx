@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { RefreshCw } from "lucide-react";
 import { useToken } from "@/hooks/useToken";
+import { OnboardingDialog } from "@/components/OnboardingDialog";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -66,6 +68,7 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const isDirty = Object.keys(form).length > 0;
 
@@ -224,6 +227,33 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Profile</CardTitle>
+          <CardDescription>Re-run the onboarding interview to update your profile and goals</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button variant="outline" onClick={() => setShowOnboarding(true)}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Restart Onboarding
+          </Button>
+        </CardContent>
+      </Card>
+
+      {token && (
+        <OnboardingDialog
+          open={showOnboarding}
+          onClose={() => setShowOnboarding(false)}
+          onComplete={() => {
+            apiFetch<Settings>("/api/settings", {}, token!)
+              .then(setSettings)
+              .catch(() => {});
+          }}
+          token={token}
+          startPhase={settings.llm_api_key_set ? "chat" : "welcome"}
+        />
+      )}
 
       <Separator />
       <div className="flex items-center gap-3">
