@@ -2,8 +2,6 @@
 
 import json
 import re
-from profile.interview import _build_profile
-from profile.storage import ProfileStorage
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
@@ -126,6 +124,9 @@ def _save_results(user_id: str, data: dict) -> int:
     paths = get_user_paths(user_id)
 
     # Save profile
+    from profile.interview import _build_profile
+    from profile.storage import ProfileStorage
+
     profile = _build_profile(data.get("profile", {}))
     storage = ProfileStorage(paths["profile"])
     storage.save(profile)
