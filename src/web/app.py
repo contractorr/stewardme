@@ -7,7 +7,7 @@ import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from web.routes import advisor, goals, intel, journal, research, settings
+from web.routes import advisor, goals, intel, journal, onboarding, research, settings
 from web.user_store import init_db
 
 logger = structlog.get_logger()
@@ -44,6 +44,7 @@ app.include_router(advisor.router)
 app.include_router(goals.router)
 app.include_router(intel.router)
 app.include_router(research.router)
+app.include_router(onboarding.router)
 
 
 @app.get("/api/health")

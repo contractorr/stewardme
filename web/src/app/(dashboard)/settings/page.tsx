@@ -113,6 +113,7 @@ export default function SettingsPage() {
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
             <Label>Provider</Label>
+            <p className="text-xs text-muted-foreground">Auto-detect picks provider based on your API key.</p>
             <Select
               value={form.llm_provider || settings.llm_provider || "auto"}
               onValueChange={(v) => setForm({ ...form, llm_provider: v })}
@@ -130,6 +131,7 @@ export default function SettingsPage() {
           </div>
           <div className="space-y-1.5">
             <Label>Model (optional)</Label>
+            <p className="text-xs text-muted-foreground">Leave blank for the provider&apos;s default model.</p>
             <Input
               placeholder="e.g. claude-sonnet-4-20250514"
               value={form.llm_model || ""}
@@ -143,6 +145,7 @@ export default function SettingsPage() {
             onChange={(v) => setForm({ ...form, llm_api_key: v })}
             isSet={settings.llm_api_key_set}
             hint={settings.llm_api_key_hint}
+            description="Required. Powers the Advisor. Your key is encrypted and stored per-user."
           />
         </CardContent>
       </Card>
@@ -160,6 +163,7 @@ export default function SettingsPage() {
             onChange={(v) => setForm({ ...form, tavily_api_key: v })}
             isSet={settings.tavily_api_key_set}
             hint={settings.tavily_api_key_hint}
+            description="Optional. Enables web search for deep research. Falls back to DuckDuckGo if not set."
           />
           <ApiKeyInput
             label="GitHub Token"
@@ -168,6 +172,7 @@ export default function SettingsPage() {
             onChange={(v) => setForm({ ...form, github_token: v })}
             isSet={settings.github_token_set}
             hint={settings.github_token_hint}
+            description="Optional. Raises GitHub scraper rate limit from 60 to 5,000 req/hr. Needs only public_repo scope."
           />
         </CardContent>
       </Card>
@@ -175,7 +180,7 @@ export default function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Email (SMTP)</CardTitle>
-          <CardDescription>For digest delivery</CardDescription>
+          <CardDescription>Optional. Enables weekly email digests and rate-limit alerts.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">

@@ -34,7 +34,7 @@ export function Sidebar() {
   const navContent = (
     <>
       <div className="mb-6 flex items-center justify-between px-2">
-        <h1 className="text-lg font-semibold">AI Coach</h1>
+        <h1 className="text-lg font-semibold">Journal Assistant</h1>
         <Button
           variant="ghost"
           size="icon"

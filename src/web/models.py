@@ -129,3 +129,16 @@ class ResearchTopic(BaseModel):
     source: str
     score: float
     reason: str
+
+
+# --- Onboarding ---
+
+
+class OnboardingChat(BaseModel):
+    message: str = Field(..., max_length=5000)
+
+
+class OnboardingResponse(BaseModel):
+    message: str
+    done: bool = False
+    goals_created: int = 0

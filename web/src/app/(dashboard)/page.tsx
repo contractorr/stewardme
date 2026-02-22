@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useToken } from "@/hooks/useToken";
 import { BookOpen, Newspaper, Plus, Target } from "lucide-react";
+import { OnboardingDialog } from "@/components/OnboardingDialog";
 import {
   Card,
   CardContent,
@@ -80,8 +81,9 @@ export default function DashboardPage() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [intel, setIntel] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
-  useEffect(() => {
+  const fetchData = () => {
     if (!token) {
       setLoading(false);
       return;
@@ -90,15 +92,37 @@ export default function DashboardPage() {
       apiFetch<JournalEntry[]>("/api/journal?limit=5", {}, token).then(setEntries),
       apiFetch<Goal[]>("/api/goals", {}, token).then(setGoals),
       apiFetch<Record<string, unknown>[]>("/api/intel/recent?limit=5", {}, token).then(setIntel),
+      apiFetch<{ llm_api_key_set: boolean }>("/api/settings", {}, token).then((s) => {
+        if (!s.llm_api_key_set && !localStorage.getItem("onboarding_dismissed")) {
+          setShowOnboarding(true);
+        }
+      }),
     ]).finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchData();
   }, [token]);
+
+  const dismissOnboarding = () => {
+    localStorage.setItem("onboarding_dismissed", "true");
+    setShowOnboarding(false);
+  };
 
   return (
     <div className="space-y-6">
+      {token && (
+        <OnboardingDialog
+          open={showOnboarding}
+          onClose={dismissOnboarding}
+          onComplete={fetchData}
+          token={token}
+        />
+      )}
       <div>
         <h1 className="text-2xl font-semibold">Dashboard</h1>
         <p className="text-sm text-muted-foreground">
-          Your personal AI coaching overview
+          Your personal assistant overview
         </p>
       </div>
 

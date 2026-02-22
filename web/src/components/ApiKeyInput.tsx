@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { AlertCircle, Eye, EyeOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ interface ApiKeyInputProps {
   onChange: (value: string) => void;
   isSet: boolean;
   hint?: string | null;
+  description?: string;
 }
 
 export function ApiKeyInput({
@@ -23,6 +24,7 @@ export function ApiKeyInput({
   onChange,
   isSet,
   hint,
+  description,
 }: ApiKeyInputProps) {
   const [visible, setVisible] = useState(false);
 
@@ -31,11 +33,17 @@ export function ApiKeyInput({
       <div className="flex items-center gap-2">
         <Label htmlFor={name}>{label}</Label>
         {isSet && (
-          <Badge variant="secondary" className="text-xs">
-            Set{hint ? ` (${hint})` : ""}
+          <Badge
+            variant="outline"
+            className="border-emerald-600 text-emerald-600 text-xs"
+          >
+            Configured{hint ? ` (${hint})` : ""}
           </Badge>
         )}
       </div>
+      {description && (
+        <p className="text-xs text-muted-foreground">{description}</p>
+      )}
       <div className="relative">
         <Input
           id={name}
@@ -59,6 +67,12 @@ export function ApiKeyInput({
           )}
         </Button>
       </div>
+      {isSet && value && (
+        <div className="flex items-center gap-1.5 text-xs text-amber-600">
+          <AlertCircle className="h-3.5 w-3.5" />
+          <span>Will replace existing value</span>
+        </div>
+      )}
     </div>
   );
 }
