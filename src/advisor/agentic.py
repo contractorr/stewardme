@@ -1,0 +1,89 @@
+"""Agentic orchestrator — LLM tool-calling loop."""
+
+
+import structlog
+
+from llm.base import LLMProvider
+
+from .tools import ToolRegistry
+
+logger = structlog.get_logger()
+
+
+class AgenticOrchestrator:
+    """Runs an LLM tool-calling loop until the model responds with text."""
+
+    def __init__(
+        self,
+        llm: LLMProvider,
+        registry: ToolRegistry,
+        system_prompt: str,
+        max_iterations: int = 10,
+    ):
+        self.llm = llm
+        self.registry = registry
+        self.system_prompt = system_prompt
+        self.max_iterations = max_iterations
+
+    def run(self, user_message: str) -> str:
+        messages = [{"role": "user", "content": user_message}]
+        tools = self.registry.get_definitions()
+
+        for iteration in range(self.max_iterations):
+            response = self.llm.generate_with_tools(
+                messages=messages,
+                tools=tools,
+                system=self.system_prompt,
+            )
+
+            logger.debug(
+                "agentic_iteration",
+                iteration=iteration,
+                finish_reason=response.finish_reason,
+                tool_call_count=len(response.tool_calls) if response.tool_calls else 0,
+            )
+
+            # LLM finished with text — return it
+            if response.finish_reason == "stop" or not response.tool_calls:
+                logger.info("agentic_complete", iterations=iteration + 1)
+                return response.content or ""
+
+            # Build assistant message with tool calls
+            assistant_msg = {
+                "role": "assistant",
+                "tool_calls": [
+                    {"id": tc.id, "name": tc.name, "arguments": tc.arguments}
+                    for tc in response.tool_calls
+                ],
+            }
+            if response.content:
+                assistant_msg["content"] = response.content
+            messages.append(assistant_msg)
+
+            # Execute each tool call and append results
+            for tc in response.tool_calls:
+                logger.info("tool_call", tool=tc.name, args=list(tc.arguments.keys()))
+
+                result_text = self.registry.execute(tc.name, tc.arguments)
+                is_error = '"error"' in result_text[:50]
+
+                logger.info(
+                    "tool_result",
+                    tool=tc.name,
+                    chars=len(result_text),
+                    is_error=is_error,
+                )
+
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tc.id,
+                    "name": tc.name,
+                    "content": result_text,
+                    "is_error": is_error,
+                })
+
+        # Max iterations reached — return whatever we have
+        logger.warning("agentic_max_iterations", max=self.max_iterations)
+        if response.content:
+            return response.content
+        return "I wasn't able to complete that request within the allowed steps."

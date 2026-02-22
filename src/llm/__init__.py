@@ -1,6 +1,15 @@
 """Multi-provider LLM abstraction layer."""
 
-from .base import LLMAuthError, LLMError, LLMProvider, LLMRateLimitError
+from .base import (
+    GenerateResponse,
+    LLMAuthError,
+    LLMError,
+    LLMProvider,
+    LLMRateLimitError,
+    ToolCall,
+    ToolDefinition,
+    ToolResult,
+)
 from .factory import create_llm_provider
 
 __all__ = [
@@ -9,4 +18,8 @@ __all__ = [
     "LLMError",
     "LLMRateLimitError",
     "LLMAuthError",
+    "ToolDefinition",
+    "ToolCall",
+    "ToolResult",
+    "GenerateResponse",
 ]

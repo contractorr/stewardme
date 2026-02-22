@@ -52,9 +52,12 @@ class AdvisorEngine:
         model: Optional[str] = None,
         provider: Optional[str] = None,
         client=None,  # Dependency injection for testing
+        use_tools: bool = False,
+        components: Optional[dict] = None,
     ):
         self.rag = rag
         self.model = model
+        self.use_tools = use_tools
 
         try:
             self.llm = create_llm_provider(
@@ -65,6 +68,18 @@ class AdvisorEngine:
             )
         except BaseLLMError as e:
             raise APIKeyMissingError(str(e)) from e
+
+        self._orchestrator = None
+        if use_tools and components:
+            from .agentic import AgenticOrchestrator
+            from .tools import ToolRegistry
+
+            registry = ToolRegistry(components)
+            self._orchestrator = AgenticOrchestrator(
+                llm=self.llm,
+                registry=registry,
+                system_prompt=PromptTemplates.AGENTIC_SYSTEM,
+            )
 
     @_llm_retry
     def _call_llm(self, system: str, user_prompt: str, max_tokens: int = 2000) -> str:
@@ -101,6 +116,11 @@ class AdvisorEngine:
         Returns:
             LLM-generated advice
         """
+        # Agentic mode: LLM decides what to look up via tool calls
+        if self._orchestrator:
+            return self._orchestrator.run(question)
+
+        # Classic RAG mode: single-shot retrieval + LLM call
         journal_ctx, intel_ctx = self.rag.get_combined_context(question)
         profile_ctx = self.rag.get_profile_context()
 

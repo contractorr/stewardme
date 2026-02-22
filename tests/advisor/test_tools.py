@@ -1,0 +1,233 @@
+"""Tests for advisor ToolRegistry."""
+
+import json
+
+import pytest
+
+from advisor.tools import ToolRegistry
+
+
+@pytest.fixture
+def mock_components(tmp_path):
+    """Build minimal real components for ToolRegistry."""
+    from journal.storage import JournalStorage
+    from journal.embeddings import EmbeddingManager
+    from journal.search import JournalSearch
+    from intelligence.scraper import IntelStorage
+
+    journal_dir = tmp_path / "journal"
+    journal_dir.mkdir()
+    chroma_dir = tmp_path / "chroma"
+    intel_db = tmp_path / "intel.db"
+    recs_dir = tmp_path / "recommendations"
+    profile_path = tmp_path / "profile.yaml"
+
+    storage = JournalStorage(journal_dir)
+    embeddings = EmbeddingManager(chroma_dir, collection_name="test")
+    intel_storage = IntelStorage(intel_db)
+    journal_search = JournalSearch(storage, embeddings)
+
+    from advisor.rag import RAGRetriever
+    rag = RAGRetriever(
+        journal_search=journal_search,
+        intel_db_path=intel_db,
+        profile_path=str(profile_path),
+    )
+
+    return {
+        "storage": storage,
+        "embeddings": embeddings,
+        "intel_storage": intel_storage,
+        "rag": rag,
+        "profile_path": str(profile_path),
+        "recommendations_dir": recs_dir,
+    }
+
+
+class TestToolRegistryInit:
+    def test_creates_13_tools(self, mock_components):
+        registry = ToolRegistry(mock_components)
+        defs = registry.get_definitions()
+        assert len(defs) == 13
+
+    def test_tool_names(self, mock_components):
+        registry = ToolRegistry(mock_components)
+        names = {d.name for d in registry.get_definitions()}
+        expected = {
+            "journal_search", "journal_list", "journal_read", "journal_create",
+            "goals_list", "goals_add", "goals_check_in", "goals_update_status",
+            "intel_search", "intel_get_recent",
+            "recommendations_list", "profile_get", "get_context",
+        }
+        assert names == expected
+
+    def test_definitions_have_schemas(self, mock_components):
+        registry = ToolRegistry(mock_components)
+        for defn in registry.get_definitions():
+            assert defn.name
+            assert defn.description
+            assert "type" in defn.input_schema
+
+
+class TestToolExecution:
+    def test_unknown_tool_returns_error(self, mock_components):
+        registry = ToolRegistry(mock_components)
+        result = registry.execute("nonexistent_tool", {})
+        parsed = json.loads(result)
+        assert "error" in parsed
+
+    def test_journal_list_empty(self, mock_components):
+        registry = ToolRegistry(mock_components)
+        result = registry.execute("journal_list", {})
+        parsed = json.loads(result)
+        assert parsed["entries"] == []
+        assert parsed["count"] == 0
+
+    def test_journal_create_and_list(self, mock_components):
+        registry = ToolRegistry(mock_components)
+
+        # Create an entry
+        result = registry.execute("journal_create", {
+            "content": "Today I learned about tool calling.",
+            "title": "Tool Calling Notes",
+            "entry_type": "note",
+        })
+        parsed = json.loads(result)
+        assert "path" in parsed
+        assert parsed["type"] == "note"
+
+        # List should now have 1 entry
+        result = registry.execute("journal_list", {})
+        parsed = json.loads(result)
+        assert parsed["count"] == 1
+        assert parsed["entries"][0]["title"] == "Tool Calling Notes"
+
+    def test_journal_read(self, mock_components):
+        registry = ToolRegistry(mock_components)
+
+        # Create then read
+        create_result = json.loads(registry.execute("journal_create", {
+            "content": "Test content here.",
+            "title": "Read Test",
+        }))
+        filename = create_result["filename"]
+
+        result = registry.execute("journal_read", {"filename": filename})
+        parsed = json.loads(result)
+        assert "Test content here." in parsed["content"]
+
+    def test_journal_read_not_found(self, mock_components):
+        registry = ToolRegistry(mock_components)
+        result = registry.execute("journal_read", {"filename": "nonexistent.md"})
+        parsed = json.loads(result)
+        assert "error" in parsed
+
+    def test_journal_read_path_traversal(self, mock_components):
+        registry = ToolRegistry(mock_components)
+        result = registry.execute("journal_read", {"filename": "../../etc/passwd"})
+        parsed = json.loads(result)
+        assert "error" in parsed
+
+    def test_goals_list_empty(self, mock_components):
+        registry = ToolRegistry(mock_components)
+        result = registry.execute("goals_list", {})
+        parsed = json.loads(result)
+        assert parsed["goals"] == []
+
+    def test_goals_add_and_list(self, mock_components):
+        registry = ToolRegistry(mock_components)
+
+        result = registry.execute("goals_add", {
+            "title": "Learn Rust",
+            "description": "Study Rust programming language",
+        })
+        parsed = json.loads(result)
+        assert parsed["type"] == "goal"
+        assert "path" in parsed
+
+        result = registry.execute("goals_list", {})
+        parsed = json.loads(result)
+        assert parsed["count"] == 1
+        assert parsed["goals"][0]["title"] == "Learn Rust"
+
+    def test_goals_check_in(self, mock_components):
+        registry = ToolRegistry(mock_components)
+
+        # Create a goal first
+        create_result = json.loads(registry.execute("goals_add", {"title": "Test Goal"}))
+        goal_path = create_result["path"]
+
+        result = registry.execute("goals_check_in", {
+            "goal_path": goal_path,
+            "notes": "Making progress",
+        })
+        parsed = json.loads(result)
+        assert parsed["success"] is True
+
+    def test_goals_update_status(self, mock_components):
+        registry = ToolRegistry(mock_components)
+
+        create_result = json.loads(registry.execute("goals_add", {"title": "Complete Goal"}))
+        goal_path = create_result["path"]
+
+        result = registry.execute("goals_update_status", {
+            "goal_path": goal_path,
+            "status": "completed",
+        })
+        parsed = json.loads(result)
+        assert parsed["success"] is True
+        assert parsed["status"] == "completed"
+
+    def test_intel_search_empty(self, mock_components):
+        registry = ToolRegistry(mock_components)
+        result = registry.execute("intel_search", {"query": "rust"})
+        parsed = json.loads(result)
+        assert parsed["count"] == 0
+
+    def test_intel_get_recent_empty(self, mock_components):
+        registry = ToolRegistry(mock_components)
+        result = registry.execute("intel_get_recent", {"days": 7})
+        parsed = json.loads(result)
+        assert parsed["count"] == 0
+
+    def test_recommendations_list_empty(self, mock_components):
+        registry = ToolRegistry(mock_components)
+        result = registry.execute("recommendations_list", {})
+        parsed = json.loads(result)
+        assert parsed["count"] == 0
+
+    def test_profile_get_no_profile(self, mock_components):
+        registry = ToolRegistry(mock_components)
+        result = registry.execute("profile_get", {})
+        parsed = json.loads(result)
+        assert parsed["exists"] is False
+
+    def test_get_context(self, mock_components):
+        registry = ToolRegistry(mock_components)
+        result = registry.execute("get_context", {"query": "test query"})
+        parsed = json.loads(result)
+        assert "journal_context" in parsed
+        assert "intel_context" in parsed
+
+    def test_handler_failure_returns_result(self, mock_components):
+        """Handler that fails should return result JSON, not crash."""
+        registry = ToolRegistry(mock_components)
+        # Check in on nonexistent goal returns success: false
+        result = registry.execute("goals_check_in", {"goal_path": "/nonexistent/path.md"})
+        parsed = json.loads(result)
+        assert parsed["success"] is False
+
+
+class TestToolResultTruncation:
+    def test_large_result_truncated(self, mock_components):
+        registry = ToolRegistry(mock_components)
+
+        # Create many entries to produce a large result
+        for i in range(50):
+            registry.execute("journal_create", {
+                "content": f"Entry number {i}. " + "x" * 200,
+                "title": f"Entry {i}",
+            })
+
+        result = registry.execute("journal_list", {"limit": 50})
+        assert len(result) <= 4100  # TOOL_RESULT_MAX_CHARS + truncation msg
