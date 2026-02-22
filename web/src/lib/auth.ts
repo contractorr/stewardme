@@ -23,8 +23,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return !!auth?.user;
     },
     async jwt({ token, account }) {
+      // Pin sub to the OAuth provider's stable ID so it survives logout/login.
+      // NextAuth v5 beta sets sub to a random UUID without a DB adapter.
+      if (account) {
+        token.sub = `${account.provider}:${account.providerAccountId}`;
+      }
       if ((account || !token.backendToken) && token.sub) {
-        // Mint (or re-mint) a HS256 JWT the Python backend can verify
         token.backendToken = await new SignJWT({
           sub: token.sub,
           email: token.email,

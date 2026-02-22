@@ -66,6 +66,40 @@ def init_db(db_path: Path | None = None) -> None:
         conn.close()
 
 
+def _migrate_secrets(conn: sqlite3.Connection, target_id: str, email: str) -> None:
+    """Move secrets from old user IDs (same email) to the new stable ID."""
+    old_users = conn.execute(
+        "SELECT id FROM users WHERE email = ? AND id != ?",
+        (email, target_id),
+    ).fetchall()
+    if not old_users:
+        return
+    migrated = 0
+    for (old_id,) in old_users:
+        rows = conn.execute(
+            "SELECT key, value FROM user_secrets WHERE user_id = ?", (old_id,)
+        ).fetchall()
+        for key, value in rows:
+            # Only migrate if target doesn't already have this key
+            exists = conn.execute(
+                "SELECT 1 FROM user_secrets WHERE user_id = ? AND key = ?",
+                (target_id, key),
+            ).fetchone()
+            if not exists:
+                conn.execute(
+                    "INSERT INTO user_secrets (user_id, key, value) VALUES (?, ?, ?)",
+                    (target_id, key, value),
+                )
+                migrated += 1
+        # Clean up old user's secrets and record
+        conn.execute("DELETE FROM user_secrets WHERE user_id = ?", (old_id,))
+        conn.execute("DELETE FROM conversations WHERE user_id = ?", (old_id,))
+        conn.execute("DELETE FROM users WHERE id = ?", (old_id,))
+    if migrated:
+        conn.commit()
+        logger.info("user_store.secrets_migrated", target=target_id, migrated=migrated)
+
+
 def get_or_create_user(
     user_id: str,
     email: str | None = None,
@@ -84,6 +118,9 @@ def get_or_create_user(
                     (email, name, user_id),
                 )
                 conn.commit()
+            # Migrate secrets from old duplicate user IDs (same email)
+            if email:
+                _migrate_secrets(conn, user_id, email)
             row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
             return dict(row)
         else:
@@ -93,6 +130,9 @@ def get_or_create_user(
                 (user_id, email, name, now),
             )
             conn.commit()
+            # Migrate secrets from old duplicate user IDs (same email)
+            if email:
+                _migrate_secrets(conn, user_id, email)
             return {"id": user_id, "email": email, "name": name, "created_at": now}
     finally:
         conn.close()
