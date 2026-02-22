@@ -5,7 +5,7 @@ WORKDIR /app
 COPY pyproject.toml .
 COPY src/ src/
 
-RUN pip install --no-cache-dir -e ".[web]" \
+RUN pip install --no-cache-dir -e ".[web,all-providers]" \
     && adduser --disabled-password --home /data/coach appuser \
     && mkdir -p /data/coach && chown appuser /data/coach
 
