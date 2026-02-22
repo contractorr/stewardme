@@ -23,8 +23,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return !!auth?.user;
     },
     async jwt({ token, account }) {
-      if (account) {
-        // Mint a HS256 JWT the Python backend can verify
+      if ((account || !token.backendToken) && token.sub) {
+        // Mint (or re-mint) a HS256 JWT the Python backend can verify
         token.backendToken = await new SignJWT({
           sub: token.sub,
           email: token.email,
