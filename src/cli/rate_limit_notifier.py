@@ -30,8 +30,8 @@ class RateLimitNotifier:
             return False
 
         now = time.monotonic()
-        last = self._last_sent.get(provider, 0.0)
-        if now - last < self._cooldown:
+        last = self._last_sent.get(provider)
+        if last is not None and now - last < self._cooldown:
             metrics.counter("rate_limit_notification_cooldown")
             logger.debug("rate_limit_notification_cooldown", provider=provider)
             return False
