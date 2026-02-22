@@ -28,6 +28,6 @@ USER nextjs
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=10s \
-    CMD wget -q --spider http://0.0.0.0:3000 || exit 1
+    CMD node -e "require('http').get('http://127.0.0.1:3000',r=>{r.resume();process.exit(r.statusCode<500?0:1)}).on('error',()=>process.exit(1))"
 
 CMD ["node", "server.js"]
