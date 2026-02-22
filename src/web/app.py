@@ -13,9 +13,27 @@ from web.user_store import init_db
 logger = structlog.get_logger()
 
 
+def _verify_secret_key() -> None:
+    """Canary check: encrypt+decrypt roundtrip with SECRET_KEY on startup."""
+    key = os.getenv("SECRET_KEY")
+    if not key:
+        logger.critical("SECRET_KEY env var not set")
+        raise RuntimeError("SECRET_KEY required")
+    from web.crypto import decrypt_value, encrypt_value
+
+    canary = "canary-check"
+    enc = encrypt_value(key, canary)
+    dec = decrypt_value(key, enc, key_name="canary")
+    if dec != canary:
+        logger.critical("SECRET_KEY canary failed — key may have changed")
+        raise RuntimeError("SECRET_KEY canary failed")
+    logger.info("crypto.canary_ok")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    _verify_secret_key()
     logger.info("web.startup")
     yield
     logger.info("web.shutdown")

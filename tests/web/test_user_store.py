@@ -97,3 +97,30 @@ def test_missing_secret_returns_none(tmp_path):
     init_db(db)
     get_or_create_user("u1", db_path=db)
     assert get_user_secret("u1", "nonexistent", fernet_key, db) is None
+
+
+def test_wrong_fernet_key_returns_none(tmp_path):
+    """Secret saved with key1, loaded with key2 → None (simulates SECRET_KEY rotation)."""
+    db = tmp_path / "users.db"
+    key1 = Fernet.generate_key().decode()
+    key2 = Fernet.generate_key().decode()
+    init_db(db)
+    get_or_create_user("u1", db_path=db)
+
+    set_user_secret("u1", "llm_api_key", "sk-abc", key1, db)
+    assert get_user_secret("u1", "llm_api_key", key2, db) is None
+
+
+def test_wrong_fernet_key_skips_in_get_all(tmp_path):
+    """get_user_secrets skips entries that fail to decrypt."""
+    db = tmp_path / "users.db"
+    key1 = Fernet.generate_key().decode()
+    key2 = Fernet.generate_key().decode()
+    init_db(db)
+    get_or_create_user("u1", db_path=db)
+
+    set_user_secret("u1", "api_key", "sk-123", key1, db)
+    set_user_secret("u1", "other_key", "val", key1, db)
+
+    secrets = get_user_secrets("u1", key2, db)
+    assert secrets == {}

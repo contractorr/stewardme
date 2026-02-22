@@ -113,7 +113,7 @@ def get_user_secret(
         ).fetchone()
         if not row:
             return None
-        return decrypt_value(fernet_key, row["value"])
+        return decrypt_value(fernet_key, row["value"], key_name=secret_key)
     finally:
         conn.close()
 
@@ -131,10 +131,20 @@ def get_user_secrets(
             (user_id,),
         ).fetchall()
         result = {}
+        skipped = 0
         for row in rows:
-            val = decrypt_value(fernet_key, row["value"])
+            val = decrypt_value(fernet_key, row["value"], key_name=row["key"])
             if val is not None:
                 result[row["key"]] = val
+            else:
+                skipped += 1
+        if skipped:
+            logger.warning(
+                "user_store.secrets_skipped",
+                user_id=user_id,
+                total=len(rows),
+                skipped=skipped,
+            )
         return result
     finally:
         conn.close()
@@ -157,6 +167,7 @@ def set_user_secret(
             (user_id, secret_key, encrypted),
         )
         conn.commit()
+        logger.info("user_store.secret_saved", user_id=user_id, key=secret_key)
     finally:
         conn.close()
 

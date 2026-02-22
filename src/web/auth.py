@@ -2,11 +2,14 @@
 
 import os
 
+import structlog
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 
 from web.user_store import get_or_create_user
+
+logger = structlog.get_logger()
 
 ALGORITHM = "HS256"
 
@@ -38,6 +41,7 @@ async def get_current_user(
             )
         # Upsert user in DB on every auth
         get_or_create_user(user_id, email=payload.get("email"), name=payload.get("name"))
+        logger.info("auth.success", user_id=user_id)
         return {
             "id": user_id,
             "email": payload.get("email"),

@@ -8,7 +8,10 @@ import json
 from pathlib import Path
 from typing import Any
 
+import structlog
 from cryptography.fernet import Fernet, InvalidToken
+
+logger = structlog.get_logger()
 
 
 def _get_fernet(secret_key: str) -> Fernet:
@@ -25,12 +28,16 @@ def encrypt_value(fernet_key: str, plaintext: str) -> str:
     return f.encrypt(plaintext.encode()).decode()
 
 
-def decrypt_value(fernet_key: str, token: str) -> str | None:
+def decrypt_value(fernet_key: str, token: str, key_name: str = "") -> str | None:
     """Decrypt a single token. Returns None on failure."""
     try:
         f = _get_fernet(fernet_key)
         return f.decrypt(token.encode()).decode()
-    except (InvalidToken, Exception):
+    except InvalidToken:
+        logger.warning("crypto.decrypt_failed", key=key_name, reason="invalid_token")
+        return None
+    except Exception as e:
+        logger.warning("crypto.decrypt_failed", key=key_name, reason=str(e))
         return None
 
 
