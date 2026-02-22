@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { Brain, BookOpen, Newspaper, Target, Sparkles, Send } from "lucide-react";
+import { Brain, BookOpen, Newspaper, Target, Sparkles, Send, FlaskConical, ArrowRight } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -32,7 +32,7 @@ interface OnboardingDialogProps {
   startPhase?: Phase;
 }
 
-type Phase = "welcome" | "chat" | "done";
+type Phase = "intro" | "welcome" | "chat" | "done";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -46,7 +46,40 @@ const features = [
   { icon: Target, text: "Track goals and measure progress" },
 ];
 
-export function OnboardingDialog({ open, onClose, onComplete, token, startPhase = "welcome" }: OnboardingDialogProps) {
+const introSections = [
+  {
+    icon: BookOpen,
+    title: "Journal",
+    description:
+      "Capture daily reflections, project notes, and career thoughts in markdown. Entries are semantically indexed so your advisor can reference them in future conversations.",
+  },
+  {
+    icon: Brain,
+    title: "AI Advisor",
+    description:
+      "Ask questions and get advice grounded in your journal and external intel. Every answer is personalized to your context using retrieval-augmented generation.",
+  },
+  {
+    icon: Target,
+    title: "Goal Tracking",
+    description:
+      "Set goals with milestones, check in with notes, and track progress over time. The advisor monitors stale goals and factors your objectives into its recommendations.",
+  },
+  {
+    icon: Newspaper,
+    title: "Intelligence Feed",
+    description:
+      "Automatically scrapes Hacker News, GitHub trending, arXiv, Reddit, and RSS feeds. Relevant items surface in your advisor's context without you having to search.",
+  },
+  {
+    icon: FlaskConical,
+    title: "Deep Research",
+    description:
+      "On-demand deep dives on topics drawn from your journal and goals. Searches the web, synthesizes findings into a report you can review and act on.",
+  },
+];
+
+export function OnboardingDialog({ open, onClose, onComplete, token, startPhase = "intro" }: OnboardingDialogProps) {
   const [phase, setPhase] = useState<Phase>(startPhase);
   const [provider, setProvider] = useState("auto");
   const [apiKey, setApiKey] = useState("");
@@ -152,6 +185,48 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && handleClose()}>
       <SheetContent side="right" className="flex flex-col sm:max-w-lg overflow-hidden">
+        {phase === "intro" && (
+          <>
+            <SheetHeader>
+              <div className="mx-auto mb-1 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                <Brain className="h-6 w-6 text-primary" />
+              </div>
+              <SheetTitle className="text-center text-xl">Journal Assistant</SheetTitle>
+              <SheetDescription className="text-center">
+                Your AI-powered career companion
+              </SheetDescription>
+            </SheetHeader>
+
+            <div className="flex-1 space-y-4 overflow-y-auto px-4 py-2">
+              {introSections.map(({ icon: Icon, title, description }) => (
+                <div key={title} className="flex gap-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted">
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">{title}</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{description}</p>
+                  </div>
+                </div>
+              ))}
+
+              <div className="rounded-lg border bg-muted/50 p-3 text-xs text-muted-foreground leading-relaxed">
+                <span className="font-medium text-foreground">How it all connects:</span> your journal and intel feed into the advisor via RAG. Goals shape recommendations. Research fills knowledge gaps. The more you journal, the better the advice gets.
+              </div>
+            </div>
+
+            <SheetFooter>
+              <Button onClick={() => setPhase("welcome")} className="w-full">
+                Continue
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+              <Button variant="ghost" onClick={() => handleClose()} className="w-full text-muted-foreground">
+                Skip for Now
+              </Button>
+            </SheetFooter>
+          </>
+        )}
+
         {phase === "welcome" && (
           <>
             <SheetHeader>

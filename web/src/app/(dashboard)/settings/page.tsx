@@ -251,7 +251,7 @@ export default function SettingsPage() {
               .catch(() => {});
           }}
           token={token}
-          startPhase={settings.llm_api_key_set ? "chat" : "welcome"}
+          startPhase={settings.llm_api_key_set ? "chat" : "intro"}
         />
       )}
 
