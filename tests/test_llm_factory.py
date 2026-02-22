@@ -81,4 +81,4 @@ class TestCreateProvider:
         mock_client = MagicMock()
         assert create_llm_provider(provider="claude", client=mock_client).model == "claude-sonnet-4-20250514"
         assert create_llm_provider(provider="openai", client=mock_client).model == "gpt-4o"
-        assert create_llm_provider(provider="gemini", client=mock_client).model_name == "gemini-2.0-flash"
+        assert create_llm_provider(provider="gemini", client=mock_client).model_name == "gemini-2.5-flash"

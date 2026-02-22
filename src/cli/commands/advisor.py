@@ -262,7 +262,7 @@ def goals_progress(goal_path: str):
     console.print(f"\n[bold]Progress: {progress['percent']}%[/] ({progress['completed']}/{progress['total']} milestones)")
 
     with Progress(TextColumn("[bold]{task.description}"), BarColumn(bar_width=40), TextColumn("{task.percentage:.0f}%"), console=console) as bar:
-        task = bar.add_task("Progress", total=100, completed=progress["percent"])
+        bar.add_task("Progress", total=100, completed=progress["percent"])
 
     # Milestone list
     if progress["milestones"]:
