@@ -1,11 +1,7 @@
 {$DOMAIN} {
-	@nextauth path /api/auth/*
-	handle @nextauth {
-		reverse_proxy frontend:3000
-	}
-
-	@api path /api/*
-	handle @api {
+	handle /api/* {
+		@nextauth path /api/auth/*
+		reverse_proxy @nextauth frontend:3000
 		reverse_proxy backend:8000
 	}
 
