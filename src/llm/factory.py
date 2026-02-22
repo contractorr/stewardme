@@ -33,7 +33,7 @@ def create_llm_provider(
     resolved = provider or "auto"
 
     if resolved == "auto":
-        resolved = _auto_detect_provider()
+        resolved = _auto_detect_provider(api_key)
 
     if not api_key and not client:
         env_var = _PROVIDER_ENV_KEYS.get(resolved)
@@ -42,19 +42,38 @@ def create_llm_provider(
 
     if resolved == "claude":
         from .providers.claude import ClaudeProvider
+
         return ClaudeProvider(api_key=api_key, model=model, client=client)
     elif resolved == "openai":
         from .providers.openai import OpenAIProvider
+
         return OpenAIProvider(api_key=api_key, model=model, client=client)
     elif resolved == "gemini":
         from .providers.gemini import GeminiProvider
+
         return GeminiProvider(api_key=api_key, model=model, client=client)
     else:
         raise LLMError(f"Unknown provider: {resolved}. Use: claude, openai, gemini")
 
 
-def _auto_detect_provider() -> str:
-    """Detect provider from available env vars."""
+def _detect_provider_from_key(api_key: str) -> str | None:
+    """Infer provider from API key prefix."""
+    if api_key.startswith("sk-ant-"):
+        return "claude"
+    if api_key.startswith("sk-"):
+        return "openai"
+    if api_key.startswith("AI"):
+        return "gemini"
+    return None
+
+
+def _auto_detect_provider(api_key: str | None = None) -> str:
+    """Detect provider from explicit key prefix, then env vars."""
+    if api_key:
+        inferred = _detect_provider_from_key(api_key)
+        if inferred:
+            return inferred
+
     for name in _AUTO_DETECT_ORDER:
         env_var = _PROVIDER_ENV_KEYS[name]
         if os.getenv(env_var):

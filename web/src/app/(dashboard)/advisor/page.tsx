@@ -20,7 +20,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, apiFetchSSE } from "@/lib/api";
+
+const TOOL_LABELS: Record<string, string> = {
+  journal_search: "Searching journal",
+  journal_read: "Reading journal entry",
+  journal_list: "Listing journal entries",
+  goals_list: "Checking goals",
+  intel_search: "Searching intel",
+  intel_get_recent: "Fetching recent intel",
+  profile_get: "Loading profile",
+  get_context: "Gathering context",
+  recommendations_list: "Checking recommendations",
+};
 
 interface Message {
   role: "user" | "assistant";
@@ -43,6 +55,7 @@ export default function AdvisorPage() {
   const [input, setInput] = useState("");
   const [adviceType, setAdviceType] = useState("general");
   const [loading, setLoading] = useState(false);
+  const [toolStatus, setToolStatus] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -125,32 +138,48 @@ export default function AdvisorPage() {
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: question }]);
     setLoading(true);
+    setToolStatus(null);
 
     try {
-      const res = await apiFetch<{
-        answer: string;
-        advice_type: string;
-        conversation_id: string;
-      }>("/api/advisor/ask", {
-        method: "POST",
-        body: JSON.stringify({
-          question,
-          advice_type: adviceType,
-          conversation_id: conversationId,
-        }),
-      }, token);
-
-      setConversationId(res.conversation_id);
-      localStorage.setItem(CONV_KEY, res.conversation_id);
-
-      setMessages((prev) => [
-        ...prev,
+      await apiFetchSSE(
+        "/api/advisor/ask/stream",
         {
-          role: "assistant",
-          content: res.answer,
-          advice_type: res.advice_type,
+          method: "POST",
+          body: JSON.stringify({
+            question,
+            advice_type: adviceType,
+            conversation_id: conversationId,
+          }),
         },
-      ]);
+        token,
+        (event) => {
+          const type = event.type as string;
+          if (type === "tool_start") {
+            const tool = event.tool as string;
+            setToolStatus(TOOL_LABELS[tool] || `Running ${tool}`);
+          } else if (type === "tool_done") {
+            setToolStatus(null);
+          } else if (type === "answer") {
+            const cid = event.conversation_id as string;
+            setConversationId(cid);
+            localStorage.setItem(CONV_KEY, cid);
+            setMessages((prev) => [
+              ...prev,
+              {
+                role: "assistant",
+                content: event.content as string,
+                advice_type: event.advice_type as string,
+              },
+            ]);
+          } else if (type === "error") {
+            toast.error(event.detail as string);
+            setMessages((prev) => [
+              ...prev,
+              { role: "assistant", content: "Error: " + (event.detail as string) },
+            ]);
+          }
+        }
+      );
       loadConversations();
     } catch (e) {
       toast.error((e as Error).message);
@@ -160,6 +189,7 @@ export default function AdvisorPage() {
       ]);
     } finally {
       setLoading(false);
+      setToolStatus(null);
     }
   };
 
@@ -273,7 +303,7 @@ export default function AdvisorPage() {
                     <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:150ms]" />
                     <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:300ms]" />
                   </div>
-                  Thinking...
+                  {toolStatus || "Thinking..."}
                 </div>
               </CardContent>
             </Card>

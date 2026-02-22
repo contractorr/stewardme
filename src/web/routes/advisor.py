@@ -1,6 +1,10 @@
 """Advisor routes wrapping AdvisorEngine (per-user)."""
 
+import asyncio
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, Query
+from starlette.responses import StreamingResponse
 
 from web.auth import get_current_user
 from web.conversation_store import (
@@ -107,7 +111,9 @@ async def ask_advisor(
 
         # Load history
         history_rows = get_messages(conv_id, limit=20)
-        history = _trim_history([{"role": m["role"], "content": m["content"]} for m in history_rows])
+        history = _trim_history(
+            [{"role": m["role"], "content": m["content"]} for m in history_rows]
+        )
 
         # Save user message
         add_message(conv_id, "user", body.question)
@@ -127,6 +133,83 @@ async def ask_advisor(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/ask/stream")
+async def ask_advisor_stream(
+    body: AdvisorAsk,
+    use_tools: bool = Query(True),
+    user: dict = Depends(get_current_user),
+):
+    """SSE streaming version of /ask — emits tool_start/tool_done/answer events."""
+    user_id = user["id"]
+    conv_id = body.conversation_id
+
+    # Create or validate conversation
+    if not conv_id:
+        title = body.question[:80].strip() or "New conversation"
+        conv_id = create_conversation(user_id, title)
+    elif not conversation_belongs_to(conv_id, user_id):
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    # Load history
+    history_rows = get_messages(conv_id, limit=20)
+    history = _trim_history([{"role": m["role"], "content": m["content"]} for m in history_rows])
+
+    # Save user message
+    add_message(conv_id, "user", body.question)
+
+    queue: asyncio.Queue[dict | None] = asyncio.Queue()
+
+    def _event_callback(event: dict):
+        queue.put_nowait(event)
+
+    async def _run_engine():
+        try:
+            engine = _get_engine(user_id, use_tools=use_tools)
+            loop = asyncio.get_event_loop()
+            answer = await loop.run_in_executor(
+                None,
+                lambda: engine.ask(
+                    body.question,
+                    advice_type=body.advice_type,
+                    conversation_history=history or None,
+                    event_callback=_event_callback,
+                ),
+            )
+            # Save assistant response
+            add_message(conv_id, "assistant", answer)
+            # Send final answer event (may already have been sent by callback for
+            # agentic mode, but for classic RAG mode the callback isn't invoked)
+            queue.put_nowait(
+                {
+                    "type": "answer",
+                    "content": answer,
+                    "conversation_id": conv_id,
+                    "advice_type": body.advice_type,
+                }
+            )
+        except Exception as exc:
+            queue.put_nowait({"type": "error", "detail": str(exc)})
+        finally:
+            queue.put_nowait(None)  # sentinel
+
+    async def _sse_generator():
+        task = asyncio.create_task(_run_engine())
+        try:
+            while True:
+                event = await queue.get()
+                if event is None:
+                    break
+                # Enrich answer events with conversation metadata
+                if event.get("type") == "answer":
+                    event.setdefault("conversation_id", conv_id)
+                    event.setdefault("advice_type", body.advice_type)
+                yield f"data: {json.dumps(event)}\n\n"
+        finally:
+            task.cancel()
+
+    return StreamingResponse(_sse_generator(), media_type="text/event-stream")
 
 
 @router.get("/conversations", response_model=list[ConversationListItem])

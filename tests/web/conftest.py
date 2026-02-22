@@ -109,11 +109,8 @@ def client(jwt_secret, secret_key, tmp_path, users_db):
             "intel_db": tmp_path / "intel.db",
             "log_file": tmp_path / "coach.log",
         }),
-        # user_store uses test DB
+        # user_store uses test DB — real get_or_create_user so FK rows exist
         patch("web.user_store._DEFAULT_DB_PATH", users_db),
-        patch("web.auth.get_or_create_user", side_effect=lambda uid, **kw: {
-            "id": uid, "email": kw.get("email"), "name": kw.get("name"),
-        }),
     ]
 
     for p in patches:

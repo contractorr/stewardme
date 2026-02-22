@@ -100,6 +100,7 @@ def _make_llm_caller(user_id: str):
     secrets_provider = None
     try:
         from web.deps import get_decrypted_secrets_for_user
+
         secrets = get_decrypted_secrets_for_user(user_id)
         secrets_provider = secrets.get("llm_provider")
     except Exception:
@@ -167,8 +168,14 @@ def _strip_json_block(text: str) -> str:
 async def start_onboarding(user: dict = Depends(get_current_user)):
     user_id = user["id"]
 
-    caller = _make_llm_caller(user_id)
-    response = caller(ONBOARDING_SYSTEM, ONBOARDING_START)
+    try:
+        caller = _make_llm_caller(user_id)
+        response = caller(ONBOARDING_SYSTEM, ONBOARDING_START)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("onboarding.start_failed", user_id=user_id, error=str(e))
+        raise HTTPException(status_code=502, detail=f"LLM call failed: {e}")
 
     _sessions[user_id] = {
         "messages": [("assistant", response)],
@@ -187,15 +194,16 @@ async def chat_onboarding(
     user_id = user["id"]
     session = _sessions.get(user_id)
     if not session:
-        raise HTTPException(status_code=400, detail="No active onboarding session — call /start first")
+        raise HTTPException(
+            status_code=400, detail="No active onboarding session — call /start first"
+        )
 
     session["messages"].append(("user", body.message))
     session["turns"] += 1
 
     # Build conversation history
     history = "\n".join(
-        f"{'Coach' if role == 'assistant' else 'User'}: {msg}"
-        for role, msg in session["messages"]
+        f"{'Coach' if role == 'assistant' else 'User'}: {msg}" for role, msg in session["messages"]
     )
 
     force = session["turns"] >= MAX_TURNS
@@ -209,7 +217,11 @@ Output the JSON block now with whatever information you have."""
         prompt = f"Interview so far:\n{history}\n\nContinue the interview or finalize if you have enough info."
 
     caller = session["caller"]
-    response = caller(ONBOARDING_SYSTEM, prompt, max_tokens=2000)
+    try:
+        response = caller(ONBOARDING_SYSTEM, prompt, max_tokens=2000)
+    except Exception as e:
+        logger.error("onboarding.chat_failed", user_id=user_id, error=str(e))
+        raise HTTPException(status_code=502, detail=f"LLM call failed: {e}")
 
     # Check for completion JSON
     completion = _extract_completion_json(response)

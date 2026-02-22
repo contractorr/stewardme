@@ -1,5 +1,6 @@
 """LLM orchestration for advice generation."""
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Optional
 
@@ -16,6 +17,7 @@ logger = structlog.get_logger()
 # Retry decorator for LLM calls
 try:
     from cli.retry import llm_retry
+
     _llm_retry = llm_retry(
         max_attempts=3,
         min_wait=2.0,
@@ -23,22 +25,26 @@ try:
         exceptions=(LLMRateLimitError, BaseLLMError),
     )
 except ImportError:
+
     def _llm_retry(func):
         return func
 
 
 class AdvisorError(Exception):
     """Base exception for advisor errors."""
+
     pass
 
 
 class APIKeyMissingError(AdvisorError):
     """Raised when API key is not configured."""
+
     pass
 
 
 class LLMError(AdvisorError):
     """Raised when LLM call fails."""
+
     pass
 
 
@@ -82,7 +88,13 @@ class AdvisorEngine:
             )
 
     @_llm_retry
-    def _call_llm(self, system: str, user_prompt: str, max_tokens: int = 2000, conversation_history: list[dict] | None = None) -> str:
+    def _call_llm(
+        self,
+        system: str,
+        user_prompt: str,
+        max_tokens: int = 2000,
+        conversation_history: list[dict] | None = None,
+    ) -> str:
         """Make LLM API call with retry on transient errors."""
         try:
             logger.debug("Calling LLM provider=%s tokens=%d", self.llm.provider_name, max_tokens)
@@ -96,6 +108,7 @@ class AdvisorEngine:
         except BaseLLMError as e:
             if isinstance(e, LLMRateLimitError):
                 from cli.rate_limit_notifier import get_notifier
+
                 n = get_notifier()
                 if n:
                     n.notify(self.llm.provider_name, str(e))
@@ -108,6 +121,7 @@ class AdvisorEngine:
         advice_type: str = "general",
         include_research: bool = True,
         conversation_history: list[dict] | None = None,
+        event_callback: Callable[[dict], None] | None = None,
     ) -> str:
         """Get advice for a question.
 
@@ -116,13 +130,18 @@ class AdvisorEngine:
             advice_type: general, career, goals, opportunities
             include_research: Include deep research context
             conversation_history: Prior conversation messages for context
+            event_callback: Optional callback for streaming events
 
         Returns:
             LLM-generated advice
         """
         # Agentic mode: LLM decides what to look up via tool calls
         if self._orchestrator:
-            return self._orchestrator.run(question, conversation_history=conversation_history)
+            return self._orchestrator.run(
+                question,
+                conversation_history=conversation_history,
+                event_callback=event_callback,
+            )
 
         # Classic RAG mode: single-shot retrieval + LLM call
         journal_ctx, intel_ctx = self.rag.get_combined_context(question)
@@ -130,7 +149,7 @@ class AdvisorEngine:
 
         # Get research context if available
         research_ctx = ""
-        if include_research and hasattr(self.rag, 'get_research_context'):
+        if include_research and hasattr(self.rag, "get_research_context"):
             research_ctx = self.rag.get_research_context(question)
 
         has_research = bool(research_ctx.strip())
@@ -143,7 +162,9 @@ class AdvisorEngine:
             question=question,
         )
 
-        return self._call_llm(PromptTemplates.SYSTEM, user_prompt, conversation_history=conversation_history)
+        return self._call_llm(
+            PromptTemplates.SYSTEM, user_prompt, conversation_history=conversation_history
+        )
 
     def weekly_review(self, journal_storage=None) -> str:
         """Generate weekly review from recent entries.
@@ -158,12 +179,15 @@ class AdvisorEngine:
         stale_goals_ctx = ""
         if journal_storage:
             from .goals import GoalTracker
+
             tracker = GoalTracker(journal_storage)
             stale = tracker.get_stale_goals()
             if stale:
                 stale_goals_ctx = "\n\nSTALE GOALS NEEDING ATTENTION:\n"
                 for g in stale[:5]:
-                    stale_goals_ctx += f"- {g['title']} (last check: {g.get('days_since_check', '?')} days ago)\n"
+                    stale_goals_ctx += (
+                        f"- {g['title']} (last check: {g.get('days_since_check', '?')} days ago)\n"
+                    )
 
         profile_ctx = self.rag.get_profile_context()
         prompt = PromptTemplates.WEEKLY_REVIEW.format(
@@ -211,6 +235,7 @@ class AdvisorEngine:
     def analyze_skill_gaps(self) -> str:
         """Analyze skill gaps between current state and aspirations."""
         from .skills import SkillGapAnalyzer
+
         analyzer = SkillGapAnalyzer(self.rag, self._call_llm)
         return analyzer.analyze()
 
@@ -223,6 +248,7 @@ class AdvisorEngine:
     ) -> Path:
         """Generate a structured learning path for a skill."""
         from .learning_paths import LearningPathGenerator, LearningPathStorage
+
         storage = LearningPathStorage(lp_dir)
         generator = LearningPathGenerator(self.rag, self._call_llm, storage)
         return generator.generate(skill, current_level=current_level, target_level=target_level)
@@ -232,11 +258,13 @@ class AdvisorEngine:
     def _get_rec_storage(self, rec_path: Path):
         """Lazy init recommendation storage."""
         from .recommendation_storage import RecommendationStorage
+
         return RecommendationStorage(rec_path)
 
     def _get_rec_engine(self, db_path: Path, config: Optional[dict] = None):
         """Lazy init recommendation engine."""
         from .recommendations import RecommendationEngine
+
         storage = self._get_rec_storage(db_path)
         return RecommendationEngine(
             rag=self.rag,
@@ -296,6 +324,7 @@ class AdvisorEngine:
             Action brief markdown
         """
         from .action_brief import ActionBriefGenerator
+
         storage = self._get_rec_storage(db_path)
         generator = ActionBriefGenerator(
             rag=self.rag,
