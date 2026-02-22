@@ -25,8 +25,9 @@ class AgenticOrchestrator:
         self.system_prompt = system_prompt
         self.max_iterations = max_iterations
 
-    def run(self, user_message: str) -> str:
-        messages = [{"role": "user", "content": user_message}]
+    def run(self, user_message: str, conversation_history: list[dict] | None = None) -> str:
+        messages = list(conversation_history or [])
+        messages.append({"role": "user", "content": user_message})
         tools = self.registry.get_definitions()
 
         for iteration in range(self.max_iterations):

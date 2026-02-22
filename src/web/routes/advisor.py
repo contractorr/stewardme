@@ -3,10 +3,27 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from web.auth import get_current_user
+from web.conversation_store import (
+    add_message,
+    conversation_belongs_to,
+    create_conversation,
+    delete_conversation,
+    get_conversation,
+    get_messages,
+    list_conversations,
+)
 from web.deps import get_api_key_for_user, get_config, get_user_paths
-from web.models import AdvisorAsk, AdvisorResponse
+from web.models import (
+    AdvisorAsk,
+    AdvisorResponse,
+    ConversationDetail,
+    ConversationListItem,
+    ConversationMessage,
+)
 
 router = APIRouter(prefix="/api/advisor", tags=["advisor"])
+
+MAX_HISTORY_CHARS = 64_000  # ~16k tokens
 
 
 def _get_engine(user_id: str, use_tools: bool = False):
@@ -58,15 +75,89 @@ def _get_engine(user_id: str, use_tools: bool = False):
     )
 
 
+def _trim_history(messages: list[dict], max_chars: int = MAX_HISTORY_CHARS) -> list[dict]:
+    """Keep most recent messages that fit within max_chars."""
+    total = 0
+    trimmed = []
+    for msg in reversed(messages):
+        total += len(msg.get("content", ""))
+        if total > max_chars:
+            break
+        trimmed.append(msg)
+    trimmed.reverse()
+    return trimmed
+
+
 @router.post("/ask", response_model=AdvisorResponse)
 async def ask_advisor(
     body: AdvisorAsk,
-    use_tools: bool = Query(False),
+    use_tools: bool = Query(True),
     user: dict = Depends(get_current_user),
 ):
     try:
-        engine = _get_engine(user["id"], use_tools=use_tools)
-        answer = engine.ask(body.question, advice_type=body.advice_type)
-        return AdvisorResponse(answer=answer, advice_type=body.advice_type)
+        user_id = user["id"]
+        conv_id = body.conversation_id
+
+        # Create or validate conversation
+        if not conv_id:
+            title = body.question[:80].strip() or "New conversation"
+            conv_id = create_conversation(user_id, title)
+        elif not conversation_belongs_to(conv_id, user_id):
+            raise HTTPException(status_code=404, detail="Conversation not found")
+
+        # Load history
+        history_rows = get_messages(conv_id, limit=20)
+        history = _trim_history([{"role": m["role"], "content": m["content"]} for m in history_rows])
+
+        # Save user message
+        add_message(conv_id, "user", body.question)
+
+        engine = _get_engine(user_id, use_tools=use_tools)
+        answer = engine.ask(
+            body.question,
+            advice_type=body.advice_type,
+            conversation_history=history or None,
+        )
+
+        # Save assistant response
+        add_message(conv_id, "assistant", answer)
+
+        return AdvisorResponse(answer=answer, advice_type=body.advice_type, conversation_id=conv_id)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/conversations", response_model=list[ConversationListItem])
+async def list_user_conversations(
+    user: dict = Depends(get_current_user),
+):
+    rows = list_conversations(user["id"])
+    return [ConversationListItem(**r) for r in rows]
+
+
+@router.get("/conversations/{conv_id}", response_model=ConversationDetail)
+async def get_user_conversation(
+    conv_id: str,
+    user: dict = Depends(get_current_user),
+):
+    conv = get_conversation(conv_id, user["id"])
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return ConversationDetail(
+        id=conv["id"],
+        title=conv["title"],
+        messages=[ConversationMessage(**m) for m in conv["messages"]],
+    )
+
+
+@router.delete("/conversations/{conv_id}")
+async def delete_user_conversation(
+    conv_id: str,
+    user: dict = Depends(get_current_user),
+):
+    deleted = delete_conversation(conv_id, user["id"])
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return {"ok": True}

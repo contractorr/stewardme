@@ -82,12 +82,14 @@ class AdvisorEngine:
             )
 
     @_llm_retry
-    def _call_llm(self, system: str, user_prompt: str, max_tokens: int = 2000) -> str:
+    def _call_llm(self, system: str, user_prompt: str, max_tokens: int = 2000, conversation_history: list[dict] | None = None) -> str:
         """Make LLM API call with retry on transient errors."""
         try:
             logger.debug("Calling LLM provider=%s tokens=%d", self.llm.provider_name, max_tokens)
+            messages = list(conversation_history or [])
+            messages.append({"role": "user", "content": user_prompt})
             return self.llm.generate(
-                messages=[{"role": "user", "content": user_prompt}],
+                messages=messages,
                 system=system,
                 max_tokens=max_tokens,
             )
@@ -105,6 +107,7 @@ class AdvisorEngine:
         question: str,
         advice_type: str = "general",
         include_research: bool = True,
+        conversation_history: list[dict] | None = None,
     ) -> str:
         """Get advice for a question.
 
@@ -112,13 +115,14 @@ class AdvisorEngine:
             question: User's question
             advice_type: general, career, goals, opportunities
             include_research: Include deep research context
+            conversation_history: Prior conversation messages for context
 
         Returns:
             LLM-generated advice
         """
         # Agentic mode: LLM decides what to look up via tool calls
         if self._orchestrator:
-            return self._orchestrator.run(question)
+            return self._orchestrator.run(question, conversation_history=conversation_history)
 
         # Classic RAG mode: single-shot retrieval + LLM call
         journal_ctx, intel_ctx = self.rag.get_combined_context(question)
@@ -139,7 +143,7 @@ class AdvisorEngine:
             question=question,
         )
 
-        return self._call_llm(PromptTemplates.SYSTEM, user_prompt)
+        return self._call_llm(PromptTemplates.SYSTEM, user_prompt, conversation_history=conversation_history)
 
     def weekly_review(self, journal_storage=None) -> str:
         """Generate weekly review from recent entries.

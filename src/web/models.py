@@ -73,11 +73,32 @@ class JournalEntry(BaseModel):
 class AdvisorAsk(BaseModel):
     question: str = Field(..., max_length=5000)
     advice_type: str = "general"
+    conversation_id: str | None = None
 
 
 class AdvisorResponse(BaseModel):
     answer: str
     advice_type: str
+    conversation_id: str
+
+
+class ConversationMessage(BaseModel):
+    role: str
+    content: str
+    created_at: str
+
+
+class ConversationListItem(BaseModel):
+    id: str
+    title: str
+    updated_at: str
+    message_count: int
+
+
+class ConversationDetail(BaseModel):
+    id: str
+    title: str
+    messages: list[ConversationMessage]
 
 
 # --- Goals ---

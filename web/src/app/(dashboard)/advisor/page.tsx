@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
-import { Brain, Send } from "lucide-react";
+import { Brain, Send, Plus, MessageSquare, Trash2 } from "lucide-react";
 import { useToken } from "@/hooks/useToken";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,17 +28,96 @@ interface Message {
   advice_type?: string;
 }
 
+interface Conversation {
+  id: string;
+  title: string;
+  updated_at: string;
+  message_count: number;
+}
+
+const CONV_KEY = "advisor_conversation_id";
+
 export default function AdvisorPage() {
   const token = useToken();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [adviceType, setAdviceType] = useState("general");
   const [loading, setLoading] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const loadConversations = useCallback(async () => {
+    if (!token) return;
+    try {
+      const list = await apiFetch<Conversation[]>(
+        "/api/advisor/conversations",
+        {},
+        token
+      );
+      setConversations(list);
+    } catch {
+      // silent
+    }
+  }, [token]);
+
+  const loadConversation = useCallback(
+    async (id: string) => {
+      if (!token) return;
+      try {
+        const conv = await apiFetch<{
+          id: string;
+          title: string;
+          messages: Message[];
+        }>(`/api/advisor/conversations/${id}`, {}, token);
+        setMessages(conv.messages);
+        setConversationId(id);
+        localStorage.setItem(CONV_KEY, id);
+      } catch {
+        // conversation may have been deleted
+        localStorage.removeItem(CONV_KEY);
+        setConversationId(null);
+        setMessages([]);
+      }
+    },
+    [token]
+  );
+
+  // On mount: load conversation list + restore current conversation
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    if (!token) return;
+    loadConversations();
+    const saved = localStorage.getItem(CONV_KEY);
+    if (saved) {
+      loadConversation(saved);
+    }
+  }, [token, loadConversations, loadConversation]);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: "smooth",
+    });
   }, [messages, loading]);
+
+  const handleNewChat = () => {
+    setConversationId(null);
+    setMessages([]);
+    localStorage.removeItem(CONV_KEY);
+  };
+
+  const handleDeleteConversation = async (id: string) => {
+    if (!token) return;
+    try {
+      await apiFetch(`/api/advisor/conversations/${id}`, { method: "DELETE" }, token);
+      setConversations((prev) => prev.filter((c) => c.id !== id));
+      if (conversationId === id) {
+        handleNewChat();
+      }
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
 
   const handleSend = async () => {
     if (!token || !input.trim()) return;
@@ -48,18 +127,31 @@ export default function AdvisorPage() {
     setLoading(true);
 
     try {
-      const res = await apiFetch<{ answer: string; advice_type: string }>(
-        "/api/advisor/ask",
-        {
-          method: "POST",
-          body: JSON.stringify({ question, advice_type: adviceType }),
-        },
-        token
-      );
+      const res = await apiFetch<{
+        answer: string;
+        advice_type: string;
+        conversation_id: string;
+      }>("/api/advisor/ask", {
+        method: "POST",
+        body: JSON.stringify({
+          question,
+          advice_type: adviceType,
+          conversation_id: conversationId,
+        }),
+      }, token);
+
+      setConversationId(res.conversation_id);
+      localStorage.setItem(CONV_KEY, res.conversation_id);
+
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: res.answer, advice_type: res.advice_type },
+        {
+          role: "assistant",
+          content: res.answer,
+          advice_type: res.advice_type,
+        },
       ]);
+      loadConversations();
     } catch (e) {
       toast.error((e as Error).message);
       setMessages((prev) => [
@@ -72,94 +164,141 @@ export default function AdvisorPage() {
   };
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Advisor</h1>
-        <Select value={adviceType} onValueChange={setAdviceType}>
-          <SelectTrigger className="w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="general">General</SelectItem>
-            <SelectItem value="career">Career</SelectItem>
-            <SelectItem value="goals">Goals</SelectItem>
-            <SelectItem value="opportunities">Opportunities</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Chat messages */}
-      <div ref={scrollRef} className="mt-4 flex-1 space-y-4 overflow-y-auto">
-        {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
-              <Brain className="h-7 w-7 text-muted-foreground" />
-            </div>
-            <h3 className="text-lg font-medium">Ask your AI advisor</h3>
-            <p className="mt-1 max-w-md text-sm text-muted-foreground">
-              Get personalized advice powered by your journal entries and
-              intelligence data. Try asking about career moves, goal strategies,
-              or emerging opportunities.
-            </p>
-          </div>
-        )}
-        {messages.map((msg, i) => (
-          <Card
-            key={i}
-            className={
-              msg.role === "user" ? "ml-12 bg-primary/5" : "mr-12"
-            }
-          >
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs text-muted-foreground">
-                {msg.role === "user" ? "You" : "Advisor"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {msg.role === "assistant" ? (
-                <div className="prose prose-sm max-w-none dark:prose-invert">
-                  <ReactMarkdown>{msg.content}</ReactMarkdown>
-                </div>
-              ) : (
-                <div className="text-sm">{msg.content}</div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-        {loading && (
-          <Card className="mr-12">
-            <CardContent className="py-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <div className="flex gap-1">
-                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:0ms]" />
-                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:150ms]" />
-                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:300ms]" />
-                </div>
-                Thinking...
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* Input */}
-      <div className="mt-4 flex gap-2">
-        <Textarea
-          rows={2}
-          placeholder="Ask a question..."
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleSend();
-            }
-          }}
-          className="flex-1"
-        />
-        <Button onClick={handleSend} disabled={loading || !input.trim()}>
-          <Send className="h-4 w-4" />
+    <div className="flex h-full gap-4">
+      {/* Conversation sidebar */}
+      <div className="hidden w-64 flex-col border-r pr-4 md:flex">
+        <Button
+          variant="outline"
+          className="mb-3 w-full justify-start gap-2"
+          onClick={handleNewChat}
+        >
+          <Plus className="h-4 w-4" /> New Chat
         </Button>
+        <div className="flex-1 space-y-1 overflow-y-auto">
+          {conversations.map((conv) => (
+            <div
+              key={conv.id}
+              className={`group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted ${
+                conversationId === conv.id ? "bg-muted font-medium" : ""
+              }`}
+              onClick={() => loadConversation(conv.id)}
+            >
+              <MessageSquare className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="flex-1 truncate">{conv.title}</span>
+              <button
+                className="hidden shrink-0 text-muted-foreground hover:text-destructive group-hover:block"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteConversation(conv.id);
+                }}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Main chat area */}
+      <div className="flex flex-1 flex-col">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold">Advisor</h1>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="md:hidden"
+              onClick={handleNewChat}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+            <Select value={adviceType} onValueChange={setAdviceType}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="general">General</SelectItem>
+                <SelectItem value="career">Career</SelectItem>
+                <SelectItem value="goals">Goals</SelectItem>
+                <SelectItem value="opportunities">Opportunities</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Chat messages */}
+        <div ref={scrollRef} className="mt-4 flex-1 space-y-4 overflow-y-auto">
+          {messages.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+                <Brain className="h-7 w-7 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-medium">Ask your AI advisor</h3>
+              <p className="mt-1 max-w-md text-sm text-muted-foreground">
+                Get personalized advice powered by your journal entries and
+                intelligence data. Try asking about career moves, goal
+                strategies, or emerging opportunities.
+              </p>
+            </div>
+          )}
+          {messages.map((msg, i) => (
+            <Card
+              key={i}
+              className={
+                msg.role === "user" ? "ml-12 bg-primary/5" : "mr-12"
+              }
+            >
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs text-muted-foreground">
+                  {msg.role === "user" ? "You" : "Advisor"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {msg.role === "assistant" ? (
+                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <div className="text-sm">{msg.content}</div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+          {loading && (
+            <Card className="mr-12">
+              <CardContent className="py-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="flex gap-1">
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:0ms]" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:150ms]" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:300ms]" />
+                  </div>
+                  Thinking...
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Input */}
+        <div className="mt-4 flex gap-2">
+          <Textarea
+            rows={2}
+            placeholder="Ask a question..."
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            className="flex-1"
+          />
+          <Button onClick={handleSend} disabled={loading || !input.trim()}>
+            <Send className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </div>
   );

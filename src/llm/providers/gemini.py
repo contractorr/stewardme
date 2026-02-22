@@ -147,7 +147,7 @@ class GeminiProvider(LLMProvider):
                     parts.append(msg["content"])
                 if msg.get("tool_calls"):
                     for tc in msg["tool_calls"]:
-                        parts.append(genai.types.FunctionCall(
+                        parts.append(genai.protos.FunctionCall(
                             name=tc["name"],
                             args=tc["arguments"],
                         ))
@@ -157,7 +157,7 @@ class GeminiProvider(LLMProvider):
             elif role == "tool":
                 contents.append({
                     "role": "user",
-                    "parts": [genai.types.FunctionResponse(
+                    "parts": [genai.protos.FunctionResponse(
                         name=msg.get("name", "tool"),
                         response={"result": msg["content"]},
                     )],

@@ -219,6 +219,43 @@ class TestAgenticOrchestrator:
         call_kwargs = mock_llm.generate_with_tools.call_args.kwargs
         assert call_kwargs["system"] == "You are a coach."
 
+    def test_conversation_history_prepended(self, registry):
+        """Conversation history appears before user message."""
+        mock_llm = MagicMock()
+        mock_llm.generate_with_tools.return_value = GenerateResponse(
+            content="Based on our earlier discussion...",
+            finish_reason="stop",
+        )
+
+        history = [
+            {"role": "user", "content": "What are my goals?"},
+            {"role": "assistant", "content": "You have 3 goals."},
+        ]
+
+        orch = AgenticOrchestrator(mock_llm, registry, "system prompt")
+        result = orch.run("Tell me more about goal 1", conversation_history=history)
+
+        assert result == "Based on our earlier discussion..."
+        call_messages = mock_llm.generate_with_tools.call_args.kwargs["messages"]
+        assert len(call_messages) == 3
+        assert call_messages[0] == history[0]
+        assert call_messages[1] == history[1]
+        assert call_messages[2]["content"] == "Tell me more about goal 1"
+
+    def test_no_history_works(self, registry):
+        """None history works same as before."""
+        mock_llm = MagicMock()
+        mock_llm.generate_with_tools.return_value = GenerateResponse(
+            content="ok", finish_reason="stop",
+        )
+
+        orch = AgenticOrchestrator(mock_llm, registry, "system")
+        orch.run("hi", conversation_history=None)
+
+        call_messages = mock_llm.generate_with_tools.call_args.kwargs["messages"]
+        assert len(call_messages) == 1
+        assert call_messages[0]["role"] == "user"
+
     def test_assistant_text_with_tool_calls_preserved(self, registry):
         """When LLM returns both text and tool_calls, text is in assistant msg."""
         mock_llm = MagicMock()
