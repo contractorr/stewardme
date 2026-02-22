@@ -26,5 +26,8 @@ web/.env.local
 .mcp.json
 .playwright-mcp/
 
+# Audit screenshots
+audit-*.png
+
 # OS
 .DS_Store
