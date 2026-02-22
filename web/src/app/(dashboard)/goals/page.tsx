@@ -19,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -211,9 +212,10 @@ export default function GoalsPage() {
               <Plus className="mr-2 h-4 w-4" /> New Goal
             </Button>
           </SheetTrigger>
-          <SheetContent>
+          <SheetContent className="sm:max-w-lg">
             <SheetHeader>
               <SheetTitle>New Goal</SheetTitle>
+              <SheetDescription>Define a goal to track progress</SheetDescription>
             </SheetHeader>
             <div className="mt-6 space-y-4">
               <div className="space-y-1.5">

@@ -26,6 +26,7 @@ import {
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -153,9 +154,10 @@ export default function JournalPage() {
               <Plus className="mr-2 h-4 w-4" /> New Entry
             </Button>
           </SheetTrigger>
-          <SheetContent className="w-[500px] overflow-y-auto">
+          <SheetContent className="w-full sm:max-w-lg md:max-w-xl overflow-y-auto">
             <SheetHeader>
               <SheetTitle>New Journal Entry</SheetTitle>
+              <SheetDescription>Capture your thoughts and reflections</SheetDescription>
             </SheetHeader>
             <div className="mt-6 space-y-4">
               <div className="space-y-1.5">
@@ -279,9 +281,10 @@ export default function JournalPage() {
       {/* Selected entry detail */}
       {selected && (
         <Sheet open={!!selected} onOpenChange={() => { setSelected(null); setDeletingPath(null); }}>
-          <SheetContent className="w-[600px] overflow-y-auto">
+          <SheetContent className="w-full sm:max-w-xl md:max-w-2xl overflow-y-auto">
             <SheetHeader>
               <SheetTitle>{selected.title}</SheetTitle>
+              <SheetDescription>Journal entry detail</SheetDescription>
             </SheetHeader>
             <div className="mt-4 space-y-4">
               <div className="flex gap-2">

@@ -151,7 +151,7 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && handleClose()}>
-      <SheetContent side="right" className="flex flex-col sm:max-w-md overflow-hidden">
+      <SheetContent side="right" className="flex flex-col sm:max-w-lg overflow-hidden">
         {phase === "welcome" && (
           <>
             <SheetHeader>
