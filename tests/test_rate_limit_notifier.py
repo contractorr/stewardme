@@ -25,7 +25,7 @@ class TestRateLimitNotifier:
         config = _make_config()
         notifier = RateLimitNotifier(config)
 
-        with patch("cli.email_digest.send_digest", return_value=True) as mock_send:
+        with patch("cli.rate_limit_notifier.send_digest", return_value=True) as mock_send:
             result = notifier.notify("claude", "rate limit exceeded")
 
         assert result is True
@@ -37,7 +37,7 @@ class TestRateLimitNotifier:
         config = _make_config()
         notifier = RateLimitNotifier(config, cooldown_seconds=3600)
 
-        with patch("cli.email_digest.send_digest", return_value=True):
+        with patch("cli.rate_limit_notifier.send_digest", return_value=True):
             first = notifier.notify("claude", "rate limit 1")
             second = notifier.notify("claude", "rate limit 2")
 
@@ -48,7 +48,7 @@ class TestRateLimitNotifier:
         config = _make_config()
         notifier = RateLimitNotifier(config, cooldown_seconds=3600)
 
-        with patch("cli.email_digest.send_digest", return_value=True):
+        with patch("cli.rate_limit_notifier.send_digest", return_value=True):
             r1 = notifier.notify("claude", "rate limit")
             r2 = notifier.notify("openai", "rate limit")
 
@@ -59,7 +59,7 @@ class TestRateLimitNotifier:
         config = _make_config(enabled=False)
         notifier = RateLimitNotifier(config)
 
-        with patch("cli.email_digest.send_digest") as mock_send:
+        with patch("cli.rate_limit_notifier.send_digest") as mock_send:
             result = notifier.notify("claude", "rate limit")
 
         assert result is False
@@ -69,7 +69,7 @@ class TestRateLimitNotifier:
         config = _make_config(smtp_host=None)
         notifier = RateLimitNotifier(config)
 
-        with patch("cli.email_digest.send_digest") as mock_send:
+        with patch("cli.rate_limit_notifier.send_digest") as mock_send:
             result = notifier.notify("claude", "rate limit")
 
         assert result is False
@@ -79,7 +79,7 @@ class TestRateLimitNotifier:
         config = _make_config()
         notifier = RateLimitNotifier(config)
 
-        with patch("cli.email_digest.send_digest", side_effect=Exception("SMTP down")):
+        with patch("cli.rate_limit_notifier.send_digest", side_effect=Exception("SMTP down")):
             result = notifier.notify("claude", "rate limit")
 
         assert result is False
@@ -88,7 +88,7 @@ class TestRateLimitNotifier:
         config = _make_config()
         notifier = RateLimitNotifier(config, cooldown_seconds=0)
 
-        with patch("cli.email_digest.send_digest", return_value=True):
+        with patch("cli.rate_limit_notifier.send_digest", return_value=True):
             r1 = notifier.notify("claude", "err 1")
             r2 = notifier.notify("claude", "err 2")
 

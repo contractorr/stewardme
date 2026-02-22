@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 import structlog
 
+from cli.email_digest import send_digest
 from observability import metrics
 
 logger = structlog.get_logger()
@@ -37,8 +38,6 @@ class RateLimitNotifier:
 
         body = self._build_body(provider, error_msg)
         try:
-            from cli.email_digest import send_digest
-
             config_dict = self._config_as_dict()
             sent = send_digest(
                 subject=f"Rate limit hit: {provider}",
