@@ -1,12 +1,17 @@
-"""Journal MCP tools — CRUD, search, RAG context retrieval."""
+"""Journal MCP tools — CRUD, search, RAG context retrieval, proactive coaching."""
 
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from coach_mcp.bootstrap import get_components
 
 
 def _get_context(args: dict) -> dict:
-    """Core RAG context retrieval for Claude to reason over."""
+    """Core RAG context retrieval or proactive daily brief."""
+    mode = args.get("mode", "rag")
+    if mode == "proactive":
+        return _get_proactive_context(args)
+
     c = get_components()
     query = args["query"]
     include_research = args.get("include_research", True)
@@ -30,6 +35,124 @@ def _get_context(args: dict) -> dict:
         "intel_context": intel_ctx,
         "research_context": research_ctx,
     }
+
+
+def _get_proactive_context(args: dict) -> dict:
+    """Daily brief: signals + patterns + priorities for Claude to act on."""
+    c = get_components()
+    storage = c["storage"]
+    config = c.get("config", {})
+    max_signals = args.get("max_signals", 10)
+
+    result = {
+        "_instruction": (
+            "You are a proactive personal coach. Lead with the highest-severity signal. "
+            "Be direct and specific — reference actual entries/goals by name."
+        ),
+    }
+
+    # Signals
+    try:
+        from advisor.signals import SignalDetector
+
+        paths_config = config.get("paths", {})
+        db_path = Path(paths_config.get("intel_db", "~/coach/intel.db")).expanduser()
+        detector = SignalDetector(storage, db_path, config)
+        signals = detector.detect_all()
+        from dataclasses import asdict
+
+        result["signals"] = [
+            asdict(s) for s in sorted(signals, key=lambda s: s.severity, reverse=True)[:max_signals]
+        ]
+    except Exception as e:
+        result["signals"] = []
+        result["_signal_error"] = str(e)
+
+    # Patterns
+    try:
+        from advisor.patterns import PatternDetector
+
+        pd = PatternDetector(storage, c.get("embeddings"), config)
+        patterns = pd.detect_all()
+        from dataclasses import asdict
+
+        result["patterns"] = [asdict(p) for p in patterns]
+    except Exception:
+        result["patterns"] = []
+
+    # Goals summary
+    try:
+        from advisor.goals import GoalTracker
+
+        tracker = GoalTracker(storage)
+        goals = tracker.get_goals(include_inactive=False)
+        result["stale_goals"] = [
+            {"title": g["title"], "days_since_check": g.get("days_since_check")}
+            for g in goals
+            if g.get("is_stale")
+        ]
+        result["active_goals_summary"] = [
+            {"title": g["title"], "status": g["status"]} for g in goals if g["status"] == "active"
+        ]
+    except Exception:
+        result["stale_goals"] = []
+        result["active_goals_summary"] = []
+
+    # Mood trend
+    try:
+        from journal.sentiment import get_mood_history
+
+        mood = get_mood_history(storage, days=7)
+        if mood:
+            avg_score = sum(e["score"] for e in mood) / len(mood)
+            # Trend direction from first half vs second half
+            mid = len(mood) // 2
+            if mid > 0:
+                first_avg = sum(e["score"] for e in mood[:mid]) / mid
+                second_avg = sum(e["score"] for e in mood[mid:]) / max(1, len(mood) - mid)
+                direction = (
+                    "improving"
+                    if second_avg > first_avg + 0.1
+                    else "declining"
+                    if second_avg < first_avg - 0.1
+                    else "stable"
+                )
+            else:
+                direction = "stable"
+            result["mood_trend"] = {
+                "last_7d_avg": round(avg_score, 2),
+                "direction": direction,
+                "entries": len(mood),
+            }
+        else:
+            result["mood_trend"] = {"last_7d_avg": 0, "direction": "no_data", "entries": 0}
+    except Exception:
+        result["mood_trend"] = {"last_7d_avg": 0, "direction": "error", "entries": 0}
+
+    # Journal health
+    try:
+        entries = storage.list_entries(limit=10)
+        week_ago = (datetime.now() - timedelta(days=7)).isoformat()
+        recent = [e for e in entries if e.get("created", "") >= week_ago]
+        if entries:
+            latest = entries[0].get("created", "")
+            try:
+                dt = datetime.fromisoformat(latest.replace("Z", "+00:00"))
+                if dt.tzinfo:
+                    dt = dt.replace(tzinfo=None)
+                days_ago = (datetime.now() - dt).days
+            except (ValueError, OSError):
+                days_ago = -1
+        else:
+            days_ago = -1
+        result["journal_health"] = {
+            "entries_this_week": len(recent),
+            "last_entry_days_ago": days_ago,
+        }
+    except Exception:
+        result["journal_health"] = {"entries_this_week": 0, "last_entry_days_ago": -1}
+
+    return result
 
 
 def _create(args: dict) -> dict:
@@ -186,27 +309,41 @@ TOOLS = [
     (
         "journal_get_context",
         {
-            "description": "Get raw RAG context (journal + intel + research) for a query. Returns 3 context strings for Claude to reason over.",
+            "description": "Get RAG context for a query, or proactive daily brief with signals/patterns/coaching. Use mode='proactive' for the daily coaching brief.",
             "type": "object",
             "properties": {
-                "query": {"type": "string", "description": "Natural language query"},
+                "query": {
+                    "type": "string",
+                    "description": "Natural language query (required for rag mode, optional for proactive)",
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": ["rag", "proactive"],
+                    "description": "rag = standard RAG context, proactive = daily coaching brief with signals/patterns",
+                    "default": "rag",
+                },
                 "journal_weight": {
                     "type": "number",
-                    "description": "Proportion of context budget for journal (0-1)",
+                    "description": "Proportion of context budget for journal (0-1, rag mode only)",
                     "default": 0.7,
                 },
                 "max_chars": {
                     "type": "integer",
-                    "description": "Max total context characters",
+                    "description": "Max total context characters (rag mode only)",
                     "default": 8000,
                 },
                 "include_research": {
                     "type": "boolean",
-                    "description": "Include research reports in context",
+                    "description": "Include research reports in context (rag mode only)",
                     "default": True,
                 },
+                "max_signals": {
+                    "type": "integer",
+                    "description": "Max signals to return (proactive mode only)",
+                    "default": 10,
+                },
             },
-            "required": ["query"],
+            "required": [],
         },
         _get_context,
     ),

@@ -30,9 +30,22 @@ def _load_tools() -> tuple[list[Tool], dict]:
         recommendations,
         reflect,
         research,
+        signals,
     )
 
-    modules = [journal, goals, intelligence, recommendations, research, reflect, mood, profile, learning, projects]
+    modules = [
+        journal,
+        goals,
+        intelligence,
+        recommendations,
+        research,
+        reflect,
+        mood,
+        profile,
+        learning,
+        projects,
+        signals,
+    ]
     tools = []
     handlers = {}
     for mod in modules:

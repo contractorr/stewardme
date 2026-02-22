@@ -68,6 +68,7 @@ class ResearchRunner:
 
         try:
             from research.agent import DeepResearchAgent
+
             return DeepResearchAgent(
                 journal_storage=self.journal_storage,
                 intel_storage=self.storage,
@@ -178,12 +179,8 @@ class IntelScheduler:
         self.scheduler = BackgroundScheduler()
         self._scrapers: list = []
 
-        self._research = ResearchRunner(
-            storage, journal_storage, embeddings, self.full_config
-        )
-        self._recommendations = RecommendationRunner(
-            storage, journal_storage, self.full_config
-        )
+        self._research = ResearchRunner(storage, journal_storage, embeddings, self.full_config)
+        self._recommendations = RecommendationRunner(storage, journal_storage, self.full_config)
 
     def _init_scrapers(self):
         """Initialize async scrapers from config."""
@@ -205,30 +202,36 @@ class IntelScheduler:
         # GitHub trending
         gh_config = self.config.get("github_trending", {})
         if gh_config.get("enabled", False):
-            self._scrapers.append(GitHubTrendingScraper(
-                self.storage,
-                languages=gh_config.get("languages", ["python"]),
-                timeframe=gh_config.get("timeframe", "daily"),
-            ))
+            self._scrapers.append(
+                GitHubTrendingScraper(
+                    self.storage,
+                    languages=gh_config.get("languages", ["python"]),
+                    timeframe=gh_config.get("timeframe", "daily"),
+                )
+            )
 
         # arXiv
         arxiv_config = self.config.get("arxiv", {})
         if "arxiv" in enabled or arxiv_config.get("enabled", False):
-            self._scrapers.append(ArxivScraper(
-                self.storage,
-                categories=arxiv_config.get("categories"),
-                max_results=arxiv_config.get("max_results", 30),
-            ))
+            self._scrapers.append(
+                ArxivScraper(
+                    self.storage,
+                    categories=arxiv_config.get("categories"),
+                    max_results=arxiv_config.get("max_results", 30),
+                )
+            )
 
         # Reddit
         reddit_config = self.config.get("reddit", {})
         if "reddit" in enabled or reddit_config.get("enabled", False):
-            self._scrapers.append(RedditScraper(
-                self.storage,
-                subreddits=reddit_config.get("subreddits"),
-                limit=reddit_config.get("limit", 25),
-                timeframe=reddit_config.get("timeframe", "day"),
-            ))
+            self._scrapers.append(
+                RedditScraper(
+                    self.storage,
+                    subreddits=reddit_config.get("subreddits"),
+                    limit=reddit_config.get("limit", 25),
+                    timeframe=reddit_config.get("timeframe", "day"),
+                )
+            )
 
         # Events (confs.tech + RSS)
         events_config = self.full_config.get("events", {})
@@ -238,19 +241,24 @@ class IntelScheduler:
             if events_config.get("location_filter", False):
                 try:
                     from profile.storage import ProfileStorage
-                    profile_path = self.full_config.get("profile", {}).get("path", "~/coach/profile.yaml")
+
+                    profile_path = self.full_config.get("profile", {}).get(
+                        "path", "~/coach/profile.yaml"
+                    )
                     ps = ProfileStorage(profile_path)
                     p = ps.load()
                     if p:
                         location = p.location
                 except Exception:
                     pass
-            self._scrapers.append(EventScraper(
-                self.storage,
-                topics=events_config.get("topics"),
-                location_filter=location,
-                rss_feeds=events_config.get("rss_feeds", []),
-            ))
+            self._scrapers.append(
+                EventScraper(
+                    self.storage,
+                    topics=events_config.get("topics"),
+                    location_filter=location,
+                    rss_feeds=events_config.get("rss_feeds", []),
+                )
+            )
 
         # GitHub Issues (good-first-issue / help-wanted)
         gh_issues_config = self.full_config.get("projects", {}).get("github_issues", {})
@@ -259,20 +267,24 @@ class IntelScheduler:
             if not langs:
                 try:
                     from profile.storage import ProfileStorage
-                    profile_path = self.full_config.get("profile", {}).get("path", "~/coach/profile.yaml")
+
+                    profile_path = self.full_config.get("profile", {}).get(
+                        "path", "~/coach/profile.yaml"
+                    )
                     ps = ProfileStorage(profile_path)
                     p = ps.load()
                     if p:
                         langs = p.languages_frameworks[:5]
                 except Exception:
                     pass
-            self._scrapers.append(GitHubIssuesScraper(
-                self.storage,
-                languages=langs or ["python"],
-                labels=gh_issues_config.get("labels", ["good-first-issue", "help-wanted"]),
-                token=gh_issues_config.get("token"),
-            ))
-
+            self._scrapers.append(
+                GitHubIssuesScraper(
+                    self.storage,
+                    languages=langs or ["python"],
+                    labels=gh_issues_config.get("labels", ["good-first-issue", "help-wanted"]),
+                    token=gh_issues_config.get("token"),
+                )
+            )
 
     async def _run_async(self) -> dict:
         """Run all scrapers concurrently."""
@@ -301,7 +313,12 @@ class IntelScheduler:
                     metrics.counter("scraper_failure")
                     return scraper.source_name, {"error": "timeout"}
                 except Exception as e:
-                    logger.warning("scraper_failed", source=scraper.source_name, error=str(e), error_type=type(e).__name__)
+                    logger.warning(
+                        "scraper_failed",
+                        source=scraper.source_name,
+                        error=str(e),
+                        error_type=type(e).__name__,
+                    )
                     metrics.counter("scraper_failure")
                     return scraper.source_name, {"error": str(e)}
                 finally:
@@ -315,7 +332,11 @@ class IntelScheduler:
                     name, data = result
                     results[name] = data
                 elif isinstance(result, Exception):
-                    logger.warning("scraper_gather_exception", error=str(result), error_type=type(result).__name__)
+                    logger.warning(
+                        "scraper_gather_exception",
+                        error=str(result),
+                        error_type=type(result).__name__,
+                    )
                     metrics.counter("scraper_failure")
                     results["unknown"] = {"error": str(result)}
 
@@ -384,6 +405,67 @@ class IntelScheduler:
         """Run recommendation generation and save action brief."""
         return self._recommendations.run()
 
+    # --- Signal detection + autonomous actions ---
+
+    def run_signal_detection(self) -> list:
+        """Run signal detection across all data sources."""
+        if not self.journal_storage:
+            logger.warning("Signal detection requires journal_storage")
+            return []
+        try:
+            from advisor.signals import SignalDetector
+
+            db_path = self.storage.db_path
+            detector = SignalDetector(self.journal_storage, db_path, self.full_config)
+            signals = detector.detect_all()
+            logger.info("signal_detection_complete", count=len(signals))
+            return signals
+        except Exception as e:
+            logger.error("signal_detection_failed", error=str(e))
+            return []
+
+    def run_autonomous_actions(self) -> list:
+        """Run autonomous actions based on current signals."""
+        if not self.journal_storage:
+            logger.warning("Autonomous actions require journal_storage")
+            return []
+        try:
+            from advisor.autonomous import AutonomousActionEngine
+            from advisor.signals import SignalStore
+
+            db_path = self.storage.db_path
+            store = SignalStore(db_path)
+            active_signals = store.get_active(limit=20)
+
+            # Reconstruct Signal objects from stored data
+            from advisor.signals import Signal, SignalType
+
+            signals = []
+            for s in active_signals:
+                try:
+                    signals.append(
+                        Signal(
+                            type=SignalType(s["type"]),
+                            severity=s["severity"],
+                            title=s["title"],
+                            detail=s.get("detail", ""),
+                            suggested_actions=s.get("suggested_actions", []),
+                            evidence=s.get("evidence", []),
+                        )
+                    )
+                except (ValueError, KeyError):
+                    continue
+
+            engine = AutonomousActionEngine(
+                self.journal_storage, db_path, self.full_config, self.embeddings
+            )
+            results = engine.process_signals(signals)
+            logger.info("autonomous_actions_complete", count=len(results))
+            return results
+        except Exception as e:
+            logger.error("autonomous_actions_failed", error=str(e))
+            return []
+
     def start_with_research(
         self,
         scrape_cron: str = "0 6 * * *",
@@ -404,7 +486,13 @@ class IntelScheduler:
         if research_config.get("enabled", False):
             research_trigger = _parse_cron(
                 research_cron,
-                defaults={"minute": "0", "hour": "21", "day": "*", "month": "*", "day_of_week": "0"},
+                defaults={
+                    "minute": "0",
+                    "hour": "21",
+                    "day": "*",
+                    "month": "*",
+                    "day_of_week": "0",
+                },
             )
             self.scheduler.add_job(
                 self.run_research_now,
@@ -419,6 +507,38 @@ class IntelScheduler:
         if rec_config.get("enabled", False):
             rec_cron = rec_config.get("delivery", {}).get("schedule", "0 8 * * 0")
             self._add_recommendations_job(rec_cron)
+
+        # Add signal detection + autonomous actions if agent enabled
+        agent_config = self.full_config.get("agent", {})
+        if agent_config.get("enabled", False):
+            signal_cron = agent_config.get("signals", {}).get("schedule", "0 9 * * *")
+            signal_trigger = _parse_cron(signal_cron)
+            self.scheduler.add_job(
+                self.run_signal_detection,
+                trigger=signal_trigger,
+                id="signal_detection",
+                replace_existing=True,
+            )
+            logger.info("Signal detection job scheduled: %s", signal_cron)
+
+            # Autonomous actions run 1 hour after signal detection
+            auto_trigger = _parse_cron(
+                "0 10 * * *",
+                defaults={
+                    "minute": "0",
+                    "hour": "10",
+                    "day": "*",
+                    "month": "*",
+                    "day_of_week": "*",
+                },
+            )
+            self.scheduler.add_job(
+                self.run_autonomous_actions,
+                trigger=auto_trigger,
+                id="autonomous_actions",
+                replace_existing=True,
+            )
+            logger.info("Autonomous actions job scheduled")
 
         self.scheduler.add_listener(self._default_error_handler, EVENT_JOB_ERROR)
         self.scheduler.start()

@@ -1,6 +1,6 @@
 """Goal tracking and check-in management."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
@@ -48,23 +48,27 @@ class GoalTracker:
                 days_since = self._days_since(last_checked)
                 is_stale = days_since >= check_in_days if days_since else False
 
-                goals.append({
-                    "path": entry["path"],
-                    "title": meta.get("title", "Untitled Goal"),
-                    "status": status,
-                    "created": meta.get("created"),
-                    "last_checked": last_checked,
-                    "check_in_days": check_in_days,
-                    "days_since_check": days_since,
-                    "is_stale": is_stale,
-                    "tags": meta.get("tags", []),
-                    "content": post.content[:200] if post.content else "",
-                })
+                goals.append(
+                    {
+                        "path": entry["path"],
+                        "title": meta.get("title", "Untitled Goal"),
+                        "status": status,
+                        "created": meta.get("created"),
+                        "last_checked": last_checked,
+                        "check_in_days": check_in_days,
+                        "days_since_check": days_since,
+                        "is_stale": is_stale,
+                        "tags": meta.get("tags", []),
+                        "content": post.content[:200] if post.content else "",
+                    }
+                )
             except (OSError, ValueError) as e:
                 logger.debug("Failed to load goal entry", error=str(e))
                 continue
 
-        return sorted(goals, key=lambda g: (not g["is_stale"], g.get("days_since_check") or 0), reverse=True)
+        return sorted(
+            goals, key=lambda g: (not g["is_stale"], g.get("days_since_check") or 0), reverse=True
+        )
 
     def get_stale_goals(self, days_threshold: Optional[int] = None) -> list[dict]:
         """Get goals that haven't been checked in recently.
@@ -78,10 +82,7 @@ class GoalTracker:
         threshold = days_threshold or self.DEFAULT_CHECK_IN_DAYS
         all_goals = self.get_goals(include_inactive=False)
 
-        return [
-            g for g in all_goals
-            if g.get("days_since_check", 0) >= threshold
-        ]
+        return [g for g in all_goals if g.get("days_since_check", 0) >= threshold]
 
     def check_in_goal(
         self,
@@ -161,11 +162,13 @@ class GoalTracker:
         try:
             post = frontmatter.load(goal_path)
             milestones = post.metadata.get("milestones", [])
-            milestones.append({
-                "title": title,
-                "completed": False,
-                "completed_at": None,
-            })
+            milestones.append(
+                {
+                    "title": title,
+                    "completed": False,
+                    "completed_at": None,
+                }
+            )
             post["milestones"] = milestones
             post["progress"] = self._calc_progress(milestones)
 
@@ -247,6 +250,62 @@ class GoalTracker:
         except (OSError, ValueError) as e:
             logger.debug("Failed to parse date", error=str(e))
             return None
+
+
+class GoalJournalLinker:
+    """Auto-detect journal entries relevant to goals via embedding similarity."""
+
+    SIMILARITY_THRESHOLD = 0.4
+
+    def __init__(self, journal_storage, embeddings):
+        self.storage = journal_storage
+        self.embeddings = embeddings
+
+    def link_recent_entries(self, days: int = 1) -> list[dict]:
+        """Check new entries against active goals, return suggested links.
+
+        Returns:
+            List of {goal_title, goal_path, entry_title, entry_path, similarity}
+        """
+        tracker = GoalTracker(self.storage)
+        goals = tracker.get_goals(include_inactive=False)
+        active_goals = [g for g in goals if g["status"] == "active"]
+        if not active_goals:
+            return []
+
+        # Get recent entries
+        cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+        entries = self.storage.list_entries(limit=20)
+        recent = [e for e in entries if e.get("created", "") >= cutoff and e.get("type") != "goal"]
+        if not recent:
+            return []
+
+        links = []
+        for entry in recent:
+            for goal in active_goals:
+                goal_text = f"{goal['title']} {goal.get('content', '')}"
+                try:
+                    # Query embeddings with goal text and check if entry appears in results
+                    results = self.embeddings.query(goal_text, n_results=10)
+                    for r in results:
+                        if str(r.get("id", "")) == str(entry.get("path", "")):
+                            similarity = 1.0 - r.get("distance", 1.0)
+                            if similarity >= self.SIMILARITY_THRESHOLD:
+                                links.append(
+                                    {
+                                        "goal_title": goal["title"],
+                                        "goal_path": str(goal.get("path", "")),
+                                        "entry_title": entry.get("title", ""),
+                                        "entry_path": str(entry.get("path", "")),
+                                        "similarity": round(similarity, 3),
+                                    }
+                                )
+                            break
+                except Exception as e:
+                    logger.debug("link_check_failed", error=str(e))
+                    continue
+
+        return sorted(links, key=lambda x: x["similarity"], reverse=True)
 
 
 def get_goal_defaults() -> dict:
