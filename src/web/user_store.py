@@ -1,5 +1,6 @@
 """Multi-user SQLite store: users table + per-user encrypted secrets."""
 
+import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,7 +12,7 @@ from web.crypto import decrypt_value, encrypt_value
 
 logger = structlog.get_logger()
 
-_DEFAULT_DB_PATH = Path.home() / "coach" / "users.db"
+_DEFAULT_DB_PATH = Path(os.environ.get("COACH_HOME", Path.home() / "coach")) / "users.db"
 
 
 def _get_conn(db_path: Path | None = None) -> sqlite3.Connection:
