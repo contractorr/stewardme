@@ -28,7 +28,7 @@ class GeminiProvider(LLMProvider):
     provider_name = "gemini"
 
     def __init__(self, api_key: str | None = None, model: str | None = None, client=None):
-        self.model_name = model or "gemini-3.1-pro"
+        self.model_name = model or "gemini-2.5-flash"
         self._api_key = api_key
 
         if client:
