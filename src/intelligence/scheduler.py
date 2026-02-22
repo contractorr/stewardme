@@ -29,16 +29,6 @@ from .sources import (
 logger = structlog.get_logger().bind(source="scheduler")
 
 
-def _is_rate_limit_error(e: Exception) -> bool:
-    """Check if exception is a rate limit / HTTP 429 error."""
-    msg = str(e).lower()
-    if "429" in msg or "rate limit" in msg or "too many requests" in msg:
-        return True
-    # Check for aiohttp/httpx response status attribute
-    status = getattr(e, "status", None) or getattr(e, "status_code", None)
-    return status == 429
-
-
 def _parse_cron(expr: str, defaults: Optional[dict] = None) -> CronTrigger:
     """Parse cron expression string into CronTrigger.
 
@@ -152,26 +142,13 @@ class RecommendationRunner:
             )
 
             delivery = rec_config.get("delivery", {})
-            brief_text = None
             if "journal" in delivery.get("methods", ["journal"]):
-                brief_text = advisor.generate_action_brief(
+                advisor.generate_action_brief(
                     rec_db,
                     journal_storage=self.journal_storage,
                     save=True,
                 )
                 logger.info("Action brief saved to journal")
-
-            # Send email digest if configured
-            if brief_text and "email" in delivery.get("methods", []):
-                try:
-                    from cli.email_digest import send_digest
-                    send_digest(
-                        subject="AI Coach - Weekly Action Brief",
-                        body_markdown=brief_text,
-                        config=self.config,
-                    )
-                except Exception as e:
-                    logger.warning("Email digest failed", error=str(e))
 
             return {"recommendations": len(recs), "brief_saved": True}
 
@@ -200,17 +177,6 @@ class IntelScheduler:
         self.on_error = on_error
         self.scheduler = BackgroundScheduler()
         self._scrapers: list = []
-
-        # Init rate limit notifier if full config available
-        if self.full_config.get("email", {}).get("enabled", False):
-            try:
-                from cli.config_models import CoachConfig
-                from cli.rate_limit_notifier import get_notifier, init_notifier
-                if get_notifier() is None:
-                    cm = CoachConfig.from_dict(dict(self.full_config))
-                    init_notifier(cm)
-            except Exception:
-                pass
 
         self._research = ResearchRunner(
             storage, journal_storage, embeddings, self.full_config
@@ -335,11 +301,6 @@ class IntelScheduler:
                     metrics.counter("scraper_failure")
                     return scraper.source_name, {"error": "timeout"}
                 except Exception as e:
-                    if _is_rate_limit_error(e):
-                        from cli.rate_limit_notifier import get_notifier
-                        n = get_notifier()
-                        if n:
-                            n.notify(scraper.source_name, str(e))
                     logger.warning("scraper_failed", source=scraper.source_name, error=str(e), error_type=type(e).__name__)
                     metrics.counter("scraper_failure")
                     return scraper.source_name, {"error": str(e)}

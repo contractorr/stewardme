@@ -16,11 +16,6 @@ class SettingsUpdate(BaseModel):
     tavily_api_key: Optional[str] = None
     github_token: Optional[str] = None
     eventbrite_token: Optional[str] = None
-    smtp_host: Optional[str] = None
-    smtp_port: Optional[int] = None
-    smtp_user: Optional[str] = None
-    smtp_pass: Optional[str] = None
-    smtp_to: Optional[str] = None
 
 
 class SettingsResponse(BaseModel):
@@ -35,11 +30,6 @@ class SettingsResponse(BaseModel):
     github_token_set: bool = False
     github_token_hint: Optional[str] = None
     eventbrite_token_set: bool = False
-    smtp_host: Optional[str] = None
-    smtp_port: Optional[int] = None
-    smtp_user: Optional[str] = None
-    smtp_pass_set: bool = False
-    smtp_to: Optional[str] = None
 
 
 # --- Journal ---

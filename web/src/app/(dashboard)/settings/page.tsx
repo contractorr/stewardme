@@ -36,11 +36,6 @@ interface Settings {
   github_token_set: boolean;
   github_token_hint: string | null;
   eventbrite_token_set: boolean;
-  smtp_host: string | null;
-  smtp_port: number | null;
-  smtp_user: string | null;
-  smtp_pass_set: boolean;
-  smtp_to: string | null;
 }
 
 function SettingsSkeleton() {
@@ -85,7 +80,7 @@ export default function SettingsPage() {
     try {
       const payload: Record<string, string | number> = {};
       for (const [key, val] of Object.entries(form)) {
-        if (val) payload[key] = key === "smtp_port" ? parseInt(val) : val;
+        if (val) payload[key] = val;
       }
       const updated = await apiFetch<Settings>(
         "/api/settings",
@@ -177,54 +172,6 @@ export default function SettingsPage() {
             hint={settings.github_token_hint}
             description="Optional. Raises GitHub scraper rate limit from 60 to 5,000 req/hr. Needs only public_repo scope."
           />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Email (SMTP)</CardTitle>
-          <CardDescription>Optional. Enables weekly email digests and rate-limit alerts.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>SMTP Host</Label>
-              <Input
-                value={form.smtp_host || settings.smtp_host || ""}
-                onChange={(e) => setForm({ ...form, smtp_host: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Port</Label>
-              <Input
-                type="number"
-                value={form.smtp_port || settings.smtp_port?.toString() || ""}
-                onChange={(e) => setForm({ ...form, smtp_port: e.target.value })}
-              />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Username</Label>
-            <Input
-              value={form.smtp_user || settings.smtp_user || ""}
-              onChange={(e) => setForm({ ...form, smtp_user: e.target.value })}
-            />
-          </div>
-          <ApiKeyInput
-            label="Password"
-            name="smtp_pass"
-            value={form.smtp_pass || ""}
-            onChange={(v) => setForm({ ...form, smtp_pass: v })}
-            isSet={settings.smtp_pass_set}
-          />
-          <div className="space-y-1.5">
-            <Label>Recipient Email</Label>
-            <Input
-              type="email"
-              value={form.smtp_to || settings.smtp_to || ""}
-              onChange={(e) => setForm({ ...form, smtp_to: e.target.value })}
-            />
-          </div>
         </CardContent>
       </Card>
 

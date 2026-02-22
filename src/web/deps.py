@@ -16,7 +16,6 @@ SECRET_KEY_FIELDS = [
     "tavily_api_key",
     "github_token",
     "eventbrite_token",
-    "smtp_pass",
 ]
 
 
@@ -112,11 +111,6 @@ def get_settings_mask_for_user(user_id: str) -> dict:
         "github_token_set": bool(secrets.get("github_token")),
         "github_token_hint": _hint(secrets.get("github_token")),
         "eventbrite_token_set": bool(secrets.get("eventbrite_token")),
-        "smtp_host": secrets.get("smtp_host"),
-        "smtp_port": secrets.get("smtp_port"),
-        "smtp_user": secrets.get("smtp_user"),
-        "smtp_pass_set": bool(secrets.get("smtp_pass")),
-        "smtp_to": secrets.get("smtp_to"),
     }
 
 
@@ -158,9 +152,4 @@ def get_settings_mask() -> dict:
         "github_token_set": bool(secrets.get("github_token")),
         "github_token_hint": _hint(secrets.get("github_token")),
         "eventbrite_token_set": bool(secrets.get("eventbrite_token")),
-        "smtp_host": secrets.get("smtp_host"),
-        "smtp_port": secrets.get("smtp_port"),
-        "smtp_user": secrets.get("smtp_user"),
-        "smtp_pass_set": bool(secrets.get("smtp_pass")),
-        "smtp_to": secrets.get("smtp_to"),
     }

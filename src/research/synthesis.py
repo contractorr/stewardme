@@ -100,11 +100,6 @@ Be specific and practical. Cite sources when making claims."""
                 max_tokens=max_tokens,
             )
         except LLMError as e:
-            if isinstance(e, LLMRateLimitError):
-                from cli.rate_limit_notifier import get_notifier
-                n = get_notifier()
-                if n:
-                    n.notify(self.llm.provider_name, str(e))
             logger.error("LLM synthesis failed: %s", e)
             return self._fallback_report(topic, results)
 

@@ -27,9 +27,6 @@ def get_components(skip_advisor: bool = False):
     config = load_config()
     config_model = load_config_model()
 
-    from cli.rate_limit_notifier import init_notifier
-    init_notifier(config_model)
-
     paths = get_paths(config)
 
     storage = JournalStorage(paths["journal_dir"])

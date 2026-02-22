@@ -43,16 +43,6 @@ schedule:
 #       type: "daily"
 #       content: "## Yesterday\n\n## Today\n\n## Blockers\n"
 
-# --- Optional: email (digests + rate limit alerts) ---
-# email:
-#   enabled: true
-#   smtp_host: smtp.gmail.com
-#   smtp_port: 587
-#   username: you@gmail.com
-#   password: ${EMAIL_PASSWORD}
-#   to: you@gmail.com
-#   from_addr: you@gmail.com
-
 # --- Optional: paid features ---
 # Uncomment and set TAVILY_API_KEY for deep research
 # research:
@@ -61,7 +51,7 @@ schedule:
 recommendations:
   enabled: false  # enable after 5+ journal entries
   delivery:
-    methods: [journal]  # add "email" if email configured
+    methods: [journal]
 
 # --- Profile ---
 profile:
