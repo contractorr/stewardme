@@ -15,6 +15,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   session: { strategy: "jwt" },
   callbacks: {
+    authorized({ auth }) {
+      return !!auth?.user;
+    },
     async jwt({ token, account }) {
       if (account) {
         token.accessToken = account.access_token;

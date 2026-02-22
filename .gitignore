@@ -20,5 +20,11 @@ web/node_modules/
 web/.next/
 web/.env.local
 
+# Local databases & artifacts
+*.db
+.coverage
+.mcp.json
+.playwright-mcp/
+
 # OS
 .DS_Store

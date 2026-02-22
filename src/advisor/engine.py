@@ -77,6 +77,11 @@ class AdvisorEngine:
                 max_tokens=max_tokens,
             )
         except BaseLLMError as e:
+            if isinstance(e, LLMRateLimitError):
+                from cli.rate_limit_notifier import get_notifier
+                n = get_notifier()
+                if n:
+                    n.notify(self.llm.provider_name, str(e))
             logger.error("LLM call failed: %s", e)
             raise LLMError(str(e)) from e
 

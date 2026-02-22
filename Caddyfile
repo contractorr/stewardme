@@ -1,4 +1,9 @@
 {$DOMAIN} {
+	# NextAuth routes → frontend (must come before /api/* catch-all)
+	handle /api/auth/* {
+		reverse_proxy frontend:3000
+	}
+
 	# API routes → backend
 	handle /api/* {
 		reverse_proxy backend:8000

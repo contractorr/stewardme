@@ -10,6 +10,17 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 VALID_LLM_PROVIDERS = {"auto", "claude", "openai", "gemini"}
 
 
+class EmailConfig(BaseModel):
+    """Email notification configuration."""
+    enabled: bool = False
+    smtp_host: Optional[str] = None
+    smtp_port: int = 587
+    username: Optional[str] = None
+    password: Optional[str] = None
+    to: Optional[str] = None
+    from_addr: Optional[str] = None
+
+
 class LLMConfig(BaseModel):
     """LLM provider configuration."""
     provider: str = "auto"
@@ -214,6 +225,7 @@ class CoachConfig(BaseModel):
     rag: RAGConfig = Field(default_factory=RAGConfig)
     search: SearchConfig = Field(default_factory=SearchConfig)
     rate_limits: RateLimitsConfig = Field(default_factory=RateLimitsConfig)
+    email: EmailConfig = Field(default_factory=EmailConfig)
 
     @model_validator(mode="after")
     def expand_env_vars(self):
@@ -228,6 +240,11 @@ class CoachConfig(BaseModel):
             if key.startswith("${") and key.endswith("}"):
                 env_var = key[2:-1]
                 self.research.tavily_api_key = os.getenv(env_var, "")
+        if self.email.password:
+            key = self.email.password
+            if key.startswith("${") and key.endswith("}"):
+                env_var = key[2:-1]
+                self.email.password = os.getenv(env_var, "")
         return self
 
     @classmethod
