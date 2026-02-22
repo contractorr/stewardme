@@ -130,7 +130,16 @@ class ToolRegistry:
                 "properties": {
                     "entry_type": {
                         "type": "string",
-                        "enum": ["daily", "project", "goal", "reflection", "insight", "note", "research", "action_brief"],
+                        "enum": [
+                            "daily",
+                            "project",
+                            "goal",
+                            "reflection",
+                            "insight",
+                            "note",
+                            "research",
+                            "action_brief",
+                        ],
                     },
                     "tag": {"type": "string"},
                     "limit": {"type": "integer", "default": 20},
@@ -167,7 +176,10 @@ class ToolRegistry:
             {
                 "type": "object",
                 "properties": {
-                    "filename": {"type": "string", "description": "e.g. 2024-01-15_daily_meeting-notes.md"},
+                    "filename": {
+                        "type": "string",
+                        "description": "e.g. 2024-01-15_daily_meeting-notes.md",
+                    },
                 },
                 "required": ["filename"],
             },
@@ -179,14 +191,21 @@ class ToolRegistry:
             entry_type = args.get("entry_type", "daily")
             title = args.get("title")
             tags = args.get("tags", [])
-            filepath = storage.create(content=content, entry_type=entry_type, title=title, tags=tags)
+            filepath = storage.create(
+                content=content, entry_type=entry_type, title=title, tags=tags
+            )
             # Sync embeddings for new entry
             try:
                 all_entries = storage.get_all_content()
                 embeddings.sync_from_storage(all_entries)
             except Exception:
                 pass
-            return {"path": str(filepath), "filename": filepath.name, "title": title or filepath.stem, "type": entry_type}
+            return {
+                "path": str(filepath),
+                "filename": filepath.name,
+                "title": title or filepath.stem,
+                "type": entry_type,
+            }
 
         self._register(
             "journal_create",
@@ -215,6 +234,7 @@ class ToolRegistry:
 
         def _get_tracker():
             from advisor.goals import GoalTracker
+
             return GoalTracker(storage)
 
         def goals_list(args: dict) -> dict:
@@ -225,17 +245,19 @@ class ToolRegistry:
             for g in goals:
                 goal_path = Path(g["path"])
                 progress = tracker.get_progress(goal_path)
-                enriched.append({
-                    "path": str(goal_path),
-                    "filename": goal_path.name,
-                    "title": g["title"],
-                    "status": g["status"],
-                    "created": g["created"],
-                    "days_since_check": g["days_since_check"],
-                    "is_stale": g["is_stale"],
-                    "progress": progress,
-                    "preview": (g.get("content") or "")[:200],
-                })
+                enriched.append(
+                    {
+                        "path": str(goal_path),
+                        "filename": goal_path.name,
+                        "title": g["title"],
+                        "status": g["status"],
+                        "created": g["created"],
+                        "days_since_check": g["days_since_check"],
+                        "is_stale": g["is_stale"],
+                        "progress": progress,
+                        "preview": (g.get("content") or "")[:200],
+                    }
+                )
             return {"goals": enriched, "count": len(enriched)}
 
         self._register(
@@ -244,7 +266,11 @@ class ToolRegistry:
             {
                 "type": "object",
                 "properties": {
-                    "include_inactive": {"type": "boolean", "description": "Include completed/abandoned goals", "default": False},
+                    "include_inactive": {
+                        "type": "boolean",
+                        "description": "Include completed/abandoned goals",
+                        "default": False,
+                    },
                 },
                 "required": [],
             },
@@ -255,11 +281,14 @@ class ToolRegistry:
             title = args["title"]
             description = args.get("description", "")
             tags = args.get("tags", [])
-            filepath = storage.create(content=description, entry_type="goal", title=title, tags=tags)
+            filepath = storage.create(
+                content=description, entry_type="goal", title=title, tags=tags
+            )
             # Set check_in_days if non-default
             check_days = args.get("check_days", 14)
             if check_days != 14:
                 import frontmatter
+
                 post = frontmatter.load(filepath)
                 post["check_in_days"] = check_days
                 with open(filepath, "w") as f:
@@ -271,7 +300,12 @@ class ToolRegistry:
                 embeddings.sync_from_storage(all_entries)
             except Exception:
                 pass
-            return {"path": str(filepath), "filename": filepath.name, "title": title, "type": "goal"}
+            return {
+                "path": str(filepath),
+                "filename": filepath.name,
+                "title": title,
+                "type": "goal",
+            }
 
         self._register(
             "goals_add",
@@ -281,7 +315,11 @@ class ToolRegistry:
                 "properties": {
                     "title": {"type": "string", "description": "Goal title"},
                     "description": {"type": "string", "description": "Goal description/body"},
-                    "check_days": {"type": "integer", "description": "Days between expected check-ins", "default": 14},
+                    "check_days": {
+                        "type": "integer",
+                        "description": "Days between expected check-ins",
+                        "default": 14,
+                    },
                     "tags": {"type": "array", "items": {"type": "string"}},
                 },
                 "required": ["title"],
@@ -324,7 +362,10 @@ class ToolRegistry:
                 "type": "object",
                 "properties": {
                     "goal_path": {"type": "string", "description": "Full path to the goal file"},
-                    "status": {"type": "string", "enum": ["active", "paused", "completed", "abandoned"]},
+                    "status": {
+                        "type": "string",
+                        "enum": ["active", "paused", "completed", "abandoned"],
+                    },
                 },
                 "required": ["goal_path", "status"],
             },
@@ -397,7 +438,10 @@ class ToolRegistry:
                 "properties": {
                     "days": {"type": "integer", "description": "Lookback days", "default": 7},
                     "limit": {"type": "integer", "description": "Max items", "default": 50},
-                    "source": {"type": "string", "description": "Filter: hackernews, reddit, rss, etc."},
+                    "source": {
+                        "type": "string",
+                        "description": "Filter: hackernews, reddit, rss, etc.",
+                    },
                 },
                 "required": [],
             },
@@ -412,6 +456,7 @@ class ToolRegistry:
 
         def recommendations_list(args: dict) -> dict:
             from advisor.recommendation_storage import RecommendationStorage
+
             rec_dir = self.components.get("recommendations_dir")
             if not rec_dir:
                 return {"recommendations": [], "count": 0}
@@ -445,8 +490,14 @@ class ToolRegistry:
                 "type": "object",
                 "properties": {
                     "limit": {"type": "integer", "default": 20},
-                    "category": {"type": "string", "description": "learning, career, entrepreneurial, investment"},
-                    "status": {"type": "string", "enum": ["suggested", "in_progress", "completed", "dismissed"]},
+                    "category": {
+                        "type": "string",
+                        "description": "learning, career, entrepreneurial, investment",
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["suggested", "in_progress", "completed", "dismissed"],
+                    },
                 },
                 "required": [],
             },
@@ -455,6 +506,7 @@ class ToolRegistry:
 
         def profile_get(args: dict) -> dict:
             from profile.storage import ProfileStorage
+
             ps = ProfileStorage(profile_path or "~/coach/profile.yaml")
             p = ps.load()
             if not p:
@@ -476,7 +528,10 @@ class ToolRegistry:
             query = args["query"]
             max_chars = args.get("max_chars", 8000)
             journal_ctx, intel_ctx = rag.get_combined_context(query)
-            return {"journal_context": journal_ctx[:max_chars], "intel_context": intel_ctx[:max_chars]}
+            return {
+                "journal_context": journal_ctx[:max_chars],
+                "intel_context": intel_ctx[:max_chars],
+            }
 
         self._register(
             "get_context",

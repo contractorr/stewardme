@@ -10,7 +10,7 @@ class TestIntelStorage:
         """Test that initialization creates database."""
         from intelligence.scraper import IntelStorage
 
-        storage = IntelStorage(temp_dirs["intel_db"])
+        IntelStorage(temp_dirs["intel_db"])
 
         assert temp_dirs["intel_db"].exists()
 

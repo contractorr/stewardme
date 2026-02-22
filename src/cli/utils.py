@@ -89,6 +89,7 @@ def get_profile_storage(config: dict | None = None):
 
     if config is None:
         from cli.config import load_config
+
         config = load_config()
     path = config.get("profile", {}).get("path", "~/coach/profile.yaml")
     return ProfileStorage(path)

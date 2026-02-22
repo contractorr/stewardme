@@ -60,17 +60,19 @@ class LearningPathStorage:
                 m = post.metadata
                 if status and m.get("status") != status:
                     continue
-                paths.append({
-                    "id": m.get("id", ""),
-                    "skill": m.get("skill", ""),
-                    "status": m.get("status", "active"),
-                    "progress": m.get("progress", 0),
-                    "total_modules": m.get("total_modules", 0),
-                    "completed_modules": m.get("completed_modules", 0),
-                    "created_at": m.get("created_at", ""),
-                    "updated_at": m.get("updated_at", m.get("created_at", "")),
-                    "path": str(f),
-                })
+                paths.append(
+                    {
+                        "id": m.get("id", ""),
+                        "skill": m.get("skill", ""),
+                        "status": m.get("status", "active"),
+                        "progress": m.get("progress", 0),
+                        "total_modules": m.get("total_modules", 0),
+                        "completed_modules": m.get("completed_modules", 0),
+                        "created_at": m.get("created_at", ""),
+                        "updated_at": m.get("updated_at", m.get("created_at", "")),
+                        "path": str(f),
+                    }
+                )
             except Exception:
                 continue
         return paths
@@ -139,6 +141,7 @@ class LearningPathGenerator:
         weekly_hours = 5
         try:
             from profile.storage import ProfileStorage
+
             ps = ProfileStorage()
             p = ps.load()
             if p:
@@ -188,11 +191,11 @@ class LearningPathGenerator:
 
 {profile_ctx}
 
-LEARNING PATH: {path_data['skill']}
-Progress: {path_data['completed_modules']}/{path_data['total_modules']} modules complete
+LEARNING PATH: {path_data["skill"]}
+Progress: {path_data["completed_modules"]}/{path_data["total_modules"]} modules complete
 
 FULL PATH:
-{path_data['content'][:3000]}
+{path_data["content"][:3000]}
 
 Give a concise, actionable suggestion for this week's study session."""
 

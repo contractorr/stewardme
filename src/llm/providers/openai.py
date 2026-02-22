@@ -21,6 +21,7 @@ def _get_openai_exceptions():
     if _openai_exceptions is None:
         try:
             from openai import APIError, AuthenticationError, RateLimitError
+
             _openai_exceptions = (AuthenticationError, RateLimitError, APIError)
         except ImportError:
             _openai_exceptions = ()
@@ -55,13 +56,13 @@ class OpenAIProvider(LLMProvider):
         try:
             from openai import OpenAI
         except ImportError:
-            raise LLMError(
-                "openai package not installed. Run: pip install 'ai-coach[openai]'"
-            )
+            raise LLMError("openai package not installed. Run: pip install 'ai-coach[openai]'")
 
         self.client = OpenAI(api_key=api_key)
 
-    def generate(self, messages: list[dict], system: str | None = None, max_tokens: int = 2000) -> str:
+    def generate(
+        self, messages: list[dict], system: str | None = None, max_tokens: int = 2000
+    ) -> str:
         full_messages = []
         if system:
             full_messages.append({"role": "system", "content": system})
@@ -111,26 +112,32 @@ class OpenAIProvider(LLMProvider):
                 # Assistant message with tool calls
                 oai_tool_calls = []
                 for tc in msg["tool_calls"]:
-                    oai_tool_calls.append({
-                        "id": tc["id"],
-                        "type": "function",
-                        "function": {
-                            "name": tc["name"],
-                            "arguments": json.dumps(tc["arguments"]),
-                        },
-                    })
-                api_messages.append({
-                    "role": "assistant",
-                    "content": msg.get("content"),
-                    "tool_calls": oai_tool_calls,
-                })
+                    oai_tool_calls.append(
+                        {
+                            "id": tc["id"],
+                            "type": "function",
+                            "function": {
+                                "name": tc["name"],
+                                "arguments": json.dumps(tc["arguments"]),
+                            },
+                        }
+                    )
+                api_messages.append(
+                    {
+                        "role": "assistant",
+                        "content": msg.get("content"),
+                        "tool_calls": oai_tool_calls,
+                    }
+                )
 
             elif role == "tool":
-                api_messages.append({
-                    "role": "tool",
-                    "tool_call_id": msg["tool_call_id"],
-                    "content": msg["content"],
-                })
+                api_messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": msg["tool_call_id"],
+                        "content": msg["content"],
+                    }
+                )
 
             else:
                 api_messages.append(msg)
@@ -154,11 +161,13 @@ class OpenAIProvider(LLMProvider):
             tool_calls = []
             if message.tool_calls:
                 for tc_obj in message.tool_calls:
-                    tool_calls.append(ToolCall(
-                        id=tc_obj.id,
-                        name=tc_obj.function.name,
-                        arguments=json.loads(tc_obj.function.arguments),
-                    ))
+                    tool_calls.append(
+                        ToolCall(
+                            id=tc_obj.id,
+                            name=tc_obj.function.name,
+                            arguments=json.loads(tc_obj.function.arguments),
+                        )
+                    )
 
             content = message.content
 

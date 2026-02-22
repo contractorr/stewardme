@@ -26,12 +26,12 @@ def research_journal(temp_dirs):
         storage.create(
             content="Today I worked on kubernetes deployment. Kubernetes is powerful for orchestration. Also explored kubernetes networking.",
             entry_type="daily",
-            title=f"Day {i+1} Notes",
+            title=f"Day {i + 1} Notes",
             tags=["work", "kubernetes"],
         )
 
     # Create old research entry (should be skipped)
-    old_date = datetime.now() - timedelta(days=30)
+    datetime.now() - timedelta(days=30)
     storage.create(
         content="Research on Docker containerization",
         entry_type="research",

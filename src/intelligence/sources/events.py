@@ -89,7 +89,10 @@ class EventScraper(BaseScraper):
         # Location filter
         if self.location_filter and not online:
             loc_lower = location.lower()
-            if self.location_filter not in loc_lower and country.lower() not in self.location_filter:
+            if (
+                self.location_filter not in loc_lower
+                and country.lower() not in self.location_filter
+            ):
                 return None
 
         # Build summary
@@ -164,14 +167,16 @@ class EventScraper(BaseScraper):
                         pass
 
                 if title and link:
-                    items.append(IntelItem(
-                        source=IntelSource.EVENTS,
-                        title=title,
-                        url=link,
-                        summary=description,
-                        published=published,
-                        tags=["event", "rss"],
-                    ))
+                    items.append(
+                        IntelItem(
+                            source=IntelSource.EVENTS,
+                            title=title,
+                            url=link,
+                            summary=description,
+                            published=published,
+                            tags=["event", "rss"],
+                        )
+                    )
             return items
         except Exception as e:
             logger.warning("rss_events_failed", url=feed_url, error=str(e))

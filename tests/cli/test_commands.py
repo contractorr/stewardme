@@ -23,10 +23,20 @@ def _make_components(tmp_path, skip_advisor=False):
     mock_storage = MagicMock()
     mock_storage.create.return_value = tmp_path / "journal" / "test.md"
     mock_storage.list_entries.return_value = [
-        {"created": "2024-01-01T10:00:00", "type": "daily", "title": "Day 1", "tags": ["test"], "path": tmp_path / "journal" / "test.md"}
+        {
+            "created": "2024-01-01T10:00:00",
+            "type": "daily",
+            "title": "Day 1",
+            "tags": ["test"],
+            "path": tmp_path / "journal" / "test.md",
+        }
     ]
     post_mock = MagicMock(content="Test body")
-    post_mock.get = lambda k, d=None: {"title": "Day 1", "type": "daily", "created": "2024-01-01"}.get(k, d)
+    post_mock.get = lambda k, d=None: {
+        "title": "Day 1",
+        "type": "daily",
+        "created": "2024-01-01",
+    }.get(k, d)
     mock_storage.read.return_value = post_mock
 
     mock_advisor = MagicMock()
@@ -40,10 +50,23 @@ def _make_components(tmp_path, skip_advisor=False):
     return {
         "storage": mock_storage,
         "embeddings": MagicMock(count=MagicMock(return_value=5)),
-        "search": MagicMock(sync_embeddings=MagicMock(return_value=(2, 0)), semantic_search=MagicMock(return_value=[])),
-        "intel_storage": MagicMock(get_recent=MagicMock(return_value=[
-            {"title": "HN Story", "source": "hackernews", "scraped_at": "2024-01-01T00:00:00", "summary": "A story", "url": "https://example.com"}
-        ])),
+        "search": MagicMock(
+            sync_embeddings=MagicMock(return_value=(2, 0)),
+            semantic_search=MagicMock(return_value=[]),
+        ),
+        "intel_storage": MagicMock(
+            get_recent=MagicMock(
+                return_value=[
+                    {
+                        "title": "HN Story",
+                        "source": "hackernews",
+                        "scraped_at": "2024-01-01T00:00:00",
+                        "summary": "A story",
+                        "url": "https://example.com",
+                    }
+                ]
+            )
+        ),
         "intel_search": MagicMock(),
         "advisor": None if skip_advisor else mock_advisor,
         "config": {
@@ -54,7 +77,11 @@ def _make_components(tmp_path, skip_advisor=False):
             "llm": {"model": "claude-sonnet-4-20250514"},
         },
         "config_model": MagicMock(),
-        "paths": {"journal_dir": tmp_path / "journal", "chroma_dir": tmp_path / "chroma", "intel_db": tmp_path / "intel.db"},
+        "paths": {
+            "journal_dir": tmp_path / "journal",
+            "chroma_dir": tmp_path / "chroma",
+            "intel_db": tmp_path / "intel.db",
+        },
         "rag": MagicMock(),
     }
 
@@ -89,6 +116,7 @@ def patch_components(tmp_path):
 
 # -- Journal commands --
 
+
 class TestJournalCommands:
     def test_add(self, runner, patch_components):
         result = runner.invoke(cli, ["journal", "add", "Test content"])
@@ -110,6 +138,7 @@ class TestJournalCommands:
 
 # -- Advisor commands --
 
+
 class TestAdvisorCommands:
     def test_ask(self, runner, patch_components):
         result = runner.invoke(cli, ["ask", "What should I learn?"])
@@ -125,6 +154,7 @@ class TestAdvisorCommands:
 
 
 # -- Intelligence commands --
+
 
 class TestIntelCommands:
     def test_scrape(self, runner, patch_components):
@@ -144,23 +174,33 @@ class TestIntelCommands:
 
 # -- Goals command --
 
+
 class TestGoalsCommands:
     def test_add(self, runner, patch_components):
-        result = runner.invoke(cli, ["goals", "add", "-t", "Learn Rust", "-d", "Systems programming"])
+        result = runner.invoke(
+            cli, ["goals", "add", "-t", "Learn Rust", "-d", "Systems programming"]
+        )
         assert result.exit_code == 0
         assert "Created goal" in result.output
 
     def test_list(self, runner, patch_components):
         with patch("advisor.goals.GoalTracker") as cls:
             cls.return_value.get_goals.return_value = [
-                {"path": "/g.md", "title": "Learn Rust", "status": "active",
-                 "last_checked": "2024-01-01", "days_since_check": 3, "is_stale": False}
+                {
+                    "path": "/g.md",
+                    "title": "Learn Rust",
+                    "status": "active",
+                    "last_checked": "2024-01-01",
+                    "days_since_check": 3,
+                    "is_stale": False,
+                }
             ]
             result = runner.invoke(cli, ["goals", "list"])
         assert result.exit_code == 0
 
 
 # -- Init command --
+
 
 class TestPathValidation:
     def test_resolve_normal_path(self, tmp_path):
@@ -194,10 +234,16 @@ class TestPathValidation:
 
 class TestInitCommand:
     def test_init(self, runner, tmp_path):
-        with patch("cli.commands.init.load_config") as mock_cfg, \
-             patch("cli.commands.init.get_paths") as mock_paths:
+        with (
+            patch("cli.commands.init.load_config") as mock_cfg,
+            patch("cli.commands.init.get_paths") as mock_paths,
+        ):
             mock_cfg.return_value = {}
-            mock_paths.return_value = {"journal_dir": tmp_path / "j", "chroma_dir": tmp_path / "c", "intel_db": tmp_path / "i.db"}
+            mock_paths.return_value = {
+                "journal_dir": tmp_path / "j",
+                "chroma_dir": tmp_path / "c",
+                "intel_db": tmp_path / "i.db",
+            }
             result = runner.invoke(cli, ["init"])
         assert result.exit_code == 0
         assert "Minimal setup" in result.output

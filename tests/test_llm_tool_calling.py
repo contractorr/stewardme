@@ -8,7 +8,6 @@ from llm.base import GenerateResponse, ToolCall, ToolDefinition, ToolResult
 from llm.providers.claude import ClaudeProvider
 from llm.providers.openai import OpenAIProvider
 
-
 SAMPLE_TOOLS = [
     ToolDefinition(
         name="get_weather",
@@ -100,7 +99,9 @@ class TestClaudeToolCalling:
     def test_mixed_text_and_tool_response(self):
         provider, client = self._make_provider()
         text_block = MagicMock(type="text", text="Let me check")
-        tool_block = MagicMock(type="tool_use", id="toolu_2", name="get_weather", input={"location": "LA"})
+        tool_block = MagicMock(
+            type="tool_use", id="toolu_2", name="get_weather", input={"location": "LA"}
+        )
         mock_resp = MagicMock()
         mock_resp.content = [text_block, tool_block]
         mock_resp.stop_reason = "tool_use"
@@ -170,7 +171,9 @@ class TestClaudeToolCalling:
             {"role": "user", "content": "weather?"},
             {
                 "role": "assistant",
-                "tool_calls": [{"id": "toolu_1", "name": "get_weather", "arguments": {"location": "NYC"}}],
+                "tool_calls": [
+                    {"id": "toolu_1", "name": "get_weather", "arguments": {"location": "NYC"}}
+                ],
             },
             {"role": "tool", "tool_call_id": "toolu_1", "content": '{"temp": 72}'},
         ]
@@ -210,12 +213,14 @@ class TestClaudeToolCalling:
 
     def test_auth_error_propagated(self):
         from anthropic import AuthenticationError
+
         provider, client = self._make_provider()
         client.messages.create.side_effect = AuthenticationError(
             message="bad key", response=MagicMock(status_code=401), body={}
         )
 
         from llm import LLMAuthError
+
         with pytest.raises(LLMAuthError):
             provider.generate_with_tools(
                 messages=[{"role": "user", "content": "hi"}],
@@ -302,7 +307,9 @@ class TestOpenAIToolCalling:
             {"role": "user", "content": "weather?"},
             {
                 "role": "assistant",
-                "tool_calls": [{"id": "call_1", "name": "get_weather", "arguments": {"location": "NYC"}}],
+                "tool_calls": [
+                    {"id": "call_1", "name": "get_weather", "arguments": {"location": "NYC"}}
+                ],
             },
             {"role": "tool", "tool_call_id": "call_1", "content": '{"temp": 72}'},
         ]

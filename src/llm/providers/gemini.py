@@ -47,7 +47,9 @@ class GeminiProvider(LLMProvider):
 
         self.client = genai.GenerativeModel(self.model_name)
 
-    def generate(self, messages: list[dict], system: str | None = None, max_tokens: int = 2000) -> str:
+    def generate(
+        self, messages: list[dict], system: str | None = None, max_tokens: int = 2000
+    ) -> str:
         parts = []
         if system:
             parts.append(f"System: {system}\n")
@@ -82,12 +84,18 @@ class GeminiProvider(LLMProvider):
             func_decls = []
             for t in tools:
                 # Strip unsupported keys from schema for Gemini
-                schema = {k: v for k, v in t.input_schema.items() if k in ("type", "properties", "required")}
-                func_decls.append(genai.types.FunctionDeclaration(
-                    name=t.name,
-                    description=t.description,
-                    parameters=schema if schema.get("properties") else None,
-                ))
+                schema = {
+                    k: v
+                    for k, v in t.input_schema.items()
+                    if k in ("type", "properties", "required")
+                }
+                func_decls.append(
+                    genai.types.FunctionDeclaration(
+                        name=t.name,
+                        description=t.description,
+                        parameters=schema if schema.get("properties") else None,
+                    )
+                )
 
             gemini_tools = [genai.types.Tool(function_declarations=func_decls)]
 
@@ -114,11 +122,13 @@ class GeminiProvider(LLMProvider):
                 for part in response.candidates[0].content.parts:
                     if hasattr(part, "function_call") and part.function_call.name:
                         fc = part.function_call
-                        tool_calls.append(ToolCall(
-                            id=f"call_{uuid.uuid4().hex[:8]}",
-                            name=fc.name,
-                            arguments=dict(fc.args) if fc.args else {},
-                        ))
+                        tool_calls.append(
+                            ToolCall(
+                                id=f"call_{uuid.uuid4().hex[:8]}",
+                                name=fc.name,
+                                arguments=dict(fc.args) if fc.args else {},
+                            )
+                        )
                     elif hasattr(part, "text") and part.text:
                         text_parts.append(part.text)
 
@@ -147,20 +157,26 @@ class GeminiProvider(LLMProvider):
                     parts.append(msg["content"])
                 if msg.get("tool_calls"):
                     for tc in msg["tool_calls"]:
-                        parts.append(genai.protos.FunctionCall(
-                            name=tc["name"],
-                            args=tc["arguments"],
-                        ))
+                        parts.append(
+                            genai.protos.FunctionCall(
+                                name=tc["name"],
+                                args=tc["arguments"],
+                            )
+                        )
                 if parts:
                     contents.append({"role": "model", "parts": parts})
 
             elif role == "tool":
-                contents.append({
-                    "role": "user",
-                    "parts": [genai.protos.FunctionResponse(
-                        name=msg.get("name", "tool"),
-                        response={"result": msg["content"]},
-                    )],
-                })
+                contents.append(
+                    {
+                        "role": "user",
+                        "parts": [
+                            genai.protos.FunctionResponse(
+                                name=msg.get("name", "tool"),
+                                response={"result": msg["content"]},
+                            )
+                        ],
+                    }
+                )
 
         return contents

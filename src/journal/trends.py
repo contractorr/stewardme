@@ -78,16 +78,22 @@ class TrendDetector:
             representative = self._get_representative_entries(entries, cluster_id, 3)
             label = self._label_cluster(representative)
 
-            trends.append({
-                "topic": label,
-                "cluster_id": cluster_id,
-                "direction": "emerging" if growth_rate > 0.2 else "declining" if growth_rate < -0.2 else "stable",
-                "growth_rate": round(growth_rate, 3),
-                "counts": counts,
-                "windows": window_keys,
-                "total_entries": sum(counts),
-                "representative_titles": [e.get("title", "") for e in representative],
-            })
+            trends.append(
+                {
+                    "topic": label,
+                    "cluster_id": cluster_id,
+                    "direction": "emerging"
+                    if growth_rate > 0.2
+                    else "declining"
+                    if growth_rate < -0.2
+                    else "stable",
+                    "growth_rate": round(growth_rate, 3),
+                    "counts": counts,
+                    "windows": window_keys,
+                    "total_entries": sum(counts),
+                    "representative_titles": [e.get("title", "") for e in representative],
+                }
+            )
 
         return sorted(trends, key=lambda t: abs(t["growth_rate"]), reverse=True)
 
@@ -151,15 +157,17 @@ Summarize:
                 if embedding is None:
                     continue
 
-                result.append({
-                    "path": entry.get("path"),
-                    "title": entry.get("title", ""),
-                    "type": entry.get("type", ""),
-                    "created": created,
-                    "created_dt": dt,
-                    "tags": entry.get("tags", []),
-                    "embedding": embedding,
-                })
+                result.append(
+                    {
+                        "path": entry.get("path"),
+                        "title": entry.get("title", ""),
+                        "type": entry.get("type", ""),
+                        "created": created,
+                        "created_dt": dt,
+                        "tags": entry.get("tags", []),
+                        "embedding": embedding,
+                    }
+                )
             except (ValueError, OSError):
                 continue
 
@@ -230,6 +238,7 @@ Summarize:
         if tags:
             # Most common tag
             from collections import Counter
+
             common = Counter(tags).most_common(1)
             if common:
                 return common[0][0]

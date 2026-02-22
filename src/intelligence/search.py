@@ -172,15 +172,17 @@ class IntelSearch:
         items = []
         for row in rows:
             content = f"{row['title']}\n{row['summary'] or ''}\n{row['content'] or ''}"
-            items.append({
-                "id": str(row["id"]),
-                "content": content,
-                "metadata": {
-                    "source": row["source"],
-                    "url": row["url"],
-                    "tags": row["tags"] or "",
-                },
-            })
+            items.append(
+                {
+                    "id": str(row["id"]),
+                    "content": content,
+                    "metadata": {
+                        "source": row["source"],
+                        "url": row["url"],
+                        "tags": row["tags"] or "",
+                    },
+                }
+            )
 
         return self.embeddings.sync_from_storage(items)
 

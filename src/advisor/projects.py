@@ -35,7 +35,11 @@ def get_matching_issues(
         for issue in issues:
             tags = set(
                 t.strip().lower()
-                for t in (issue.get("tags", "").split(",") if isinstance(issue.get("tags"), str) else issue.get("tags", []))
+                for t in (
+                    issue.get("tags", "").split(",")
+                    if isinstance(issue.get("tags"), str)
+                    else issue.get("tags", [])
+                )
             )
             summary_lower = issue.get("summary", "").lower()
             score = sum(1 for kw in all_keywords if kw in tags or kw in summary_lower)

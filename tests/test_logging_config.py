@@ -16,7 +16,7 @@ class TestLoggingConfig:
         logger = structlog.get_logger()
         logger.info("test message", key="value")
         # Should not raise and should produce output on stderr
-        captured = capsys.readouterr()
+        capsys.readouterr()
         # Console renderer writes to stderr via handler
         assert True  # Smoke test: no crash
 
@@ -40,7 +40,7 @@ class TestLoggingConfig:
         setup_logging(json_mode=True, level="DEBUG")
         # Verify structlog is configured
         config = structlog.get_config()
-        processor_names = [p.__class__.__name__ if hasattr(p, '__class__') else str(p) for p in config["processors"]]
+        [p.__class__.__name__ if hasattr(p, "__class__") else str(p) for p in config["processors"]]
         # Should have multiple processors configured
         assert len(config["processors"]) >= 2
 

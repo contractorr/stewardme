@@ -10,10 +10,10 @@ from advisor.tools import ToolRegistry
 @pytest.fixture
 def mock_components(tmp_path):
     """Build minimal real components for ToolRegistry."""
-    from journal.storage import JournalStorage
+    from intelligence.scraper import IntelStorage
     from journal.embeddings import EmbeddingManager
     from journal.search import JournalSearch
-    from intelligence.scraper import IntelStorage
+    from journal.storage import JournalStorage
 
     journal_dir = tmp_path / "journal"
     journal_dir.mkdir()
@@ -28,6 +28,7 @@ def mock_components(tmp_path):
     journal_search = JournalSearch(storage, embeddings)
 
     from advisor.rag import RAGRetriever
+
     rag = RAGRetriever(
         journal_search=journal_search,
         intel_db_path=intel_db,
@@ -54,10 +55,19 @@ class TestToolRegistryInit:
         registry = ToolRegistry(mock_components)
         names = {d.name for d in registry.get_definitions()}
         expected = {
-            "journal_search", "journal_list", "journal_read", "journal_create",
-            "goals_list", "goals_add", "goals_check_in", "goals_update_status",
-            "intel_search", "intel_get_recent",
-            "recommendations_list", "profile_get", "get_context",
+            "journal_search",
+            "journal_list",
+            "journal_read",
+            "journal_create",
+            "goals_list",
+            "goals_add",
+            "goals_check_in",
+            "goals_update_status",
+            "intel_search",
+            "intel_get_recent",
+            "recommendations_list",
+            "profile_get",
+            "get_context",
         }
         assert names == expected
 
@@ -87,11 +97,14 @@ class TestToolExecution:
         registry = ToolRegistry(mock_components)
 
         # Create an entry
-        result = registry.execute("journal_create", {
-            "content": "Today I learned about tool calling.",
-            "title": "Tool Calling Notes",
-            "entry_type": "note",
-        })
+        result = registry.execute(
+            "journal_create",
+            {
+                "content": "Today I learned about tool calling.",
+                "title": "Tool Calling Notes",
+                "entry_type": "note",
+            },
+        )
         parsed = json.loads(result)
         assert "path" in parsed
         assert parsed["type"] == "note"
@@ -106,10 +119,15 @@ class TestToolExecution:
         registry = ToolRegistry(mock_components)
 
         # Create then read
-        create_result = json.loads(registry.execute("journal_create", {
-            "content": "Test content here.",
-            "title": "Read Test",
-        }))
+        create_result = json.loads(
+            registry.execute(
+                "journal_create",
+                {
+                    "content": "Test content here.",
+                    "title": "Read Test",
+                },
+            )
+        )
         filename = create_result["filename"]
 
         result = registry.execute("journal_read", {"filename": filename})
@@ -137,10 +155,13 @@ class TestToolExecution:
     def test_goals_add_and_list(self, mock_components):
         registry = ToolRegistry(mock_components)
 
-        result = registry.execute("goals_add", {
-            "title": "Learn Rust",
-            "description": "Study Rust programming language",
-        })
+        result = registry.execute(
+            "goals_add",
+            {
+                "title": "Learn Rust",
+                "description": "Study Rust programming language",
+            },
+        )
         parsed = json.loads(result)
         assert parsed["type"] == "goal"
         assert "path" in parsed
@@ -157,10 +178,13 @@ class TestToolExecution:
         create_result = json.loads(registry.execute("goals_add", {"title": "Test Goal"}))
         goal_path = create_result["path"]
 
-        result = registry.execute("goals_check_in", {
-            "goal_path": goal_path,
-            "notes": "Making progress",
-        })
+        result = registry.execute(
+            "goals_check_in",
+            {
+                "goal_path": goal_path,
+                "notes": "Making progress",
+            },
+        )
         parsed = json.loads(result)
         assert parsed["success"] is True
 
@@ -170,10 +194,13 @@ class TestToolExecution:
         create_result = json.loads(registry.execute("goals_add", {"title": "Complete Goal"}))
         goal_path = create_result["path"]
 
-        result = registry.execute("goals_update_status", {
-            "goal_path": goal_path,
-            "status": "completed",
-        })
+        result = registry.execute(
+            "goals_update_status",
+            {
+                "goal_path": goal_path,
+                "status": "completed",
+            },
+        )
         parsed = json.loads(result)
         assert parsed["success"] is True
         assert parsed["status"] == "completed"
@@ -224,10 +251,13 @@ class TestToolResultTruncation:
 
         # Create many entries to produce a large result
         for i in range(50):
-            registry.execute("journal_create", {
-                "content": f"Entry number {i}. " + "x" * 200,
-                "title": f"Entry {i}",
-            })
+            registry.execute(
+                "journal_create",
+                {
+                    "content": f"Entry number {i}. " + "x" * 200,
+                    "title": f"Entry {i}",
+                },
+            )
 
         result = registry.execute("journal_list", {"limit": 50})
         assert len(result) <= 4100  # TOOL_RESULT_MAX_CHARS + truncation msg

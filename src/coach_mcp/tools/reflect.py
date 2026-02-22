@@ -30,7 +30,11 @@ TOOLS = [
             "description": "Get journal + goals context for generating coaching reflection questions. Returns raw context for Claude to reason over.",
             "type": "object",
             "properties": {
-                "days": {"type": "integer", "description": "Lookback days for journal context", "default": 14},
+                "days": {
+                    "type": "integer",
+                    "description": "Lookback days for journal context",
+                    "default": 14,
+                },
             },
             "required": [],
         },

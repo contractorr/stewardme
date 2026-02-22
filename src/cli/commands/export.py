@@ -21,8 +21,14 @@ def export():
 
 @export.command("all")
 @click.option("-o", "--output", required=True, type=click.Path(), help="Output path")
-@click.option("-f", "--format", "fmt", default="zip", type=click.Choice(["json", "markdown", "zip"]),
-              help="Export format")
+@click.option(
+    "-f",
+    "--format",
+    "fmt",
+    default="zip",
+    type=click.Choice(["json", "markdown", "zip"]),
+    help="Export format",
+)
 def export_all(output: str, fmt: str):
     """Export all data (journal, intel, recommendations)."""
     config = load_config()
@@ -78,7 +84,9 @@ def backup(backup_dir: str):
         # Write manifest
         manifest = {
             "timestamp": timestamp,
-            "journal_entries": len(list((snapshot_dir / "journal").glob("*.md"))) if (snapshot_dir / "journal").exists() else 0,
+            "journal_entries": len(list((snapshot_dir / "journal").glob("*.md")))
+            if (snapshot_dir / "journal").exists()
+            else 0,
             "has_intel_db": (snapshot_dir / "intel.db").exists(),
             "has_recommendations": (snapshot_dir / "recommendations").exists(),
         }
@@ -93,6 +101,7 @@ def backup(backup_dir: str):
 def _export_zip(paths: dict, output_path: Path):
     """Export everything as a zip file."""
     import tempfile
+
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp) / "coach_export"
         tmp_path.mkdir()
@@ -128,11 +137,13 @@ def _export_json(paths: dict, output_path: Path):
         for f in sorted(journal_dir.glob("*.md")):
             try:
                 post = frontmatter.load(f)
-                data["journal"].append({
-                    "filename": f.name,
-                    "metadata": {k: str(v) for k, v in post.metadata.items()},
-                    "content": post.content,
-                })
+                data["journal"].append(
+                    {
+                        "filename": f.name,
+                        "metadata": {k: str(v) for k, v in post.metadata.items()},
+                        "content": post.content,
+                    }
+                )
             except Exception:
                 continue
 
@@ -141,11 +152,13 @@ def _export_json(paths: dict, output_path: Path):
         for f in sorted(rec_dir.glob("*.md")):
             try:
                 post = frontmatter.load(f)
-                data["recommendations"].append({
-                    "filename": f.name,
-                    "metadata": {k: str(v) for k, v in post.metadata.items()},
-                    "content": post.content,
-                })
+                data["recommendations"].append(
+                    {
+                        "filename": f.name,
+                        "metadata": {k: str(v) for k, v in post.metadata.items()},
+                        "content": post.content,
+                    }
+                )
             except Exception:
                 continue
 

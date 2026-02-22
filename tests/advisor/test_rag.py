@@ -1,7 +1,6 @@
 """Tests for RAG retrieval."""
 
 
-
 class TestRAGRetriever:
     """Test RAGRetriever context retrieval."""
 
@@ -83,7 +82,9 @@ class TestRAGRetriever:
         assert isinstance(context, str)
         # Should find AI-related items from sample data
 
-    def test_get_intel_context_with_semantic_search(self, populated_journal, populated_intel, temp_dirs):
+    def test_get_intel_context_with_semantic_search(
+        self, populated_journal, populated_intel, temp_dirs
+    ):
         """Test intel context using semantic search."""
         from advisor.rag import RAGRetriever
         from intelligence.embeddings import IntelEmbeddingManager

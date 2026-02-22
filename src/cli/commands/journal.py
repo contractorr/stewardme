@@ -28,8 +28,7 @@ def resolve_journal_path(journal_dir: Path, filename: str) -> Optional[Path]:
 
     # Glob fallback for partial match
     matches = [
-        m for m in journal_dir.glob(f"*{filename}*")
-        if m.resolve().is_relative_to(journal_dir)
+        m for m in journal_dir.glob(f"*{filename}*") if m.resolve().is_relative_to(journal_dir)
     ]
     return matches[0] if matches else None
 
@@ -41,12 +40,19 @@ def journal():
 
 
 @journal.command("add")
-@click.option("-t", "--type", "entry_type", default="daily",
-              type=click.Choice(["daily", "project", "goal", "reflection"]),
-              help="Entry type")
+@click.option(
+    "-t",
+    "--type",
+    "entry_type",
+    default="daily",
+    type=click.Choice(["daily", "project", "goal", "reflection"]),
+    help="Entry type",
+)
 @click.option("--title", help="Entry title (defaults to date)")
 @click.option("--tags", help="Comma-separated tags")
-@click.option("--template", "template_name", help="Use template (daily, weekly, goal, project, learning)")
+@click.option(
+    "--template", "template_name", help="Use template (daily, weekly, goal, project, learning)"
+)
 @click.argument("content", required=False)
 def journal_add(entry_type: str, title: str, tags: str, template_name: str, content: str):
     """Add new journal entry. Opens editor if no content provided."""
@@ -56,6 +62,7 @@ def journal_add(entry_type: str, title: str, tags: str, template_name: str, cont
         initial = "# Write your entry here\n\n"
         if template_name:
             from journal.templates import get_template
+
             custom = c["config"].get("journal", {}).get("templates", {})
             tmpl = get_template(template_name, custom)
             if tmpl:
@@ -73,6 +80,7 @@ def journal_add(entry_type: str, title: str, tags: str, template_name: str, cont
 
     # Analyze sentiment
     from journal.sentiment import analyze_sentiment
+
     mood = analyze_sentiment(content)
 
     filepath = c["storage"].create(
@@ -90,7 +98,11 @@ def journal_add(entry_type: str, title: str, tags: str, template_name: str, cont
         {"type": entry_type, "tags": ",".join(tag_list)},
     )
 
-    mood_indicator = {"positive": "[green]↑[/]", "negative": "[red]↓[/]", "mixed": "[yellow]~[/]"}.get(mood["label"], "[dim]-[/]")
+    mood_indicator = {
+        "positive": "[green]↑[/]",
+        "negative": "[red]↓[/]",
+        "mixed": "[yellow]~[/]",
+    }.get(mood["label"], "[dim]-[/]")
     console.print(f"[green]Created:[/] {filepath.name}  {mood_indicator} {mood['label']}")
 
 
@@ -161,7 +173,14 @@ def journal_sync():
 
 @journal.command("export")
 @click.option("-o", "--output", required=True, type=click.Path(), help="Output file path")
-@click.option("-f", "--format", "fmt", default="json", type=click.Choice(["json", "markdown"]), help="Export format")
+@click.option(
+    "-f",
+    "--format",
+    "fmt",
+    default="json",
+    type=click.Choice(["json", "markdown"]),
+    help="Export format",
+)
 @click.option("-t", "--type", "entry_type", help="Filter by entry type")
 @click.option("-d", "--days", type=int, help="Only last N days")
 @click.option("-n", "--limit", type=int, help="Max entries to export")
@@ -178,7 +197,9 @@ def journal_export(output: str, fmt: str, entry_type: str, days: int, limit: int
         if fmt == "json":
             count = exporter.export_json(output_path, entry_type=entry_type, days=days, limit=limit)
         else:
-            count = exporter.export_markdown(output_path, entry_type=entry_type, days=days, limit=limit)
+            count = exporter.export_markdown(
+                output_path, entry_type=entry_type, days=days, limit=limit
+            )
 
     console.print(f"[green]Exported {count} entries to {output_path}[/]")
 

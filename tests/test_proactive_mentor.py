@@ -4,7 +4,7 @@ import json
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 import yaml
@@ -73,7 +73,7 @@ class TestProfileStorage:
     def test_is_stale(self, tmp_path):
         from profile.storage import ProfileStorage, UserProfile
 
-        ps = ProfileStorage(tmp_path / "profile.yaml")
+        ProfileStorage(tmp_path / "profile.yaml")
         profile = UserProfile()
         profile.updated_at = (datetime.now() - timedelta(days=100)).isoformat()
         assert profile.is_stale(days=90) is True
@@ -106,7 +106,7 @@ class TestProfileInterview:
     def test_extract_profile_json(self):
         from profile.interview import _extract_profile_json
 
-        text = '''Here's your profile:
+        text = """Here's your profile:
 ```json
 {"done": true, "profile": {
   "current_role": "Engineer",
@@ -119,7 +119,7 @@ class TestProfileInterview:
   "learning_style": "hands-on",
   "weekly_hours_available": 5
 }}
-```'''
+```"""
         result = _extract_profile_json(text)
         assert result is not None
         assert result["current_role"] == "Engineer"
@@ -184,14 +184,17 @@ class TestEventScoring:
 
         event = {
             "tags": "event,python",
-            "content": json.dumps({"event_date": (datetime.now() + timedelta(days=20)).isoformat()}),
+            "content": json.dumps(
+                {"event_date": (datetime.now() + timedelta(days=20)).isoformat()}
+            ),
         }
         score = score_event(event)
         assert 0 <= score <= 10
 
     def test_score_with_profile(self):
+        from profile.storage import UserProfile
+
         from advisor.events import score_event
-        from profile.storage import Skill, UserProfile
 
         profile = UserProfile(
             interests=["python", "ai"],
@@ -200,11 +203,13 @@ class TestEventScoring:
         )
         event = {
             "tags": ["event", "python"],
-            "content": json.dumps({
-                "topic": "python",
-                "event_date": (datetime.now() + timedelta(days=15)).isoformat(),
-                "location": "San Francisco, CA",
-            }),
+            "content": json.dumps(
+                {
+                    "topic": "python",
+                    "event_date": (datetime.now() + timedelta(days=15)).isoformat(),
+                    "location": "San Francisco, CA",
+                }
+            ),
         }
         score = score_event(event, profile)
         # Should be higher due to interest + location match
@@ -225,10 +230,12 @@ class TestEventScoring:
 
         event = {
             "tags": "event,cfp-open",
-            "content": json.dumps({
-                "cfp_deadline": (datetime.now() + timedelta(days=7)).isoformat(),
-                "event_date": (datetime.now() + timedelta(days=60)).isoformat(),
-            }),
+            "content": json.dumps(
+                {
+                    "cfp_deadline": (datetime.now() + timedelta(days=7)).isoformat(),
+                    "event_date": (datetime.now() + timedelta(days=60)).isoformat(),
+                }
+            ),
         }
         score = score_event(event)
         assert score >= 7.0  # urgent CFP boost
@@ -240,14 +247,18 @@ class TestEventScoring:
         storage = IntelStorage(tmp_path / "intel.db")
         # Save event items
         for i in range(3):
-            storage.save(IntelItem(
-                source="events",
-                title=f"Event {i}",
-                url=f"https://event{i}.example.com",
-                summary="Test event",
-                content=json.dumps({"event_date": (datetime.now() + timedelta(days=10 + i)).isoformat()}),
-                tags=["event"],
-            ))
+            storage.save(
+                IntelItem(
+                    source="events",
+                    title=f"Event {i}",
+                    url=f"https://event{i}.example.com",
+                    summary="Test event",
+                    content=json.dumps(
+                        {"event_date": (datetime.now() + timedelta(days=10 + i)).isoformat()}
+                    ),
+                    tags=["event"],
+                )
+            )
 
         events = get_upcoming_events(storage, days=30, limit=10)
         assert len(events) == 3
@@ -292,8 +303,20 @@ class TestEventScraper:
 
         storage = IntelStorage(tmp_path / "intel.db")
         scraper = EventScraper(storage, location_filter="USA")
-        event_usa = {"name": "PyCon", "url": "https://pycon.org", "city": "Pittsburgh", "country": "USA", "startDate": "2026-04-15"}
-        event_uk = {"name": "PyConUK", "url": "https://pyconuk.org", "city": "London", "country": "UK", "startDate": "2026-04-15"}
+        event_usa = {
+            "name": "PyCon",
+            "url": "https://pycon.org",
+            "city": "Pittsburgh",
+            "country": "USA",
+            "startDate": "2026-04-15",
+        }
+        event_uk = {
+            "name": "PyConUK",
+            "url": "https://pyconuk.org",
+            "city": "London",
+            "country": "UK",
+            "startDate": "2026-04-15",
+        }
         assert scraper._parse_confs_tech_event(event_usa, "python") is not None
         assert scraper._parse_confs_tech_event(event_uk, "python") is None
 
@@ -306,7 +329,10 @@ class TestLearningPathStorage:
         from advisor.learning_paths import LearningPathStorage
 
         storage = LearningPathStorage(tmp_path / "lp")
-        path = storage.save("Python Advanced", "### Module 1: Decorators\n### Module 2: Metaclasses\n### Module 3: Async")
+        path = storage.save(
+            "Python Advanced",
+            "### Module 1: Decorators\n### Module 2: Metaclasses\n### Module 3: Async",
+        )
         assert path.exists()
 
         paths = storage.list_paths()
@@ -399,37 +425,44 @@ class TestProjectMatching:
         from intelligence.scraper import IntelItem, IntelStorage
 
         storage = IntelStorage(tmp_path / "intel.db")
-        storage.save(IntelItem(
-            source="github_issues",
-            title="Fix typing issue",
-            url="https://github.com/test/repo/issues/1",
-            summary="Repo: test/repo | Labels: good-first-issue | Language: python",
-            tags=["github-issue", "good-first-issue", "python"],
-        ))
+        storage.save(
+            IntelItem(
+                source="github_issues",
+                title="Fix typing issue",
+                url="https://github.com/test/repo/issues/1",
+                summary="Repo: test/repo | Labels: good-first-issue | Language: python",
+                tags=["github-issue", "good-first-issue", "python"],
+            )
+        )
 
         issues = get_matching_issues(storage, days=7)
         assert len(issues) == 1
 
     def test_get_matching_issues_with_profile(self, tmp_path):
-        from advisor.projects import get_matching_issues
-        from intelligence.scraper import IntelItem, IntelStorage
         from profile.storage import Skill, UserProfile
 
+        from advisor.projects import get_matching_issues
+        from intelligence.scraper import IntelItem, IntelStorage
+
         storage = IntelStorage(tmp_path / "intel.db")
-        storage.save(IntelItem(
-            source="github_issues",
-            title="Add Python type hints",
-            url="https://github.com/test/repo/issues/1",
-            summary="Repo: test/repo | Language: python",
-            tags=["github-issue", "python"],
-        ))
-        storage.save(IntelItem(
-            source="github_issues",
-            title="Fix Ruby gem",
-            url="https://github.com/test/repo2/issues/1",
-            summary="Repo: test/repo2 | Language: ruby",
-            tags=["github-issue", "ruby"],
-        ))
+        storage.save(
+            IntelItem(
+                source="github_issues",
+                title="Add Python type hints",
+                url="https://github.com/test/repo/issues/1",
+                summary="Repo: test/repo | Language: python",
+                tags=["github-issue", "python"],
+            )
+        )
+        storage.save(
+            IntelItem(
+                source="github_issues",
+                title="Fix Ruby gem",
+                url="https://github.com/test/repo2/issues/1",
+                summary="Repo: test/repo2 | Language: ruby",
+                tags=["github-issue", "ruby"],
+            )
+        )
 
         profile = UserProfile(
             skills=[Skill(name="Python", proficiency=4)],
@@ -445,8 +478,9 @@ class TestProjectMatching:
 
 class TestNudges:
     def test_no_profile_nudge(self, tmp_path):
-        from advisor.nudges import NudgeEngine
         from profile.storage import ProfileStorage
+
+        from advisor.nudges import NudgeEngine
 
         ps = ProfileStorage(tmp_path / "noprofile.yaml")
         engine = NudgeEngine(profile_storage=ps)
@@ -454,8 +488,9 @@ class TestNudges:
         assert any("profile" in n.lower() for n in nudges)
 
     def test_stale_profile_nudge(self, tmp_path):
-        from advisor.nudges import NudgeEngine
         from profile.storage import ProfileStorage, UserProfile
+
+        from advisor.nudges import NudgeEngine
 
         ps = ProfileStorage(tmp_path / "profile.yaml")
         p = UserProfile()
@@ -480,6 +515,7 @@ class TestNudges:
 
         # Backdate the updated_at
         import frontmatter
+
         post = frontmatter.load(filepath)
         post.metadata["updated_at"] = (datetime.now() - timedelta(days=20)).isoformat()
         filepath.write_text(frontmatter.dumps(post))
@@ -498,8 +534,9 @@ class TestNudges:
         assert any("journal" in n.lower() for n in nudges)
 
     def test_max_nudges_limit(self, tmp_path):
-        from advisor.nudges import NudgeEngine
         from profile.storage import ProfileStorage
+
+        from advisor.nudges import NudgeEngine
 
         ps = ProfileStorage(tmp_path / "noprofile.yaml")
         mock_storage = MagicMock()
@@ -514,15 +551,18 @@ class TestNudges:
 
 class TestRAGProfileContext:
     def test_get_profile_context(self, tmp_path):
-        from advisor.rag import RAGRetriever
         from profile.storage import ProfileStorage, Skill, UserProfile
+
+        from advisor.rag import RAGRetriever
 
         profile_path = tmp_path / "profile.yaml"
         ps = ProfileStorage(profile_path)
-        ps.save(UserProfile(
-            current_role="ML Engineer",
-            skills=[Skill(name="Python", proficiency=5)],
-        ))
+        ps.save(
+            UserProfile(
+                current_role="ML Engineer",
+                skills=[Skill(name="Python", proficiency=5)],
+            )
+        )
 
         mock_search = MagicMock()
         rag = RAGRetriever(mock_search, profile_path=str(profile_path))

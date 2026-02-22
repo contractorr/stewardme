@@ -16,8 +16,12 @@ def exporter_setup(tmp_path):
 
     # Create test entries
     storage.create(content="Entry one content", entry_type="daily", title="Day One", tags=["work"])
-    storage.create(content="Entry two content", entry_type="goal", title="Learn Rust", tags=["learning"])
-    storage.create(content="Third entry", entry_type="reflection", title="Week Review", tags=["review"])
+    storage.create(
+        content="Entry two content", entry_type="goal", title="Learn Rust", tags=["learning"]
+    )
+    storage.create(
+        content="Third entry", entry_type="reflection", title="Week Review", tags=["review"]
+    )
 
     exporter = JournalExporter(storage)
     return {"exporter": exporter, "storage": storage, "tmp": tmp_path}
@@ -91,7 +95,11 @@ class TestJournalExportMarkdown:
         journal_dir = tmp_path / "unicode_journal"
         journal_dir.mkdir()
         storage = JournalStorage(journal_dir)
-        storage.create(content="Content with unicode: cafe\u0301 \u2603 \u2764", entry_type="daily", title="Unicode Test")
+        storage.create(
+            content="Content with unicode: cafe\u0301 \u2603 \u2764",
+            entry_type="daily",
+            title="Unicode Test",
+        )
 
         exporter = JournalExporter(storage)
         out = tmp_path / "unicode.md"

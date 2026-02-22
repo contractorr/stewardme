@@ -16,6 +16,7 @@ from shared_types import RecommendationStatus
 @dataclass
 class Recommendation:
     """A single recommendation."""
+
     id: Optional[str] = None
     category: str = ""
     title: str = ""

@@ -26,7 +26,11 @@ def score_event(event: dict, profile=None) -> float:
 
     # Interest match from profile
     if profile:
-        event_tags = set(event.get("tags", "").split(",") if isinstance(event.get("tags"), str) else event.get("tags", []))
+        event_tags = set(
+            event.get("tags", "").split(",")
+            if isinstance(event.get("tags"), str)
+            else event.get("tags", [])
+        )
         event_topic = metadata.get("topic", "")
         profile_interests = set(i.lower() for i in profile.interests)
         profile_tech = set(t.lower() for t in profile.languages_frameworks)

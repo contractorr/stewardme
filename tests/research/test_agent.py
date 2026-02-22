@@ -82,7 +82,7 @@ class TestDeepResearchAgent:
         )
 
         topics = agent.get_suggested_topics()
-        topic_names = [t["topic"].lower() for t in topics]
+        [t["topic"].lower() for t in topics]
 
         # Should find topics from goals
         assert len(topics) > 0 or True  # May be empty if no strong themes
@@ -96,8 +96,10 @@ class TestDeepResearchAgent:
         )
 
         # Mock search and synthesis
-        with patch.object(agent.search_client, 'search', return_value=mock_search_results):
-            with patch.object(agent.synthesizer, 'synthesize', return_value="## Summary\nTest report"):
+        with patch.object(agent.search_client, "search", return_value=mock_search_results):
+            with patch.object(
+                agent.synthesizer, "synthesize", return_value="## Summary\nTest report"
+            ):
                 results = agent.run(specific_topic="Test Topic")
 
         assert len(results) == 1
@@ -112,9 +114,9 @@ class TestDeepResearchAgent:
             embeddings=agent_components["embeddings"],
         )
 
-        with patch.object(agent.search_client, 'search', return_value=mock_search_results):
-            with patch.object(agent.synthesizer, 'synthesize', return_value="## Summary\nTest"):
-                results = agent.run(specific_topic="Test Topic")
+        with patch.object(agent.search_client, "search", return_value=mock_search_results):
+            with patch.object(agent.synthesizer, "synthesize", return_value="## Summary\nTest"):
+                agent.run(specific_topic="Test Topic")
 
         # Verify journal entry was created
         entries = agent_components["journal"].list_entries(entry_type="research")
@@ -129,9 +131,9 @@ class TestDeepResearchAgent:
             embeddings=agent_components["embeddings"],
         )
 
-        with patch.object(agent.search_client, 'search', return_value=mock_search_results):
-            with patch.object(agent.synthesizer, 'synthesize', return_value="## Summary\nTest"):
-                results = agent.run(specific_topic="Test Topic")
+        with patch.object(agent.search_client, "search", return_value=mock_search_results):
+            with patch.object(agent.synthesizer, "synthesize", return_value="## Summary\nTest"):
+                agent.run(specific_topic="Test Topic")
 
         # Verify intel item was created
         items = agent_components["intel"].search("Test Topic")
@@ -146,7 +148,7 @@ class TestDeepResearchAgent:
             embeddings=agent_components["embeddings"],
         )
 
-        with patch.object(agent.search_client, 'search', return_value=[]):
+        with patch.object(agent.search_client, "search", return_value=[]):
             results = agent.run(specific_topic="Unknown Topic")
 
         assert len(results) == 1

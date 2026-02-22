@@ -62,7 +62,6 @@ class TestInputSanitization:
         assert "<" not in tag
 
 
-
 class TestPIIRedaction:
     """T1.4: PII in debug logs."""
 
@@ -116,8 +115,10 @@ class TestURLValidation:
     def test_url_validation_in_save(self, tmp_path):
         storage = IntelStorage(tmp_path / "test.db")
         item = IntelItem(
-            source="test", title="Bad URL",
-            url="javascript:alert(1)", summary="test",
+            source="test",
+            title="Bad URL",
+            url="javascript:alert(1)",
+            summary="test",
         )
         assert not storage.save(item)
 
@@ -126,13 +127,13 @@ class TestCronParsing:
     """T2.1: Cron parsing helper."""
 
     def test_full_expression(self):
-        trigger = _parse_cron("30 8 * * 1")
+        _parse_cron("30 8 * * 1")
         # Should not raise
 
     def test_partial_expression_uses_defaults(self):
-        trigger = _parse_cron("30")
+        _parse_cron("30")
         # Should use defaults for missing fields
 
     def test_custom_defaults(self):
-        trigger = _parse_cron("0", defaults={"hour": "21", "day_of_week": "0"})
+        _parse_cron("0", defaults={"hour": "21", "day_of_week": "0"})
         # Should not raise

@@ -33,7 +33,9 @@ def research_run(topic: str):
 
     # Check if research is enabled
     if not c["config"].get("research", {}).get("enabled", False):
-        console.print("[yellow]Research not enabled. Add 'research.enabled: true' to config.yaml[/]")
+        console.print(
+            "[yellow]Research not enabled. Add 'research.enabled: true' to config.yaml[/]"
+        )
         return
 
     with console.status("Running deep research..."):
@@ -45,7 +47,9 @@ def research_run(topic: str):
 
     for r in results:
         if r["success"]:
-            console.print(f"[green]✓[/] {r['topic']} -> {r['filepath'].name if r['filepath'] else 'N/A'}")
+            console.print(
+                f"[green]✓[/] {r['topic']} -> {r['filepath'].name if r['filepath'] else 'N/A'}"
+            )
         else:
             error = r.get("error", "Unknown error")
             console.print(f"[red]✗[/] {r['topic']}: {error}")
@@ -125,13 +129,17 @@ def research_view(filename: str):
     journal_dir = c["paths"]["journal_dir"].resolve()
 
     # Find by partial match
-    matches = [m for m in journal_dir.glob(f"*research*{filename}*")
-               if m.resolve().is_relative_to(journal_dir)]
+    matches = [
+        m
+        for m in journal_dir.glob(f"*research*{filename}*")
+        if m.resolve().is_relative_to(journal_dir)
+    ]
 
     if not matches:
         # Try broader search
-        matches = [m for m in journal_dir.glob(f"*{filename}*")
-                   if m.resolve().is_relative_to(journal_dir)]
+        matches = [
+            m for m in journal_dir.glob(f"*{filename}*") if m.resolve().is_relative_to(journal_dir)
+        ]
 
     if not matches:
         console.print(f"[red]Not found:[/] {filename}")

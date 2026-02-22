@@ -53,8 +53,12 @@ class TestSentiment:
 
     def test_mood_history(self, tmp_path):
         storage = JournalStorage(tmp_path / "journal")
-        storage.create(content="Today was great and productive!", entry_type="daily", title="Good day")
-        storage.create(content="Feeling stressed and overwhelmed.", entry_type="daily", title="Hard day")
+        storage.create(
+            content="Today was great and productive!", entry_type="daily", title="Good day"
+        )
+        storage.create(
+            content="Feeling stressed and overwhelmed.", entry_type="daily", title="Hard day"
+        )
 
         timeline = get_mood_history(storage, days=7)
         assert len(timeline) == 2

@@ -79,7 +79,11 @@ class GitHubIssuesScraper(BaseScraper):
 
         items = []
         for issue in data.get("items", []):
-            repo_name = issue.get("repository_url", "").split("/repos/")[-1] if issue.get("repository_url") else ""
+            repo_name = (
+                issue.get("repository_url", "").split("/repos/")[-1]
+                if issue.get("repository_url")
+                else ""
+            )
             issue_labels = [lbl["name"] for lbl in issue.get("labels", [])]
 
             published = None
@@ -97,14 +101,16 @@ class GitHubIssuesScraper(BaseScraper):
             if comments:
                 summary_parts.append(f"{comments} comments")
 
-            items.append(IntelItem(
-                source=IntelSource.GITHUB_ISSUES,
-                title=issue.get("title", ""),
-                url=issue.get("html_url", ""),
-                summary=" | ".join(summary_parts),
-                content=issue.get("body", "")[:500] if issue.get("body") else "",
-                published=published,
-                tags=["github-issue", label, language] + issue_labels[:3],
-            ))
+            items.append(
+                IntelItem(
+                    source=IntelSource.GITHUB_ISSUES,
+                    title=issue.get("title", ""),
+                    url=issue.get("html_url", ""),
+                    summary=" | ".join(summary_parts),
+                    content=issue.get("body", "")[:500] if issue.get("body") else "",
+                    published=published,
+                    tags=["github-issue", label, language] + issue_labels[:3],
+                )
+            )
 
         return items

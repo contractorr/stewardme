@@ -33,8 +33,10 @@ def test_put_settings(client, auth_headers, secret_key, users_db):
         init_db(users_db)
         get_or_create_user("user-123", db_path=users_db)
 
-        with patch("web.user_store._DEFAULT_DB_PATH", users_db), \
-             patch("web.routes.settings.set_user_secret", wraps=_real_set_user_secret(users_db)):
+        with (
+            patch("web.user_store._DEFAULT_DB_PATH", users_db),
+            patch("web.routes.settings.set_user_secret", wraps=_real_set_user_secret(users_db)),
+        ):
             res = client.put(
                 "/api/settings",
                 headers=auth_headers,

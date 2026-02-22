@@ -88,6 +88,7 @@ class TestAdvisorEngine:
 
     def test_llm_auth_error(self, mock_rag):
         from anthropic import AuthenticationError
+
         client = MagicMock()
         client.messages.create.side_effect = AuthenticationError(
             message="bad key", response=MagicMock(status_code=401), body={}

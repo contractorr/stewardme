@@ -39,8 +39,13 @@ def recommend():
 
 
 @recommend.command("generate")
-@click.option("-c", "--category", type=click.Choice(CATEGORIES + ["all"]), default="all",
-              help="Category to generate")
+@click.option(
+    "-c",
+    "--category",
+    type=click.Choice(CATEGORIES + ["all"]),
+    default="all",
+    help="Category to generate",
+)
 @click.option("-n", "--limit", default=3, help="Max recommendations per category")
 def recommend_generate(category: str, limit: int):
     """Generate recommendations."""
@@ -130,9 +135,13 @@ def recommend_history(limit: int, category: str, status: str):
 
 @recommend.command("update")
 @click.argument("rec_id", type=str)
-@click.option("--status", "-s", required=True,
-              type=click.Choice(["suggested", "in_progress", "completed", "dismissed"]),
-              help="New status")
+@click.option(
+    "--status",
+    "-s",
+    required=True,
+    type=click.Choice(["suggested", "in_progress", "completed", "dismissed"]),
+    help="New status",
+)
 def recommend_update(rec_id: str, status: str):
     """Update recommendation status."""
     c = get_components(skip_advisor=True)
@@ -159,7 +168,9 @@ def recommend_view(rec_id: str):
         return
 
     console.print(f"\n[cyan bold]{rec.title}[/]")
-    console.print(f"[dim]Category: {rec.category} | Score: {rec.score:.1f} | Status: {rec.status}[/]")
+    console.print(
+        f"[dim]Category: {rec.category} | Score: {rec.score:.1f} | Status: {rec.status}[/]"
+    )
     console.print(f"[dim]Created: {rec.created_at[:10] if rec.created_at else '?'}[/]")
 
     if rec.metadata and rec.metadata.get("user_rating"):
@@ -213,14 +224,20 @@ def recommend_events(limit: int, days: int):
     profile = ps.load()
 
     events = get_upcoming_events(
-        c["intel_storage"], profile=profile, days=days, limit=limit,
+        c["intel_storage"],
+        profile=profile,
+        days=days,
+        limit=limit,
     )
 
     if not events:
-        console.print("[yellow]No upcoming events found. Run [cyan]coach scrape[/] to fetch events.[/]")
+        console.print(
+            "[yellow]No upcoming events found. Run [cyan]coach scrape[/] to fetch events.[/]"
+        )
         return
 
     from rich.table import Table
+
     table = Table(title="Upcoming Events", show_header=True)
     table.add_column("Score", justify="right", style="green")
     table.add_column("Event")

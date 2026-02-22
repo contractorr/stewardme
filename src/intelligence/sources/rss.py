@@ -78,14 +78,16 @@ class RSSFeedScraper(BaseScraper):
             tags.extend(detect_tags(title))
             tags = list(dict.fromkeys(tags))[:5]
 
-            items.append(IntelItem(
-                source=self.source_name,
-                title=title,
-                url=entry.get("link", ""),
-                summary=summary,
-                published=published,
-                tags=tags,
-            ))
+            items.append(
+                IntelItem(
+                    source=self.source_name,
+                    title=title,
+                    url=entry.get("link", ""),
+                    summary=summary,
+                    published=published,
+                    tags=tags,
+                )
+            )
 
         logger.info("Scraped %d items from %s", len(items), self._name)
         return items

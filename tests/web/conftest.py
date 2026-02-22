@@ -103,12 +103,15 @@ def client(jwt_secret, secret_key, tmp_path, users_db):
         patch("web.deps.get_user_paths", side_effect=_mock_user_paths),
         patch("web.routes.journal.get_user_paths", side_effect=_mock_user_paths),
         patch("web.routes.goals.get_user_paths", side_effect=_mock_user_paths),
-        patch("web.routes.intel.get_coach_paths", return_value={
-            "journal_dir": tmp_path / "journal",
-            "chroma_dir": tmp_path / "chroma",
-            "intel_db": tmp_path / "intel.db",
-            "log_file": tmp_path / "coach.log",
-        }),
+        patch(
+            "web.routes.intel.get_coach_paths",
+            return_value={
+                "journal_dir": tmp_path / "journal",
+                "chroma_dir": tmp_path / "chroma",
+                "intel_db": tmp_path / "intel.db",
+                "log_file": tmp_path / "coach.log",
+            },
+        ),
         # user_store uses test DB — real get_or_create_user so FK rows exist
         patch("web.user_store._DEFAULT_DB_PATH", users_db),
     ]

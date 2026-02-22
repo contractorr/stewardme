@@ -1,7 +1,6 @@
 """Tests for journal embeddings operations."""
 
 
-
 class TestEmbeddingManager:
     """Test EmbeddingManager vector operations."""
 
@@ -120,8 +119,10 @@ class TestEmbeddingManager:
         manager.add_entry("delete-1", "Delete this")
 
         # Sync with only one entry
-        added, removed = manager.sync_from_storage([
-            {"id": "keep-1", "content": "Keep this"},
-        ])
+        added, removed = manager.sync_from_storage(
+            [
+                {"id": "keep-1", "content": "Keep this"},
+            ]
+        )
 
         assert removed == 1

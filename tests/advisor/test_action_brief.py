@@ -14,21 +14,33 @@ def rec_storage(tmp_path):
     db = tmp_path / "recs.db"
     storage = RecommendationStorage(db)
     # Add some test recs
-    storage.save(Recommendation(
-        category="learning", title="Learn Kubernetes",
-        description="K8s for microservices", rationale="Hot skill",
-        score=8.5,
-    ))
-    storage.save(Recommendation(
-        category="career", title="Apply to FAANG",
-        description="Senior roles open", rationale="Career growth",
-        score=7.2,
-    ))
-    storage.save(Recommendation(
-        category="investment", title="Low score rec",
-        description="Below threshold", rationale="Meh",
-        score=3.0,
-    ))
+    storage.save(
+        Recommendation(
+            category="learning",
+            title="Learn Kubernetes",
+            description="K8s for microservices",
+            rationale="Hot skill",
+            score=8.5,
+        )
+    )
+    storage.save(
+        Recommendation(
+            category="career",
+            title="Apply to FAANG",
+            description="Senior roles open",
+            rationale="Career growth",
+            score=7.2,
+        )
+    )
+    storage.save(
+        Recommendation(
+            category="investment",
+            title="Low score rec",
+            description="Below threshold",
+            rationale="Meh",
+            score=3.0,
+        )
+    )
     return storage
 
 
@@ -45,6 +57,7 @@ def mock_rag():
 def mock_llm():
     def llm_caller(system, prompt, **kwargs):
         return "# Action Brief\n\nHere are your priorities this week."
+
     return llm_caller
 
 
@@ -66,14 +79,18 @@ class TestActionBriefGenerate:
     def test_generate_empty_when_no_qualifying_recs(self, mock_rag, mock_llm, tmp_path):
         empty_storage = RecommendationStorage(tmp_path / "empty.db")
         gen = ActionBriefGenerator(
-            rag=mock_rag, llm_caller=mock_llm, rec_storage=empty_storage,
+            rag=mock_rag,
+            llm_caller=mock_llm,
+            rec_storage=empty_storage,
         )
         brief = gen.generate()
         assert "No Priority Actions" in brief
 
     def test_generate_respects_min_score(self, mock_rag, mock_llm, rec_storage):
         gen = ActionBriefGenerator(
-            rag=mock_rag, llm_caller=mock_llm, rec_storage=rec_storage,
+            rag=mock_rag,
+            llm_caller=mock_llm,
+            rec_storage=rec_storage,
         )
         # Only recs >= 9.0, none qualify
         brief = gen.generate(min_score=9.0)
@@ -103,11 +120,14 @@ class TestActionBriefSave:
         journal_dir = tmp_path / "journal"
         journal_dir.mkdir()
         from journal.storage import JournalStorage
+
         journal_storage = JournalStorage(journal_dir)
 
         gen = ActionBriefGenerator(
-            rag=mock_rag, llm_caller=mock_llm,
-            rec_storage=rec_storage, journal_storage=journal_storage,
+            rag=mock_rag,
+            llm_caller=mock_llm,
+            rec_storage=rec_storage,
+            journal_storage=journal_storage,
         )
         filepath = gen.generate_and_save(min_score=6.0)
         assert filepath is not None
@@ -116,8 +136,10 @@ class TestActionBriefSave:
 
     def test_generate_and_save_no_storage(self, mock_rag, mock_llm, rec_storage):
         gen = ActionBriefGenerator(
-            rag=mock_rag, llm_caller=mock_llm,
-            rec_storage=rec_storage, journal_storage=None,
+            rag=mock_rag,
+            llm_caller=mock_llm,
+            rec_storage=rec_storage,
+            journal_storage=None,
         )
         result = gen.generate_and_save()
         assert result is None

@@ -1,6 +1,5 @@
 """Tests for Hacker News scraper."""
 
-
 import pytest
 
 

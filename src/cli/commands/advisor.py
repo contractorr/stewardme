@@ -14,9 +14,13 @@ console = Console()
 
 @click.command()
 @click.argument("question")
-@click.option("--type", "advice_type", default="general",
-              type=click.Choice(["general", "career", "goals", "opportunities"]),
-              help="Type of advice to get")
+@click.option(
+    "--type",
+    "advice_type",
+    default="general",
+    type=click.Choice(["general", "career", "goals", "opportunities"]),
+    help="Type of advice to get",
+)
 def ask(question: str, advice_type: str):
     """Ask a question and get contextual advice."""
     c = get_components()
@@ -158,9 +162,13 @@ def goals_checkin(goal_path: str, notes: str):
 
 @goals.command("status")
 @click.argument("goal_path", type=click.Path(exists=True))
-@click.option("-s", "--status", required=True,
-              type=click.Choice(["active", "paused", "completed", "abandoned"]),
-              help="New status")
+@click.option(
+    "-s",
+    "--status",
+    required=True,
+    type=click.Choice(["active", "paused", "completed", "abandoned"]),
+    help="New status",
+)
 def goals_status(goal_path: str, status: str):
     """Update goal status."""
     from pathlib import Path
@@ -259,9 +267,16 @@ def goals_progress(goal_path: str):
     progress = tracker.get_progress(Path(goal_path))
 
     # Progress bar
-    console.print(f"\n[bold]Progress: {progress['percent']}%[/] ({progress['completed']}/{progress['total']} milestones)")
+    console.print(
+        f"\n[bold]Progress: {progress['percent']}%[/] ({progress['completed']}/{progress['total']} milestones)"
+    )
 
-    with Progress(TextColumn("[bold]{task.description}"), BarColumn(bar_width=40), TextColumn("{task.percentage:.0f}%"), console=console) as bar:
+    with Progress(
+        TextColumn("[bold]{task.description}"),
+        BarColumn(bar_width=40),
+        TextColumn("{task.percentage:.0f}%"),
+        console=console,
+    ) as bar:
         bar.add_task("Progress", total=100, completed=progress["percent"])
 
     # Milestone list
@@ -279,4 +294,6 @@ def goals_progress(goal_path: str):
 
         console.print(table)
     else:
-        console.print("[dim]No milestones yet. Add with: coach goals milestone add <path> \"title\"[/]")
+        console.print(
+            '[dim]No milestones yet. Add with: coach goals milestone add <path> "title"[/]'
+        )

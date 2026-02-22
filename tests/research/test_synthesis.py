@@ -13,7 +13,9 @@ def mock_claude_client():
     """Mock Claude client."""
     mock = MagicMock()
     mock_response = MagicMock()
-    mock_response.content = [MagicMock(text="""## Summary
+    mock_response.content = [
+        MagicMock(
+            text="""## Summary
 Test research summary.
 
 ## Key Insights
@@ -28,7 +30,9 @@ This relates to your learning goals.
 
 ## Next Steps
 - Action 1
-""")]
+"""
+        )
+    ]
     mock.messages.create.return_value = mock_response
     return mock
 
@@ -103,7 +107,10 @@ class TestResearchSynthesizer:
         """Test fallback report when API fails."""
         mock_client = MagicMock()
         from anthropic import APIError
-        mock_client.messages.create.side_effect = APIError("API Error", request=MagicMock(), body=None)
+
+        mock_client.messages.create.side_effect = APIError(
+            "API Error", request=MagicMock(), body=None
+        )
 
         synth = ResearchSynthesizer(provider="claude", client=mock_client)
         report = synth.synthesize(topic="Test", results=sample_search_results)

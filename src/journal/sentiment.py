@@ -5,19 +5,72 @@ from datetime import datetime, timedelta
 
 # Lexicon-based sentiment (no external deps needed)
 _POSITIVE = {
-    "great", "good", "excellent", "happy", "excited", "proud", "accomplished",
-    "progress", "success", "win", "awesome", "fantastic", "love", "enjoy",
-    "productive", "motivated", "inspired", "grateful", "thankful", "confident",
-    "breakthrough", "solved", "achieved", "improved", "optimistic", "energized",
-    "satisfied", "fun", "rewarding", "thriving", "focused", "clear",
+    "great",
+    "good",
+    "excellent",
+    "happy",
+    "excited",
+    "proud",
+    "accomplished",
+    "progress",
+    "success",
+    "win",
+    "awesome",
+    "fantastic",
+    "love",
+    "enjoy",
+    "productive",
+    "motivated",
+    "inspired",
+    "grateful",
+    "thankful",
+    "confident",
+    "breakthrough",
+    "solved",
+    "achieved",
+    "improved",
+    "optimistic",
+    "energized",
+    "satisfied",
+    "fun",
+    "rewarding",
+    "thriving",
+    "focused",
+    "clear",
 }
 
 _NEGATIVE = {
-    "bad", "terrible", "frustrated", "stuck", "blocked", "stressed", "anxious",
-    "overwhelmed", "exhausted", "burned", "burnout", "failed", "struggling",
-    "confused", "worried", "disappointed", "tired", "difficult", "hard",
-    "impossible", "lost", "behind", "procrastinating", "unmotivated", "drained",
-    "angry", "annoyed", "boring", "painful", "hopeless", "doubt",
+    "bad",
+    "terrible",
+    "frustrated",
+    "stuck",
+    "blocked",
+    "stressed",
+    "anxious",
+    "overwhelmed",
+    "exhausted",
+    "burned",
+    "burnout",
+    "failed",
+    "struggling",
+    "confused",
+    "worried",
+    "disappointed",
+    "tired",
+    "difficult",
+    "hard",
+    "impossible",
+    "lost",
+    "behind",
+    "procrastinating",
+    "unmotivated",
+    "drained",
+    "angry",
+    "annoyed",
+    "boring",
+    "painful",
+    "hopeless",
+    "doubt",
 }
 
 
@@ -27,7 +80,7 @@ def analyze_sentiment(text: str) -> dict:
     Returns:
         {score: float (-1 to 1), label: str, positive_count: int, negative_count: int}
     """
-    words = set(re.findall(r'\b[a-z]+\b', text.lower()))
+    words = set(re.findall(r"\b[a-z]+\b", text.lower()))
     pos = len(words & _POSITIVE)
     neg = len(words & _NEGATIVE)
     total = pos + neg
@@ -73,12 +126,14 @@ def get_mood_history(journal_storage, days: int = 30) -> list[dict]:
         else:
             sentiment = analyze_sentiment(post.content)
 
-        timeline.append({
-            "date": created[:10],
-            "score": sentiment.get("score", 0),
-            "label": sentiment.get("label", "neutral"),
-            "title": entry.get("title", ""),
-        })
+        timeline.append(
+            {
+                "date": created[:10],
+                "score": sentiment.get("score", 0),
+                "label": sentiment.get("label", "neutral"),
+                "title": entry.get("title", ""),
+            }
+        )
 
     timeline.sort(key=lambda x: x["date"])
     return timeline

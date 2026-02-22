@@ -1,6 +1,5 @@
 """Tests for journal storage operations."""
 
-
 import pytest
 
 

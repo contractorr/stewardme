@@ -15,6 +15,7 @@ console = Console()
 def _get_lp_storage(config: dict):
     """Get LearningPathStorage from config."""
     from advisor.learning_paths import LearningPathStorage
+
     lp_dir = config.get("learning_paths", {}).get("dir", "~/coach/learning_paths")
     return LearningPathStorage(lp_dir)
 
@@ -55,7 +56,9 @@ def learn_paths(status: str):
     paths = storage.list_paths(status=filter_status)
 
     if not paths:
-        console.print("[yellow]No learning paths. Run [cyan]coach learn start <skill>[/] to create one.[/]")
+        console.print(
+            "[yellow]No learning paths. Run [cyan]coach learn start <skill>[/] to create one.[/]"
+        )
         return
 
     table = Table(title="Learning Paths", show_header=True)
@@ -103,6 +106,7 @@ def learn_start(skill: str, current: int, target: int):
 
         # Show the path
         import frontmatter
+
         post = frontmatter.load(filepath)
         console.print()
         console.print(Markdown(post.content))
@@ -122,7 +126,9 @@ def learn_progress(path_id: str, completed: int):
     if storage.update_progress(path_id, completed):
         path = storage.get(path_id)
         if path:
-            console.print(f"[green]Updated {path['skill']}:[/] {path['completed_modules']}/{path['total_modules']} modules ({path['progress']}%)")
+            console.print(
+                f"[green]Updated {path['skill']}:[/] {path['completed_modules']}/{path['total_modules']} modules ({path['progress']}%)"
+            )
             if path["status"] == "completed":
                 console.print("[bold green]Learning path completed![/]")
     else:
@@ -146,7 +152,9 @@ def learn_next():
             console.print()
             console.print(Markdown(suggestion))
         else:
-            console.print("[yellow]No active learning paths. Run [cyan]coach learn start <skill>[/] to begin.[/]")
+            console.print(
+                "[yellow]No active learning paths. Run [cyan]coach learn start <skill>[/] to begin.[/]"
+            )
     except LLMError as e:
         console.print(f"[red]Error:[/] {e}")
         sys.exit(1)
@@ -165,6 +173,8 @@ def learn_view(path_id: str):
         return
 
     console.print(f"\n[cyan bold]{path['skill']}[/] ({path['status']})")
-    console.print(f"[dim]Progress: {path['completed_modules']}/{path['total_modules']} modules ({path['progress']}%)[/]")
+    console.print(
+        f"[dim]Progress: {path['completed_modules']}/{path['total_modules']} modules ({path['progress']}%)[/]"
+    )
     console.print()
     console.print(Markdown(path["content"]))

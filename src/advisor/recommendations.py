@@ -50,7 +50,9 @@ class Recommender:
         try:
             all_entries = self.rag.search.storage.list_entries(limit=5)
             if len(all_entries) < 5:
-                logger.info("Sparse journal data (%d entries), skipping recommendations", len(all_entries))
+                logger.info(
+                    "Sparse journal data (%d entries), skipping recommendations", len(all_entries)
+                )
                 return []
         except Exception:
             pass
@@ -58,7 +60,9 @@ class Recommender:
         context_query = CATEGORY_QUERIES.get(category, category)
 
         journal_ctx = self.rag.get_journal_context(
-            context_query, max_entries=8, max_chars=5000,
+            context_query,
+            max_entries=8,
+            max_chars=5000,
         )
         intel_ctx = self.rag.get_intel_context(context_query, max_chars=3000)
 
@@ -132,7 +136,9 @@ class Recommender:
 
     def _generate_action_plan(self, rec: Recommendation) -> str:
         journal_ctx = self.rag.get_journal_context(
-            f"{rec.title} {rec.category}", max_entries=5, max_chars=2000,
+            f"{rec.title} {rec.category}",
+            max_entries=5,
+            max_chars=2000,
         )
         prompt = PromptTemplates.ACTION_PLAN.format(
             title=rec.title,
@@ -168,10 +174,7 @@ class RecommendationEngine:
 
         # Determine enabled categories
         categories = self.config.get("categories", {})
-        self.enabled_categories = [
-            cat for cat in CATEGORY_QUERIES
-            if categories.get(cat, True)
-        ]
+        self.enabled_categories = [cat for cat in CATEGORY_QUERIES if categories.get(cat, True)]
 
     def generate_category(
         self,
@@ -186,7 +189,9 @@ class RecommendationEngine:
             return []
 
         recs = self.recommender.generate(
-            category, max_items=max_items, with_action_plans=with_action_plans,
+            category,
+            max_items=max_items,
+            with_action_plans=with_action_plans,
         )
 
         if save:
@@ -205,16 +210,21 @@ class RecommendationEngine:
         results = {}
         for category in self.enabled_categories:
             results[category] = self.generate_category(
-                category, max_items=max_per_category,
-                save=save, with_action_plans=with_action_plans,
+                category,
+                max_items=max_per_category,
+                save=save,
+                with_action_plans=with_action_plans,
             )
         return results
 
     def get_top_recommendations(
-        self, limit: int = 5, min_score: float = 6.0,
+        self,
+        limit: int = 5,
+        min_score: float = 6.0,
     ) -> list[Recommendation]:
         """Get top recommendations across all categories."""
         return self.storage.get_top_by_score(
-            min_score=min_score, limit=limit,
+            min_score=min_score,
+            limit=limit,
             exclude_status=["completed", "dismissed"],
         )

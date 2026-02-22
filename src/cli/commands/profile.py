@@ -24,7 +24,9 @@ def profile_show():
     ps = get_profile_storage()
     p = ps.load()
     if not p:
-        console.print("[yellow]No profile found. Run [cyan]coach profile update[/] to create one.[/]")
+        console.print(
+            "[yellow]No profile found. Run [cyan]coach profile update[/] to create one.[/]"
+        )
         return
 
     console.print(f"\n[cyan bold]{p.current_role or 'No role set'}[/] ({p.career_stage})")
@@ -36,7 +38,14 @@ def profile_show():
         table.add_column("Skill")
         table.add_column("Proficiency", justify="center")
         for s in sorted(p.skills, key=lambda x: x.proficiency, reverse=True):
-            bar = "[green]" + "#" * s.proficiency + "[/]" + "[dim]" + "." * (5 - s.proficiency) + "[/]"
+            bar = (
+                "[green]"
+                + "#" * s.proficiency
+                + "[/]"
+                + "[dim]"
+                + "." * (5 - s.proficiency)
+                + "[/]"
+            )
             table.add_row(s.name, bar)
         console.print(table)
 
@@ -47,11 +56,15 @@ def profile_show():
     if p.aspirations:
         console.print(f"\n[bold]Aspirations:[/] {p.aspirations}")
 
-    console.print(f"\n[dim]Learning style: {p.learning_style} | Available: {p.weekly_hours_available}h/week[/]")
+    console.print(
+        f"\n[dim]Learning style: {p.learning_style} | Available: {p.weekly_hours_available}h/week[/]"
+    )
     if p.updated_at:
         console.print(f"[dim]Last updated: {p.updated_at[:10]}[/]")
         if p.is_stale():
-            console.print("[yellow]Profile is >90 days old. Consider running [cyan]coach profile update[/][/]")
+            console.print(
+                "[yellow]Profile is >90 days old. Consider running [cyan]coach profile update[/][/]"
+            )
 
 
 @profile.command("update")
@@ -74,7 +87,9 @@ def profile_update():
         p = interviewer.run_interactive(
             output_fn=lambda t: console.print(t),
         )
-        console.print(f"\n[green]Profile saved![/] {len(p.skills)} skills, {len(p.interests)} interests")
+        console.print(
+            f"\n[green]Profile saved![/] {len(p.skills)} skills, {len(p.interests)} interests"
+        )
         console.print(f"[dim]Saved to: {ps.path}[/]")
     except LLMError as e:
         console.print(f"[red]Error:[/] {e}")
@@ -90,6 +105,7 @@ def profile_edit():
     if not ps.exists():
         # Create default profile
         from profile.storage import UserProfile
+
         ps.save(UserProfile())
         console.print(f"[green]Created default profile at {ps.path}[/]")
 
@@ -99,7 +115,9 @@ def profile_edit():
         # Validate after edit
         p = ps.load()
         if p:
-            console.print(f"[green]Profile valid.[/] {len(p.skills)} skills, {len(p.interests)} interests")
+            console.print(
+                f"[green]Profile valid.[/] {len(p.skills)} skills, {len(p.interests)} interests"
+            )
         else:
             console.print("[red]Warning: Profile YAML may be invalid.[/]")
     except subprocess.CalledProcessError:

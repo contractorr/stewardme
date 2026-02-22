@@ -74,7 +74,14 @@ def test_intel_get_recent_source_filter(mock_components):
     from coach_mcp.tools.intelligence import _get_recent
 
     mock_components["intel_storage"].get_recent.return_value = [
-        {"id": 1, "source": "hackernews", "title": "HN", "url": "u1", "summary": "s", "scraped_at": "d"},
+        {
+            "id": 1,
+            "source": "hackernews",
+            "title": "HN",
+            "url": "u1",
+            "summary": "s",
+            "scraped_at": "d",
+        },
         {"id": 2, "source": "rss", "title": "RSS", "url": "u2", "summary": "s", "scraped_at": "d"},
     ]
 
@@ -156,9 +163,7 @@ def test_research_topics(mock_components):
     with patch("coach_mcp.tools.research._get_scheduler") as mock_get:
         scheduler = MagicMock()
         mock_get.return_value = scheduler
-        scheduler.get_research_topics.return_value = [
-            {"topic": "AI agents", "relevance": 0.9}
-        ]
+        scheduler.get_research_topics.return_value = [{"topic": "AI agents", "relevance": 0.9}]
 
         result = _topics({})
         assert result["count"] == 1

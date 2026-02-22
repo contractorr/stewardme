@@ -59,7 +59,7 @@ class TestWebSearchClient:
         mock_response.json.return_value = mock_tavily_response
         mock_response.raise_for_status = MagicMock()
 
-        with patch.object(client.client, 'post', return_value=mock_response):
+        with patch.object(client.client, "post", return_value=mock_response):
             results = client.search("machine learning healthcare")
 
         assert len(results) == 2
@@ -78,7 +78,7 @@ class TestWebSearchClient:
         mock_response.json.return_value = mock_tavily_response
         mock_response.raise_for_status = MagicMock()
 
-        with patch.object(client.client, 'post', return_value=mock_response):
+        with patch.object(client.client, "post", return_value=mock_response):
             results = client.search("test")
 
         assert len(results[0].content) == 100
@@ -92,7 +92,7 @@ class TestWebSearchClient:
             "Not Found", request=MagicMock(), response=MagicMock(status_code=404, text="Not Found")
         )
 
-        with patch.object(client.client, 'post', return_value=mock_response):
+        with patch.object(client.client, "post", return_value=mock_response):
             results = client.search("test")
 
         assert results == []
@@ -101,7 +101,9 @@ class TestWebSearchClient:
         """Test search handles network errors gracefully."""
         client = WebSearchClient(api_key="test-key")
 
-        with patch.object(client.client, 'post', side_effect=httpx.RequestError("Connection failed")):
+        with patch.object(
+            client.client, "post", side_effect=httpx.RequestError("Connection failed")
+        ):
             results = client.search("test")
 
         assert results == []

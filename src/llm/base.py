@@ -58,7 +58,9 @@ class LLMProvider(ABC):
     provider_name: str = "base"
 
     @abstractmethod
-    def generate(self, messages: list[dict], system: str | None = None, max_tokens: int = 2000) -> str:
+    def generate(
+        self, messages: list[dict], system: str | None = None, max_tokens: int = 2000
+    ) -> str:
         """Generate a response from messages.
 
         Args:

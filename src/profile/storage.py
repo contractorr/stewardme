@@ -79,7 +79,9 @@ class ProfileStorage:
         # Convert to plain dict with string values (avoid YAML Python-object tags)
         data = profile.model_dump()
         data["career_stage"] = str(data["career_stage"])
-        data["skills"] = [{"name": s["name"], "proficiency": int(s["proficiency"])} for s in data["skills"]]
+        data["skills"] = [
+            {"name": s["name"], "proficiency": int(s["proficiency"])} for s in data["skills"]
+        ]
         with open(self.path, "w") as f:
             yaml.dump(data, f, default_flow_style=False, sort_keys=False)
         return self.path

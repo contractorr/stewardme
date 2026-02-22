@@ -88,6 +88,7 @@ def get_limits(config: dict) -> dict:
 def setup_logging(config: dict) -> None:
     """Configure logging based on config."""
     from cli.logging_config import setup_logging as _setup
+
     log_config = config.get("logging", {})
     level = log_config.get("level", "INFO")
     json_mode = log_config.get("json_mode", False)

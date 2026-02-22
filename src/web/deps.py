@@ -120,6 +120,7 @@ def get_settings_mask_for_user(user_id: str) -> dict:
 def get_decrypted_secrets() -> dict:
     """Load all decrypted secrets from legacy file."""
     from web.crypto import load_secrets
+
     return load_secrets(get_secret_key())
 
 

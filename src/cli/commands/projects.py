@@ -58,7 +58,9 @@ def projects_discover(limit: int, days: int):
         table.add_row(str(match_score), title, repo, tags[:30])
 
     console.print(table)
-    console.print(f"\n[dim]Showing {len(issues)} issues. Set up profile ([cyan]coach profile update[/]) for better matching.[/]")
+    console.print(
+        f"\n[dim]Showing {len(issues)} issues. Set up profile ([cyan]coach profile update[/]) for better matching.[/]"
+    )
 
 
 @projects.command("ideas")
@@ -89,7 +91,9 @@ def projects_list(days: int):
     issues = [i for i in items if i.get("source") == "github_issues"]
 
     if not issues:
-        console.print("[yellow]No project opportunities tracked. Enable github_issues scraper in config.[/]")
+        console.print(
+            "[yellow]No project opportunities tracked. Enable github_issues scraper in config.[/]"
+        )
         return
 
     for issue in issues[:20]:

@@ -1,7 +1,6 @@
 """Tests for journal search operations."""
 
 
-
 class TestJournalSearch:
     """Test JournalSearch semantic and keyword search."""
 

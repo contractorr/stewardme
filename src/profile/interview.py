@@ -137,8 +137,7 @@ class ProfileInterviewer:
 
             # Build conversation history for LLM
             history = "\n".join(
-                f"{'Coach' if role == 'assistant' else 'User'}: {msg}"
-                for role, msg in conversation
+                f"{'Coach' if role == 'assistant' else 'User'}: {msg}" for role, msg in conversation
             )
             prompt = f"Interview so far:\n{history}\n\nContinue the interview or finalize the profile if you have enough info."
 
@@ -156,7 +155,9 @@ class ProfileInterviewer:
             output_fn(f"\n{response}\n")
 
         # Fallback: force extraction
-        history = "\n".join(f"{'Coach' if r == 'assistant' else 'User'}: {m}" for r, m in conversation)
+        history = "\n".join(
+            f"{'Coach' if r == 'assistant' else 'User'}: {m}" for r, m in conversation
+        )
         force_prompt = f"""Based on this interview, generate the profile JSON now.
 
 {history}

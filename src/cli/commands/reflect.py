@@ -53,6 +53,7 @@ def reflect(save: bool):
 
         with console.status("Generating reflection prompts..."):
             from advisor.prompts import PromptTemplates
+
             response = c["advisor"]._call_llm(PromptTemplates.SYSTEM, prompt, max_tokens=800)
 
         console.print()

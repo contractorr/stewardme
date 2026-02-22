@@ -5,6 +5,7 @@ from coach_mcp.bootstrap import get_components
 
 def _get_lp_storage(c):
     from advisor.learning_paths import LearningPathStorage
+
     lp_dir = c["config"].get("learning_paths", {}).get("dir", "~/coach/learning_paths")
     return LearningPathStorage(lp_dir)
 
@@ -17,6 +18,7 @@ def _learning_gaps(args: dict) -> dict:
     profile_ctx = ""
     try:
         from profile.storage import ProfileStorage
+
         profile_path = c["config"].get("profile", {}).get("path", "~/coach/profile.yaml")
         ps = ProfileStorage(profile_path)
         p = ps.load()
@@ -26,7 +28,9 @@ def _learning_gaps(args: dict) -> dict:
         pass
 
     journal_ctx = c["search"].get_context_for_query(
-        "skills goals career aspirations learning", max_entries=8, max_chars=4000,
+        "skills goals career aspirations learning",
+        max_entries=8,
+        max_chars=4000,
     )
 
     return {
@@ -114,7 +118,10 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "path_id": {"type": "string", "description": "Learning path ID"},
-                "completed_modules": {"type": "integer", "description": "Number of completed modules"},
+                "completed_modules": {
+                    "type": "integer",
+                    "description": "Number of completed modules",
+                },
             },
             "required": ["path_id", "completed_modules"],
         },

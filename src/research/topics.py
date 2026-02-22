@@ -66,7 +66,7 @@ class TopicSelector:
         # Sort by score descending
         candidates.sort(key=lambda x: x["score"], reverse=True)
 
-        return candidates[:self.max_topics]
+        return candidates[: self.max_topics]
 
     def _extract_trend_topics(self) -> list[dict]:
         """Extract emerging topics from TrendDetector."""
@@ -74,16 +74,19 @@ class TopicSelector:
             return []
         try:
             from journal.trends import TrendDetector
+
             detector = TrendDetector(self.journal_search)
             emerging = detector.get_emerging_topics(threshold=0.2, days=60)
             topics = []
             for trend in emerging[:5]:
-                topics.append({
-                    "topic": trend["topic"].title(),
-                    "source": "trend",
-                    "score": min(9, 5 + trend["growth_rate"] * 10),
-                    "reason": f"Emerging trend (growth={trend['growth_rate']:+.0%})",
-                })
+                topics.append(
+                    {
+                        "topic": trend["topic"].title(),
+                        "source": "trend",
+                        "score": min(9, 5 + trend["growth_rate"] * 10),
+                        "reason": f"Emerging trend (growth={trend['growth_rate']:+.0%})",
+                    }
+                )
             return topics
         except Exception:
             return []
@@ -111,12 +114,14 @@ class TopicSelector:
                 for match in matches:
                     topic = match.strip()
                     if len(topic) > 3 and len(topic) < 100:
-                        topics.append({
-                            "topic": topic.title(),
-                            "source": "goal",
-                            "score": 10,  # High priority for explicit requests
-                            "reason": f"Explicit goal: {entry['title'][:40]}",
-                        })
+                        topics.append(
+                            {
+                                "topic": topic.title(),
+                                "source": "goal",
+                                "score": 10,  # High priority for explicit requests
+                                "reason": f"Explicit goal: {entry['title'][:40]}",
+                            }
+                        )
 
         return topics
 
@@ -152,33 +157,93 @@ class TopicSelector:
         themes = []
         for word, count in word_counter.most_common(20):
             if count >= self.min_mentions:
-                themes.append({
-                    "topic": word.title(),
-                    "source": "theme",
-                    "score": min(count, 10),  # Cap at 10
-                    "reason": f"Mentioned {count} times in last {self.theme_window_days} days",
-                })
+                themes.append(
+                    {
+                        "topic": word.title(),
+                        "source": "theme",
+                        "score": min(count, 10),  # Cap at 10
+                        "reason": f"Mentioned {count} times in last {self.theme_window_days} days",
+                    }
+                )
 
         return themes
 
     def _extract_keywords(self, text: str, stopwords: set) -> list[str]:
         """Extract meaningful keywords from text."""
         # Simple word extraction (could be enhanced with NLP)
-        words = re.findall(r'\b[a-zA-Z]{4,}\b', text.lower())
+        words = re.findall(r"\b[a-zA-Z]{4,}\b", text.lower())
         return [w for w in words if w not in stopwords]
 
     def _get_stopwords(self) -> set:
         """Common words to filter out."""
         return {
-            "that", "this", "with", "from", "have", "been", "were", "will",
-            "would", "could", "should", "about", "which", "their", "there",
-            "what", "when", "where", "than", "then", "they", "them", "some",
-            "more", "also", "just", "only", "very", "much", "such", "like",
-            "into", "over", "after", "before", "being", "through", "each",
-            "work", "working", "worked", "want", "need", "think", "know",
-            "make", "made", "take", "took", "come", "came", "going", "doing",
-            "done", "time", "today", "week", "month", "year", "daily",
-            "journal", "entry", "note", "notes", "goal", "goals", "project",
+            "that",
+            "this",
+            "with",
+            "from",
+            "have",
+            "been",
+            "were",
+            "will",
+            "would",
+            "could",
+            "should",
+            "about",
+            "which",
+            "their",
+            "there",
+            "what",
+            "when",
+            "where",
+            "than",
+            "then",
+            "they",
+            "them",
+            "some",
+            "more",
+            "also",
+            "just",
+            "only",
+            "very",
+            "much",
+            "such",
+            "like",
+            "into",
+            "over",
+            "after",
+            "before",
+            "being",
+            "through",
+            "each",
+            "work",
+            "working",
+            "worked",
+            "want",
+            "need",
+            "think",
+            "know",
+            "make",
+            "made",
+            "take",
+            "took",
+            "come",
+            "came",
+            "going",
+            "doing",
+            "done",
+            "time",
+            "today",
+            "week",
+            "month",
+            "year",
+            "daily",
+            "journal",
+            "entry",
+            "note",
+            "notes",
+            "goal",
+            "goals",
+            "project",
         }
 
     def get_recent_research_topics(self) -> list[str]:

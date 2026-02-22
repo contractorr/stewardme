@@ -35,6 +35,7 @@ class RAGRetriever:
         """Load user profile summary for LLM context injection."""
         try:
             from profile.storage import ProfileStorage
+
             ps = ProfileStorage(self._profile_path)
             profile = ps.load()
             if profile:
@@ -82,23 +83,29 @@ class RAGRetriever:
         try:
             with sqlite3.connect(self.intel_db_path) as conn:
                 conn.row_factory = sqlite3.Row
-                cursor = conn.execute("""
+                cursor = conn.execute(
+                    """
                     SELECT title, source, summary, url, scraped_at
                     FROM intel_items
                     WHERE title LIKE ? OR summary LIKE ?
                     ORDER BY scraped_at DESC
                     LIMIT ?
-                """, (f"%{query}%", f"%{query}%", max_items * 2))
+                """,
+                    (f"%{query}%", f"%{query}%", max_items * 2),
+                )
 
                 items = cursor.fetchall()
 
                 if not items:
-                    cursor = conn.execute("""
+                    cursor = conn.execute(
+                        """
                         SELECT title, source, summary, url, scraped_at
                         FROM intel_items
                         ORDER BY scraped_at DESC
                         LIMIT ?
-                    """, (max_items,))
+                    """,
+                        (max_items,),
+                    )
                     items = cursor.fetchall()
 
             if not items:
@@ -149,6 +156,7 @@ class RAGRetriever:
         entries = self.journal.storage.list_entries(limit=20)
 
         from datetime import datetime, timedelta
+
         cutoff = datetime.now() - timedelta(days=days)
 
         recent = []
@@ -164,7 +172,7 @@ class RAGRetriever:
 
                 post = self.journal.storage.read(entry["path"])
                 entry_text = f"""
---- {entry['title']} ({entry['type']}) ---
+--- {entry["title"]} ({entry["type"]}) ---
 {post.content}
 """
                 if total_chars + len(entry_text) > max_chars:
@@ -174,7 +182,9 @@ class RAGRetriever:
                 total_chars += len(entry_text)
 
             except (OSError, ValueError) as e:
-                logger.warning("journal_entry_read_failed", path=str(entry.get("path")), error=str(e))
+                logger.warning(
+                    "journal_entry_read_failed", path=str(entry.get("path")), error=str(e)
+                )
                 continue
 
         if not recent:
@@ -208,7 +218,7 @@ class RAGRetriever:
             return ""
 
         # Use semantic search if available to rank by relevance
-        if hasattr(self.journal, 'semantic_search'):
+        if hasattr(self.journal, "semantic_search"):
             results = self.journal.semantic_search(
                 query,
                 n_results=max_entries,
@@ -218,7 +228,9 @@ class RAGRetriever:
                 context_parts = []
                 total_chars = 0
                 for r in results:
-                    text = f"[Research: {r.get('title', 'Unknown')}]\n{r.get('content', '')[:1500]}\n"
+                    text = (
+                        f"[Research: {r.get('title', 'Unknown')}]\n{r.get('content', '')[:1500]}\n"
+                    )
                     if total_chars + len(text) > max_chars:
                         break
                     context_parts.append(text)
@@ -238,7 +250,9 @@ class RAGRetriever:
                 context_parts.append(text)
                 total_chars += len(text)
             except (OSError, ValueError) as e:
-                logger.warning("research_entry_read_failed", path=str(entry.get("path")), error=str(e))
+                logger.warning(
+                    "research_entry_read_failed", path=str(entry.get("path")), error=str(e)
+                )
                 continue
 
         return "\n".join(context_parts) if context_parts else ""

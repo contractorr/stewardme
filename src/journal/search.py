@@ -46,15 +46,17 @@ class JournalSearch:
                 path = Path(r["id"])
                 if path.exists():
                     post = frontmatter.load(path)
-                    enriched.append({
-                        "path": path,
-                        "title": post.get("title", path.stem),
-                        "type": post.get("type"),
-                        "created": post.get("created"),
-                        "tags": post.get("tags", []),
-                        "content": post.content,
-                        "relevance": 1 - r["distance"],  # Convert distance to similarity
-                    })
+                    enriched.append(
+                        {
+                            "path": path,
+                            "title": post.get("title", path.stem),
+                            "type": post.get("type"),
+                            "created": post.get("created"),
+                            "tags": post.get("tags", []),
+                            "content": post.content,
+                            "relevance": 1 - r["distance"],  # Convert distance to similarity
+                        }
+                    )
             except (OSError, ValueError):
                 continue
 
@@ -75,14 +77,16 @@ class JournalSearch:
             try:
                 post = frontmatter.load(entry["path"])
                 if keyword_lower in post.content.lower():
-                    matches.append({
-                        "path": entry["path"],
-                        "title": entry["title"],
-                        "type": entry["type"],
-                        "created": entry["created"],
-                        "tags": entry["tags"],
-                        "content": post.content,
-                    })
+                    matches.append(
+                        {
+                            "path": entry["path"],
+                            "title": entry["title"],
+                            "type": entry["type"],
+                            "created": entry["created"],
+                            "tags": entry["tags"],
+                            "content": post.content,
+                        }
+                    )
                     if len(matches) >= limit:
                         break
             except (OSError, ValueError):
@@ -116,11 +120,11 @@ class JournalSearch:
 
         for r in results:
             entry_text = f"""
---- Entry: {r['title']} ({r['type']}) ---
-Date: {r['created']}
-Tags: {', '.join(r['tags']) if r['tags'] else 'none'}
+--- Entry: {r["title"]} ({r["type"]}) ---
+Date: {r["created"]}
+Tags: {", ".join(r["tags"]) if r["tags"] else "none"}
 
-{r['content']}
+{r["content"]}
 """
             if total_chars + len(entry_text) > max_chars:
                 # Truncate last entry if needed

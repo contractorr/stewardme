@@ -11,11 +11,13 @@ class TestConfigValidation:
         """Test valid config loads without errors."""
         from cli.config_models import CoachConfig
 
-        config = CoachConfig.from_dict({
-            "llm": {"model": "claude-sonnet-4-20250514"},
-            "research": {"schedule": "0 8 * * 0"},
-            "logging": {"level": "DEBUG"},
-        })
+        config = CoachConfig.from_dict(
+            {
+                "llm": {"model": "claude-sonnet-4-20250514"},
+                "research": {"schedule": "0 8 * * 0"},
+                "logging": {"level": "DEBUG"},
+            }
+        )
 
         assert config.llm.model == "claude-sonnet-4-20250514"
         assert config.logging.level == "DEBUG"
@@ -25,9 +27,11 @@ class TestConfigValidation:
         from cli.config_models import CoachConfig
 
         with pytest.raises(ValidationError) as exc:
-            CoachConfig.from_dict({
-                "research": {"schedule": "invalid cron"},
-            })
+            CoachConfig.from_dict(
+                {
+                    "research": {"schedule": "invalid cron"},
+                }
+            )
         assert "cron" in str(exc.value).lower() or "field" in str(exc.value).lower()
 
     def test_invalid_log_level(self):
@@ -35,9 +39,11 @@ class TestConfigValidation:
         from cli.config_models import CoachConfig
 
         with pytest.raises(ValidationError) as exc:
-            CoachConfig.from_dict({
-                "logging": {"level": "INVALID"},
-            })
+            CoachConfig.from_dict(
+                {
+                    "logging": {"level": "INVALID"},
+                }
+            )
         assert "log level" in str(exc.value).lower()
 
     def test_scoring_weights_must_sum_to_one(self):
@@ -45,13 +51,15 @@ class TestConfigValidation:
         from cli.config_models import CoachConfig
 
         with pytest.raises(ValidationError) as exc:
-            CoachConfig.from_dict({
-                "recommendations": {
-                    "scoring": {
-                        "weights": {"relevance": 0.5, "urgency": 0.5, "feasibility": 0.5}
+            CoachConfig.from_dict(
+                {
+                    "recommendations": {
+                        "scoring": {
+                            "weights": {"relevance": 0.5, "urgency": 0.5, "feasibility": 0.5}
+                        }
                     }
                 }
-            })
+            )
         assert "sum to 1" in str(exc.value).lower()
 
     def test_env_var_expansion(self, monkeypatch):
@@ -60,9 +68,11 @@ class TestConfigValidation:
 
         monkeypatch.setenv("TEST_API_KEY", "sk-test-12345")
 
-        config = CoachConfig.from_dict({
-            "llm": {"api_key": "${TEST_API_KEY}"},
-        })
+        config = CoachConfig.from_dict(
+            {
+                "llm": {"api_key": "${TEST_API_KEY}"},
+            }
+        )
 
         assert config.llm.api_key == "sk-test-12345"
 
@@ -72,9 +82,11 @@ class TestConfigValidation:
 
         from cli.config_models import CoachConfig
 
-        config = CoachConfig.from_dict({
-            "paths": {"journal_dir": "~/coach/journal"},
-        })
+        config = CoachConfig.from_dict(
+            {
+                "paths": {"journal_dir": "~/coach/journal"},
+            }
+        )
 
         assert str(config.paths.journal_dir).startswith(os.path.expanduser("~"))
 
@@ -90,9 +102,11 @@ class TestConfigValidation:
         """Test RAG config accepts custom values."""
         from cli.config_models import CoachConfig
 
-        config = CoachConfig.from_dict({
-            "rag": {"max_context_chars": 10000, "journal_weight": 0.6},
-        })
+        config = CoachConfig.from_dict(
+            {
+                "rag": {"max_context_chars": 10000, "journal_weight": 0.6},
+            }
+        )
         assert config.rag.max_context_chars == 10000
         assert config.rag.journal_weight == 0.6
 
@@ -115,11 +129,13 @@ class TestConfigValidation:
         """Test rate limits config with per-source overrides."""
         from cli.config_models import CoachConfig
 
-        config = CoachConfig.from_dict({
-            "rate_limits": {
-                "hackernews": {"requests_per_second": 3.0, "burst": 8},
-            },
-        })
+        config = CoachConfig.from_dict(
+            {
+                "rate_limits": {
+                    "hackernews": {"requests_per_second": 3.0, "burst": 8},
+                },
+            }
+        )
         assert config.rate_limits.hackernews.requests_per_second == 3.0
         assert config.rate_limits.hackernews.burst == 8
         assert config.rate_limits.default.requests_per_second == 2.0
@@ -128,9 +144,11 @@ class TestConfigValidation:
         """Test dedup window config."""
         from cli.config_models import CoachConfig
 
-        config = CoachConfig.from_dict({
-            "recommendations": {"dedup_window_days": 60, "similarity_threshold": 0.9},
-        })
+        config = CoachConfig.from_dict(
+            {
+                "recommendations": {"dedup_window_days": 60, "similarity_threshold": 0.9},
+            }
+        )
         assert config.recommendations.dedup_window_days == 60
         assert config.recommendations.similarity_threshold == 0.9
 
@@ -275,13 +293,15 @@ class TestIntelFlow:
 
         # Set up intel
         intel_storage = IntelStorage(temp_dirs["intel_db"])
-        intel_storage.save(IntelItem(
-            source="hackernews",
-            title="AI career guide 2024",
-            url="https://example.com/ai-career",
-            summary="Guide to building a career in artificial intelligence",
-            published=datetime.now(),
-        ))
+        intel_storage.save(
+            IntelItem(
+                source="hackernews",
+                title="AI career guide 2024",
+                url="https://example.com/ai-career",
+                summary="Guide to building a career in artificial intelligence",
+                published=datetime.now(),
+            )
+        )
 
         intel_embeddings = IntelEmbeddingManager(temp_dirs["chroma_dir"])
         intel_search = IntelSearch(intel_storage, intel_embeddings)
@@ -319,6 +339,7 @@ class TestSchedulerFlow:
         )
 
         import httpx
+
         monkeypatch.setattr(httpx, "Client", lambda **kwargs: mock_client)
 
         storage = IntelStorage(temp_dirs["intel_db"])
@@ -350,6 +371,7 @@ class TestSchedulerFlow:
         )
 
         import httpx
+
         monkeypatch.setattr(httpx, "Client", lambda **kwargs: mock_client)
 
         storage = IntelStorage(temp_dirs["intel_db"])
@@ -524,13 +546,15 @@ class TestCLIIntegration:
 
         # Setup intel
         intel_storage = IntelStorage(temp_dirs["intel_db"])
-        intel_storage.save(IntelItem(
-            source="hackernews",
-            title="ML Engineer roadmap 2024",
-            url="https://example.com/ml-roadmap",
-            summary="Complete guide to becoming an ML engineer",
-            published=datetime.now(),
-        ))
+        intel_storage.save(
+            IntelItem(
+                source="hackernews",
+                title="ML Engineer roadmap 2024",
+                url="https://example.com/ml-roadmap",
+                summary="Complete guide to becoming an ML engineer",
+                published=datetime.now(),
+            )
+        )
         intel_embeddings = IntelEmbeddingManager(temp_dirs["chroma_dir"])
         intel_search = IntelSearch(intel_storage, intel_embeddings)
         intel_search.sync_embeddings()
@@ -540,5 +564,9 @@ class TestCLIIntegration:
         journal_ctx, intel_ctx = rag.get_combined_context("ML career advice")
 
         # Verify context retrieved
-        assert "machine learning" in journal_ctx.lower() or "ml" in journal_ctx.lower() or len(journal_ctx) > 0
+        assert (
+            "machine learning" in journal_ctx.lower()
+            or "ml" in journal_ctx.lower()
+            or len(journal_ctx) > 0
+        )
         assert isinstance(intel_ctx, str)

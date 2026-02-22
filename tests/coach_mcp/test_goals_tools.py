@@ -80,9 +80,7 @@ def test_check_in(mock_components):
 
         result = _check_in({"goal_path": "/tmp/goal.md", "notes": "On track"})
         assert result["success"] is True
-        tracker.check_in_goal.assert_called_once_with(
-            Path("/tmp/goal.md"), notes="On track"
-        )
+        tracker.check_in_goal.assert_called_once_with(Path("/tmp/goal.md"), notes="On track")
 
 
 def test_update_status(mock_components):

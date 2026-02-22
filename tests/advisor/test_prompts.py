@@ -1,7 +1,6 @@
 """Tests for prompt templates."""
 
 
-
 class TestPromptTemplates:
     """Test PromptTemplates formatting."""
 
@@ -26,8 +25,11 @@ class TestPromptTemplates:
         templates = PromptTemplates()
 
         # Check for career-related prompt
-        assert hasattr(templates, "CAREER") or hasattr(templates, "career") or \
-               callable(getattr(templates, "get_prompt", None))
+        assert (
+            hasattr(templates, "CAREER")
+            or hasattr(templates, "career")
+            or callable(getattr(templates, "get_prompt", None))
+        )
 
     def test_has_weekly_review_prompt(self):
         """Test that weekly review prompt exists."""
@@ -35,8 +37,11 @@ class TestPromptTemplates:
 
         templates = PromptTemplates()
 
-        assert hasattr(templates, "WEEKLY_REVIEW") or hasattr(templates, "weekly_review") or \
-               callable(getattr(templates, "get_prompt", None))
+        assert (
+            hasattr(templates, "WEEKLY_REVIEW")
+            or hasattr(templates, "weekly_review")
+            or callable(getattr(templates, "get_prompt", None))
+        )
 
     def test_has_goals_prompt(self):
         """Test that goals prompt exists."""
@@ -44,8 +49,11 @@ class TestPromptTemplates:
 
         templates = PromptTemplates()
 
-        assert hasattr(templates, "GOALS") or hasattr(templates, "goals") or \
-               callable(getattr(templates, "get_prompt", None))
+        assert (
+            hasattr(templates, "GOALS")
+            or hasattr(templates, "goals")
+            or callable(getattr(templates, "get_prompt", None))
+        )
 
     def test_has_opportunities_prompt(self):
         """Test that opportunities prompt exists."""
@@ -53,8 +61,11 @@ class TestPromptTemplates:
 
         templates = PromptTemplates()
 
-        assert hasattr(templates, "OPPORTUNITIES") or hasattr(templates, "opportunities") or \
-               callable(getattr(templates, "get_prompt", None))
+        assert (
+            hasattr(templates, "OPPORTUNITIES")
+            or hasattr(templates, "opportunities")
+            or callable(getattr(templates, "get_prompt", None))
+        )
 
     def test_prompts_are_strings(self):
         """Test that prompt templates are non-empty strings."""

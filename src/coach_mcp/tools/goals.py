@@ -22,20 +22,22 @@ def _list_goals(args: dict) -> dict:
     for g in goals:
         goal_path = Path(g["path"])
         progress = tracker.get_progress(goal_path)
-        enriched.append({
-            "path": str(goal_path),
-            "filename": goal_path.name,
-            "title": g["title"],
-            "status": g["status"],
-            "created": g["created"],
-            "last_checked": g["last_checked"],
-            "check_in_days": g["check_in_days"],
-            "days_since_check": g["days_since_check"],
-            "is_stale": g["is_stale"],
-            "tags": g["tags"],
-            "progress": progress,
-            "preview": g["content"],
-        })
+        enriched.append(
+            {
+                "path": str(goal_path),
+                "filename": goal_path.name,
+                "title": g["title"],
+                "status": g["status"],
+                "created": g["created"],
+                "last_checked": g["last_checked"],
+                "check_in_days": g["check_in_days"],
+                "days_since_check": g["days_since_check"],
+                "is_stale": g["is_stale"],
+                "tags": g["tags"],
+                "progress": progress,
+                "preview": g["content"],
+            }
+        )
 
     return {"goals": enriched, "count": len(enriched)}
 

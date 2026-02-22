@@ -13,7 +13,9 @@ logger = structlog.get_logger()
 class IntelEmbeddingManager:
     """Manages vector embeddings for intelligence items."""
 
-    def __init__(self, chroma_dir: str | Path, default_results: int = 5, similarity_threshold: float = 0.85):
+    def __init__(
+        self, chroma_dir: str | Path, default_results: int = 5, similarity_threshold: float = 0.85
+    ):
         self.chroma_dir = Path(chroma_dir).expanduser()
         self.chroma_dir.mkdir(parents=True, exist_ok=True)
         self.default_results = default_results
@@ -100,12 +102,14 @@ class IntelEmbeddingManager:
         items = []
         if results["ids"] and results["ids"][0]:
             for i, item_id in enumerate(results["ids"][0]):
-                items.append({
-                    "id": item_id,
-                    "content": results["documents"][0][i] if results["documents"] else "",
-                    "metadata": results["metadatas"][0][i] if results["metadatas"] else {},
-                    "distance": results["distances"][0][i] if results["distances"] else 0,
-                })
+                items.append(
+                    {
+                        "id": item_id,
+                        "content": results["documents"][0][i] if results["documents"] else "",
+                        "metadata": results["metadatas"][0][i] if results["metadatas"] else {},
+                        "distance": results["distances"][0][i] if results["distances"] else 0,
+                    }
+                )
 
         return items
 

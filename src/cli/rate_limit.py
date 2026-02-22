@@ -8,6 +8,7 @@ from dataclasses import dataclass
 @dataclass
 class RateLimitConfig:
     """Rate limit parameters."""
+
     requests_per_second: float = 2.0
     burst: int = 5
 

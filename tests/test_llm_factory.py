@@ -68,17 +68,25 @@ class TestCreateProvider:
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
         # Mock Anthropic client to avoid real init
-        with patch("anthropic.Anthropic") as mock_cls:
+        with patch("anthropic.Anthropic"):
             provider = create_llm_provider()
             assert provider.provider_name == "claude"
 
     def test_custom_model(self):
         mock_client = MagicMock()
-        provider = create_llm_provider(provider="claude", client=mock_client, model="claude-opus-4-20250514")
+        provider = create_llm_provider(
+            provider="claude", client=mock_client, model="claude-opus-4-20250514"
+        )
         assert provider.model == "claude-opus-4-20250514"
 
     def test_default_models(self):
         mock_client = MagicMock()
-        assert create_llm_provider(provider="claude", client=mock_client).model == "claude-sonnet-4-20250514"
+        assert (
+            create_llm_provider(provider="claude", client=mock_client).model
+            == "claude-sonnet-4-20250514"
+        )
         assert create_llm_provider(provider="openai", client=mock_client).model == "gpt-4o"
-        assert create_llm_provider(provider="gemini", client=mock_client).model_name == "gemini-2.5-flash"
+        assert (
+            create_llm_provider(provider="gemini", client=mock_client).model_name
+            == "gemini-2.5-flash"
+        )

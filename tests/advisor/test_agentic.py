@@ -1,21 +1,21 @@
 """Tests for AgenticOrchestrator and agentic engine integration."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from advisor.agentic import AgenticOrchestrator
 from advisor.tools import ToolRegistry
-from llm.base import GenerateResponse, ToolCall, ToolDefinition
+from llm.base import GenerateResponse, ToolCall
 
 
 @pytest.fixture
 def mock_components(tmp_path):
-    from journal.storage import JournalStorage
+    from advisor.rag import RAGRetriever
+    from intelligence.scraper import IntelStorage
     from journal.embeddings import EmbeddingManager
     from journal.search import JournalSearch
-    from intelligence.scraper import IntelStorage
-    from advisor.rag import RAGRetriever
+    from journal.storage import JournalStorage
 
     journal_dir = tmp_path / "journal"
     journal_dir.mkdir()
@@ -176,7 +176,9 @@ class TestAgenticOrchestrator:
         mock_llm.generate_with_tools.side_effect = [
             GenerateResponse(
                 content=None,
-                tool_calls=[ToolCall(id="t1", name="journal_read", arguments={"filename": "nonexistent.md"})],
+                tool_calls=[
+                    ToolCall(id="t1", name="journal_read", arguments={"filename": "nonexistent.md"})
+                ],
                 finish_reason="tool_calls",
             ),
             GenerateResponse(content="That entry doesn't exist.", finish_reason="stop"),
@@ -211,7 +213,9 @@ class TestAgenticOrchestrator:
     def test_system_prompt_passed(self, registry):
         """System prompt is forwarded to LLM."""
         mock_llm = MagicMock()
-        mock_llm.generate_with_tools.return_value = GenerateResponse(content="ok", finish_reason="stop")
+        mock_llm.generate_with_tools.return_value = GenerateResponse(
+            content="ok", finish_reason="stop"
+        )
 
         orch = AgenticOrchestrator(mock_llm, registry, "You are a coach.")
         orch.run("hi")
@@ -246,7 +250,8 @@ class TestAgenticOrchestrator:
         """None history works same as before."""
         mock_llm = MagicMock()
         mock_llm.generate_with_tools.return_value = GenerateResponse(
-            content="ok", finish_reason="stop",
+            content="ok",
+            finish_reason="stop",
         )
 
         orch = AgenticOrchestrator(mock_llm, registry, "system")
@@ -281,7 +286,6 @@ class TestAgenticEngineIntegration:
     def test_engine_with_use_tools(self, mock_components):
         """AdvisorEngine routes to orchestrator when use_tools=True."""
         from advisor.engine import AdvisorEngine
-        from advisor.rag import RAGRetriever
 
         mock_client = MagicMock()
         # generate_with_tools returns text immediately

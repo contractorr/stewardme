@@ -40,6 +40,7 @@ def validate_url(url: str) -> bool:
 @dataclass
 class IntelItem:
     """Single intelligence item."""
+
     source: str
     title: str
     url: str
@@ -110,20 +111,23 @@ class IntelStorage:
 
         try:
             with sqlite3.connect(self.db_path) as conn:
-                conn.execute("""
+                conn.execute(
+                    """
                     INSERT OR IGNORE INTO intel_items
                     (source, title, url, summary, content, published, tags, content_hash)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    item.source,
-                    item.title,
-                    item.url,
-                    item.summary,
-                    item.content,
-                    item.published.isoformat() if item.published else None,
-                    ",".join(item.tags) if item.tags else None,
-                    content_hash,
-                ))
+                """,
+                    (
+                        item.source,
+                        item.title,
+                        item.url,
+                        item.summary,
+                        item.content,
+                        item.published.isoformat() if item.published else None,
+                        ",".join(item.tags) if item.tags else None,
+                        content_hash,
+                    ),
+                )
                 return conn.total_changes > 0
         except sqlite3.IntegrityError:
             logger.debug("Duplicate URL skipped: %s", item.url)
@@ -135,36 +139,45 @@ class IntelStorage:
     def hash_exists(self, content_hash: str, days: int = 7) -> bool:
         """Check if content hash exists in recent items."""
         with sqlite3.connect(self.db_path) as conn:
-            row = conn.execute("""
+            row = conn.execute(
+                """
                 SELECT 1 FROM intel_items
                 WHERE content_hash = ?
                 AND scraped_at >= datetime('now', ?)
                 LIMIT 1
-            """, (content_hash, f"-{days} days")).fetchone()
+            """,
+                (content_hash, f"-{days} days"),
+            ).fetchone()
             return row is not None
 
     def get_recent(self, days: int = 7, limit: int = 50) -> list[dict]:
         """Get recent intel items."""
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
-            cursor = conn.execute("""
+            cursor = conn.execute(
+                """
                 SELECT * FROM intel_items
                 WHERE scraped_at >= datetime('now', ?)
                 ORDER BY scraped_at DESC
                 LIMIT ?
-            """, (f"-{days} days", limit))
+            """,
+                (f"-{days} days", limit),
+            )
             return [dict(row) for row in cursor.fetchall()]
 
     def search(self, query: str, limit: int = 20) -> list[dict]:
         """Simple text search in titles and summaries."""
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
-            cursor = conn.execute("""
+            cursor = conn.execute(
+                """
                 SELECT * FROM intel_items
                 WHERE title LIKE ? OR summary LIKE ?
                 ORDER BY scraped_at DESC
                 LIMIT ?
-            """, (f"%{query}%", f"%{query}%", limit))
+            """,
+                (f"%{query}%", f"%{query}%", limit),
+            )
             return [dict(row) for row in cursor.fetchall()]
 
 

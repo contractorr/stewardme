@@ -72,7 +72,9 @@ class JournalStorage:
             ValueError: If entry_type invalid, content too long, or path escapes journal dir
         """
         if entry_type not in ALLOWED_ENTRY_TYPES:
-            raise ValueError(f"Invalid entry_type '{entry_type}'. Must be one of {ALLOWED_ENTRY_TYPES}")
+            raise ValueError(
+                f"Invalid entry_type '{entry_type}'. Must be one of {ALLOWED_ENTRY_TYPES}"
+            )
 
         if len(content) > MAX_CONTENT_LENGTH:
             raise ValueError(f"Content exceeds max length ({MAX_CONTENT_LENGTH} chars)")
@@ -190,11 +192,13 @@ class JournalStorage:
         for f in self.journal_dir.glob("*.md"):
             try:
                 post = frontmatter.load(f)
-                entries.append({
-                    "id": str(f),
-                    "content": post.content,
-                    "metadata": dict(post.metadata),
-                })
+                entries.append(
+                    {
+                        "id": str(f),
+                        "content": post.content,
+                        "metadata": dict(post.metadata),
+                    }
+                )
             except (OSError, ValueError):
                 continue
         return entries

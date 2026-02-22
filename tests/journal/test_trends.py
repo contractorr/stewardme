@@ -1,6 +1,5 @@
 """Tests for topic trend detection."""
 
-
 from journal.trends import TrendDetector
 
 
@@ -30,6 +29,7 @@ class TestTrendDetector:
     def test_bucket_key_weekly(self):
         """Weekly bucket key format."""
         from datetime import datetime
+
         dt = datetime(2024, 1, 15)  # Monday of week 3
         key = TrendDetector._get_bucket_key(dt, "weekly")
         assert "W" in key
@@ -37,6 +37,7 @@ class TestTrendDetector:
     def test_bucket_key_monthly(self):
         """Monthly bucket key format."""
         from datetime import datetime
+
         dt = datetime(2024, 3, 15)
         key = TrendDetector._get_bucket_key(dt, "monthly")
         assert key == "2024-03"

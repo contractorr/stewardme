@@ -1,6 +1,5 @@
 """Claude (Anthropic) LLM provider."""
 
-
 from ..base import (
     GenerateResponse,
     LLMAuthError,
@@ -33,6 +32,7 @@ class ClaudeProvider(LLMProvider):
 
     def _get_exceptions(self):
         from anthropic import APIError, AuthenticationError, RateLimitError
+
         return AuthenticationError, RateLimitError, APIError
 
     def _handle_error(self, e: Exception):
@@ -45,7 +45,9 @@ class ClaudeProvider(LLMProvider):
             raise LLMError(f"Claude API error: {e}") from e
         raise LLMError(f"Claude error: {e}") from e
 
-    def generate(self, messages: list[dict], system: str | None = None, max_tokens: int = 2000) -> str:
+    def generate(
+        self, messages: list[dict], system: str | None = None, max_tokens: int = 2000
+    ) -> str:
         try:
             self._get_exceptions()
         except ImportError:
@@ -113,11 +115,13 @@ class ClaudeProvider(LLMProvider):
                 if block.type == "text":
                     text_parts.append(block.text)
                 elif block.type == "tool_use":
-                    tool_calls.append(ToolCall(
-                        id=block.id,
-                        name=block.name,
-                        arguments=block.input,
-                    ))
+                    tool_calls.append(
+                        ToolCall(
+                            id=block.id,
+                            name=block.name,
+                            arguments=block.input,
+                        )
+                    )
 
             content = "\n".join(text_parts) if text_parts else None
 
@@ -152,12 +156,14 @@ class ClaudeProvider(LLMProvider):
                 if msg.get("content"):
                     content.append({"type": "text", "text": msg["content"]})
                 for tc in msg["tool_calls"]:
-                    content.append({
-                        "type": "tool_use",
-                        "id": tc["id"],
-                        "name": tc["name"],
-                        "input": tc["arguments"],
-                    })
+                    content.append(
+                        {
+                            "type": "tool_use",
+                            "id": tc["id"],
+                            "name": tc["name"],
+                            "input": tc["arguments"],
+                        }
+                    )
                 api_messages.append({"role": "assistant", "content": content})
 
             elif role == "tool":
@@ -165,12 +171,14 @@ class ClaudeProvider(LLMProvider):
                 tool_results = []
                 while i < len(messages) and messages[i].get("role") == "tool":
                     tr = messages[i]
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": tr["tool_call_id"],
-                        "content": tr["content"],
-                        **({"is_error": True} if tr.get("is_error") else {}),
-                    })
+                    tool_results.append(
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": tr["tool_call_id"],
+                            "content": tr["content"],
+                            **({"is_error": True} if tr.get("is_error") else {}),
+                        }
+                    )
                     i += 1
                 api_messages.append({"role": "user", "content": tool_results})
                 continue  # skip i += 1 at bottom

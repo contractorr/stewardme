@@ -84,7 +84,9 @@ class JournalExporter:
         for entry in entries:
             lines.append(f"## {entry['title']}")
             lines.append("")
-            lines.append(f"**Type:** {entry['type']} | **Date:** {entry['created'][:10] if entry.get('created') else 'N/A'}")
+            lines.append(
+                f"**Type:** {entry['type']} | **Date:** {entry['created'][:10] if entry.get('created') else 'N/A'}"
+            )
             if entry.get("tags"):
                 lines.append(f"**Tags:** {', '.join(entry['tags'])}")
             lines.append("")
@@ -113,6 +115,7 @@ class JournalExporter:
         # Filter by days if specified
         if days:
             from datetime import timedelta
+
             cutoff = datetime.now() - timedelta(days=days)
             filtered = []
             for e in entries:
@@ -133,13 +136,15 @@ class JournalExporter:
         for entry in entries:
             try:
                 post = self.storage.read(entry["path"])
-                result.append({
-                    "title": entry["title"],
-                    "type": entry["type"],
-                    "created": entry.get("created"),
-                    "tags": entry.get("tags", []),
-                    "content": post.content,
-                })
+                result.append(
+                    {
+                        "title": entry["title"],
+                        "type": entry["type"],
+                        "created": entry.get("created"),
+                        "tags": entry.get("tags", []),
+                        "content": post.content,
+                    }
+                )
             except (OSError, ValueError):
                 continue
 

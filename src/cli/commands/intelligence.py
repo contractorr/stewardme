@@ -80,7 +80,14 @@ def sources():
 
 @click.command("intel-export")
 @click.option("-o", "--output", required=True, type=click.Path(), help="Output file path")
-@click.option("-f", "--format", "fmt", default="json", type=click.Choice(["json", "csv", "markdown"]), help="Export format")
+@click.option(
+    "-f",
+    "--format",
+    "fmt",
+    default="json",
+    type=click.Choice(["json", "csv", "markdown"]),
+    help="Export format",
+)
 @click.option("-d", "--days", type=int, default=30, help="Only last N days")
 @click.option("-s", "--source", help="Filter by source")
 @click.option("-n", "--limit", type=int, help="Max items to export")

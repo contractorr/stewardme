@@ -15,6 +15,7 @@ logger = structlog.get_logger()
 @dataclass
 class SearchResult:
     """Single search result."""
+
     title: str
     url: str
     content: str
@@ -85,13 +86,15 @@ class WebSearchClient:
 
             results = []
             for item in data.get("results", []):
-                content = item.get("content", "")[:self.max_content_chars]
-                results.append(SearchResult(
-                    title=item.get("title", "Untitled"),
-                    url=item.get("url", ""),
-                    content=content,
-                    score=item.get("score", 0.0),
-                ))
+                content = item.get("content", "")[: self.max_content_chars]
+                results.append(
+                    SearchResult(
+                        title=item.get("title", "Untitled"),
+                        url=item.get("url", ""),
+                        content=content,
+                        score=item.get("score", 0.0),
+                    )
+                )
 
             logger.info("Tavily search for '%s' returned %d results", query, len(results))
             return results
@@ -117,10 +120,11 @@ class WebSearchClient:
             response.raise_for_status()
 
             from bs4 import BeautifulSoup
+
             soup = BeautifulSoup(response.text, "html.parser")
 
             results = []
-            for item in soup.select(".result")[:self.max_results]:
+            for item in soup.select(".result")[: self.max_results]:
                 title_el = item.select_one(".result__a")
                 snippet_el = item.select_one(".result__snippet")
                 if not title_el:
@@ -131,12 +135,14 @@ class WebSearchClient:
                 content = snippet_el.get_text(strip=True) if snippet_el else ""
 
                 if title and url:
-                    results.append(SearchResult(
-                        title=title,
-                        url=url,
-                        content=content[:self.max_content_chars],
-                        score=0.5,
-                    ))
+                    results.append(
+                        SearchResult(
+                            title=title,
+                            url=url,
+                            content=content[: self.max_content_chars],
+                            score=0.5,
+                        )
+                    )
 
             logger.info("DuckDuckGo search for '%s' returned %d results", query, len(results))
             return results
@@ -193,10 +199,11 @@ class AsyncWebSearchClient:
             response.raise_for_status()
 
             from bs4 import BeautifulSoup
+
             soup = BeautifulSoup(response.text, "html.parser")
 
             results = []
-            for item in soup.select(".result")[:self.max_results]:
+            for item in soup.select(".result")[: self.max_results]:
                 title_el = item.select_one(".result__a")
                 snippet_el = item.select_one(".result__snippet")
                 if not title_el:
@@ -205,10 +212,14 @@ class AsyncWebSearchClient:
                 url = title_el.get("href", "")
                 content = snippet_el.get_text(strip=True) if snippet_el else ""
                 if title and url:
-                    results.append(SearchResult(
-                        title=title, url=url,
-                        content=content[:self.max_content_chars], score=0.5,
-                    ))
+                    results.append(
+                        SearchResult(
+                            title=title,
+                            url=url,
+                            content=content[: self.max_content_chars],
+                            score=0.5,
+                        )
+                    )
             return results
         except Exception as e:
             logger.error("Async DuckDuckGo search failed: %s", e)
@@ -233,13 +244,15 @@ class AsyncWebSearchClient:
 
             results = []
             for item in data.get("results", []):
-                content = item.get("content", "")[:self.max_content_chars]
-                results.append(SearchResult(
-                    title=item.get("title", "Untitled"),
-                    url=item.get("url", ""),
-                    content=content,
-                    score=item.get("score", 0.0),
-                ))
+                content = item.get("content", "")[: self.max_content_chars]
+                results.append(
+                    SearchResult(
+                        title=item.get("title", "Untitled"),
+                        url=item.get("url", ""),
+                        content=content,
+                        score=item.get("score", 0.0),
+                    )
+                )
 
             return results
 

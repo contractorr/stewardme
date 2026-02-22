@@ -63,9 +63,7 @@ def test_get_context_no_research(mock_components):
     mock_components["rag"].get_full_context.return_value = ("j", "i", "")
 
     _get_context({"query": "test", "include_research": False})
-    mock_components["rag"].get_full_context.assert_called_once_with(
-        "test", include_research=False
-    )
+    mock_components["rag"].get_full_context.assert_called_once_with("test", include_research=False)
 
 
 def test_create(mock_components):

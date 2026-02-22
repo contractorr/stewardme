@@ -90,6 +90,7 @@ def _events_upcoming(args: dict) -> dict:
     profile = None
     try:
         from profile.storage import ProfileStorage
+
         profile_path = c["config"].get("profile", {}).get("path", "~/coach/profile.yaml")
         ps = ProfileStorage(profile_path)
         profile = ps.load()
@@ -164,7 +165,11 @@ TOOLS = [
             "description": "Get upcoming tech events (conferences, meetups, workshops) ranked by relevance to user profile.",
             "type": "object",
             "properties": {
-                "days": {"type": "integer", "description": "Lookback/forward window in days", "default": 90},
+                "days": {
+                    "type": "integer",
+                    "description": "Lookback/forward window in days",
+                    "default": 90,
+                },
                 "limit": {"type": "integer", "description": "Max events to return", "default": 20},
             },
             "required": [],

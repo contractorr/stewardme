@@ -46,6 +46,7 @@ class TestClaudeProvider:
 
     def test_auth_error(self):
         from anthropic import AuthenticationError
+
         mock_client = MagicMock()
         mock_client.messages.create.side_effect = AuthenticationError(
             message="bad key", response=MagicMock(status_code=401), body={}
@@ -57,6 +58,7 @@ class TestClaudeProvider:
 
     def test_rate_limit_error(self):
         from anthropic import RateLimitError
+
         mock_client = MagicMock()
         mock_client.messages.create.side_effect = RateLimitError(
             message="rate limited", response=MagicMock(status_code=429), body={}
@@ -68,6 +70,7 @@ class TestClaudeProvider:
 
     def test_api_error(self):
         from anthropic import APIError
+
         mock_client = MagicMock()
         mock_client.messages.create.side_effect = APIError(
             message="server error", request=MagicMock(), body=None

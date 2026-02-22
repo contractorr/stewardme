@@ -11,6 +11,7 @@ def _projects_discover(args: dict) -> dict:
     profile = None
     try:
         from profile.storage import ProfileStorage
+
         profile_path = c["config"].get("profile", {}).get("path", "~/coach/profile.yaml")
         ps = ProfileStorage(profile_path)
         profile = ps.load()
@@ -42,6 +43,7 @@ def _projects_ideas(args: dict) -> dict:
     profile_ctx = ""
     try:
         from profile.storage import ProfileStorage
+
         profile_path = c["config"].get("profile", {}).get("path", "~/coach/profile.yaml")
         ps = ProfileStorage(profile_path)
         p = ps.load()
@@ -51,7 +53,9 @@ def _projects_ideas(args: dict) -> dict:
         pass
 
     journal_ctx = c["search"].get_context_for_query(
-        "frustration problem idea project build wish", max_entries=10, max_chars=5000,
+        "frustration problem idea project build wish",
+        max_entries=10,
+        max_chars=5000,
     )
 
     return {
@@ -90,7 +94,11 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "limit": {"type": "integer", "description": "Max issues", "default": 20},
-                "days": {"type": "integer", "description": "Lookback window in days", "default": 14},
+                "days": {
+                    "type": "integer",
+                    "description": "Lookback window in days",
+                    "default": 14,
+                },
             },
             "required": [],
         },

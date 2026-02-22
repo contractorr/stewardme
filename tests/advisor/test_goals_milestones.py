@@ -11,6 +11,7 @@ class TestGoalMilestones:
     def _create_goal(self, temp_dirs):
         """Helper to create a goal with storage."""
         from journal.storage import JournalStorage
+
         storage = JournalStorage(temp_dirs["journal_dir"])
         tracker = GoalTracker(storage)
         path = storage.create(

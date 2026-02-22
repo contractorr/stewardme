@@ -65,7 +65,14 @@ class DeepResearchAgent:
         results = []
 
         if specific_topic:
-            topics = [{"topic": specific_topic, "source": "manual", "score": 10, "reason": "User specified"}]
+            topics = [
+                {
+                    "topic": specific_topic,
+                    "source": "manual",
+                    "score": 10,
+                    "reason": "User specified",
+                }
+            ]
         else:
             # Get topics to research, excluding recently researched
             recent = self.topic_selector.get_recent_research_topics()
@@ -111,7 +118,9 @@ class DeepResearchAgent:
 
             except (IOError, ValueError, KeyError) as e:
                 logger.error("Research failed for %s: %s", topic, e)
-                results.append({"topic": topic, "filepath": None, "success": False, "error": str(e)})
+                results.append(
+                    {"topic": topic, "filepath": None, "success": False, "error": str(e)}
+                )
 
         return results
 
@@ -163,7 +172,9 @@ class DeepResearchAgent:
         summary = report[:500] if len(report) > 500 else report
 
         # Use unique URL based on topic and date
-        unique_url = f"research://{topic.lower().replace(' ', '-')}/{datetime.now().strftime('%Y%m%d')}"
+        unique_url = (
+            f"research://{topic.lower().replace(' ', '-')}/{datetime.now().strftime('%Y%m%d')}"
+        )
 
         item = IntelItem(
             source="deep_research",
@@ -230,7 +241,14 @@ class AsyncDeepResearchAgent:
         results = []
 
         if specific_topic:
-            topics = [{"topic": specific_topic, "source": "manual", "score": 10, "reason": "User specified"}]
+            topics = [
+                {
+                    "topic": specific_topic,
+                    "source": "manual",
+                    "score": 10,
+                    "reason": "User specified",
+                }
+            ]
         else:
             recent = self.topic_selector.get_recent_research_topics()
             topics = self.topic_selector.get_topics(researched_topics=recent)
@@ -293,7 +311,9 @@ class AsyncDeepResearchAgent:
     def _store_intel_item(self, topic: str, report: str, search_results: list) -> None:
         """Store in intel DB."""
         summary = report[:500] if len(report) > 500 else report
-        unique_url = f"research://{topic.lower().replace(' ', '-')}/{datetime.now().strftime('%Y%m%d')}"
+        unique_url = (
+            f"research://{topic.lower().replace(' ', '-')}/{datetime.now().strftime('%Y%m%d')}"
+        )
 
         item = IntelItem(
             source="deep_research",

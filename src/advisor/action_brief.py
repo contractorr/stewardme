@@ -122,7 +122,9 @@ class ActionBriefGenerator:
             from advisor.events import get_upcoming_events
             from intelligence.scraper import IntelStorage
 
-            intel_db = Path(self.config.get("paths", {}).get("intel_db", "~/coach/intel.db")).expanduser()
+            intel_db = Path(
+                self.config.get("paths", {}).get("intel_db", "~/coach/intel.db")
+            ).expanduser()
             if not intel_db.exists():
                 return ""
 
@@ -131,6 +133,7 @@ class ActionBriefGenerator:
             profile = None
             try:
                 from profile.storage import ProfileStorage
+
                 profile_path = self.config.get("profile", {}).get("path", "~/coach/profile.yaml")
                 ps = ProfileStorage(profile_path)
                 profile = ps.load()
@@ -156,6 +159,7 @@ class ActionBriefGenerator:
         """Get active learning path status for the brief."""
         try:
             from advisor.learning_paths import LearningPathStorage
+
             lp_dir = self.config.get("learning_paths", {}).get("dir", "~/coach/learning_paths")
             storage = LearningPathStorage(lp_dir)
             active = storage.list_paths(status="active")
@@ -164,7 +168,9 @@ class ActionBriefGenerator:
 
             lines = []
             for p in active[:3]:
-                lines.append(f"- {p['skill']}: {p['completed_modules']}/{p['total_modules']} modules ({p['progress']}%)")
+                lines.append(
+                    f"- {p['skill']}: {p['completed_modules']}/{p['total_modules']} modules ({p['progress']}%)"
+                )
             return "\n".join(lines)
         except Exception as exc:
             logger.debug("learning_section_skipped", error=str(exc))
@@ -174,7 +180,10 @@ class ActionBriefGenerator:
         """Get new project opportunities for the brief."""
         try:
             from intelligence.scraper import IntelStorage
-            intel_db = Path(self.config.get("paths", {}).get("intel_db", "~/coach/intel.db")).expanduser()
+
+            intel_db = Path(
+                self.config.get("paths", {}).get("intel_db", "~/coach/intel.db")
+            ).expanduser()
             if not intel_db.exists():
                 return ""
 

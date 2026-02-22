@@ -17,19 +17,28 @@ def intel_setup(tmp_path):
 
     items = [
         IntelItem(
-            source="hackernews", title="HN Story",
-            url="https://example.com/hn1", summary="100 points",
-            published=datetime.now(), tags=["ai"],
+            source="hackernews",
+            title="HN Story",
+            url="https://example.com/hn1",
+            summary="100 points",
+            published=datetime.now(),
+            tags=["ai"],
         ),
         IntelItem(
-            source="reddit:startups", title="Reddit Post",
-            url="https://reddit.com/r/startups/1", summary="50 pts",
-            published=datetime.now(), tags=["startup"],
+            source="reddit:startups",
+            title="Reddit Post",
+            url="https://reddit.com/r/startups/1",
+            summary="50 pts",
+            published=datetime.now(),
+            tags=["startup"],
         ),
         IntelItem(
-            source="hackernews", title="Another HN",
-            url="https://example.com/hn2", summary="200 points",
-            published=datetime.now(), tags=["rust"],
+            source="hackernews",
+            title="Another HN",
+            url="https://example.com/hn2",
+            summary="200 points",
+            published=datetime.now(),
+            tags=["rust"],
         ),
     ]
     for item in items:
@@ -110,10 +119,14 @@ class TestIntelExportMarkdown:
     def test_export_unicode(self, tmp_path):
         db = tmp_path / "unicode.db"
         storage = IntelStorage(db)
-        storage.save(IntelItem(
-            source="hackernews", title="Unicode: caf\u00e9 \u2603",
-            url="https://example.com/unicode", summary="test",
-        ))
+        storage.save(
+            IntelItem(
+                source="hackernews",
+                title="Unicode: caf\u00e9 \u2603",
+                url="https://example.com/unicode",
+                summary="test",
+            )
+        )
         exporter = IntelExporter(storage)
         out = tmp_path / "unicode.md"
         count = exporter.export_markdown(out)

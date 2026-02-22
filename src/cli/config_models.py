@@ -12,6 +12,7 @@ VALID_LLM_PROVIDERS = {"auto", "claude", "openai", "gemini"}
 
 class LLMConfig(BaseModel):
     """LLM provider configuration."""
+
     provider: str = "auto"
     model: Optional[str] = None  # None = use provider default
     api_key: Optional[str] = None
@@ -26,6 +27,7 @@ class LLMConfig(BaseModel):
 
 class PathsConfig(BaseModel):
     """File paths configuration."""
+
     journal_dir: Path = Path("~/coach/journal")
     chroma_dir: Path = Path("~/coach/chroma")
     intel_db: Path = Path("~/coach/intel.db")
@@ -43,6 +45,7 @@ class PathsConfig(BaseModel):
 
 class SourcesConfig(BaseModel):
     """Intelligence sources configuration."""
+
     custom_blogs: list[str] = Field(default_factory=list)
     rss_feeds: list[str] = Field(default_factory=lambda: ["https://news.ycombinator.com/rss"])
     enabled: list[str] = Field(default_factory=lambda: ["hn_top", "rss_feeds"])
@@ -71,6 +74,7 @@ def validate_cron(expr: str) -> str:
 
 class ResearchConfig(BaseModel):
     """Deep research configuration."""
+
     enabled: bool = False
     max_topics: int = 3
     tavily_api_key: Optional[str] = None
@@ -84,14 +88,17 @@ class ResearchConfig(BaseModel):
 
 class ScoringConfig(BaseModel):
     """Recommendation scoring configuration."""
+
     min_threshold: float = 6.0
     max_per_category: int = 3
-    weights: dict = Field(default_factory=lambda: {
-        "relevance": 0.3,
-        "urgency": 0.25,
-        "feasibility": 0.25,
-        "impact": 0.2,
-    })
+    weights: dict = Field(
+        default_factory=lambda: {
+            "relevance": 0.3,
+            "urgency": 0.25,
+            "feasibility": 0.25,
+            "impact": 0.2,
+        }
+    )
 
     @model_validator(mode="after")
     def validate_weights(self):
@@ -104,6 +111,7 @@ class ScoringConfig(BaseModel):
 
 class RAGConfig(BaseModel):
     """RAG retrieval configuration."""
+
     max_context_chars: int = 8000
     journal_weight: float = 0.7
 
@@ -117,18 +125,21 @@ class RAGConfig(BaseModel):
 
 class SearchConfig(BaseModel):
     """Search defaults."""
+
     default_results: int = 5
     intel_similarity_threshold: float = 0.7
 
 
 class RateLimitSourceConfig(BaseModel):
     """Per-source rate limit."""
+
     requests_per_second: float = 2.0
     burst: int = 5
 
 
 class RateLimitsConfig(BaseModel):
     """Rate limits for external APIs."""
+
     default: RateLimitSourceConfig = Field(default_factory=RateLimitSourceConfig)
     tavily: RateLimitSourceConfig = Field(
         default_factory=lambda: RateLimitSourceConfig(requests_per_second=1.0, burst=1)
@@ -143,6 +154,7 @@ class RateLimitsConfig(BaseModel):
 
 class DeliveryConfig(BaseModel):
     """Recommendation delivery configuration."""
+
     methods: list[str] = Field(default_factory=lambda: ["journal"])
     schedule: str = "0 8 * * 0"
 
@@ -154,6 +166,7 @@ class DeliveryConfig(BaseModel):
 
 class RecommendationsConfig(BaseModel):
     """Recommendations system configuration."""
+
     enabled: bool = False
     scoring: ScoringConfig = Field(default_factory=ScoringConfig)
     delivery: DeliveryConfig = Field(default_factory=DeliveryConfig)
@@ -163,6 +176,7 @@ class RecommendationsConfig(BaseModel):
 
 class RetryConfig(BaseModel):
     """Retry/backoff configuration."""
+
     max_attempts: int = 3
     min_wait: float = 2.0
     max_wait: float = 10.0
@@ -171,6 +185,7 @@ class RetryConfig(BaseModel):
 
 class LimitsConfig(BaseModel):
     """Resource limits configuration."""
+
     hn_max_stories: int = 30
     rss_max_entries: int = 20
     github_max_repos: int = 25
@@ -189,6 +204,7 @@ VALID_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
 
 class LoggingConfig(BaseModel):
     """Logging configuration."""
+
     level: str = "INFO"
     file_level: str = "DEBUG"
 
@@ -203,6 +219,7 @@ class LoggingConfig(BaseModel):
 
 class CoachConfig(BaseModel):
     """Main configuration model."""
+
     llm: LLMConfig = Field(default_factory=LLMConfig)
     paths: PathsConfig = Field(default_factory=PathsConfig)
     sources: SourcesConfig = Field(default_factory=SourcesConfig)

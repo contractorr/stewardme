@@ -39,7 +39,7 @@ class HackerNewsScraper(BaseScraper):
             logger.debug("Fetching HN top stories")
             response = await self.client.get(f"{self.API_BASE}/topstories.json")
             response.raise_for_status()
-            story_ids = response.json()[:self.max_stories]
+            story_ids = response.json()[: self.max_stories]
             logger.debug("Got %d story IDs", len(story_ids))
 
             # Fetch stories concurrently with semaphore for rate limiting
@@ -57,7 +57,9 @@ class HackerNewsScraper(BaseScraper):
         logger.info("Scraped %d HN stories", len(items))
         return items
 
-    async def _fetch_story_limited(self, semaphore: asyncio.Semaphore, story_id: int) -> Optional[IntelItem]:
+    async def _fetch_story_limited(
+        self, semaphore: asyncio.Semaphore, story_id: int
+    ) -> Optional[IntelItem]:
         """Fetch story with rate limiting."""
         async with semaphore:
             return await self._fetch_story(story_id)

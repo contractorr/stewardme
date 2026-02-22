@@ -84,12 +84,14 @@ class EmbeddingManager:
         entries = []
         if results["ids"] and results["ids"][0]:
             for i, entry_id in enumerate(results["ids"][0]):
-                entries.append({
-                    "id": entry_id,
-                    "content": results["documents"][0][i] if results["documents"] else "",
-                    "metadata": results["metadatas"][0][i] if results["metadatas"] else {},
-                    "distance": results["distances"][0][i] if results["distances"] else 0,
-                })
+                entries.append(
+                    {
+                        "id": entry_id,
+                        "content": results["documents"][0][i] if results["documents"] else "",
+                        "metadata": results["metadatas"][0][i] if results["metadatas"] else {},
+                        "distance": results["distances"][0][i] if results["distances"] else 0,
+                    }
+                )
 
         return entries
 

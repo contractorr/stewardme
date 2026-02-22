@@ -40,10 +40,14 @@ class NudgeEngine:
         try:
             profile = self.profile_storage.load()
             if not profile:
-                return ["No profile set up yet. Run `coach profile update` to get personalized advice."]
+                return [
+                    "No profile set up yet. Run `coach profile update` to get personalized advice."
+                ]
             refresh_days = self.config.get("profile", {}).get("interview_refresh_days", 90)
             if profile.is_stale(refresh_days):
-                return [f"Profile is >{refresh_days} days old. Run `coach profile update` to refresh."]
+                return [
+                    f"Profile is >{refresh_days} days old. Run `coach profile update` to refresh."
+                ]
         except Exception:
             pass
         return []
@@ -53,11 +57,14 @@ class NudgeEngine:
             return []
         try:
             from advisor.goals import GoalTracker
+
             tracker = GoalTracker(self.journal_storage)
             stale = tracker.get_stale_goals(days=14)
             if stale:
                 top = stale[0]
-                return [f"Haven't checked in on \"{top['title']}\" in {top.get('days_since_check', '14+')} days."]
+                return [
+                    f'Haven\'t checked in on "{top["title"]}" in {top.get("days_since_check", "14+")} days.'
+                ]
         except Exception:
             pass
         return []
@@ -73,7 +80,9 @@ class NudgeEngine:
                     try:
                         updated_dt = datetime.fromisoformat(updated)
                         if (datetime.now() - updated_dt).days > 14:
-                            return [f"Learning path \"{path['skill']}\" hasn't progressed in 2+ weeks. Run `coach learn next`."]
+                            return [
+                                f'Learning path "{path["skill"]}" hasn\'t progressed in 2+ weeks. Run `coach learn next`.'
+                            ]
                     except ValueError:
                         pass
         except Exception:
@@ -91,8 +100,11 @@ class NudgeEngine:
             now = datetime.now()
             week_ago = now - timedelta(days=7)
             recent = [
-                e for e in entries
-                if e.get("created") and datetime.fromisoformat(e["created"].replace("Z", "+00:00")).replace(tzinfo=None) > week_ago
+                e
+                for e in entries
+                if e.get("created")
+                and datetime.fromisoformat(e["created"].replace("Z", "+00:00")).replace(tzinfo=None)
+                > week_ago
             ]
 
             if len(recent) >= 5:
@@ -109,6 +121,7 @@ def get_nudges_for_cli(config: dict, components: dict, max_nudges: int = 2) -> l
     profile_storage = None
     try:
         from profile.storage import ProfileStorage
+
         profile_path = config.get("profile", {}).get("path", "~/coach/profile.yaml")
         profile_storage = ProfileStorage(profile_path)
     except Exception:
@@ -117,6 +130,7 @@ def get_nudges_for_cli(config: dict, components: dict, max_nudges: int = 2) -> l
     lp_storage = None
     try:
         from advisor.learning_paths import LearningPathStorage
+
         lp_dir = config.get("learning_paths", {}).get("dir", "~/coach/learning_paths")
         lp_storage = LearningPathStorage(lp_dir)
     except Exception:

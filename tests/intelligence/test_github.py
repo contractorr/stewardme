@@ -1,6 +1,5 @@
 """Tests for GitHub trending scraper."""
 
-
 import pytest
 
 
