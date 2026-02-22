@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useRef, useCallback, useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { Brain, BookOpen, Newspaper, Target, Sparkles, Send, FlaskConical, ArrowRight } from "lucide-react";
 import {
@@ -90,6 +90,11 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
   const [goalsCreated, setGoalsCreated] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const handleClose = useCallback((completed = false) => {
+    if (completed && onComplete) onComplete();
+    onClose();
+  }, [onClose, onComplete]);
+
   // When opening in chat phase directly, start the interview
   useEffect(() => {
     if (!open) return;
@@ -110,7 +115,7 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
         }
       })();
     }
-  }, [open]);
+  }, [open, startPhase, token]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -124,12 +129,7 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [phase]);
-
-  const handleClose = (completed = false) => {
-    if (completed && onComplete) onComplete();
-    onClose();
-  };
+  }, [phase, handleClose]);
 
   const handleSaveKey = async () => {
     if (!apiKey.trim()) {

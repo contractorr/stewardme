@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useToken } from "@/hooks/useToken";
 import { BookOpen, Newspaper, Plus, Target } from "lucide-react";
@@ -80,29 +80,45 @@ export default function DashboardPage() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [intel, setIntel] = useState<Record<string, unknown>[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!!token);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
-  const fetchData = () => {
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-    Promise.allSettled([
-      apiFetch<JournalEntry[]>("/api/journal?limit=5", {}, token).then(setEntries),
-      apiFetch<Goal[]>("/api/goals", {}, token).then(setGoals),
-      apiFetch<Record<string, unknown>[]>("/api/intel/recent?limit=5", {}, token).then(setIntel),
-      apiFetch<{ llm_api_key_set: boolean }>("/api/settings", {}, token).then((s) => {
-        if (!s.llm_api_key_set && !localStorage.getItem("onboarding_dismissed")) {
-          setShowOnboarding(true);
-        }
-      }),
-    ]).finally(() => setLoading(false));
-  };
+  const loadDashboard = useCallback((t: string) => {
+    return Promise.allSettled([
+      apiFetch<JournalEntry[]>("/api/journal?limit=5", {}, t),
+      apiFetch<Goal[]>("/api/goals", {}, t),
+      apiFetch<Record<string, unknown>[]>("/api/intel/recent?limit=5", {}, t),
+      apiFetch<{ llm_api_key_set: boolean }>("/api/settings", {}, t),
+    ]);
+  }, []);
 
   useEffect(() => {
-    fetchData();
-  }, [token]);
+    if (!token) return;
+    let cancelled = false;
+    setLoading(true);
+    loadDashboard(token).then(([journalRes, goalsRes, intelRes, settingsRes]) => {
+      if (cancelled) return;
+      if (journalRes.status === "fulfilled") setEntries(journalRes.value);
+      if (goalsRes.status === "fulfilled") setGoals(goalsRes.value);
+      if (intelRes.status === "fulfilled") setIntel(intelRes.value);
+      if (settingsRes.status === "fulfilled") {
+        if (!settingsRes.value.llm_api_key_set && !localStorage.getItem("onboarding_dismissed")) {
+          setShowOnboarding(true);
+        }
+      }
+      setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [token, loadDashboard]);
+
+  const fetchData = useCallback(() => {
+    if (!token) return;
+    loadDashboard(token).then(([journalRes, goalsRes, intelRes]) => {
+      if (journalRes.status === "fulfilled") setEntries(journalRes.value);
+      if (goalsRes.status === "fulfilled") setGoals(goalsRes.value);
+      if (intelRes.status === "fulfilled") setIntel(intelRes.value);
+    });
+  }, [token, loadDashboard]);
 
   const dismissOnboarding = () => {
     localStorage.setItem("onboarding_dismissed", "true");
