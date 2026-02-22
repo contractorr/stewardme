@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useToken } from "@/hooks/useToken";
-import { BookOpen, Newspaper, Plus, Target } from "lucide-react";
+import { BookOpen, Newspaper, Target } from "lucide-react";
 import { OnboardingDialog } from "@/components/OnboardingDialog";
 import {
   Card,
@@ -51,13 +51,11 @@ function CardSkeleton() {
 
 function EmptyCard({
   icon: Icon,
-  title,
   description,
   href,
   action,
 }: {
   icon: React.ElementType;
-  title: string;
   description: string;
   href: string;
   action: string;
@@ -95,19 +93,19 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!token) return;
     let cancelled = false;
-    setLoading(true);
-    loadDashboard(token).then(([journalRes, goalsRes, intelRes, settingsRes]) => {
-      if (cancelled) return;
-      if (journalRes.status === "fulfilled") setEntries(journalRes.value);
-      if (goalsRes.status === "fulfilled") setGoals(goalsRes.value);
-      if (intelRes.status === "fulfilled") setIntel(intelRes.value);
-      if (settingsRes.status === "fulfilled") {
-        if (!settingsRes.value.llm_api_key_set && !localStorage.getItem("onboarding_dismissed")) {
-          setShowOnboarding(true);
+    loadDashboard(token)
+      .then(([journalRes, goalsRes, intelRes, settingsRes]) => {
+        if (cancelled) return;
+        if (journalRes.status === "fulfilled") setEntries(journalRes.value);
+        if (goalsRes.status === "fulfilled") setGoals(goalsRes.value);
+        if (intelRes.status === "fulfilled") setIntel(intelRes.value);
+        if (settingsRes.status === "fulfilled") {
+          if (!settingsRes.value.llm_api_key_set && !localStorage.getItem("onboarding_dismissed")) {
+            setShowOnboarding(true);
+          }
         }
-      }
-      setLoading(false);
-    });
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [token, loadDashboard]);
 
@@ -171,7 +169,7 @@ export default function DashboardPage() {
               ) : (
                 <EmptyCard
                   icon={BookOpen}
-                  title="Journal"
+
                   description="Start journaling to track your thoughts"
                   href="/journal"
                   action="Write first entry"
@@ -216,7 +214,7 @@ export default function DashboardPage() {
               ) : (
                 <EmptyCard
                   icon={Target}
-                  title="Goals"
+
                   description="Set goals to track your progress"
                   href="/goals"
                   action="Create first goal"
@@ -261,7 +259,7 @@ export default function DashboardPage() {
               ) : (
                 <EmptyCard
                   icon={Newspaper}
-                  title="Intel"
+
                   description="Scrape sources to populate intelligence"
                   href="/intel"
                   action="Go to Intel"
