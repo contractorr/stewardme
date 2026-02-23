@@ -3,15 +3,21 @@
 import { useState } from "react";
 import { useToken } from "@/hooks/useToken";
 import { AppHeader } from "@/components/AppHeader";
+import { Sidebar } from "@/components/Sidebar";
 import { SettingsSheet } from "@/components/SettingsSheet";
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const token = useToken();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <div className="h-screen">
-      <AppHeader onOpenSettings={() => setSettingsOpen(true)} />
+      <AppHeader
+        onOpenSettings={() => setSettingsOpen(true)}
+        onToggleSidebar={() => setSidebarOpen((v) => !v)}
+      />
+      <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} />
       {token && (
         <SettingsSheet
           open={settingsOpen}

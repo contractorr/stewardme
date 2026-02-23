@@ -307,7 +307,7 @@ export function ChatInterface({
             <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
               <Brain className="h-7 w-7 text-primary" />
             </div>
-            <h2 className="text-xl font-semibold">Welcome to StewardMe</h2>
+            <h2 className="text-xl font-semibold">Welcome to <span className="text-primary">StewardMe</span></h2>
             <p className="mt-1 text-sm text-muted-foreground">
               Enter your LLM API key to get started. Your key is encrypted and stored per-user.
             </p>

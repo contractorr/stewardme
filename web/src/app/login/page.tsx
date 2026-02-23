@@ -19,7 +19,7 @@ export default function LoginPage() {
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
             <Brain className="h-6 w-6 text-primary" />
           </div>
-          <CardTitle className="text-2xl">StewardMe</CardTitle>
+          <CardTitle className="text-2xl text-primary">StewardMe</CardTitle>
           <CardDescription className="text-balance">
             Your AI steward for navigating rapid change — proactive intelligence,
             opportunity discovery, and focus optimization.

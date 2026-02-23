@@ -197,7 +197,7 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
               <div className="mx-auto mb-1 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                 <Brain className="h-6 w-6 text-primary" />
               </div>
-              <SheetTitle className="text-center text-xl">StewardMe</SheetTitle>
+              <SheetTitle className="text-center text-xl text-primary">StewardMe</SheetTitle>
               <SheetDescription className="text-center">
                 Your AI steward for navigating rapid change
               </SheetDescription>
@@ -239,7 +239,7 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
               <div className="mx-auto mb-1 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                 <Brain className="h-6 w-6 text-primary" />
               </div>
-              <SheetTitle className="text-center text-xl">Welcome to StewardMe</SheetTitle>
+              <SheetTitle className="text-center text-xl"><span className="text-primary">StewardMe</span></SheetTitle>
               <SheetDescription className="text-center">
                 Let&apos;s set up your AI steward for navigating what&apos;s next
               </SheetDescription>
