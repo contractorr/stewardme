@@ -157,10 +157,12 @@ def _save_results(user_id: str, data: dict) -> int:
 
 def _strip_json_block(text: str) -> str:
     """Remove JSON block from response text to get just the conversational part."""
-    # Remove ```json...``` blocks
-    cleaned = re.sub(r"```json\s*\{.*?\}\s*```", "", text, flags=re.DOTALL)
-    # Remove bare {"done": true...} blocks
-    cleaned = re.sub(r'\{"done"\s*:\s*true.*\}', "", cleaned, flags=re.DOTALL)
+    # Remove ```json...``` blocks (non-greedy across newlines)
+    cleaned = re.sub(r"```(?:json)?\s*\{.*?\}\s*```", "", text, flags=re.DOTALL)
+    # Remove bare {"done": true...} blocks — match balanced braces greedily
+    cleaned = re.sub(r'\{\s*"done"\s*:\s*true.*', "", cleaned, flags=re.DOTALL)
+    # Clean up leftover whitespace/newlines
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     return cleaned.strip()
 
 
@@ -226,7 +228,11 @@ Output the JSON block now with whatever information you have."""
     # Check for completion JSON
     completion = _extract_completion_json(response)
     if completion:
-        goals_created = _save_results(user_id, completion)
+        try:
+            goals_created = _save_results(user_id, completion)
+        except Exception as e:
+            logger.error("onboarding.save_failed", user_id=user_id, error=str(e))
+            goals_created = 0
         _sessions.pop(user_id, None)
         clean_msg = _strip_json_block(response)
         if not clean_msg:
