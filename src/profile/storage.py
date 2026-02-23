@@ -25,6 +25,13 @@ class UserProfile(BaseModel):
     languages_frameworks: list[str] = Field(default_factory=list)
     learning_style: str = "mixed"  # visual/reading/hands-on/mixed
     weekly_hours_available: int = 5
+    goals_short_term: str = ""  # 6-month horizon
+    goals_long_term: str = ""  # 3-year horizon
+    industries_watching: list[str] = Field(default_factory=list)
+    technologies_watching: list[str] = Field(default_factory=list)
+    constraints: dict = Field(default_factory=dict)  # time_per_week, geography, budget_sensitivity
+    fears_risks: list[str] = Field(default_factory=list)
+    active_projects: list[str] = Field(default_factory=list)
     updated_at: Optional[str] = None
 
     def is_stale(self, days: int = 90) -> bool:
@@ -47,9 +54,32 @@ class UserProfile(BaseModel):
             parts.append("Interests: " + ", ".join(self.interests[:6]))
         if self.aspirations:
             parts.append(f"Aspirations: {self.aspirations[:200]}")
+        if self.goals_short_term:
+            parts.append(f"6-month goals: {self.goals_short_term[:200]}")
+        if self.goals_long_term:
+            parts.append(f"3-year goals: {self.goals_long_term[:200]}")
+        if self.industries_watching:
+            parts.append("Industries: " + ", ".join(self.industries_watching[:6]))
+        if self.technologies_watching:
+            parts.append("Watching: " + ", ".join(self.technologies_watching[:6]))
+        if self.active_projects:
+            parts.append("Projects: " + ", ".join(self.active_projects[:5]))
+        if self.fears_risks:
+            parts.append("Risks: " + ", ".join(self.fears_risks[:4]))
         if self.location:
             parts.append(f"Location: {self.location}")
-        if self.weekly_hours_available:
+        if self.constraints:
+            c = self.constraints
+            constraint_parts = []
+            if c.get("time_per_week"):
+                constraint_parts.append(f"{c['time_per_week']}h/week")
+            if c.get("geography"):
+                constraint_parts.append(c["geography"])
+            if c.get("budget_sensitivity"):
+                constraint_parts.append(f"budget: {c['budget_sensitivity']}")
+            if constraint_parts:
+                parts.append("Constraints: " + ", ".join(constraint_parts))
+        elif self.weekly_hours_available:
             parts.append(f"Available: {self.weekly_hours_available}h/week")
         parts.append(f"Learning style: {self.learning_style}")
         return " | ".join(parts)

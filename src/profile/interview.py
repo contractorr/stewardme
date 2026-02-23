@@ -91,6 +91,18 @@ def _build_profile(data: dict) -> UserProfile:
     except (ValueError, TypeError):
         hours = 5
 
+    # Normalize list fields
+    def _as_list(val) -> list[str]:
+        if isinstance(val, list):
+            return [str(v) for v in val]
+        if isinstance(val, str) and val:
+            return [v.strip() for v in val.split(",") if v.strip()]
+        return []
+
+    constraints = data.get("constraints", {})
+    if not isinstance(constraints, dict):
+        constraints = {}
+
     return UserProfile(
         skills=skills,
         interests=data.get("interests", []),
@@ -101,6 +113,13 @@ def _build_profile(data: dict) -> UserProfile:
         languages_frameworks=data.get("languages_frameworks", []),
         learning_style=style,
         weekly_hours_available=hours,
+        goals_short_term=data.get("goals_short_term", ""),
+        goals_long_term=data.get("goals_long_term", ""),
+        industries_watching=_as_list(data.get("industries_watching")),
+        technologies_watching=_as_list(data.get("technologies_watching")),
+        constraints=constraints,
+        fears_risks=_as_list(data.get("fears_risks")),
+        active_projects=_as_list(data.get("active_projects")),
     )
 
 

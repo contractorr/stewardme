@@ -7,11 +7,13 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException
 
 from advisor.goals import get_goal_defaults
+from journal.embeddings import EmbeddingManager
 from journal.storage import JournalStorage
 from llm import create_llm_provider
 from web.auth import get_current_user
 from web.deps import get_api_key_for_user, get_config, get_user_paths
-from web.models import OnboardingChat, OnboardingResponse
+from web.models import OnboardingChat, OnboardingResponse, ProfileStatus
+from web.user_store import clear_onboarding_responses, save_onboarding_turn
 
 logger = structlog.get_logger()
 
@@ -22,25 +24,29 @@ _sessions: dict[str, dict] = {}
 
 MAX_TURNS = 15
 
-ONBOARDING_SYSTEM = """You are a friendly career coach onboarding a new user. Ask one clear question at a time.
-Your job is to gather enough information to build their professional profile AND identify initial goals.
+ONBOARDING_SYSTEM = """You are a warm, curious career coach onboarding a new user. Your goal is to deeply \
+understand who they are so you can give them exceptional, personalized guidance over time.
+
+Ask one clear question at a time. Follow up on interesting answers — if someone mentions a startup, ask about \
+stage and target market. If they mention a career transition, ask what's driving it.
 
 You need to learn:
-1. Current role and career stage (junior/mid/senior/lead/exec)
+1. Current role/situation and career stage (junior/mid/senior/lead/exec)
 2. Technical skills and proficiency levels (1-5 scale)
 3. Programming languages and frameworks used
 4. Professional interests and passions
-5. Career aspirations and goals
-6. Location (city/country)
-7. Preferred learning style (visual/reading/hands-on/mixed)
-8. Weekly hours available for professional development
-9. 1-3 concrete goals they want to track (e.g. "learn Rust", "get promoted", "publish a paper")
-10. Current challenges or concerns they're facing
-11. What they hope to get from this app
+5. 6-month goals (what do you want to achieve in the next 6 months?)
+6. 3-year vision (where do you see yourself in 3 years?)
+7. Industries and technologies they're watching or curious about
+8. Time/geography/budget constraints (how many hours per week, any location constraints, budget sensitivity)
+9. Fears, risks, or concerns they're navigating (job market anxiety, imposter syndrome, burnout, etc.)
+10. Active projects or side projects they're working on
+11. Location (city/country)
+12. Preferred learning style (visual/reading/hands-on/mixed)
+13. 1-3 concrete goals to track (e.g. "learn Rust", "get promoted", "launch my SaaS")
 
-Adapt your questions based on previous answers. Be conversational but efficient.
-Group related questions when natural (e.g. role + career stage).
-After gathering enough info (5-8 questions), output EXACTLY this JSON block:
+Adapt your questions based on previous answers. Group related questions when natural.
+Aim for 5-8 exchanges. After gathering enough info, output EXACTLY this JSON block:
 
 ```json
 {"done": true, "profile": {
@@ -50,6 +56,13 @@ After gathering enough info (5-8 questions), output EXACTLY this JSON block:
   "languages_frameworks": ["python", "react", ...],
   "interests": ["...", ...],
   "aspirations": "...",
+  "goals_short_term": "6-month goals as a sentence",
+  "goals_long_term": "3-year vision as a sentence",
+  "industries_watching": ["fintech", "AI/ML", ...],
+  "technologies_watching": ["rust", "webassembly", ...],
+  "constraints": {"time_per_week": N, "geography": "...", "budget_sensitivity": "low|medium|high"},
+  "fears_risks": ["concern 1", ...],
+  "active_projects": ["project 1", ...],
   "location": "...",
   "learning_style": "visual|reading|hands-on|mixed",
   "weekly_hours_available": N
@@ -59,10 +72,13 @@ After gathering enough info (5-8 questions), output EXACTLY this JSON block:
 ]}
 ```
 
-Before the JSON block, include a brief friendly wrap-up message summarizing what you learned."""
+Before the JSON block, include a brief friendly wrap-up message. End with: \
+"Your profile will continue to deepen over time as you journal and interact with your steward."
+"""
 
-ONBOARDING_START = """Start the onboarding interview. Greet the user warmly, briefly explain you'll ask a few questions
-to personalize their experience, then ask your first question. Be concise."""
+ONBOARDING_START = """Start the onboarding interview. Greet the user warmly, briefly explain you'll ask a few \
+questions to understand who they are and what they're working toward, then ask your first question. Be concise \
+and curious."""
 
 
 def _extract_completion_json(text: str) -> dict | None:
@@ -120,6 +136,40 @@ def _make_llm_caller(user_id: str):
     return caller
 
 
+def _embed_profile(user_id: str, profile) -> None:
+    """Embed profile summary + narrative into ChromaDB for RAG retrieval."""
+    try:
+        paths = get_user_paths(user_id)
+        em = EmbeddingManager(paths["chroma_dir"], collection_name="profile")
+
+        # Build narrative from profile fields
+        parts = [profile.summary()]
+        if profile.goals_short_term:
+            parts.append(f"Short-term goals: {profile.goals_short_term}")
+        if profile.goals_long_term:
+            parts.append(f"Long-term vision: {profile.goals_long_term}")
+        if profile.fears_risks:
+            parts.append("Concerns: " + ", ".join(profile.fears_risks))
+        if profile.active_projects:
+            parts.append("Active projects: " + ", ".join(profile.active_projects))
+        if profile.constraints:
+            c = profile.constraints
+            if c.get("geography"):
+                parts.append(f"Geography: {c['geography']}")
+            if c.get("budget_sensitivity"):
+                parts.append(f"Budget sensitivity: {c['budget_sensitivity']}")
+
+        text = "\n".join(parts)
+        em.add_entry(
+            f"profile:{user_id}",
+            text,
+            {"type": "profile", "user_id": user_id},
+        )
+        logger.info("onboarding.profile_embedded", user_id=user_id)
+    except Exception as e:
+        logger.warning("onboarding.embed_failed", user_id=user_id, error=str(e))
+
+
 def _save_results(user_id: str, data: dict) -> int:
     """Save profile and create goals. Returns number of goals created."""
     paths = get_user_paths(user_id)
@@ -132,6 +182,9 @@ def _save_results(user_id: str, data: dict) -> int:
     storage = ProfileStorage(paths["profile"])
     storage.save(profile)
     logger.info("onboarding.profile_saved", user_id=user_id, skills=len(profile.skills))
+
+    # Embed profile in ChromaDB
+    _embed_profile(user_id, profile)
 
     # Create goals
     goals = data.get("goals", [])
@@ -170,6 +223,12 @@ def _strip_json_block(text: str) -> str:
 async def start_onboarding(user: dict = Depends(get_current_user)):
     user_id = user["id"]
 
+    # Clear previous onboarding responses for re-onboarding
+    try:
+        clear_onboarding_responses(user_id)
+    except Exception as e:
+        logger.warning("onboarding.clear_failed", user_id=user_id, error=str(e))
+
     try:
         caller = _make_llm_caller(user_id)
         response = caller(ONBOARDING_SYSTEM, ONBOARDING_START)
@@ -184,6 +243,12 @@ async def start_onboarding(user: dict = Depends(get_current_user)):
         "caller": caller,
         "turns": 0,
     }
+
+    # Persist first assistant turn
+    try:
+        save_onboarding_turn(user_id, 0, "assistant", response)
+    except Exception as e:
+        logger.warning("onboarding.persist_failed", user_id=user_id, error=str(e))
 
     return OnboardingResponse(message=response, done=False)
 
@@ -202,6 +267,13 @@ async def chat_onboarding(
 
     session["messages"].append(("user", body.message))
     session["turns"] += 1
+    turn = session["turns"]
+
+    # Persist user turn
+    try:
+        save_onboarding_turn(user_id, turn, "user", body.message)
+    except Exception as e:
+        logger.warning("onboarding.persist_failed", user_id=user_id, error=str(e))
 
     # Build conversation history
     history = "\n".join(
@@ -236,10 +308,16 @@ Output the JSON block now with whatever information you have."""
         _sessions.pop(user_id, None)
         clean_msg = _strip_json_block(response)
         if not clean_msg:
-            clean_msg = "Great, I've got everything I need! Your profile is set up."
+            clean_msg = "Great, I've got everything I need! Your profile is set up and will continue to deepen over time."
         return OnboardingResponse(message=clean_msg, done=True, goals_created=goals_created)
 
     session["messages"].append(("assistant", response))
+
+    # Persist assistant turn
+    try:
+        save_onboarding_turn(user_id, turn, "assistant", response)
+    except Exception as e:
+        logger.warning("onboarding.persist_failed", user_id=user_id, error=str(e))
 
     # Force extraction if we hit max turns and LLM didn't include JSON
     if force:
@@ -257,3 +335,23 @@ Now output ONLY the JSON block with profile and goals based on everything discus
         return OnboardingResponse(message=response, done=True, goals_created=goals_created)
 
     return OnboardingResponse(message=response, done=False)
+
+
+@router.get("/profile-status", response_model=ProfileStatus)
+async def get_profile_status(user: dict = Depends(get_current_user)):
+    """Check if user has a profile, if it's stale, and if they have an API key."""
+    user_id = user["id"]
+    paths = get_user_paths(user_id)
+
+    from profile.storage import ProfileStorage
+
+    storage = ProfileStorage(paths["profile"])
+    profile = storage.load()
+
+    has_api_key = bool(get_api_key_for_user(user_id))
+
+    return ProfileStatus(
+        has_profile=profile is not None,
+        is_stale=profile.is_stale() if profile else False,
+        has_api_key=has_api_key,
+    )

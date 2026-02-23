@@ -1,13 +1,21 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useToken } from "@/hooks/useToken";
 import { ChatInterface } from "@/components/ChatInterface";
 import { apiFetch } from "@/lib/api";
 import type { BriefingResponse } from "@/types/briefing";
 
+interface ProfileStatus {
+  has_profile: boolean;
+  is_stale: boolean;
+  has_api_key: boolean;
+}
+
 export default function HomePage() {
   const token = useToken();
+  const router = useRouter();
   const [briefing, setBriefing] = useState<BriefingResponse | null>(null);
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
 
@@ -30,22 +38,28 @@ export default function HomePage() {
     Promise.allSettled([
       loadBriefing(token),
       apiFetch<{ llm_api_key_set: boolean }>("/api/settings", {}, token),
-    ]).then(([, settingsRes]) => {
+      apiFetch<ProfileStatus>("/api/onboarding/profile-status", {}, token),
+    ]).then(([, settingsRes, profileRes]) => {
       if (cancelled) return;
-      if (
+
+      const noApiKey =
         settingsRes.status === "fulfilled" &&
-        !settingsRes.value.llm_api_key_set
-      ) {
-        setNeedsOnboarding(true);
-      } else {
-        setNeedsOnboarding(false);
+        !settingsRes.value.llm_api_key_set;
+      const noProfile =
+        profileRes.status === "fulfilled" &&
+        !profileRes.value.has_profile;
+
+      if (noApiKey || noProfile) {
+        router.replace("/onboarding");
+        return;
       }
+      setNeedsOnboarding(false);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [token, loadBriefing]);
+  }, [token, loadBriefing, router]);
 
   const handleRefresh = () => {
     if (!token) return;
@@ -62,7 +76,7 @@ export default function HomePage() {
         token={token}
         briefing={briefing}
         onRefresh={handleRefresh}
-        onboardingMode={needsOnboarding}
+        onboardingMode={false}
       />
     </div>
   );
