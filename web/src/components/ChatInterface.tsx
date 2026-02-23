@@ -4,30 +4,23 @@ import { useRef, useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import {
-  AlertTriangle,
   Brain,
-  Lightbulb,
   Plus,
   Send,
-  Target,
+  ArrowRight,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
-import {
-  SignalsCard,
-  PatternsCard,
-  RecommendationsCard,
-  StaleGoalsCard,
-} from "@/components/DailyBrief";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { apiFetch, apiFetchSSE } from "@/lib/api";
 import type { BriefingResponse } from "@/types/briefing";
 
@@ -46,21 +39,74 @@ const TOOL_LABELS: Record<string, string> = {
 interface Message {
   role: "user" | "assistant";
   content: string;
-  isGreeting?: boolean;
+  isBriefing?: boolean;
 }
 
 const CONV_KEY = "main_chat_conv_id";
 
-type SheetType = "signals" | "patterns" | "recommendations" | "goals" | null;
+const SUGGESTION_CHIPS = [
+  "Journal my thoughts",
+  "Set a new goal",
+  "What should I focus on?",
+  "Review my progress",
+];
+
+function buildBriefingMessage(briefing: BriefingResponse): string {
+  const hour = new Date().getHours();
+  const greeting =
+    hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+  const parts: string[] = [`${greeting}! Here's your daily brief:\n`];
+
+  if (briefing.signals.length > 0) {
+    parts.push("### Signals");
+    for (const s of briefing.signals) {
+      parts.push(`- **${s.title}** (severity ${s.severity}) — ${s.detail}`);
+    }
+    parts.push("");
+  }
+
+  if (briefing.patterns.length > 0) {
+    parts.push("### Patterns");
+    for (const p of briefing.patterns) {
+      parts.push(
+        `- **${p.summary}** (${Math.round(p.confidence * 100)}% confidence)${p.evidence.length > 0 ? ` — ${p.evidence[0]}` : ""}`
+      );
+    }
+    parts.push("");
+  }
+
+  if (briefing.recommendations.length > 0) {
+    parts.push("### Recommendations");
+    for (const r of briefing.recommendations) {
+      parts.push(`- **${r.title}** [${r.category}] — ${r.description}`);
+    }
+    parts.push("");
+  }
+
+  if (briefing.stale_goals.length > 0) {
+    parts.push("### Stale Goals");
+    for (const g of briefing.stale_goals) {
+      parts.push(`- **${g.title}** — last check-in ${g.days_since_check}d ago`);
+    }
+    parts.push("");
+  }
+
+  parts.push("Ask me about any of these, or tell me what's on your mind.");
+
+  return parts.join("\n");
+}
 
 export function ChatInterface({
   token,
   briefing,
   onRefresh,
+  onboardingMode,
 }: {
   token: string;
   briefing: BriefingResponse | null;
   onRefresh: () => void;
+  onboardingMode?: boolean;
 }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -68,12 +114,22 @@ export function ChatInterface({
   const [toolStatus, setToolStatus] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [restoredConv, setRestoredConv] = useState(false);
-  const [openSheet, setOpenSheet] = useState<SheetType>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Restore conversation on mount
+  // Onboarding state
+  const [onboardingPhase, setOnboardingPhase] = useState<"key" | "chat" | null>(
+    onboardingMode ? "key" : null
+  );
+  const [provider, setProvider] = useState("auto");
+  const [apiKey, setApiKey] = useState("");
+  const [savingKey, setSavingKey] = useState(false);
+  const [onboardingSending, setOnboardingSending] = useState(false);
+  const [onboardingDone, setOnboardingDone] = useState(false);
+
+  // Restore conversation on mount (skip in onboarding)
   useEffect(() => {
+    if (onboardingMode) return;
     const saved = localStorage.getItem(CONV_KEY);
     if (!saved) {
       setRestoredConv(false);
@@ -93,48 +149,25 @@ export function ChatInterface({
         setRestoredConv(false);
       }
     })();
-  }, [token]);
+  }, [token, onboardingMode]);
 
-  // Proactive greeting when no conversation and briefing data exists
+  // Proactive briefing as first message
   useEffect(() => {
+    if (onboardingMode) return;
     if (messages.length > 0 || restoredConv) return;
     if (!briefing?.has_data) return;
 
-    const parts: string[] = [];
-    const hour = new Date().getHours();
-    const greeting =
-      hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-
-    parts.push(`${greeting}! Here's what I noticed today:\n`);
-
-    if (briefing.signals.length > 0)
-      parts.push(
-        `- **${briefing.signals.length} signal${briefing.signals.length > 1 ? "s" : ""}** need attention`
-      );
-    if (briefing.patterns.length > 0)
-      parts.push(
-        `- **${briefing.patterns.length} pattern${briefing.patterns.length > 1 ? "s" : ""}** detected in your journal`
-      );
-    if (briefing.recommendations.length > 0)
-      parts.push(
-        `- **${briefing.recommendations.length} recommendation${briefing.recommendations.length > 1 ? "s" : ""}** ready to review`
-      );
-    if (briefing.stale_goals.length > 0)
-      parts.push(
-        `- **${briefing.stale_goals.length} stale goal${briefing.stale_goals.length > 1 ? "s" : ""}** could use a check-in`
-      );
-
-    parts.push("\nWhat would you like to focus on?");
-
-    setMessages([{ role: "assistant", content: parts.join("\n"), isGreeting: true }]);
-  }, [briefing, messages.length, restoredConv]);
+    setMessages([
+      { role: "assistant", content: buildBriefingMessage(briefing), isBriefing: true },
+    ]);
+  }, [briefing, messages.length, restoredConv, onboardingMode]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
       top: scrollRef.current.scrollHeight,
       behavior: "smooth",
     });
-  }, [messages, loading]);
+  }, [messages, loading, onboardingSending]);
 
   const handleNewChat = () => {
     setConversationId(null);
@@ -143,32 +176,18 @@ export function ChatInterface({
     localStorage.removeItem(CONV_KEY);
   };
 
-  const handlePrefill = (question: string) => {
-    setInput(question);
-    setOpenSheet(null);
+  const handleChipClick = (text: string) => {
+    setInput(text);
     setTimeout(() => textareaRef.current?.focus(), 100);
-  };
-
-  const handleDismissSignal = async (signalId: number) => {
-    try {
-      await apiFetch(
-        `/api/briefing/signals/${signalId}/acknowledge`,
-        { method: "POST" },
-        token
-      );
-      onRefresh();
-    } catch (e) {
-      toast.error((e as Error).message);
-    }
   };
 
   const handleSend = useCallback(async () => {
     if (!input.trim() || loading) return;
     const question = input.trim();
     setInput("");
-    // Filter out greeting messages before adding user message
+    // Filter out briefing messages before adding user message
     setMessages((prev) => [
-      ...prev.filter((m) => !m.isGreeting),
+      ...prev.filter((m) => !m.isBriefing),
       { role: "user", content: question },
     ]);
     setLoading(true);
@@ -223,108 +242,201 @@ export function ChatInterface({
     }
   }, [input, loading, conversationId, token]);
 
-  const hasBadges = briefing?.has_data;
+  // --- Onboarding handlers ---
+  const handleSaveKey = async () => {
+    if (!apiKey.trim()) {
+      toast.error("Please enter an API key");
+      return;
+    }
+    setSavingKey(true);
+    try {
+      const payload: Record<string, string> = { llm_api_key: apiKey };
+      if (provider !== "auto") payload.llm_provider = provider;
+      await apiFetch("/api/settings", { method: "PUT", body: JSON.stringify(payload) }, token);
 
-  return (
-    <div className="flex h-full flex-col">
-      {/* Insight badges */}
-      {hasBadges && (
-        <div className="flex flex-wrap gap-2 px-4 py-3 border-b">
-          {briefing!.signals.length > 0 && (
-            <button
-              onClick={() => setOpenSheet("signals")}
-              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium hover:bg-accent transition-colors"
+      // Start onboarding chat
+      setOnboardingPhase("chat");
+      setOnboardingSending(true);
+      const res = await apiFetch<{ message: string; done: boolean }>(
+        "/api/onboarding/start",
+        { method: "POST" },
+        token
+      );
+      setMessages([{ role: "assistant", content: res.message }]);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setSavingKey(false);
+      setOnboardingSending(false);
+    }
+  };
+
+  const handleOnboardingSend = async () => {
+    if (!input.trim() || onboardingSending) return;
+    const text = input.trim();
+    setInput("");
+    setMessages((prev) => [...prev, { role: "user", content: text }]);
+    setOnboardingSending(true);
+
+    try {
+      const res = await apiFetch<{ message: string; done: boolean; goals_created: number }>(
+        "/api/onboarding/chat",
+        { method: "POST", body: JSON.stringify({ message: text }) },
+        token
+      );
+      setMessages((prev) => [...prev, { role: "assistant", content: res.message }]);
+      if (res.done) {
+        setOnboardingDone(true);
+        onRefresh();
+      }
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setOnboardingSending(false);
+    }
+  };
+
+  // --- Onboarding: API key phase ---
+  if (onboardingPhase === "key") {
+    return (
+      <div className="flex h-full flex-col items-center justify-center px-4">
+        <div className="w-full max-w-md space-y-6">
+          <div className="flex flex-col items-center text-center">
+            <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+              <Brain className="h-7 w-7 text-primary" />
+            </div>
+            <h2 className="text-xl font-semibold">Welcome to Journal Assistant</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Enter your LLM API key to get started. Your key is encrypted and stored per-user.
+            </p>
+          </div>
+
+          <div className="space-y-4 rounded-lg border p-4">
+            <div className="space-y-1.5">
+              <Label>Provider</Label>
+              <Select value={provider} onValueChange={setProvider}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Auto-detect</SelectItem>
+                  <SelectItem value="claude">Claude</SelectItem>
+                  <SelectItem value="openai">OpenAI</SelectItem>
+                  <SelectItem value="gemini">Gemini</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>API Key</Label>
+              <Input
+                type="password"
+                placeholder="sk-... or your provider key"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSaveKey();
+                }}
+              />
+            </div>
+            <Button onClick={handleSaveKey} disabled={savingKey} className="w-full">
+              {savingKey ? "Setting up..." : "Get Started"}
+              {!savingKey && <ArrowRight className="ml-2 h-4 w-4" />}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Onboarding: chat phase ---
+  if (onboardingPhase === "chat") {
+    return (
+      <div className="flex h-full flex-col">
+        <div className="border-b px-4 py-2">
+          <p className="text-sm font-medium">Setting up your profile</p>
+          <p className="text-xs text-muted-foreground">
+            Answer a few questions to personalize your experience
+          </p>
+        </div>
+
+        <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+          {messages.map((msg, i) => (
+            <Card
+              key={i}
+              className={msg.role === "user" ? "ml-12 bg-primary/5" : "mr-12"}
             >
-              <AlertTriangle className="h-3 w-3" />
-              {briefing!.signals.length} Signal{briefing!.signals.length > 1 ? "s" : ""}
-            </button>
-          )}
-          {briefing!.patterns.length > 0 && (
-            <button
-              onClick={() => setOpenSheet("patterns")}
-              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium hover:bg-accent transition-colors"
-            >
-              <Brain className="h-3 w-3" />
-              {briefing!.patterns.length} Pattern{briefing!.patterns.length > 1 ? "s" : ""}
-            </button>
-          )}
-          {briefing!.recommendations.length > 0 && (
-            <button
-              onClick={() => setOpenSheet("recommendations")}
-              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium hover:bg-accent transition-colors"
-            >
-              <Lightbulb className="h-3 w-3" />
-              {briefing!.recommendations.length} Rec{briefing!.recommendations.length > 1 ? "s" : ""}
-            </button>
-          )}
-          {briefing!.stale_goals.length > 0 && (
-            <button
-              onClick={() => setOpenSheet("goals")}
-              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium hover:bg-accent transition-colors"
-            >
-              <Target className="h-3 w-3" />
-              {briefing!.stale_goals.length} Stale Goal{briefing!.stale_goals.length > 1 ? "s" : ""}
-            </button>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs text-muted-foreground">
+                  {msg.role === "user" ? "You" : "Advisor"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {msg.role === "assistant" ? (
+                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <div className="text-sm">{msg.content}</div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+          {onboardingSending && (
+            <Card className="mr-12">
+              <CardContent className="py-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="flex gap-1">
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:0ms]" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:150ms]" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:300ms]" />
+                  </div>
+                  Thinking...
+                </div>
+              </CardContent>
+            </Card>
           )}
         </div>
-      )}
 
-      {/* Sheet overlays for detail cards */}
-      <Sheet open={openSheet === "signals"} onOpenChange={(o) => !o && setOpenSheet(null)}>
-        <SheetContent>
-          <SheetHeader>
-            <SheetTitle>Signals</SheetTitle>
-            <SheetDescription>Items that need your attention</SheetDescription>
-          </SheetHeader>
-          <div className="overflow-y-auto px-6 pb-6">
-            <SignalsCard
-              signals={briefing?.signals ?? []}
-              onAskAbout={handlePrefill}
-              onDismiss={handleDismissSignal}
-            />
+        {onboardingDone ? (
+          <div className="border-t px-4 py-3 text-center">
+            <p className="text-sm text-muted-foreground">
+              Profile set up! Reloading...
+            </p>
           </div>
-        </SheetContent>
-      </Sheet>
-      <Sheet open={openSheet === "patterns"} onOpenChange={(o) => !o && setOpenSheet(null)}>
-        <SheetContent>
-          <SheetHeader>
-            <SheetTitle>Patterns</SheetTitle>
-            <SheetDescription>Trends detected in your journal</SheetDescription>
-          </SheetHeader>
-          <div className="overflow-y-auto px-6 pb-6">
-            <PatternsCard patterns={briefing?.patterns ?? []} onAskAbout={handlePrefill} />
+        ) : (
+          <div className="border-t px-4 py-3">
+            <div className="mx-auto flex max-w-3xl gap-2">
+              <Textarea
+                ref={textareaRef}
+                rows={2}
+                placeholder="Type your answer..."
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleOnboardingSend();
+                  }
+                }}
+                disabled={onboardingSending}
+                className="flex-1"
+              />
+              <Button
+                onClick={handleOnboardingSend}
+                disabled={onboardingSending || !input.trim()}
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-        </SheetContent>
-      </Sheet>
-      <Sheet open={openSheet === "recommendations"} onOpenChange={(o) => !o && setOpenSheet(null)}>
-        <SheetContent>
-          <SheetHeader>
-            <SheetTitle>Recommendations</SheetTitle>
-            <SheetDescription>Suggested actions based on your data</SheetDescription>
-          </SheetHeader>
-          <div className="overflow-y-auto px-6 pb-6">
-            <RecommendationsCard
-              recommendations={briefing?.recommendations ?? []}
-              onAskAbout={handlePrefill}
-            />
-          </div>
-        </SheetContent>
-      </Sheet>
-      <Sheet open={openSheet === "goals"} onOpenChange={(o) => !o && setOpenSheet(null)}>
-        <SheetContent>
-          <SheetHeader>
-            <SheetTitle>Stale Goals</SheetTitle>
-            <SheetDescription>Goals that haven&apos;t been checked in recently</SheetDescription>
-          </SheetHeader>
-          <div className="overflow-y-auto px-6 pb-6">
-            <StaleGoalsCard
-              goals={briefing?.stale_goals ?? []}
-              onAskAbout={handlePrefill}
-            />
-          </div>
-        </SheetContent>
-      </Sheet>
+        )}
+      </div>
+    );
+  }
 
+  // --- Normal chat ---
+  return (
+    <div className="flex h-full flex-col">
       {/* Chat messages */}
       <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
         {messages.length === 0 && (
@@ -336,6 +448,17 @@ export function ChatInterface({
             <p className="mt-1 max-w-md text-sm text-muted-foreground">
               Ask a question, write a journal entry, check in on a goal — I&apos;ll figure out the rest.
             </p>
+            <div className="mt-6 flex flex-wrap justify-center gap-2">
+              {SUGGESTION_CHIPS.map((chip) => (
+                <button
+                  key={chip}
+                  onClick={() => handleChipClick(chip)}
+                  className="rounded-full border px-3 py-1.5 text-sm hover:bg-accent transition-colors"
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
           </div>
         )}
         {messages.map((msg, i) => (

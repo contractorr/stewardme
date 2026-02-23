@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useToken } from "@/hooks/useToken";
-import { OnboardingDialog } from "@/components/OnboardingDialog";
 import { ChatInterface } from "@/components/ChatInterface";
 import { apiFetch } from "@/lib/api";
 import type { BriefingResponse } from "@/types/briefing";
@@ -10,7 +9,7 @@ import type { BriefingResponse } from "@/types/briefing";
 export default function HomePage() {
   const token = useToken();
   const [briefing, setBriefing] = useState<BriefingResponse | null>(null);
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
 
   const loadBriefing = useCallback(
     async (t: string) => {
@@ -35,10 +34,11 @@ export default function HomePage() {
       if (cancelled) return;
       if (
         settingsRes.status === "fulfilled" &&
-        !settingsRes.value.llm_api_key_set &&
-        !localStorage.getItem("onboarding_dismissed")
+        !settingsRes.value.llm_api_key_set
       ) {
-        setShowOnboarding(true);
+        setNeedsOnboarding(true);
+      } else {
+        setNeedsOnboarding(false);
       }
     });
 
@@ -49,31 +49,21 @@ export default function HomePage() {
 
   const handleRefresh = () => {
     if (!token) return;
+    setNeedsOnboarding(false);
     loadBriefing(token);
   };
 
-  const dismissOnboarding = () => {
-    localStorage.setItem("onboarding_dismissed", "true");
-    setShowOnboarding(false);
-  };
+  // Wait for settings check before rendering
+  if (!token || needsOnboarding === null) return null;
 
   return (
     <div className="h-full flex flex-col">
-      {token && (
-        <OnboardingDialog
-          open={showOnboarding}
-          onClose={dismissOnboarding}
-          onComplete={handleRefresh}
-          token={token}
-        />
-      )}
-      {token && (
-        <ChatInterface
-          token={token}
-          briefing={briefing}
-          onRefresh={handleRefresh}
-        />
-      )}
+      <ChatInterface
+        token={token}
+        briefing={briefing}
+        onRefresh={handleRefresh}
+        onboardingMode={needsOnboarding}
+      />
     </div>
   );
 }
