@@ -16,7 +16,7 @@ from web.conversation_store import (
     get_messages,
     list_conversations,
 )
-from web.deps import get_api_key_for_user, get_config, get_user_paths
+from web.deps import get_api_key_for_user, get_config, get_user_paths, safe_user_id
 from web.models import (
     AdvisorAsk,
     AdvisorResponse,
@@ -44,7 +44,7 @@ def _get_engine(user_id: str, use_tools: bool = False):
     journal_storage = JournalStorage(paths["journal_dir"])
     embeddings = EmbeddingManager(
         paths["chroma_dir"],
-        collection_name=f"journal_{user_id}",
+        collection_name=f"journal_{safe_user_id(user_id)}",
     )
     intel_storage = IntelStorage(paths["intel_db"])  # shared
     journal_search = JournalSearch(journal_storage, embeddings)

@@ -4,7 +4,7 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException
 
 from web.auth import get_current_user
-from web.deps import get_user_paths
+from web.deps import get_user_paths, safe_user_id
 
 logger = structlog.get_logger()
 
@@ -48,7 +48,7 @@ async def get_topics(
         try:
             embeddings = EmbeddingManager(
                 paths["chroma_dir"],
-                collection_name=f"journal_{user['id']}",
+                collection_name=f"journal_{safe_user_id(user['id'])}",
             )
         except Exception:
             return []

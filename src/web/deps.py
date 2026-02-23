@@ -42,9 +42,18 @@ def get_secret_key() -> str:
 # --- Per-user paths ---
 
 
+def safe_user_id(user_id: str) -> str:
+    """Sanitize user_id for use in file paths and ChromaDB collection names.
+
+    OAuth providers may include colons (e.g. 'google:12345') which are invalid
+    in ChromaDB names and problematic in file paths.
+    """
+    return user_id.replace(":", "_")
+
+
 def get_user_paths(user_id: str) -> dict:
     """Per-user data directories under ~/coach/users/{user_id}/."""
-    base = Path.home() / "coach" / "users" / user_id
+    base = Path.home() / "coach" / "users" / safe_user_id(user_id)
     base.mkdir(parents=True, exist_ok=True)
     journal_dir = base / "journal"
     journal_dir.mkdir(exist_ok=True)

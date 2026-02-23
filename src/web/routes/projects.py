@@ -4,7 +4,7 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException
 
 from web.auth import get_current_user
-from web.deps import get_api_key_for_user, get_config, get_user_paths
+from web.deps import get_api_key_for_user, get_config, get_user_paths, safe_user_id
 
 logger = structlog.get_logger()
 
@@ -79,7 +79,7 @@ async def generate_ideas(
         journal_storage = JournalStorage(paths["journal_dir"])
         embeddings = EmbeddingManager(
             paths["chroma_dir"],
-            collection_name=f"journal_{user_id}",
+            collection_name=f"journal_{safe_user_id(user_id)}",
         )
         journal_search = JournalSearch(journal_storage, embeddings)
 
