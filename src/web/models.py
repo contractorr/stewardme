@@ -35,6 +35,10 @@ class SettingsResponse(BaseModel):
 # --- Journal ---
 
 
+class QuickCapture(BaseModel):
+    content: str = Field(..., min_length=1, max_length=5000)
+
+
 class JournalCreate(BaseModel):
     content: str = Field(..., max_length=100_000)
     entry_type: str = "daily"

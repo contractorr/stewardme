@@ -43,5 +43,6 @@ class EntryType(StrEnum):
     REFLECTION = "reflection"
     INSIGHT = "insight"
     NOTE = "note"
+    QUICK = "quick"
     RESEARCH = "research"
     ACTION_BRIEF = "action_brief"

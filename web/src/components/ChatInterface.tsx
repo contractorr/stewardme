@@ -6,9 +6,11 @@ import ReactMarkdown from "react-markdown";
 import {
   AlertTriangle,
   Brain,
+  Check,
   ChevronDown,
   ChevronUp,
   Lightbulb,
+  PenLine,
   Plus,
   Send,
   Sparkles,
@@ -62,6 +64,65 @@ const SUGGESTION_CHIPS = [
   "Review my progress",
 ];
 
+function QuickCaptureInput({ token }: { token: string }) {
+  const [text, setText] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!text.trim() || saving) return;
+    setSaving(true);
+    try {
+      await apiFetch(
+        "/api/journal/quick",
+        { method: "POST", body: JSON.stringify({ content: text.trim() }) },
+        token,
+      );
+      setText("");
+      setSaved(true);
+      toast.success("Captured");
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2">
+      <PenLine className="h-4 w-4 shrink-0 text-muted-foreground" />
+      <input
+        type="text"
+        placeholder="What's on your mind today?"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            handleSubmit();
+          }
+        }}
+        disabled={saving}
+        className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+      />
+      {saved ? (
+        <Check className="h-4 w-4 text-green-500" />
+      ) : (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 shrink-0"
+          onClick={handleSubmit}
+          disabled={saving || !text.trim()}
+        >
+          <Send className="h-3.5 w-3.5" />
+        </Button>
+      )}
+    </div>
+  );
+}
+
 function BriefingPanel({ briefing, onChipClick, token }: { briefing: BriefingResponse; onChipClick: (text: string) => void; token: string }) {
   const [expandedRecs, setExpandedRecs] = useState<Set<string>>(new Set());
   const [feedbackGiven, setFeedbackGiven] = useState<Record<string, "useful" | "irrelevant">>({});
@@ -101,6 +162,8 @@ function BriefingPanel({ briefing, onChipClick, token }: { briefing: BriefingRes
         <h2 className="text-lg font-medium">{greeting}</h2>
         <p className="text-sm text-muted-foreground">Here&apos;s what needs your attention.</p>
       </div>
+
+      <QuickCaptureInput token={token} />
 
       {hasSignals && (
         <div className="space-y-2">
@@ -616,6 +679,9 @@ export function ChatInterface({
             <p className="mt-1 max-w-md text-sm text-muted-foreground">
               Ask about opportunities, trends, goals, or journal your thoughts — your steward handles the rest.
             </p>
+            <div className="mx-auto mt-5 w-full max-w-md">
+              <QuickCaptureInput token={token} />
+            </div>
             <div className="mt-6 flex flex-wrap justify-center gap-2">
               {SUGGESTION_CHIPS.map((chip) => (
                 <button

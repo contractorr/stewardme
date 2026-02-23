@@ -2,12 +2,15 @@
 
 from pathlib import Path
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from journal.storage import JournalStorage
 from web.auth import get_current_user
 from web.deps import get_user_paths
-from web.models import JournalCreate, JournalEntry, JournalUpdate
+from web.models import JournalCreate, JournalEntry, JournalUpdate, QuickCapture
+
+logger = structlog.get_logger()
 
 router = APIRouter(prefix="/api/journal", tags=["journal"])
 
@@ -71,6 +74,48 @@ async def create_entry(
         path=str(filepath),
         title=post.get("title", filepath.stem),
         type=post.get("type", "unknown"),
+        created=post.get("created"),
+        tags=post.get("tags", []),
+        content=post.content,
+    )
+
+
+@router.post("/quick", response_model=JournalEntry, status_code=status.HTTP_201_CREATED)
+async def quick_capture(
+    body: QuickCapture,
+    user: dict = Depends(get_current_user),
+):
+    """Minimal journal entry — auto-title from content, type=quick, embed in ChromaDB."""
+    storage = _get_storage(user["id"])
+    text = body.content.strip()
+    title = text[:50].rstrip() + ("..." if len(text) > 50 else "")
+
+    try:
+        filepath = storage.create(
+            content=text,
+            entry_type="quick",
+            title=title,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # Embed in ChromaDB for RAG
+    try:
+        paths = get_user_paths(user["id"])
+        chroma_dir = paths.get("chroma_dir")
+        if chroma_dir:
+            from journal.embeddings import EmbeddingManager
+
+            em = EmbeddingManager(chroma_dir)
+            em.add_entry(str(filepath), text, {"type": "quick", "title": title})
+    except Exception as e:
+        logger.warning("quick_capture.embed_failed", error=str(e))
+
+    post = storage.read(filepath)
+    return JournalEntry(
+        path=str(filepath),
+        title=post.get("title", filepath.stem),
+        type=post.get("type", "quick"),
         created=post.get("created"),
         tags=post.get("tags", []),
         content=post.content,
