@@ -86,7 +86,7 @@ export default function ProjectsPage() {
   const noData = !issuesLoading && issues.length === 0 && !ideas;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <h1 className="text-2xl font-semibold">Projects</h1>
 
       {noData && (

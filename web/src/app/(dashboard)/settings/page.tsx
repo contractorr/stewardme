@@ -40,7 +40,7 @@ interface Settings {
 
 function SettingsSkeleton() {
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6 p-6">
       <div className="h-7 w-24 animate-pulse rounded bg-muted" />
       {Array.from({ length: 3 }).map((_, i) => (
         <Card key={i}>
@@ -100,7 +100,7 @@ export default function SettingsPage() {
   if (!settings) return <SettingsSkeleton />;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6 p-6">
       <h1 className="text-2xl font-semibold">Settings</h1>
 
       <Card>

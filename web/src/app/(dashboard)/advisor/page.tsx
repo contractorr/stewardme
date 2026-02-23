@@ -194,7 +194,7 @@ export default function AdvisorPage() {
   };
 
   return (
-    <div className="flex h-full gap-4">
+    <div className="flex h-full gap-4 p-6">
       {/* Conversation sidebar */}
       <div className="hidden w-64 flex-col border-r pr-4 md:flex">
         <Button
@@ -232,7 +232,7 @@ export default function AdvisorPage() {
       {/* Main chat area */}
       <div className="flex flex-1 flex-col">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Advisor</h1>
+          <h1 className="text-2xl font-semibold">Chat History</h1>
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"

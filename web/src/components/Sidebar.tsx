@@ -22,9 +22,9 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
-  { href: "/", label: "Brief", icon: Home },
+  { href: "/", label: "Home", icon: Home },
   { href: "/journal", label: "Journal", icon: BookOpen },
-  { href: "/advisor", label: "Advisor", icon: Brain },
+  { href: "/advisor", label: "Chat History", icon: Brain },
   { href: "/goals", label: "Goals", icon: Target },
   { href: "/intel", label: "Intel", icon: Newspaper },
   { href: "/trends", label: "Trends", icon: TrendingUp },
@@ -44,7 +44,6 @@ export function Sidebar() {
         <Button
           variant="ghost"
           size="icon"
-          className="md:hidden"
           onClick={() => setOpen(false)}
         >
           <X className="h-4 w-4" />
@@ -82,8 +81,8 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Mobile hamburger */}
-      <div className="fixed left-4 top-4 z-50 md:hidden">
+      {/* Hamburger toggle — always visible */}
+      <div className="fixed left-4 top-4 z-50">
         {!open && (
           <Button variant="outline" size="icon" onClick={() => setOpen(true)}>
             <Menu className="h-4 w-4" />
@@ -91,26 +90,21 @@ export function Sidebar() {
         )}
       </div>
 
-      {/* Mobile overlay */}
+      {/* Overlay backdrop */}
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          className="fixed inset-0 z-40 bg-black/50"
           onClick={() => setOpen(false)}
         />
       )}
 
-      {/* Mobile sidebar */}
+      {/* Slide-out sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-56 flex-col border-r bg-background px-3 py-4 transition-transform md:hidden",
+          "fixed inset-y-0 left-0 z-50 flex w-56 flex-col border-r bg-background px-3 py-4 transition-transform",
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        {navContent}
-      </aside>
-
-      {/* Desktop sidebar */}
-      <aside className="hidden h-screen w-56 flex-col border-r bg-muted/40 px-3 py-4 md:flex">
         {navContent}
       </aside>
     </>

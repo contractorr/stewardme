@@ -11,9 +11,9 @@ export default async function DashboardLayout({
   if (!session?.user) redirect("/login");
 
   return (
-    <div className="flex h-screen">
+    <div className="h-screen">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto p-6 pt-16 md:pt-6">{children}</main>
+      <main className="h-full overflow-y-auto pt-14">{children}</main>
     </div>
   );
 }
