@@ -39,7 +39,7 @@ class GeminiProvider(LLMProvider):
             from google import genai
         except ImportError:
             raise LLMError(
-                "google-genai package not installed. Run: pip install 'ai-coach[gemini]'"
+                "google-genai package not installed. Run: pip install 'stewardme[gemini]'"
             )
 
         self.client = genai.Client(api_key=api_key)

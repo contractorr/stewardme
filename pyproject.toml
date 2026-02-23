@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ai-coach"
+name = "stewardme"
 version = "0.1.0"
-description = "Personal AI advisor combining journal knowledge with external intelligence"
+description = "Open-source AI steward that monitors the world and tells you what to do next"
 requires-python = ">=3.11"
 dependencies = [
     "click>=8.1.0",
@@ -47,7 +47,7 @@ dev = [
 
 [project.scripts]
 coach = "cli.main:cli"
-ai-coach-mcp = "coach_mcp.server:main"
+stewardme-mcp = "coach_mcp.server:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

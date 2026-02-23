@@ -3,7 +3,7 @@
 ## Docker (recommended)
 
 ```bash
-git clone https://github.com/contractorr/ai_coach.git && cd ai_coach
+git clone https://github.com/contractorr/stewardme.git && cd stewardme
 cp .env.example .env   # then fill in SECRET_KEY, NEXTAUTH_SECRET, and at least one OAuth provider
 docker compose up --build
 ```

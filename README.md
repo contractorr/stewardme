@@ -36,8 +36,8 @@ Works as a CLI (`coach`), web app (FastAPI + Next.js), or MCP server for Claude 
 ### Install
 
 ```bash
-git clone https://github.com/contractorr/ai_coach.git
-cd ai-coach
+git clone https://github.com/contractorr/stewardme.git
+cd stewardme
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[all-providers]"
 coach init

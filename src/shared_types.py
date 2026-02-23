@@ -1,4 +1,4 @@
-"""Shared enums and types for ai-coach."""
+"""Shared enums and types for stewardme."""
 
 from enum import StrEnum
 

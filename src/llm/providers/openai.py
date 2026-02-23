@@ -56,7 +56,7 @@ class OpenAIProvider(LLMProvider):
         try:
             from openai import OpenAI
         except ImportError:
-            raise LLMError("openai package not installed. Run: pip install 'ai-coach[openai]'")
+            raise LLMError("openai package not installed. Run: pip install 'stewardme[openai]'")
 
         self.client = OpenAI(api_key=api_key)
 

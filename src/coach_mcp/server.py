@@ -10,7 +10,7 @@ from mcp.types import TextContent, Tool
 
 logger = structlog.get_logger()
 
-app = Server("ai-coach")
+app = Server("stewardme")
 
 # Cache tool definitions at module level (populated on first list_tools call)
 _tool_defs: list[Tool] | None = None

@@ -115,7 +115,7 @@ class WebSearchClient:
             response = self.client.get(
                 "https://html.duckduckgo.com/html/",
                 params={"q": query},
-                headers={"User-Agent": "Mozilla/5.0 (compatible; ai-coach/0.1)"},
+                headers={"User-Agent": "Mozilla/5.0 (compatible; stewardme/0.1)"},
             )
             response.raise_for_status()
 
@@ -194,7 +194,7 @@ class AsyncWebSearchClient:
             response = await self.client.get(
                 "https://html.duckduckgo.com/html/",
                 params={"q": query},
-                headers={"User-Agent": "Mozilla/5.0 (compatible; ai-coach/0.1)"},
+                headers={"User-Agent": "Mozilla/5.0 (compatible; stewardme/0.1)"},
             )
             response.raise_for_status()
 

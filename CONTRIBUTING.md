@@ -3,8 +3,8 @@
 ## Getting started
 
 ```bash
-git clone https://github.com/contractorr/ai_coach.git
-cd ai-coach
+git clone https://github.com/contractorr/stewardme.git
+cd stewardme
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev,web,all-providers]"
 
@@ -51,7 +51,7 @@ tests/              # Mirrors src/ structure
 
 ## What to work on
 
-Check [GitHub Issues](https://github.com/contractorr/ai_coach/issues) — look for `good first issue` labels.
+Check [GitHub Issues](https://github.com/contractorr/stewardme/issues) — look for `good first issue` labels.
 
 Some areas that could use help:
 
@@ -100,4 +100,4 @@ ANTHROPIC_API_KEY=test-key pytest --watch
 
 ## Questions?
 
-Open a [GitHub Discussion](https://github.com/contractorr/ai_coach/discussions) or file an issue.
+Open a [GitHub Discussion](https://github.com/contractorr/stewardme/discussions) or file an issue.

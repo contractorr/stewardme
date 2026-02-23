@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "=== AI Coach VPS Deploy ==="
+echo "=== StewardMe VPS Deploy ==="
 
 # --- Install Docker if missing ---
 if ! command -v docker &>/dev/null; then
