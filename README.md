@@ -1,17 +1,27 @@
 # StewardMe
 
-Open-source, self-hosted AI steward that combines your journal, goals, and external intelligence into personalized guidance. RAG-based — your data stays on your infra.
+**An open-source AI steward that monitors the world and tells you what to do next.**
+
+Your journal, goals, and 10 live intel sources feed a RAG pipeline that delivers personalized, explainable guidance — entirely self-hosted.
+
+- **Scans the world for you** — HN, GitHub, arXiv, Reddit, Product Hunt, YC Jobs, Google Patents, RSS, and more
+- **Learns from your behaviour** — feedback loop adjusts recommendations, reasoning traces explain every suggestion
+- **Runs anywhere you want** — CLI, web app, MCP server for Claude Code, or Docker one-liner
+
+![Dashboard](dashboard-redesign.png)
 
 ## What it does
 
-- **Journal + semantic search** — markdown entries with YAML frontmatter, embedded in ChromaDB
-- **Intelligence radar** — async scrapers for HN, GitHub trending, arXiv, Reddit, RSS (no API keys needed)
-- **AI advisor** — RAG retrieval (70% journal / 30% intel) fed to your LLM of choice
+- **Journal + semantic search** — markdown entries with YAML frontmatter, embedded in ChromaDB, quick capture from the dashboard
+- **Intelligence radar** — 10 async scrapers, SQLite storage with URL + content-hash dedup, no API keys needed
+- **AI advisor** — RAG retrieval (dynamic journal/intel blend from engagement data) fed to Claude, OpenAI, or Gemini
 - **Goal tracking** — milestones, check-ins, staleness detection
-- **Proactive recommendations** — learning, career, entrepreneurial, investment opportunities
+- **Proactive recommendations** — learning, career, entrepreneurial, investment opportunities with structured reasoning traces
+- **Behavioural learning** — feedback buttons on every recommendation, per-category scoring adjusts over time
 - **Deep research** — topic selection from your context, web search, LLM synthesis
 - **Trend detection** — KMeans clustering on journal embeddings to surface emerging/declining topics
 - **Agentic coaching** — signal detection, burnout alerts, deadline warnings, autonomous actions
+- **Rich onboarding** — first-run wizard with LLM connectivity test, conversational profile interview
 
 Works as a CLI (`coach`), web app (FastAPI + Next.js), or MCP server for Claude Code.
 
@@ -66,13 +76,14 @@ cd web && npm install && npm run dev
 
 Open http://localhost:3000 — sign in with GitHub or Google.
 
-### Docker
+### Docker (fastest)
 
 ```bash
-cp .env.example .env  # configure
-docker compose up              # dev
-docker compose -f docker-compose.prod.yml up  # prod (with Caddy + auto HTTPS)
+cp .env.example .env  # fill in SECRET_KEY, NEXTAUTH_SECRET, OAuth creds
+docker compose up --build
 ```
+
+See [SETUP.md](SETUP.md) for full instructions including secret generation and production deployment.
 
 ## Architecture
 
@@ -80,7 +91,7 @@ docker compose -f docker-compose.prod.yml up  # prod (with Caddy + auto HTTPS)
 src/
 ├── journal/        # Markdown storage, ChromaDB embeddings, semantic search, trends
 ├── advisor/        # LLM orchestration, RAG retrieval, recommendations, goals
-├── intelligence/   # 5 async scrapers, SQLite storage, APScheduler
+├── intelligence/   # 10 async scrapers, SQLite storage, APScheduler
 ├── research/       # Deep research agent, topic selection, web search, synthesis
 ├── llm/            # Provider factory — Claude, OpenAI, Gemini (auto-detect from env)
 ├── profile/        # User profile management
@@ -97,6 +108,12 @@ web/                # Next.js frontend — OAuth, chat-first UI, dashboard
 3. Query → RAG retrieval (journal + intel) → LLM → personalized advice
 4. Goals + journal → topic selection → deep research → reports
 5. Embeddings → KMeans clustering → trend detection
+
+## Screenshots
+
+| Dashboard | Onboarding |
+|-----------|------------|
+| ![Dashboard](dashboard-redesign.png) | ![Login](login-with-features.png) |
 
 ## Configuration
 
