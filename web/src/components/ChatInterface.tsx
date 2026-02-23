@@ -4,9 +4,12 @@ import { useRef, useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import {
+  AlertTriangle,
   Brain,
+  Lightbulb,
   Plus,
   Send,
+  Target,
   ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -39,7 +42,6 @@ const TOOL_LABELS: Record<string, string> = {
 interface Message {
   role: "user" | "assistant";
   content: string;
-  isBriefing?: boolean;
 }
 
 const CONV_KEY = "main_chat_conv_id";
@@ -53,50 +55,116 @@ const SUGGESTION_CHIPS = [
   "Review my progress",
 ];
 
-function buildBriefingMessage(briefing: BriefingResponse): string {
+function BriefingPanel({ briefing, onChipClick }: { briefing: BriefingResponse; onChipClick: (text: string) => void }) {
   const hour = new Date().getHours();
   const greeting =
     hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
-  const parts: string[] = [`${greeting}! Here's your daily brief:\n`];
+  const hasSignals = briefing.signals.length > 0;
+  const hasRecommendations = briefing.recommendations.length > 0;
+  const hasStaleGoals = briefing.stale_goals.length > 0;
+  const hasPatterns = briefing.patterns.length > 0;
 
-  if (briefing.signals.length > 0) {
-    parts.push("### Signals");
-    for (const s of briefing.signals) {
-      parts.push(`- **${s.title}** (severity ${s.severity}) — ${s.detail}`);
-    }
-    parts.push("");
-  }
+  return (
+    <div className="mx-auto max-w-2xl space-y-4 py-6">
+      <div className="text-center">
+        <h2 className="text-lg font-medium">{greeting}</h2>
+        <p className="text-sm text-muted-foreground">Here&apos;s what needs your attention.</p>
+      </div>
 
-  if (briefing.patterns.length > 0) {
-    parts.push("### Patterns");
-    for (const p of briefing.patterns) {
-      parts.push(
-        `- **${p.summary}** (${Math.round(p.confidence * 100)}% confidence)${p.evidence.length > 0 ? ` — ${p.evidence[0]}` : ""}`
-      );
-    }
-    parts.push("");
-  }
+      {hasSignals && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 px-1 text-xs font-medium text-muted-foreground">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            Heads up
+          </div>
+          {briefing.signals.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => onChipClick(`Tell me more about: ${s.title}`)}
+              className="w-full rounded-lg border bg-card p-3 text-left transition-colors hover:bg-accent"
+            >
+              <p className="text-sm font-medium">{s.title}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{s.detail}</p>
+            </button>
+          ))}
+        </div>
+      )}
 
-  if (briefing.recommendations.length > 0) {
-    parts.push("### Recommendations");
-    for (const r of briefing.recommendations) {
-      parts.push(`- **${r.title}** [${r.category}] — ${r.description}`);
-    }
-    parts.push("");
-  }
+      {hasStaleGoals && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 px-1 text-xs font-medium text-muted-foreground">
+            <Target className="h-3.5 w-3.5" />
+            Goals that need attention
+          </div>
+          {briefing.stale_goals.map((g) => (
+            <button
+              key={g.path}
+              onClick={() => onChipClick(`Help me with my goal: ${g.title}`)}
+              className="w-full rounded-lg border bg-card p-3 text-left transition-colors hover:bg-accent"
+            >
+              <p className="text-sm font-medium">{g.title}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Last check-in {g.days_since_check} days ago
+              </p>
+            </button>
+          ))}
+        </div>
+      )}
 
-  if (briefing.stale_goals.length > 0) {
-    parts.push("### Stale Goals");
-    for (const g of briefing.stale_goals) {
-      parts.push(`- **${g.title}** — last check-in ${g.days_since_check}d ago`);
-    }
-    parts.push("");
-  }
+      {hasRecommendations && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 px-1 text-xs font-medium text-muted-foreground">
+            <Lightbulb className="h-3.5 w-3.5" />
+            Suggestions
+          </div>
+          {briefing.recommendations.map((r) => (
+            <button
+              key={r.id}
+              onClick={() => onChipClick(`Tell me more about: ${r.title}`)}
+              className="w-full rounded-lg border bg-card p-3 text-left transition-colors hover:bg-accent"
+            >
+              <p className="text-sm font-medium">{r.title}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{r.description}</p>
+            </button>
+          ))}
+        </div>
+      )}
 
-  parts.push("Ask me about any of these, or tell me what's on your mind.");
+      {hasPatterns && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 px-1 text-xs font-medium text-muted-foreground">
+            <Brain className="h-3.5 w-3.5" />
+            Observations
+          </div>
+          {briefing.patterns.map((p, i) => (
+            <button
+              key={i}
+              onClick={() => onChipClick(`Tell me more about: ${p.summary}`)}
+              className="w-full rounded-lg border bg-card p-3 text-left transition-colors hover:bg-accent"
+            >
+              <p className="text-sm font-medium">{p.summary}</p>
+              {p.evidence.length > 0 && (
+                <p className="mt-0.5 text-xs text-muted-foreground">{p.evidence[0]}</p>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
 
-  return parts.join("\n");
+      <div className="flex flex-wrap justify-center gap-2 pt-2">
+        {SUGGESTION_CHIPS.slice(0, 3).map((chip) => (
+          <button
+            key={chip}
+            onClick={() => onChipClick(chip)}
+            className="rounded-full border px-3 py-1.5 text-xs hover:bg-accent transition-colors"
+          >
+            {chip}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function ChatInterface({
@@ -153,16 +221,8 @@ export function ChatInterface({
     })();
   }, [token, onboardingMode]);
 
-  // Proactive briefing as first message
-  useEffect(() => {
-    if (onboardingMode) return;
-    if (messages.length > 0 || restoredConv) return;
-    if (!briefing?.has_data) return;
-
-    setMessages([
-      { role: "assistant", content: buildBriefingMessage(briefing), isBriefing: true },
-    ]);
-  }, [briefing, messages.length, restoredConv, onboardingMode]);
+  const showBriefing =
+    !onboardingMode && messages.length === 0 && !restoredConv && briefing?.has_data;
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -187,11 +247,7 @@ export function ChatInterface({
     if (!input.trim() || loading) return;
     const question = input.trim();
     setInput("");
-    // Filter out briefing messages before adding user message
-    setMessages((prev) => [
-      ...prev.filter((m) => !m.isBriefing),
-      { role: "user", content: question },
-    ]);
+    setMessages((prev) => [...prev, { role: "user", content: question }]);
     setLoading(true);
     setToolStatus(null);
 
@@ -440,8 +496,11 @@ export function ChatInterface({
   return (
     <div className="flex h-full flex-col">
       {/* Chat messages */}
-      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
-        {messages.length === 0 && (
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
+        {showBriefing && briefing && (
+          <BriefingPanel briefing={briefing} onChipClick={handleChipClick} />
+        )}
+        {messages.length === 0 && !showBriefing && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
               <Brain className="h-7 w-7 text-muted-foreground" />
@@ -463,30 +522,27 @@ export function ChatInterface({
             </div>
           </div>
         )}
-        {messages.map((msg, i) => (
-          <Card
-            key={i}
-            className={msg.role === "user" ? "ml-12 bg-primary/5" : "mr-12"}
-          >
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs text-muted-foreground">
-                {msg.role === "user" ? "You" : "Advisor"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+        <div className="mx-auto max-w-3xl space-y-3">
+          {messages.map((msg, i) => (
+            <div
+              key={i}
+              className={
+                msg.role === "user"
+                  ? "ml-12 rounded-2xl rounded-br-sm bg-primary/10 px-4 py-2.5"
+                  : "mr-12 rounded-2xl rounded-bl-sm bg-card border px-4 py-2.5"
+              }
+            >
               {msg.role === "assistant" ? (
                 <div className="prose prose-sm max-w-none dark:prose-invert">
                   <ReactMarkdown>{msg.content}</ReactMarkdown>
                 </div>
               ) : (
-                <div className="text-sm">{msg.content}</div>
+                <p className="text-sm">{msg.content}</p>
               )}
-            </CardContent>
-          </Card>
-        ))}
-        {loading && (
-          <Card className="mr-12">
-            <CardContent className="py-4">
+            </div>
+          ))}
+          {loading && (
+            <div className="mr-12 rounded-2xl rounded-bl-sm border bg-card px-4 py-3">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <div className="flex gap-1">
                   <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:0ms]" />
@@ -495,9 +551,9 @@ export function ChatInterface({
                 </div>
                 {toolStatus || "Thinking..."}
               </div>
-            </CardContent>
-          </Card>
-        )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Input area */}
@@ -505,8 +561,8 @@ export function ChatInterface({
         <div className="mx-auto flex max-w-3xl gap-2">
           <Textarea
             ref={textareaRef}
-            rows={2}
-            placeholder="Ask about opportunities, trends, goals, or journal a thought..."
+            rows={1}
+            placeholder="Ask anything..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
@@ -515,15 +571,17 @@ export function ChatInterface({
                 handleSend();
               }
             }}
-            className="flex-1"
+            className="flex-1 resize-none"
           />
-          <div className="flex flex-col gap-1">
+          <div className="flex items-end gap-1">
             <Button onClick={handleSend} disabled={loading || !input.trim()}>
               <Send className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={handleNewChat} title="New chat">
-              <Plus className="h-4 w-4" />
-            </Button>
+            {messages.length > 0 && (
+              <Button variant="ghost" size="icon" onClick={handleNewChat} title="New chat">
+                <Plus className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
       </div>
