@@ -19,16 +19,18 @@ import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
-const navItems = [
+const primaryNav = [
   { href: "/", label: "Home", icon: Home },
   { href: "/journal", label: "Journal", icon: BookOpen },
-  { href: "/advisor", label: "Chat History", icon: Brain },
   { href: "/goals", label: "Goals", icon: Target },
+];
+
+const discoverNav = [
+  { href: "/advisor", label: "Chat History", icon: Brain },
   { href: "/intel", label: "Intel", icon: Newspaper },
   { href: "/trends", label: "Trends", icon: TrendingUp },
   { href: "/learning", label: "Learning", icon: GraduationCap },
   { href: "/projects", label: "Projects", icon: Rocket },
-  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function Sidebar({
@@ -63,23 +65,59 @@ export function Sidebar({
             <X className="h-4 w-4" />
           </Button>
         </div>
-        <nav className="flex flex-1 flex-col gap-1">
-          {navItems.map(({ href, label, icon: Icon }) => (
+        <nav className="flex flex-1 flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            {primaryNav.map(({ href, label, icon: Icon }) => (
+              <Link
+                key={href}
+                href={href}
+                onClick={() => onOpenChange(false)}
+                className={cn(
+                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent",
+                  pathname === href
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground"
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </Link>
+            ))}
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="px-3 text-xs font-medium text-muted-foreground/60">Discover</span>
+            {discoverNav.map(({ href, label, icon: Icon }) => (
+              <Link
+                key={href}
+                href={href}
+                onClick={() => onOpenChange(false)}
+                className={cn(
+                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent",
+                  pathname === href
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground"
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </Link>
+            ))}
+          </div>
+          <div className="flex flex-col gap-1">
             <Link
-              key={href}
-              href={href}
+              href="/settings"
               onClick={() => onOpenChange(false)}
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent",
-                pathname === href
+                pathname === "/settings"
                   ? "bg-accent text-accent-foreground"
                   : "text-muted-foreground"
               )}
             >
-              <Icon className="h-4 w-4" />
-              {label}
+              <Settings className="h-4 w-4" />
+              Settings
             </Link>
-          ))}
+          </div>
         </nav>
         <div className="border-t pt-3">
           <button
