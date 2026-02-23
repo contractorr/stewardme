@@ -17,6 +17,21 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "StewardMe",
   description: "Your AI steward for navigating rapid change",
+  metadataBase: new URL("https://stewardme.ai"),
+  openGraph: {
+    title: "StewardMe",
+    description: "Your AI steward for navigating rapid change",
+    url: "https://stewardme.ai",
+    siteName: "StewardMe",
+    images: [{ url: "/og-image.jpg", width: 1024, height: 1024 }],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "StewardMe",
+    description: "Your AI steward for navigating rapid change",
+    images: ["/og-image.jpg"],
+  },
 };
 
 export default function RootLayout({
