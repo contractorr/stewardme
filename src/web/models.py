@@ -200,3 +200,63 @@ class BriefingResponse(BaseModel):
     recommendations: list[BriefingRecommendation] = []
     stale_goals: list[BriefingGoal] = []
     has_data: bool = False
+
+
+# --- Trends ---
+
+
+class MoodDataPoint(BaseModel):
+    date: str
+    score: float
+    label: str
+    title: str
+
+
+class TopicTrend(BaseModel):
+    topic: str
+    direction: str  # emerging/declining/stable
+    growth_rate: float
+    counts: list[int]
+    windows: list[str]
+    total_entries: int
+    representative_titles: list[str]
+
+
+# --- Learning ---
+
+
+class LearningPathSummary(BaseModel):
+    id: str
+    skill: str
+    status: str
+    progress: int
+    total_modules: int
+    completed_modules: int
+    created_at: str
+    updated_at: str
+
+
+class LearningPathDetail(LearningPathSummary):
+    content: str
+
+
+class LearningGenerate(BaseModel):
+    skill: str = Field(..., max_length=100)
+    current_level: int = Field(default=1, ge=1, le=5)
+    target_level: int = Field(default=4, ge=1, le=5)
+
+
+class LearningProgress(BaseModel):
+    completed_modules: int = Field(..., ge=0)
+
+
+# --- Projects ---
+
+
+class MatchingIssue(BaseModel):
+    title: str
+    url: str
+    summary: str
+    tags: list[str]
+    source: str
+    match_score: int = 0
