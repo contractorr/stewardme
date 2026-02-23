@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -103,6 +104,7 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
     setGoalsCreated(0);
     if (startPhase === "chat") {
       (async () => {
+        setSending(true);
         try {
           const res = await apiFetch<{ message: string; done: boolean }>(
             "/api/onboarding/start",
@@ -112,6 +114,8 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
           setMessages([{ role: "assistant", content: res.message }]);
         } catch (e) {
           toast.error((e as Error).message);
+        } finally {
+          setSending(false);
         }
       })();
     }
@@ -143,6 +147,7 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
       await apiFetch("/api/settings", { method: "PUT", body: JSON.stringify(payload) }, token);
 
       // Start onboarding chat
+      setSending(true);
       const res = await apiFetch<{ message: string; done: boolean }>(
         "/api/onboarding/start",
         { method: "POST" },
@@ -154,6 +159,7 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
       toast.error((e as Error).message);
     } finally {
       setSaving(false);
+      setSending(false);
     }
   };
 
@@ -336,7 +342,7 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
             </div>
 
             <div className="flex gap-2 px-4 pb-2">
-              <Input
+              <Textarea
                 placeholder="Type your answer..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -347,7 +353,8 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
                   }
                 }}
                 disabled={sending}
-                className="flex-1"
+                rows={2}
+                className="flex-1 max-h-32"
               />
               <Button size="icon" onClick={handleSend} disabled={sending || !input.trim()}>
                 <Send className="h-4 w-4" />

@@ -55,7 +55,7 @@ async def scrape_now(user: dict = Depends(get_current_user)):
             embeddings=embeddings,
             full_config=config.to_dict(),
         )
-        result = scheduler.run_now()
+        result = await scheduler._run_async()
         return {"status": "completed", "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

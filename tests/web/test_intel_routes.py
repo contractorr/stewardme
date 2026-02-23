@@ -1,6 +1,6 @@
 """Tests for intel API routes (search, recent, scrape)."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 
 def test_get_recent_empty(client, auth_headers):
@@ -45,7 +45,7 @@ def test_search(client, auth_headers):
 
 def test_scrape_trigger(client, auth_headers):
     mock_scheduler = MagicMock()
-    mock_scheduler.run_now.return_value = {"sources": 3}
+    mock_scheduler._run_async = AsyncMock(return_value={"sources": 3})
     with (
         patch("web.routes.intel._get_storage", return_value=MagicMock()),
         patch("intelligence.scheduler.IntelScheduler", return_value=mock_scheduler),
