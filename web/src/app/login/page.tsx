@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { Brain, Github } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ import {
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-muted/40 px-4">
       <Card className="w-full max-w-[400px]">
         <CardHeader className="text-center">
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
@@ -61,6 +62,11 @@ export default function LoginPage() {
           </Button>
         </CardContent>
       </Card>
+      <div className="mt-4 flex gap-3 text-xs text-muted-foreground">
+        <Link href="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>
+        <span>&middot;</span>
+        <Link href="/terms" className="underline hover:text-foreground">Terms of Service</Link>
+      </div>
     </div>
   );
 }
