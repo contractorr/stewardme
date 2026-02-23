@@ -34,6 +34,9 @@ class IntelSource(StrEnum):
     EVENTS = "events"
     CONFS_TECH = "confs_tech"
     GITHUB_ISSUES = "github_issues"
+    PRODUCTHUNT = "producthunt"
+    YC_JOBS = "yc_jobs"
+    GOOGLE_PATENTS = "google_patents"
 
 
 class EntryType(StrEnum):

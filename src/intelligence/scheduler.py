@@ -21,9 +21,12 @@ from .sources import (
     EventScraper,
     GitHubIssuesScraper,
     GitHubTrendingScraper,
+    GooglePatentsScraper,
     HackerNewsScraper,
+    ProductHuntScraper,
     RedditScraper,
     RSSFeedScraper,
+    YCJobsScraper,
 )
 
 logger = structlog.get_logger().bind(source="scheduler")
@@ -257,6 +260,37 @@ class IntelScheduler:
                     topics=events_config.get("topics"),
                     location_filter=location,
                     rss_feeds=events_config.get("rss_feeds", []),
+                )
+            )
+
+        # Product Hunt
+        ph_config = self.config.get("producthunt", {})
+        if "producthunt" in enabled or ph_config.get("enabled", False):
+            self._scrapers.append(
+                ProductHuntScraper(
+                    self.storage,
+                    max_items=ph_config.get("max_items", 20),
+                )
+            )
+
+        # YC Jobs
+        yc_config = self.config.get("yc_jobs", {})
+        if "yc_jobs" in enabled or yc_config.get("enabled", False):
+            self._scrapers.append(
+                YCJobsScraper(
+                    self.storage,
+                    max_items=yc_config.get("max_items", 30),
+                )
+            )
+
+        # Google Patents
+        patents_config = self.config.get("google_patents", {})
+        if "google_patents" in enabled or patents_config.get("enabled", False):
+            self._scrapers.append(
+                GooglePatentsScraper(
+                    self.storage,
+                    feeds=patents_config.get("feeds"),
+                    max_per_feed=patents_config.get("max_per_feed", 15),
                 )
             )
 

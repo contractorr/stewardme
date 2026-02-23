@@ -16,6 +16,8 @@ sources:
   rss_feeds:
     - https://news.ycombinator.com/rss
     - https://feeds.arstechnica.com/arstechnica/technology-lab
+    - https://sifted.eu/feed
+    - https://techcrunch.com/feed/
   github_trending:
     enabled: true
     languages: [python, rust, go]
@@ -23,6 +25,17 @@ sources:
   reddit:
     subreddits: [programming, MachineLearning]
     limit: 25
+  producthunt:
+    enabled: false
+    max_items: 20
+  yc_jobs:
+    enabled: false
+    max_items: 30
+  google_patents:
+    enabled: false
+    # feeds:  # override default AI/ML + Networking feeds
+    #   - https://patents.google.com/api/feed?q=CPC%3DG06N&num=20
+    max_per_feed: 15
   enabled:
     - hn_top
     - rss_feeds
@@ -30,6 +43,9 @@ sources:
     # - github_trending  # uncomment to enable
     # - reddit           # uncomment to enable
     # - arxiv            # uncomment to enable
+    # - producthunt      # uncomment to enable
+    # - yc_jobs          # uncomment to enable
+    # - google_patents   # uncomment to enable
 
 schedule:
   weekly_review: "sunday 9am"
