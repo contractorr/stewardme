@@ -17,6 +17,13 @@ export interface BriefingPattern {
   coaching_prompt: string;
 }
 
+export interface ReasoningTrace {
+  source_signal: string;
+  profile_match: string;
+  confidence: number;
+  caveats: string;
+}
+
 export interface BriefingRecommendation {
   id: string;
   category: string;
@@ -24,6 +31,7 @@ export interface BriefingRecommendation {
   description: string;
   score: number;
   status: string;
+  reasoning_trace?: ReasoningTrace | null;
 }
 
 export interface BriefingGoal {

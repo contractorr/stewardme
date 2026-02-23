@@ -6,12 +6,15 @@ import ReactMarkdown from "react-markdown";
 import {
   AlertTriangle,
   Brain,
+  ChevronDown,
+  ChevronUp,
   Lightbulb,
   Plus,
   Send,
   Target,
   ArrowRight,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,6 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { apiFetch, apiFetchSSE } from "@/lib/api";
+import { logEngagement } from "@/lib/engagement";
 import type { BriefingResponse } from "@/types/briefing";
 
 const TOOL_LABELS: Record<string, string> = {
@@ -55,7 +59,18 @@ const SUGGESTION_CHIPS = [
   "Review my progress",
 ];
 
-function BriefingPanel({ briefing, onChipClick }: { briefing: BriefingResponse; onChipClick: (text: string) => void }) {
+function BriefingPanel({ briefing, onChipClick, token }: { briefing: BriefingResponse; onChipClick: (text: string) => void; token: string }) {
+  const [expandedRecs, setExpandedRecs] = useState<Set<string>>(new Set());
+
+  const toggleReasoning = (id: string) => {
+    setExpandedRecs((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const hour = new Date().getHours();
   const greeting =
     hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
@@ -81,7 +96,10 @@ function BriefingPanel({ briefing, onChipClick }: { briefing: BriefingResponse; 
           {briefing.signals.map((s) => (
             <button
               key={s.id}
-              onClick={() => onChipClick(`Tell me more about: ${s.title}`)}
+              onClick={() => {
+                logEngagement(token, "opened", "signal", String(s.id));
+                onChipClick(`Tell me more about: ${s.title}`);
+              }}
               className="w-full rounded-lg border bg-card p-3 text-left transition-colors hover:bg-accent"
             >
               <p className="text-sm font-medium">{s.title}</p>
@@ -119,14 +137,54 @@ function BriefingPanel({ briefing, onChipClick }: { briefing: BriefingResponse; 
             Suggestions
           </div>
           {briefing.recommendations.map((r) => (
-            <button
-              key={r.id}
-              onClick={() => onChipClick(`Tell me more about: ${r.title}`)}
-              className="w-full rounded-lg border bg-card p-3 text-left transition-colors hover:bg-accent"
-            >
-              <p className="text-sm font-medium">{r.title}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{r.description}</p>
-            </button>
+            <div key={r.id} className="rounded-lg border bg-card text-left">
+              <button
+                onClick={() => {
+                  logEngagement(token, "opened", "recommendation", String(r.id));
+                  onChipClick(`Tell me more about: ${r.title}`);
+                }}
+                className="w-full p-3 transition-colors hover:bg-accent rounded-lg text-left"
+              >
+                <p className="text-sm font-medium">{r.title}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{r.description}</p>
+              </button>
+              {r.reasoning_trace && (
+                <div className="px-3 pb-2">
+                  <button
+                    onClick={() => toggleReasoning(r.id)}
+                    className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-0.5"
+                  >
+                    Why this?
+                    {expandedRecs.has(r.id) ? (
+                      <ChevronUp className="h-3 w-3" />
+                    ) : (
+                      <ChevronDown className="h-3 w-3" />
+                    )}
+                  </button>
+                  {expandedRecs.has(r.id) && (
+                    <div className="mt-1 text-xs text-muted-foreground space-y-0.5">
+                      {r.reasoning_trace.source_signal && (
+                        <p><span className="font-medium text-foreground">Source:</span> {r.reasoning_trace.source_signal}</p>
+                      )}
+                      {r.reasoning_trace.profile_match && (
+                        <p><span className="font-medium text-foreground">Match:</span> {r.reasoning_trace.profile_match}</p>
+                      )}
+                      <p>
+                        <span className="font-medium text-foreground">Confidence:</span>{" "}
+                        <Badge variant="secondary" className="text-[10px] px-1 py-0">
+                          {Math.round(r.reasoning_trace.confidence * 100)}%
+                        </Badge>
+                      </p>
+                      {r.reasoning_trace.caveats && (
+                        <p className="text-amber-600 dark:text-amber-400">
+                          <span className="font-medium">Caveats:</span> {r.reasoning_trace.caveats}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}
@@ -140,7 +198,10 @@ function BriefingPanel({ briefing, onChipClick }: { briefing: BriefingResponse; 
           {briefing.patterns.map((p, i) => (
             <button
               key={i}
-              onClick={() => onChipClick(`Tell me more about: ${p.summary}`)}
+              onClick={() => {
+                logEngagement(token, "opened", "pattern", String(i));
+                onChipClick(`Tell me more about: ${p.summary}`);
+              }}
               className="w-full rounded-lg border bg-card p-3 text-left transition-colors hover:bg-accent"
             >
               <p className="text-sm font-medium">{p.summary}</p>
@@ -498,7 +559,7 @@ export function ChatInterface({
       {/* Chat messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
         {showBriefing && briefing && (
-          <BriefingPanel briefing={briefing} onChipClick={handleChipClick} />
+          <BriefingPanel briefing={briefing} onChipClick={handleChipClick} token={token} />
         )}
         {messages.length === 0 && !showBriefing && (
           <div className="flex flex-col items-center justify-center py-16 text-center">

@@ -91,6 +91,7 @@ async def get_briefing(
                     "description": r.description[:200] if r.description else "",
                     "score": r.score,
                     "status": r.status,
+                    "reasoning_trace": r.metadata.get("reasoning_trace") if r.metadata else None,
                 }
                 for r in recs
             ]

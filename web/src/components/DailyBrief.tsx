@@ -1,8 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import {
   AlertTriangle,
   Brain,
+  ChevronDown,
+  ChevronUp,
   Clock,
   Lightbulb,
   Target,
@@ -188,6 +191,17 @@ export function RecommendationsCard({
   recommendations: BriefingRecommendation[];
   onAskAbout: (q: string) => void;
 }) {
+  const [expandedRecs, setExpandedRecs] = useState<Set<string>>(new Set());
+
+  const toggleReasoning = (id: string) => {
+    setExpandedRecs((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   if (recommendations.length === 0) return null;
   return (
     <Card>
@@ -201,32 +215,72 @@ export function RecommendationsCard({
         {recommendations.map((r) => (
           <div
             key={r.id}
-            className="flex items-start gap-2 rounded-md border p-2 text-sm"
+            className="flex flex-col gap-1 rounded-md border p-2 text-sm"
           >
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-medium truncate">{r.title}</span>
-                <Badge variant="outline" className="text-xs shrink-0">
-                  {r.category}
-                </Badge>
-                <Badge variant="secondary" className="text-xs shrink-0">
-                  {r.score.toFixed(1)}
-                </Badge>
+            <div className="flex items-start gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium truncate">{r.title}</span>
+                  <Badge variant="outline" className="text-xs shrink-0">
+                    {r.category}
+                  </Badge>
+                  <Badge variant="secondary" className="text-xs shrink-0">
+                    {r.score.toFixed(1)}
+                  </Badge>
+                </div>
+                {r.description && (
+                  <p className="mt-0.5 text-muted-foreground line-clamp-2">
+                    {r.description}
+                  </p>
+                )}
+                <div className="flex items-center gap-2 mt-0.5">
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-xs"
+                    onClick={() => onAskAbout(`Create an action plan for: ${r.title}`)}
+                  >
+                    Ask about this
+                  </Button>
+                  {r.reasoning_trace && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto px-1 py-0 text-xs text-muted-foreground"
+                      onClick={() => toggleReasoning(r.id)}
+                    >
+                      Why this?
+                      {expandedRecs.has(r.id) ? (
+                        <ChevronUp className="ml-0.5 h-3 w-3" />
+                      ) : (
+                        <ChevronDown className="ml-0.5 h-3 w-3" />
+                      )}
+                    </Button>
+                  )}
+                </div>
               </div>
-              {r.description && (
-                <p className="mt-0.5 text-muted-foreground line-clamp-2">
-                  {r.description}
-                </p>
-              )}
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0 text-xs"
-                onClick={() => onAskAbout(`Create an action plan for: ${r.title}`)}
-              >
-                Ask about this
-              </Button>
             </div>
+            {r.reasoning_trace && expandedRecs.has(r.id) && (
+              <div className="mt-1 rounded-md bg-muted/50 p-2 text-xs space-y-1">
+                {r.reasoning_trace.source_signal && (
+                  <p><span className="font-medium">Source:</span> {r.reasoning_trace.source_signal}</p>
+                )}
+                {r.reasoning_trace.profile_match && (
+                  <p><span className="font-medium">Match:</span> {r.reasoning_trace.profile_match}</p>
+                )}
+                <p>
+                  <span className="font-medium">Confidence:</span>{" "}
+                  <Badge variant="secondary" className="text-[10px] px-1 py-0">
+                    {Math.round(r.reasoning_trace.confidence * 100)}%
+                  </Badge>
+                </p>
+                {r.reasoning_trace.caveats && (
+                  <p className="text-amber-600 dark:text-amber-400">
+                    <span className="font-medium">Caveats:</span> {r.reasoning_trace.caveats}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         ))}
       </CardContent>

@@ -59,6 +59,7 @@ class Recommender:
 
         context_query = CATEGORY_QUERIES.get(category, category)
 
+        profile_ctx = self.rag.get_profile_context()
         journal_ctx = self.rag.get_journal_context(
             context_query,
             max_entries=8,
@@ -68,7 +69,7 @@ class Recommender:
 
         prompt = PromptTemplates.UNIFIED_RECOMMENDATIONS.format(
             category=category,
-            journal_context=journal_ctx,
+            journal_context=profile_ctx + journal_ctx,
             intel_context=intel_ctx,
             max_items=max_items,
         )
@@ -108,6 +109,17 @@ class Recommender:
                     current["score"] = min(10.0, max(0.0, float(line.split(":")[-1].strip())))
                 except ValueError:
                     current["score"] = 5.0
+            elif line.startswith("SOURCE:") or line.startswith("- SOURCE:"):
+                current["reasoning_source"] = line.split(":", 1)[-1].strip()
+            elif line.startswith("PROFILE_MATCH:") or line.startswith("- PROFILE_MATCH:"):
+                current["reasoning_profile_match"] = line.split(":", 1)[-1].strip()
+            elif line.startswith("CONFIDENCE:") or line.startswith("- CONFIDENCE:"):
+                try:
+                    current["reasoning_confidence"] = min(1.0, max(0.0, float(line.split(":", 1)[-1].strip())))
+                except ValueError:
+                    current["reasoning_confidence"] = 0.5
+            elif line.startswith("CAVEATS:") or line.startswith("- CAVEATS:"):
+                current["reasoning_caveats"] = line.split(":", 1)[-1].strip()
             elif current.get("title") and not current.get("description") and line:
                 current["description"] = current.get("description", "") + " " + line
 
@@ -126,15 +138,30 @@ class Recommender:
         return valid
 
     def _build_recommendation(self, data: dict, category: str) -> Recommendation:
+        metadata = {}
+        reasoning_trace = {}
+        if data.get("reasoning_source"):
+            reasoning_trace["source_signal"] = data["reasoning_source"]
+        if data.get("reasoning_profile_match"):
+            reasoning_trace["profile_match"] = data["reasoning_profile_match"]
+        if "reasoning_confidence" in data:
+            reasoning_trace["confidence"] = data["reasoning_confidence"]
+        if data.get("reasoning_caveats"):
+            reasoning_trace["caveats"] = data["reasoning_caveats"]
+        if reasoning_trace:
+            metadata["reasoning_trace"] = reasoning_trace
+
         return Recommendation(
             category=category,
             title=data.get("title", ""),
             description=data.get("description", "").strip(),
             rationale=data.get("rationale", ""),
             score=data.get("score", 5.0),
+            metadata=metadata or None,
         )
 
     def _generate_action_plan(self, rec: Recommendation) -> str:
+        profile_ctx = self.rag.get_profile_context()
         journal_ctx = self.rag.get_journal_context(
             f"{rec.title} {rec.category}",
             max_entries=5,
@@ -145,7 +172,7 @@ class Recommender:
             category=rec.category,
             description=rec.description,
             rationale=rec.rationale,
-            journal_context=journal_ctx,
+            journal_context=profile_ctx + journal_ctx,
         )
         return self.llm_caller(PromptTemplates.SYSTEM, prompt, max_tokens=1000)
 

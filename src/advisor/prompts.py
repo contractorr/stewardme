@@ -120,6 +120,12 @@ Generate {max_items} actionable {category} recommendations. For each:
 SCORE: [0-10 single score weighing relevance, feasibility, and impact]
 **Next Steps**: Concrete actions to take
 
+**REASONING**
+SOURCE: [specific journal entry or intel item that triggered this]
+PROFILE_MATCH: [how this aligns with user goals/skills/interests]
+CONFIDENCE: [0.0-1.0]
+CAVEATS: [risks, time commitment, limitations]
+
 Be specific and actionable. Prioritize practical value over theoretical interest."""
 
     WEEKLY_ACTION_BRIEF = """Generate a weekly action brief with the top prioritized recommendations.

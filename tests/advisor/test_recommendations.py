@@ -93,6 +93,7 @@ class TestRecommendationEngine:
         rag = Mock()
         rag.get_journal_context.return_value = "User wants to learn Rust"
         rag.get_intel_context.return_value = "Rust demand growing 40%"
+        rag.get_profile_context.return_value = ""
         return rag
 
     @pytest.fixture
@@ -103,6 +104,12 @@ class TestRecommendationEngine:
 **Description**: Master async programming in Rust
 **Why**: Mentioned interest in systems programming
 SCORE: 8.0
+
+**REASONING**
+SOURCE: Journal entry about wanting to learn systems programming
+PROFILE_MATCH: Aligns with stated goal of backend performance work
+CONFIDENCE: 0.85
+CAVEATS: Steep learning curve, requires dedicated time commitment
 """
 
         return llm_caller
@@ -126,3 +133,35 @@ SCORE: 8.0
         engine = RecommendationEngine(mock_rag, mock_llm, storage, config)
         assert "learning" in engine.enabled_categories
         assert "career" not in engine.enabled_categories
+
+    def test_reasoning_trace_extracted(self, mock_rag, mock_llm, storage):
+        """Reasoning trace fields parsed into metadata."""
+        engine = RecommendationEngine(
+            mock_rag, mock_llm, storage, {"scoring": {"min_threshold": 0.0}}
+        )
+        recs = engine.generate_category("learning", save=False, with_action_plans=False)
+        assert len(recs) >= 1
+        trace = recs[0].metadata.get("reasoning_trace")
+        assert trace is not None
+        assert trace["source_signal"] == "Journal entry about wanting to learn systems programming"
+        assert trace["profile_match"] == "Aligns with stated goal of backend performance work"
+        assert trace["confidence"] == 0.85
+        assert "Steep learning curve" in trace["caveats"]
+
+    def test_reasoning_trace_absent_backward_compat(self, mock_rag, storage):
+        """Recs without reasoning block still work — no reasoning_trace in metadata."""
+
+        def llm_no_reasoning(system, prompt, **kwargs):
+            return """
+### Learn Go Concurrency
+**Description**: Master goroutines and channels
+**Why**: Mentioned interest in distributed systems
+SCORE: 7.5
+"""
+
+        engine = RecommendationEngine(
+            mock_rag, llm_no_reasoning, storage, {"scoring": {"min_threshold": 0.0}}
+        )
+        recs = engine.generate_category("learning", save=False, with_action_plans=False)
+        assert len(recs) >= 1
+        assert recs[0].metadata is None or "reasoning_trace" not in (recs[0].metadata or {})

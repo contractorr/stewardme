@@ -145,6 +145,12 @@ class ResearchTopic(BaseModel):
 # --- Onboarding ---
 
 
+class ProfileStatus(BaseModel):
+    has_profile: bool = False
+    is_stale: bool = False
+    has_api_key: bool = False
+
+
 class OnboardingChat(BaseModel):
     message: str = Field(..., max_length=5000)
 
@@ -178,6 +184,13 @@ class BriefingPattern(BaseModel):
     coaching_prompt: str = ""
 
 
+class ReasoningTrace(BaseModel):
+    source_signal: str = ""
+    profile_match: str = ""
+    confidence: float = 0.5
+    caveats: str = ""
+
+
 class BriefingRecommendation(BaseModel):
     id: str = ""
     category: str = ""
@@ -185,6 +198,7 @@ class BriefingRecommendation(BaseModel):
     description: str = ""
     score: float = 0.0
     status: str = ""
+    reasoning_trace: Optional[ReasoningTrace] = None
 
 
 class BriefingGoal(BaseModel):
@@ -260,3 +274,66 @@ class MatchingIssue(BaseModel):
     tags: list[str]
     source: str
     match_score: int = 0
+
+
+# --- Engagement ---
+
+
+class EngagementEvent(BaseModel):
+    event_type: str = Field(
+        ...,
+        pattern=r"^(opened|saved|dismissed|acted_on|feedback_useful|feedback_irrelevant)$",
+    )
+    target_type: str = Field(..., max_length=50)
+    target_id: str = Field(..., max_length=200)
+    metadata: Optional[dict] = None
+
+
+class EngagementStats(BaseModel):
+    by_target: dict = {}
+    by_event: dict = {}
+    total: int = 0
+
+
+# --- Profile ---
+
+
+class ProfileResponse(BaseModel):
+    current_role: str = ""
+    career_stage: str = ""
+    skills: list[dict] = []
+    interests: list[str] = []
+    aspirations: str = ""
+    location: str = ""
+    languages_frameworks: list[str] = []
+    learning_style: str = "mixed"
+    weekly_hours_available: int = 5
+    goals_short_term: str = ""
+    goals_long_term: str = ""
+    industries_watching: list[str] = []
+    technologies_watching: list[str] = []
+    constraints: dict = {}
+    fears_risks: list[str] = []
+    active_projects: list[str] = []
+    updated_at: Optional[str] = None
+    summary: str = ""
+    is_stale: bool = False
+
+
+class ProfileUpdate(BaseModel):
+    current_role: Optional[str] = None
+    career_stage: Optional[str] = None
+    skills: Optional[list[dict]] = None
+    interests: Optional[list[str]] = None
+    aspirations: Optional[str] = None
+    location: Optional[str] = None
+    languages_frameworks: Optional[list[str]] = None
+    learning_style: Optional[str] = None
+    weekly_hours_available: Optional[int] = None
+    goals_short_term: Optional[str] = None
+    goals_long_term: Optional[str] = None
+    industries_watching: Optional[list[str]] = None
+    technologies_watching: Optional[list[str]] = None
+    constraints: Optional[dict] = None
+    fears_risks: Optional[list[str]] = None
+    active_projects: Optional[list[str]] = None
