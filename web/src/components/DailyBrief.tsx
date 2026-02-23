@@ -9,6 +9,8 @@ import {
   Clock,
   Lightbulb,
   Target,
+  ThumbsDown,
+  ThumbsUp,
   TrendingUp,
   X,
 } from "lucide-react";
@@ -20,6 +22,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { logEngagement } from "@/lib/engagement";
 import type {
   BriefingSignal,
   BriefingPattern,
@@ -187,11 +190,27 @@ export function PatternsCard({
 export function RecommendationsCard({
   recommendations,
   onAskAbout,
+  token,
 }: {
   recommendations: BriefingRecommendation[];
   onAskAbout: (q: string) => void;
+  token?: string;
 }) {
   const [expandedRecs, setExpandedRecs] = useState<Set<string>>(new Set());
+  const [feedbackGiven, setFeedbackGiven] = useState<Record<string, "useful" | "irrelevant">>({});
+
+  const handleFeedback = (id: string, category: string, type: "useful" | "irrelevant") => {
+    setFeedbackGiven((prev) => ({ ...prev, [id]: type }));
+    if (token) {
+      logEngagement(
+        token,
+        type === "useful" ? "feedback_useful" : "feedback_irrelevant",
+        "recommendation",
+        id,
+        { category },
+      );
+    }
+  };
 
   const toggleReasoning = (id: string) => {
     setExpandedRecs((prev) => {
@@ -257,6 +276,34 @@ export function RecommendationsCard({
                       )}
                     </Button>
                   )}
+                  <span className="ml-auto flex items-center gap-1">
+                    {feedbackGiven[r.id] ? (
+                      <span className="text-[10px] text-muted-foreground">
+                        {feedbackGiven[r.id] === "useful" ? "Marked useful" : "Marked irrelevant"}
+                      </span>
+                    ) : (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-green-600"
+                          onClick={() => handleFeedback(r.id, r.category, "useful")}
+                          title="Useful"
+                        >
+                          <ThumbsUp className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-red-500"
+                          onClick={() => handleFeedback(r.id, r.category, "irrelevant")}
+                          title="Not relevant"
+                        >
+                          <ThumbsDown className="h-3 w-3" />
+                        </Button>
+                      </>
+                    )}
+                  </span>
                 </div>
               </div>
             </div>

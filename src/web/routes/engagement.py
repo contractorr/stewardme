@@ -1,10 +1,13 @@
 """Engagement tracking routes."""
 
+import structlog
 from fastapi import APIRouter, Depends
 
 from web.auth import get_current_user
 from web.models import EngagementEvent, EngagementStats
 from web.user_store import get_engagement_stats, log_engagement
+
+logger = structlog.get_logger()
 
 router = APIRouter(prefix="/api/engagement", tags=["engagement"])
 
@@ -14,6 +17,13 @@ async def post_engagement(
     body: EngagementEvent,
     user: dict = Depends(get_current_user),
 ):
+    logger.info(
+        "engagement.event",
+        user_id=user["id"],
+        event_type=body.event_type,
+        target_type=body.target_type,
+        target_id=body.target_id,
+    )
     log_engagement(
         user_id=user["id"],
         event_type=body.event_type,

@@ -11,7 +11,10 @@ import {
   Lightbulb,
   Plus,
   Send,
+  Sparkles,
   Target,
+  ThumbsDown,
+  ThumbsUp,
   ArrowRight,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +64,7 @@ const SUGGESTION_CHIPS = [
 
 function BriefingPanel({ briefing, onChipClick, token }: { briefing: BriefingResponse; onChipClick: (text: string) => void; token: string }) {
   const [expandedRecs, setExpandedRecs] = useState<Set<string>>(new Set());
+  const [feedbackGiven, setFeedbackGiven] = useState<Record<string, "useful" | "irrelevant">>({});
 
   const toggleReasoning = (id: string) => {
     setExpandedRecs((prev) => {
@@ -69,6 +73,17 @@ function BriefingPanel({ briefing, onChipClick, token }: { briefing: BriefingRes
       else next.add(id);
       return next;
     });
+  };
+
+  const handleFeedback = (id: string, category: string, type: "useful" | "irrelevant") => {
+    setFeedbackGiven((prev) => ({ ...prev, [id]: type }));
+    logEngagement(
+      token,
+      type === "useful" ? "feedback_useful" : "feedback_irrelevant",
+      "recommendation",
+      id,
+      { category },
+    );
   };
 
   const hour = new Date().getHours();
@@ -148,8 +163,8 @@ function BriefingPanel({ briefing, onChipClick, token }: { briefing: BriefingRes
                 <p className="text-sm font-medium">{r.title}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">{r.description}</p>
               </button>
-              {r.reasoning_trace && (
-                <div className="px-3 pb-2">
+              <div className="flex items-center gap-1 px-3 pb-2">
+                {r.reasoning_trace && (
                   <button
                     onClick={() => toggleReasoning(r.id)}
                     className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-0.5"
@@ -161,26 +176,50 @@ function BriefingPanel({ briefing, onChipClick, token }: { briefing: BriefingRes
                       <ChevronDown className="h-3 w-3" />
                     )}
                   </button>
-                  {expandedRecs.has(r.id) && (
-                    <div className="mt-1 text-xs text-muted-foreground space-y-0.5">
-                      {r.reasoning_trace.source_signal && (
-                        <p><span className="font-medium text-foreground">Source:</span> {r.reasoning_trace.source_signal}</p>
-                      )}
-                      {r.reasoning_trace.profile_match && (
-                        <p><span className="font-medium text-foreground">Match:</span> {r.reasoning_trace.profile_match}</p>
-                      )}
-                      <p>
-                        <span className="font-medium text-foreground">Confidence:</span>{" "}
-                        <Badge variant="secondary" className="text-[10px] px-1 py-0">
-                          {Math.round(r.reasoning_trace.confidence * 100)}%
-                        </Badge>
-                      </p>
-                      {r.reasoning_trace.caveats && (
-                        <p className="text-amber-600 dark:text-amber-400">
-                          <span className="font-medium">Caveats:</span> {r.reasoning_trace.caveats}
-                        </p>
-                      )}
-                    </div>
+                )}
+                <span className="ml-auto flex items-center gap-1">
+                  {feedbackGiven[r.id] ? (
+                    <span className="text-[10px] text-muted-foreground">
+                      {feedbackGiven[r.id] === "useful" ? "Marked useful" : "Marked irrelevant"}
+                    </span>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => handleFeedback(r.id, r.category, "useful")}
+                        className="p-1 text-muted-foreground hover:text-green-600 transition-colors"
+                        title="Useful"
+                      >
+                        <ThumbsUp className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => handleFeedback(r.id, r.category, "irrelevant")}
+                        className="p-1 text-muted-foreground hover:text-red-500 transition-colors"
+                        title="Not relevant"
+                      >
+                        <ThumbsDown className="h-3 w-3" />
+                      </button>
+                    </>
+                  )}
+                </span>
+              </div>
+              {r.reasoning_trace && expandedRecs.has(r.id) && (
+                <div className="mx-3 mb-2 text-xs text-muted-foreground space-y-0.5">
+                  {r.reasoning_trace.source_signal && (
+                    <p><span className="font-medium text-foreground">Source:</span> {r.reasoning_trace.source_signal}</p>
+                  )}
+                  {r.reasoning_trace.profile_match && (
+                    <p><span className="font-medium text-foreground">Match:</span> {r.reasoning_trace.profile_match}</p>
+                  )}
+                  <p>
+                    <span className="font-medium text-foreground">Confidence:</span>{" "}
+                    <Badge variant="secondary" className="text-[10px] px-1 py-0">
+                      {Math.round(r.reasoning_trace.confidence * 100)}%
+                    </Badge>
+                  </p>
+                  {r.reasoning_trace.caveats && (
+                    <p className="text-amber-600 dark:text-amber-400">
+                      <span className="font-medium">Caveats:</span> {r.reasoning_trace.caveats}
+                    </p>
                   )}
                 </div>
               )}
@@ -210,6 +249,13 @@ function BriefingPanel({ briefing, onChipClick, token }: { briefing: BriefingRes
               )}
             </button>
           ))}
+        </div>
+      )}
+
+      {briefing.adaptation_count > 0 && (
+        <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+          <Sparkles className="h-3 w-3" />
+          Your profile is learning — {briefing.adaptation_count} signal{briefing.adaptation_count !== 1 ? "s" : ""} absorbed
         </div>
       )}
 

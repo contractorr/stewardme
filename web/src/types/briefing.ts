@@ -47,4 +47,5 @@ export interface BriefingResponse {
   recommendations: BriefingRecommendation[];
   stale_goals: BriefingGoal[];
   has_data: boolean;
+  adaptation_count: number;
 }

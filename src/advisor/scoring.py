@@ -1,13 +1,34 @@
 """Scoring utilities for recommendations."""
 
 import hashlib
+import sqlite3
+from pathlib import Path
+from typing import Optional
+
+import structlog
+
+logger = structlog.get_logger()
+
+# Minimum engagement events before applying boosts
+MIN_EVENTS_FOR_BOOST = 10
+# Max score adjustment from engagement
+MAX_BOOST = 1.5
 
 
 class RecommendationScorer:
     """Score and deduplicate recommendations."""
 
-    def __init__(self, min_threshold: float = 6.0, **_kwargs):
+    def __init__(
+        self,
+        min_threshold: float = 6.0,
+        users_db_path: Optional[Path] = None,
+        user_id: Optional[str] = None,
+        **_kwargs,
+    ):
         self.min_threshold = min_threshold
+        self._users_db_path = users_db_path
+        self._user_id = user_id
+        self._category_boosts: Optional[dict[str, float]] = None
 
     def passes_threshold(self, score: float) -> bool:
         """Check if score meets minimum threshold."""
@@ -17,3 +38,70 @@ class RecommendationScorer:
         """Generate hash for deduplication."""
         content = f"{title.lower().strip()}|{description.lower().strip()}"
         return hashlib.sha256(content.encode()).hexdigest()[:16]
+
+    def engagement_boost(self, category: str) -> float:
+        """Per-category score adjustment from engagement feedback.
+
+        Computes useful_ratio per category from last 30d of feedback events.
+        Returns boost in [-MAX_BOOST, +MAX_BOOST]. Positive = users liked this
+        category, negative = users found it irrelevant.
+        """
+        if self._category_boosts is not None:
+            return self._category_boosts.get(category, 0.0)
+
+        self._category_boosts = {}
+        if not self._users_db_path or not self._user_id:
+            return 0.0
+
+        try:
+            with sqlite3.connect(str(self._users_db_path)) as conn:
+                conn.row_factory = sqlite3.Row
+                rows = conn.execute(
+                    """
+                    SELECT
+                        json_extract(metadata_json, '$.category') as category,
+                        event_type,
+                        COUNT(*) as cnt
+                    FROM engagement_events
+                    WHERE user_id = ?
+                      AND target_type = 'recommendation'
+                      AND event_type IN ('feedback_useful', 'feedback_irrelevant')
+                      AND created_at >= datetime('now', '-30 days')
+                    GROUP BY category, event_type
+                    """,
+                    (self._user_id,),
+                ).fetchall()
+
+            # Aggregate per category
+            cat_counts: dict[str, dict[str, int]] = {}
+            for r in rows:
+                cat = r["category"] or "unknown"
+                cat_counts.setdefault(cat, {"useful": 0, "irrelevant": 0})
+                if r["event_type"] == "feedback_useful":
+                    cat_counts[cat]["useful"] += r["cnt"]
+                else:
+                    cat_counts[cat]["irrelevant"] += r["cnt"]
+
+            for cat, counts in cat_counts.items():
+                total = counts["useful"] + counts["irrelevant"]
+                if total < MIN_EVENTS_FOR_BOOST:
+                    continue
+                # ratio 0-1, 0.5 = neutral
+                ratio = counts["useful"] / total
+                # map [0,1] -> [-MAX_BOOST, +MAX_BOOST]
+                self._category_boosts[cat] = MAX_BOOST * (2 * ratio - 1)
+
+            logger.debug(
+                "engagement.category_boosts",
+                user_id=self._user_id,
+                boosts=self._category_boosts,
+            )
+        except Exception as e:
+            logger.debug("engagement.boost_error", error=str(e))
+
+        return self._category_boosts.get(category, 0.0)
+
+    def adjust_score(self, score: float, category: str) -> float:
+        """Apply engagement boost to a raw LLM score, clamped [0, 10]."""
+        boost = self.engagement_boost(category)
+        return max(0.0, min(10.0, score + boost))

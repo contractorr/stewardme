@@ -214,6 +214,7 @@ class BriefingResponse(BaseModel):
     recommendations: list[BriefingRecommendation] = []
     stale_goals: list[BriefingGoal] = []
     has_data: bool = False
+    adaptation_count: int = 0
 
 
 # --- Trends ---

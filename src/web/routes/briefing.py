@@ -19,6 +19,7 @@ from web.models import (
     BriefingResponse,
     BriefingSignal,
 )
+from web.user_store import get_feedback_count
 
 logger = structlog.get_logger()
 
@@ -117,12 +118,20 @@ async def get_briefing(
 
     has_data = bool(signals or patterns or recommendations or stale_goals)
 
+    # Adaptation count — how many feedback events the user has given
+    adaptation_count = 0
+    try:
+        adaptation_count = get_feedback_count(user["id"])
+    except Exception:
+        pass
+
     return BriefingResponse(
         signals=[BriefingSignal(**s) for s in signals],
         patterns=[BriefingPattern(**p) for p in patterns],
         recommendations=[BriefingRecommendation(**r) for r in recommendations],
         stale_goals=[BriefingGoal(**g) for g in stale_goals],
         has_data=has_data,
+        adaptation_count=adaptation_count,
     )
 
 

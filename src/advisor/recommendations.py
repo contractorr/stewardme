@@ -1,5 +1,6 @@
 """Unified recommendation engine."""
 
+from pathlib import Path
 from typing import Optional
 
 import structlog
@@ -151,12 +152,15 @@ class Recommender:
         if reasoning_trace:
             metadata["reasoning_trace"] = reasoning_trace
 
+        raw_score = data.get("score", 5.0)
+        adjusted = self.scorer.adjust_score(raw_score, category)
+
         return Recommendation(
             category=category,
             title=data.get("title", ""),
             description=data.get("description", "").strip(),
             rationale=data.get("rationale", ""),
-            score=data.get("score", 5.0),
+            score=adjusted,
             metadata=metadata or None,
         )
 
@@ -186,6 +190,8 @@ class RecommendationEngine:
         llm_caller,
         storage: RecommendationStorage,
         config: Optional[dict] = None,
+        users_db_path: Optional[Path] = None,
+        user_id: Optional[str] = None,
     ):
         self.rag = rag
         self.llm_caller = llm_caller
@@ -195,6 +201,8 @@ class RecommendationEngine:
         scoring_config = self.config.get("scoring", {})
         self.scorer = RecommendationScorer(
             min_threshold=scoring_config.get("min_threshold", 6.0),
+            users_db_path=users_db_path,
+            user_id=user_id,
         )
 
         self.recommender = Recommender(rag, llm_caller, self.scorer, storage)

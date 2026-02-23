@@ -355,3 +355,25 @@ def get_engagement_stats(
         return stats
     finally:
         conn.close()
+
+
+def get_feedback_count(
+    user_id: str,
+    days: int = 30,
+    db_path: Path | None = None,
+) -> int:
+    """Count feedback events (useful + irrelevant) in the last N days."""
+    conn = _get_conn(db_path)
+    try:
+        row = conn.execute(
+            """
+            SELECT COUNT(*) as cnt FROM engagement_events
+            WHERE user_id = ?
+              AND event_type IN ('feedback_useful', 'feedback_irrelevant')
+              AND created_at >= datetime('now', ?)
+            """,
+            (user_id, f"-{days} days"),
+        ).fetchone()
+        return row["cnt"] if row else 0
+    finally:
+        conn.close()
