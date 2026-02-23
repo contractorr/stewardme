@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { signIn } from "next-auth/react";
-import { Brain, Github } from "lucide-react";
+import {
+  BookOpen,
+  Brain,
+  Github,
+  Newspaper,
+  Sparkles,
+  Target,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,9 +19,36 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
+const features = [
+  {
+    icon: Newspaper,
+    title: "Intelligence Radar",
+    description:
+      "Scans Hacker News, GitHub trending, arXiv, Reddit, and RSS feeds to surface what matters to you.",
+  },
+  {
+    icon: Sparkles,
+    title: "AI Advisor",
+    description:
+      "Personalized advice powered by retrieval-augmented generation over your journal and external intel.",
+  },
+  {
+    icon: Target,
+    title: "Goal Tracking",
+    description:
+      "Set goals with milestones, track progress, and get alerts when priorities should shift.",
+  },
+  {
+    icon: BookOpen,
+    title: "Journal",
+    description:
+      "Capture reflections and decisions. Every entry trains your AI to give sharper guidance.",
+  },
+];
+
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-muted/40 px-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-muted/40 px-4 py-12">
       <Card className="w-full max-w-[400px]">
         <CardHeader className="text-center">
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
@@ -22,8 +56,9 @@ export default function LoginPage() {
           </div>
           <CardTitle className="text-2xl text-primary">StewardMe</CardTitle>
           <CardDescription className="text-balance">
-            Your AI steward for navigating rapid change — proactive intelligence,
-            opportunity discovery, and focus optimization.
+            An open-source, self-hosted AI steward that combines your journal,
+            goals, and external intelligence into personalized guidance. Your
+            data stays on your infrastructure.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
@@ -62,7 +97,24 @@ export default function LoginPage() {
           </Button>
         </CardContent>
       </Card>
-      <div className="mt-4 flex gap-3 text-xs text-muted-foreground">
+
+      <div className="mt-8 grid w-full max-w-[700px] grid-cols-1 gap-4 sm:grid-cols-2">
+        {features.map(({ icon: Icon, title, description }) => (
+          <div key={title} className="flex gap-3 rounded-lg border bg-card p-4">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10">
+              <Icon className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-medium">{title}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
+                {description}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-6 flex gap-3 text-xs text-muted-foreground">
         <Link href="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>
         <span>&middot;</span>
         <Link href="/terms" className="underline hover:text-foreground">Terms of Service</Link>
