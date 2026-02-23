@@ -4,7 +4,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ~/coach:/data/coach
+      - coach_data:/data/coach
     env_file: .env
     environment:
       - COACH_HOME=/data/coach
@@ -14,8 +14,12 @@ services:
     build: ./web
     ports:
       - "3000:3000"
-    env_file: ./web/.env.local
+    env_file: .env
     environment:
-      - NEXT_PUBLIC_API_URL=http://backend:8000
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
     depends_on:
       - backend
+
+volumes:
+  coach_data:

@@ -132,6 +132,8 @@ export default function OnboardingPage() {
     }
   }, [phase, handleDone]);
 
+  const [testing, setTesting] = useState(false);
+
   const handleSaveKey = async () => {
     if (!apiKey.trim()) {
       toast.error("Please enter an API key");
@@ -147,6 +149,22 @@ export default function OnboardingPage() {
         { method: "PUT", body: JSON.stringify(payload) },
         token
       );
+
+      // Connectivity test
+      setTesting(true);
+      try {
+        await apiFetch<{ ok: boolean; provider: string }>(
+          "/api/settings/test-llm",
+          { method: "POST" },
+          token
+        );
+        toast.success("Connected to LLM");
+      } catch (e) {
+        toast.error(`Key saved but LLM test failed: ${(e as Error).message}`);
+      } finally {
+        setTesting(false);
+      }
+
       setPhase("chat");
     } catch (e) {
       toast.error((e as Error).message);
@@ -293,10 +311,10 @@ export default function OnboardingPage() {
             <div className="space-y-2 px-6 pb-6">
               <Button
                 onClick={handleSaveKey}
-                disabled={saving}
+                disabled={saving || testing}
                 className="w-full"
               >
-                {saving ? "Setting up..." : "Get Started"}
+                {testing ? "Testing connection..." : saving ? "Saving..." : "Get Started"}
               </Button>
               <Button
                 variant="ghost"
