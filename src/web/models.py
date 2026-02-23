@@ -153,3 +153,50 @@ class OnboardingResponse(BaseModel):
     message: str
     done: bool = False
     goals_created: int = 0
+
+
+# --- Briefing ---
+
+
+class BriefingSignal(BaseModel):
+    id: int = 0
+    type: str = ""
+    severity: int = 0
+    title: str = ""
+    detail: str = ""
+    suggested_actions: list[str] = []
+    evidence: list[str] = []
+    created_at: str = ""
+    signal_hash: Optional[str] = None
+
+
+class BriefingPattern(BaseModel):
+    type: str = ""
+    confidence: float = 0.0
+    summary: str = ""
+    evidence: list[str] = []
+    coaching_prompt: str = ""
+
+
+class BriefingRecommendation(BaseModel):
+    id: str = ""
+    category: str = ""
+    title: str = ""
+    description: str = ""
+    score: float = 0.0
+    status: str = ""
+
+
+class BriefingGoal(BaseModel):
+    path: str = ""
+    title: str = ""
+    status: str = ""
+    days_since_check: int = 0
+
+
+class BriefingResponse(BaseModel):
+    signals: list[BriefingSignal] = []
+    patterns: list[BriefingPattern] = []
+    recommendations: list[BriefingRecommendation] = []
+    stale_goals: list[BriefingGoal] = []
+    has_data: bool = False

@@ -1,0 +1,284 @@
+"use client";
+
+import {
+  AlertTriangle,
+  Brain,
+  Clock,
+  Lightbulb,
+  Target,
+  TrendingUp,
+  X,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import type {
+  BriefingSignal,
+  BriefingPattern,
+  BriefingRecommendation,
+  BriefingGoal,
+} from "@/types/briefing";
+
+function severityColor(severity: number) {
+  if (severity >= 7) return "destructive";
+  if (severity >= 4) return "secondary";
+  return "outline";
+}
+
+function confidenceColor(confidence: number) {
+  if (confidence >= 0.7) return "destructive";
+  if (confidence >= 0.4) return "secondary";
+  return "outline";
+}
+
+function signalIcon(type: string) {
+  switch (type) {
+    case "sentiment_alert":
+      return <AlertTriangle className="h-4 w-4" />;
+    case "goal_stale":
+    case "goal_complete":
+      return <Target className="h-4 w-4" />;
+    case "topic_emergence":
+    case "research_trigger":
+      return <Lightbulb className="h-4 w-4" />;
+    case "journal_gap":
+      return <Clock className="h-4 w-4" />;
+    case "learning_stalled":
+      return <Brain className="h-4 w-4" />;
+    default:
+      return <AlertTriangle className="h-4 w-4" />;
+  }
+}
+
+function patternIcon(type: string) {
+  switch (type) {
+    case "burnout":
+      return <AlertTriangle className="h-4 w-4" />;
+    case "momentum":
+      return <TrendingUp className="h-4 w-4" />;
+    case "blind_spot":
+      return <Target className="h-4 w-4" />;
+    default:
+      return <Brain className="h-4 w-4" />;
+  }
+}
+
+export function SignalsCard({
+  signals,
+  onAskAbout,
+  onDismiss,
+}: {
+  signals: BriefingSignal[];
+  onAskAbout: (q: string) => void;
+  onDismiss: (id: number) => void;
+}) {
+  if (signals.length === 0) return null;
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <AlertTriangle className="h-4 w-4" />
+          Attention Needed
+          <Badge variant="destructive" className="ml-auto text-xs">
+            {signals.length}
+          </Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {signals.map((s) => (
+          <div
+            key={s.id}
+            className="flex items-start gap-2 rounded-md border p-2 text-sm"
+          >
+            <div className="mt-0.5 shrink-0">{signalIcon(s.type)}</div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-medium truncate">{s.title}</span>
+                <Badge variant={severityColor(s.severity)} className="text-xs shrink-0">
+                  {s.severity}
+                </Badge>
+              </div>
+              <p className="mt-0.5 text-muted-foreground line-clamp-2">
+                {s.detail}
+              </p>
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-xs"
+                onClick={() => onAskAbout(`Tell me more about: ${s.title}`)}
+              >
+                Ask about this
+              </Button>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 shrink-0"
+              onClick={() => onDismiss(s.id)}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+export function PatternsCard({
+  patterns,
+  onAskAbout,
+}: {
+  patterns: BriefingPattern[];
+  onAskAbout: (q: string) => void;
+}) {
+  if (patterns.length === 0) return null;
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Brain className="h-4 w-4" />
+          Patterns
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {patterns.map((p, i) => (
+          <div
+            key={i}
+            className="flex items-start gap-2 rounded-md border p-2 text-sm"
+          >
+            <div className="mt-0.5 shrink-0">{patternIcon(p.type)}</div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-medium truncate">{p.summary}</span>
+                <Badge variant={confidenceColor(p.confidence)} className="text-xs shrink-0">
+                  {Math.round(p.confidence * 100)}%
+                </Badge>
+              </div>
+              {p.evidence.length > 0 && (
+                <p className="mt-0.5 text-muted-foreground line-clamp-1">
+                  {p.evidence[0]}
+                </p>
+              )}
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-xs"
+                onClick={() => onAskAbout(p.coaching_prompt || `Tell me about the ${p.type} pattern`)}
+              >
+                Ask about this
+              </Button>
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+export function RecommendationsCard({
+  recommendations,
+  onAskAbout,
+}: {
+  recommendations: BriefingRecommendation[];
+  onAskAbout: (q: string) => void;
+}) {
+  if (recommendations.length === 0) return null;
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Lightbulb className="h-4 w-4" />
+          Recommendations
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {recommendations.map((r) => (
+          <div
+            key={r.id}
+            className="flex items-start gap-2 rounded-md border p-2 text-sm"
+          >
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-medium truncate">{r.title}</span>
+                <Badge variant="outline" className="text-xs shrink-0">
+                  {r.category}
+                </Badge>
+                <Badge variant="secondary" className="text-xs shrink-0">
+                  {r.score.toFixed(1)}
+                </Badge>
+              </div>
+              {r.description && (
+                <p className="mt-0.5 text-muted-foreground line-clamp-2">
+                  {r.description}
+                </p>
+              )}
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-xs"
+                onClick={() => onAskAbout(`Create an action plan for: ${r.title}`)}
+              >
+                Ask about this
+              </Button>
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+export function StaleGoalsCard({
+  goals,
+  onAskAbout,
+}: {
+  goals: BriefingGoal[];
+  onAskAbout: (q: string) => void;
+}) {
+  if (goals.length === 0) return null;
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Target className="h-4 w-4" />
+          Stale Goals
+          <Badge variant="secondary" className="ml-auto text-xs">
+            {goals.length}
+          </Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {goals.map((g) => (
+          <div
+            key={g.path}
+            className="flex items-start gap-2 rounded-md border p-2 text-sm"
+          >
+            <Clock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-medium truncate">{g.title}</span>
+                <Badge variant="outline" className="text-xs shrink-0">
+                  {g.days_since_check}d ago
+                </Badge>
+              </div>
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-xs"
+                onClick={() => onAskAbout(`Help me make progress on: ${g.title}`)}
+              >
+                Ask about this
+              </Button>
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}

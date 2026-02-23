@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: Home },
+  { href: "/", label: "Brief", icon: Home },
   { href: "/journal", label: "Journal", icon: BookOpen },
   { href: "/advisor", label: "Advisor", icon: Brain },
   { href: "/goals", label: "Goals", icon: Target },
