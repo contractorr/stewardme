@@ -1,377 +1,204 @@
-# AI Coach
+# StewardMe
 
-Personal AI-powered professional advisor combining journal knowledge with external intelligence gathering for contextual career and life advice.
+Open-source, self-hosted AI steward that combines your journal, goals, and external intelligence into personalized guidance. RAG-based — your data stays on your infra.
 
-## Overview
+## What it does
 
-AI Coach is a RAG-based system that:
-- Stores personal journal entries with semantic search (ChromaDB)
-- Scrapes external intelligence (HN, RSS, GitHub, arXiv, Reddit, Dev.to, Crunchbase, NewsAPI)
-- Proactive recommendations for learning, career, entrepreneurial, and investment opportunities
-- Deep research agent with web search and LLM synthesis
-- Goal tracking with staleness detection, check-ins, and milestone progress
-- Topic trend detection via embedding clustering (emerging/declining topics)
-- Structured logging (structlog) with JSON mode for daemon, Rich console for CLI
-- Retry + token-bucket rate limiting on all external API calls
-- Uses Claude API to provide personalized advice based on all sources
+- **Journal + semantic search** — markdown entries with YAML frontmatter, embedded in ChromaDB
+- **Intelligence radar** — async scrapers for HN, GitHub trending, arXiv, Reddit, RSS (no API keys needed)
+- **AI advisor** — RAG retrieval (70% journal / 30% intel) fed to your LLM of choice
+- **Goal tracking** — milestones, check-ins, staleness detection
+- **Proactive recommendations** — learning, career, entrepreneurial, investment opportunities
+- **Deep research** — topic selection from your context, web search, LLM synthesis
+- **Trend detection** — KMeans clustering on journal embeddings to surface emerging/declining topics
+- **Agentic coaching** — signal detection, burnout alerts, deadline warnings, autonomous actions
 
-## Quick Start
+Works as a CLI (`coach`), web app (FastAPI + Next.js), or MCP server for Claude Code.
+
+## Quick start
 
 ### Prerequisites
-- Python 3.11+
-- Anthropic API key
 
-### Installation
+- Python 3.11+
+- Node.js 18+ (for web UI)
+- An LLM API key (Claude, OpenAI, or Gemini)
+
+### Install
 
 ```bash
-# Clone and install
-git clone <repo-url>
+git clone https://github.com/contractorr/ai_coach.git
 cd ai-coach
-pip install -e .
-
-# Initialize directories
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[all-providers]"
 coach init
-
-# Set API key
-export ANTHROPIC_API_KEY="your-key-here"
 ```
 
-### Configuration
+### Configure
 
-Copy and edit the config:
 ```bash
 cp config.example.yaml ~/coach/config.yaml
+# Edit with your preferences — API key can be set via env var or in-app
+export ANTHROPIC_API_KEY="your-key"
 ```
 
-Config locations (checked in order):
-1. `./config.yaml` (project local)
-2. `~/.coach/config.yaml`
-3. `~/coach/config.yaml`
-
-## Commands
-
-### Journal Management
+### Run the CLI
 
 ```bash
-# Add entry (opens editor if no content)
-coach journal add "Today I worked on..."
-coach journal add -t project --title "API Redesign" "Started planning..."
-coach journal add -t goal --tags "career,learning" "Learn Rust this quarter"
-
-# Entry types: daily, project, goal, reflection
-
-# List entries
-coach journal list
-coach journal list -t project -n 20
-
-# Semantic search
-coach journal search "career goals"
-coach journal search "rust learning" -n 10
-
-# View specific entry
-coach journal view 2024-01-15_daily_standup.md
-
-# Sync embeddings (after manual edits)
-coach journal sync
-```
-
-### AI Advisor
-
-```bash
-# Ask questions (uses RAG context from journal + intel)
+coach journal add "Starting my Rust learning journey"
 coach ask "What should I focus on this week?"
-coach ask "How can I improve my Python skills?" --type career
-
-# Weekly review (analyzes recent journal entries)
-coach review
-
-# Opportunity detection (combines your profile with trends)
-coach opportunities
-```
-
-### Proactive Recommendations
-
-```bash
-# Generate recommendations by category
-coach recommend learning          # Skills to learn
-coach recommend career            # Career moves
-coach recommend entrepreneurial   # Business opportunities
-coach recommend investment        # Investment themes
-coach recommend all               # All categories
-
-# Action briefs and history
-coach recommend brief             # Weekly action brief
-coach recommend history           # View past recommendations
-coach recommend view <id>         # View specific rec
-coach recommend update <id> --status completed
-coach recommend rate <id> 5       # Rate usefulness (1-5)
-```
-
-### Goal Tracking
-
-```bash
-# Manage goals with staleness detection
-coach goals add "Learn Rust" --deadline 2024-06-01
-coach goals list                  # Shows staleness indicators
-coach goals check-in <id> "Made progress on chapters 1-3"
-coach goals status <id> --status in_progress
-coach goals analyze <id>          # AI analysis of goal progress
-
-# Milestones
-coach goals milestone add <goal> "Complete chapters 1-5"
-coach goals milestone complete <goal> 0    # Complete milestone by index
-coach goals progress <goal>                # Progress bar + milestone table
-```
-
-### Topic Trends
-
-```bash
-# Detect emerging/declining journal topics via embedding clustering
-coach trends
-coach trends --days 180 --window monthly
-coach trends --clusters 12
-```
-
-### Deep Research
-
-```bash
-# AI-driven research on topics from your goals/journal
+coach goals add "Learn Rust" --deadline 2025-06-01
+coach scrape        # gather intel from all sources
+coach trends        # detect emerging topics
 coach research run "distributed systems"
-coach research topics             # Show suggested research topics
-coach research list               # List all research reports
-coach research view <id>          # View full report
 ```
 
-### Intelligence Gathering
-
-```bash
-# Scrape all enabled sources now
-coach scrape
-
-# View recent intelligence
-coach brief
-coach brief -n 14 --limit 50
-
-# Show configured sources
-coach sources
-
-# Export intel
-coach intel-export --format json --output intel.json
-coach intel-export --format csv --days 30
-```
-
-### Data Export
-
-```bash
-# Export journal entries
-coach journal export --format json --output journal.json
-coach journal export --format markdown --output journal/
-
-# Export intelligence
-coach intel-export --format csv --output intel.csv
-```
-
-### Background Daemon
-
-```bash
-# Run scheduler in background (daily scraping, weekly research)
-coach daemon start
-coach daemon run-once             # Single execution of all jobs
-```
-
-## Configuration Reference
-
-```yaml
-llm:
-  provider: claude
-  api_key: ${ANTHROPIC_API_KEY}  # env var expansion
-  model: claude-sonnet-4-20250514
-
-paths:
-  journal_dir: ~/coach/journal   # markdown files
-  chroma_dir: ~/coach/chroma     # vector embeddings
-  intel_db: ~/coach/intel.db     # scraped intel
-
-sources:
-  rss_feeds:
-    - https://news.ycombinator.com/rss
-    - https://feeds.arstechnica.com/arstechnica/technology-lab
-  custom_blogs:
-    - https://paulgraham.com/articles.html
-  github_trending:
-    enabled: true
-    languages: [python, rust, go]
-    timeframe: daily
-  enabled:
-    - hn_top
-    - rss_feeds
-    - github_trending
-    - custom_blogs
-    - arxiv
-    - reddit
-    - devto
-
-research:
-  web_search_provider: tavily  # or serpapi
-  web_search_api_key: ${TAVILY_API_KEY}
-  max_sources: 5
-  weekly_schedule: "sunday 8am"
-
-recommendations:
-  enabled_categories: [learning, career, entrepreneurial, investment]
-  similarity_threshold: 0.85   # dedup similarity cutoff
-  dedup_window_days: 30        # days before re-recommending
-  weekly_brief: true
-  schedule: "monday 7am"
-
-rag:
-  max_context_chars: 8000      # total context budget for RAG
-  journal_weight: 0.7          # journal vs intel split (0.7 = 70% journal)
-
-search:
-  default_results: 5           # default number of search results
-  intel_similarity_threshold: 0.7
-
-rate_limits:
-  default: {requests_per_second: 2, burst: 5}
-  tavily: {requests_per_second: 1, burst: 1}
-  hackernews: {requests_per_second: 5, burst: 10}
-  reddit: {requests_per_second: 1, burst: 2}
-
-schedule:
-  weekly_review: "sunday 9am"
-  intelligence_gather: "daily 6am"
-  research: "sunday 8am"
-  recommendations: "monday 7am"
-```
-
-## Data Storage
-
-All data stored in `~/coach/`:
-- `journal/` - Markdown files with YAML frontmatter
-- `chroma/` - ChromaDB vector embeddings
-- `intel.db` - SQLite database for scraped intelligence
-
-## Web UI
-
-Browser dashboard wrapping the same modules the CLI uses. FastAPI backend + Next.js 14 + NextAuth (GitHub/Google OAuth).
-
-### Setup
+### Run the web app
 
 ```bash
 # Backend
 pip install -e ".[web]"
-export SECRET_KEY=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
-export NEXTAUTH_SECRET="generate-with-openssl-rand-base64-32"
-uvicorn web.app:app --reload  # :8000
+cp .env.example .env  # fill in SECRET_KEY, NEXTAUTH_SECRET, OAuth creds
+uvicorn src.web.app:app --reload --port 8000
 
-# Frontend
-cd web && npm install && npm run dev  # :3000
+# Frontend (separate terminal)
+cd web && npm install && npm run dev
 ```
 
-### Docker Compose
+Open http://localhost:3000 — sign in with GitHub or Google.
+
+### Docker
 
 ```bash
-docker compose up
-# backend :8000, frontend :3000
+cp .env.example .env  # configure
+docker compose up              # dev
+docker compose -f docker-compose.prod.yml up  # prod (with Caddy + auto HTTPS)
 ```
-
-### Pages
-
-| Route | Description |
-|-------|-------------|
-| `/login` | GitHub / Google OAuth |
-| `/` | Dashboard — recent journal, goals, intel |
-| `/journal` | Create/read/delete entries |
-| `/advisor` | Chat with AI advisor (RAG-powered) |
-| `/goals` | Goals + milestones + check-ins |
-| `/intel` | Intelligence feed + trigger scrape |
-| `/settings` | API key management (Fernet-encrypted) |
-
-### API Endpoints
-
-All routes require JWT via `Authorization: Bearer <token>`.
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/health` | Health check |
-| GET/PUT | `/api/settings` | API keys (masked in GET) |
-| GET/POST | `/api/journal` | List / create entries |
-| GET/PUT/DELETE | `/api/journal/{path}` | Read / update / delete |
-| POST | `/api/advisor/ask` | Ask advisor |
-| GET/POST | `/api/goals` | List / create goals |
-| POST | `/api/goals/{path}/check-in` | Check in |
-| PUT | `/api/goals/{path}/status` | Update status |
-| POST | `/api/goals/{path}/milestones` | Add milestone |
-| GET | `/api/intel/recent` | Recent intel |
-| GET | `/api/intel/search?q=` | Search intel |
-| POST | `/api/intel/scrape` | Trigger scrape |
-| GET | `/api/research/topics` | Suggested topics |
-| POST | `/api/research/run` | Run research |
 
 ## Architecture
 
 ```
 src/
-├── journal/       # Storage, embeddings, search, export, trend detection
-├── advisor/       # LLM orchestration, RAG, recommendations, goals + milestones
-├── intelligence/  # Scrapers (8 sources), scheduler, export
-├── research/      # Deep research agent, topic selection, synthesis
-├── web/           # FastAPI backend — auth, crypto, routes
-├── cli/           # Click commands, config (Pydantic), logging, retry, rate limiting
-web/               # Next.js 14 frontend — OAuth, dashboard, settings
+├── journal/        # Markdown storage, ChromaDB embeddings, semantic search, trends
+├── advisor/        # LLM orchestration, RAG retrieval, recommendations, goals
+├── intelligence/   # 5 async scrapers, SQLite storage, APScheduler
+├── research/       # Deep research agent, topic selection, web search, synthesis
+├── llm/            # Provider factory — Claude, OpenAI, Gemini (auto-detect from env)
+├── profile/        # User profile management
+├── coach_mcp/      # MCP server (22 tools for Claude Code integration)
+├── web/            # FastAPI backend — auth, encrypted key storage, REST API
+├── cli/            # Click CLI, Pydantic config, structlog, retry, rate limiting
+web/                # Next.js frontend — OAuth, chat-first UI, dashboard
 ```
 
-**Data Flow:**
-1. Journal entries → Markdown + auto-embedded to ChromaDB
-2. Scrapers → SQLite intel DB (8 sources, with retry + rate limiting)
-3. Goals/journal → Topic selection → Deep research → Reports
-4. All context → RAG retrieval → Claude generates advice/recommendations
-5. Journal embeddings → KMeans clustering → Topic trend detection
+**Data flow:**
 
-**Cross-cutting:**
-- Structured logging via `structlog` — JSON output in daemon mode, Rich console in CLI
-- Automatic retries with exponential backoff on all HTTP and LLM calls (`tenacity`)
-- Token-bucket rate limiting per source (configurable in `rate_limits` config)
-- All magic numbers centralized in Pydantic config models with validation
+1. Journal entries → markdown files + ChromaDB embeddings + sentiment analysis
+2. Scrapers → SQLite with URL + content-hash dedup
+3. Query → RAG retrieval (journal + intel) → LLM → personalized advice
+4. Goals + journal → topic selection → deep research → reports
+5. Embeddings → KMeans clustering → trend detection
 
-## Dependencies
+## Configuration
 
-Core: `click`, `rich`, `anthropic`, `chromadb`, `httpx`, `pydantic`, `structlog`, `tenacity`, `scikit-learn`, `numpy`, `frontmatter`, `pyyaml`
+See [`config.example.yaml`](config.example.yaml) for all options. Key sections:
 
-Web: `fastapi`, `uvicorn`, `python-jose`, `cryptography`, `python-multipart`
+| Section | What it controls |
+|---------|-----------------|
+| `llm` | Provider, API key, model override |
+| `paths` | Journal dir, ChromaDB dir, intel DB |
+| `sources` | RSS feeds, GitHub languages, Reddit subs, arXiv categories |
+| `rag` | Context budget, journal/intel weight split |
+| `recommendations` | Categories, dedup threshold, schedule |
+| `research` | Web search provider (Tavily or DuckDuckGo free), schedule |
+| `rate_limits` | Per-source token bucket config |
+| `schedule` | Cron for intel gathering, reviews, research |
 
-Dev: `pytest`, `ruff`, `mypy`
+Config locations (checked in order): `./config.yaml` → `~/.coach/config.yaml` → `~/coach/config.yaml`
+
+## CLI commands
+
+| Command | Description |
+|---------|-------------|
+| `coach journal add/list/search/view/sync` | Journal CRUD + semantic search |
+| `coach ask "question"` | Ask advisor with RAG context |
+| `coach review` | Weekly review of recent entries |
+| `coach goals add/list/check-in/status/analyze` | Goal tracking + milestones |
+| `coach recommend [category]` | Generate recommendations |
+| `coach research run/topics/list/view` | Deep research |
+| `coach scrape` | Run all intel scrapers |
+| `coach trends` | Detect emerging/declining topics |
+| `coach mood` | Mood timeline from journal sentiment |
+| `coach reflect` | Get reflection prompts |
+| `coach daemon start` | Background scheduler |
+
+## Web UI routes
+
+| Route | Description |
+|-------|-------------|
+| `/` | Chat-first interface with daily briefing |
+| `/journal` | Create, read, delete entries |
+| `/goals` | Goals + milestones + check-ins |
+| `/intel` | Intelligence feed |
+| `/trends` | Topic trend visualization |
+| `/learning` | Learning paths |
+| `/projects` | Project discovery |
+| `/settings` | API key management (Fernet-encrypted) |
+
+## MCP server
+
+StewardMe exposes 22 tools via MCP for Claude Code integration. No LLM calls in the MCP layer — Claude Code does the reasoning, MCP provides data.
+
+```bash
+python -m coach_mcp  # stdio transport
+```
+
+Configured in `.mcp.json` for auto-discovery.
 
 ## Development
 
 ```bash
-# Install dev dependencies
 pip install -e ".[dev]"
-pip install -e ".[web]"  # web deps
 
-# Run tests
-pytest                    # all (373 tests)
-pytest tests/web/ -v      # web API tests only
+# Tests
+ANTHROPIC_API_KEY=test-key pytest              # all tests
+pytest tests/web/ -v                           # web API only
+pytest --cov=src --cov-report=term-missing     # with coverage
 
-# Lint
+# Lint + format
 ruff check src tests
 ruff format src tests
 
 # Type check
-mypy src
+mypy src/ --ignore-missing-imports
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
+
+## Adding a new intelligence source
+
+1. Create scraper in `src/intelligence/sources/` inheriting `BaseScraper`
+2. Implement `source_name` property + `scrape()` async method
+3. Register in `scheduler.py` → `_init_scrapers()`
+
+## Deployment
+
+Production setup uses Caddy as reverse proxy with auto HTTPS:
+
+```bash
+./deploy.sh  # validates .env, builds, starts docker compose prod
+```
+
+See `docker-compose.prod.yml` and `Caddyfile` for details.
 
 ## Troubleshooting
 
 | Issue | Fix |
 |-------|-----|
-| `RateLimitError` from Claude | Reduce `rate_limits` in config or wait; retries handle transient 429s automatically |
-| ChromaDB version conflicts | Pin `chromadb>=0.4.0`; delete `~/coach/chroma/` and re-sync if schema changed |
-| `ModuleNotFoundError: sklearn` | `pip install scikit-learn>=1.3.0` (needed for `coach trends`) |
-| Stale embeddings after manual edits | Run `coach journal sync` to re-index |
-| Daemon not logging | Check `~/coach/logs/`; daemon uses JSON-format structlog output |
+| `RateLimitError` from LLM | Reduce `rate_limits` in config; retries handle transient 429s |
+| ChromaDB schema errors | Delete `~/coach/chroma/` and run `coach journal sync` |
+| Stale embeddings | Run `coach journal sync` after manual file edits |
+| Daemon not logging | Check `~/coach/logs/`; daemon uses JSON structlog |
 
 ## License
 
-MIT
+[AGPL-3.0](LICENSE) — free to use and self-host. If you run a modified version as a service, you must open-source your changes.
