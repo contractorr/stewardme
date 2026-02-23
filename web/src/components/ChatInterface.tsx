@@ -45,9 +45,11 @@ interface Message {
 const CONV_KEY = "main_chat_conv_id";
 
 const SUGGESTION_CHIPS = [
-  "Journal my thoughts",
-  "Set a new goal",
   "What should I focus on?",
+  "Show me opportunities",
+  "What's trending in my field?",
+  "Suggest a learning path",
+  "Help me prioritize",
   "Review my progress",
 ];
 
@@ -305,7 +307,7 @@ export function ChatInterface({
             <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
               <Brain className="h-7 w-7 text-primary" />
             </div>
-            <h2 className="text-xl font-semibold">Welcome to Journal Assistant</h2>
+            <h2 className="text-xl font-semibold">Welcome to StewardMe</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               Enter your LLM API key to get started. Your key is encrypted and stored per-user.
             </p>
@@ -444,9 +446,9 @@ export function ChatInterface({
             <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
               <Brain className="h-7 w-7 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-medium">What&apos;s on your mind?</h3>
+            <h3 className="text-lg font-medium">What should we navigate?</h3>
             <p className="mt-1 max-w-md text-sm text-muted-foreground">
-              Ask a question, write a journal entry, check in on a goal — I&apos;ll figure out the rest.
+              Ask about opportunities, trends, goals, or journal your thoughts — your steward handles the rest.
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-2">
               {SUGGESTION_CHIPS.map((chip) => (
@@ -504,7 +506,7 @@ export function ChatInterface({
           <Textarea
             ref={textareaRef}
             rows={2}
-            placeholder="Ask a question, journal an entry, check in on a goal..."
+            placeholder="Ask about opportunities, trends, goals, or journal a thought..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {

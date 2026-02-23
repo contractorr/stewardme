@@ -41,42 +41,42 @@ interface ChatMessage {
 }
 
 const features = [
-  { icon: BookOpen, text: "Journal your thoughts and reflections" },
-  { icon: Newspaper, text: "Scrape intel from HN, GitHub, arXiv, Reddit & RSS" },
-  { icon: Sparkles, text: "Get personalized AI-powered advice" },
-  { icon: Target, text: "Track goals and measure progress" },
+  { icon: Newspaper, text: "Surface what matters from HN, GitHub, arXiv, Reddit & RSS" },
+  { icon: Sparkles, text: "Proactive advice grounded in your context + world intel" },
+  { icon: Target, text: "Align goals against market trends and opportunities" },
+  { icon: BookOpen, text: "Journal reflections that train your personal AI" },
 ];
 
 const introSections = [
   {
-    icon: BookOpen,
-    title: "Journal",
+    icon: Newspaper,
+    title: "Intelligence Radar",
     description:
-      "Capture daily reflections, project notes, and career thoughts in markdown. Entries are semantically indexed so your advisor can reference them in future conversations.",
+      "Continuously scans Hacker News, GitHub trending, arXiv, Reddit, and RSS feeds. Surfaces what matters to you without the noise.",
   },
   {
     icon: Brain,
-    title: "AI Advisor",
+    title: "AI Steward",
     description:
-      "Ask questions and get advice grounded in your journal and external intel. Every answer is personalized to your context using retrieval-augmented generation.",
+      "Proactive advice grounded in your context and world intel. Helps you navigate change, spot opportunities, and stay ahead.",
   },
   {
     icon: Target,
-    title: "Goal Tracking",
+    title: "Goal Alignment",
     description:
-      "Set goals with milestones, check in with notes, and track progress over time. The advisor monitors stale goals and factors your objectives into its recommendations.",
+      "Tracks your objectives against market trends and emerging opportunities. Flags when priorities should shift.",
   },
   {
-    icon: Newspaper,
-    title: "Intelligence Feed",
+    icon: BookOpen,
+    title: "Journal",
     description:
-      "Automatically scrapes Hacker News, GitHub trending, arXiv, Reddit, and RSS feeds. Relevant items surface in your advisor's context without you having to search.",
+      "Capture reflections, decisions, and observations. Every entry trains your personal AI to give sharper, more relevant guidance.",
   },
   {
     icon: FlaskConical,
     title: "Deep Research",
     description:
-      "On-demand deep dives on topics drawn from your journal and goals. Searches the web, synthesizes findings into a report you can review and act on.",
+      "On-demand analysis of emerging opportunities, technologies, or trends drawn from your goals and interests.",
   },
 ];
 
@@ -197,9 +197,9 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
               <div className="mx-auto mb-1 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                 <Brain className="h-6 w-6 text-primary" />
               </div>
-              <SheetTitle className="text-center text-xl">Journal Assistant</SheetTitle>
+              <SheetTitle className="text-center text-xl">StewardMe</SheetTitle>
               <SheetDescription className="text-center">
-                Your AI-powered career companion
+                Your AI steward for navigating rapid change
               </SheetDescription>
             </SheetHeader>
 
@@ -217,7 +217,7 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
               ))}
 
               <div className="rounded-lg border bg-muted/50 p-3 text-xs text-muted-foreground leading-relaxed">
-                <span className="font-medium text-foreground">How it all connects:</span> your journal and intel feed into the advisor via RAG. Goals shape recommendations. Research fills knowledge gaps. The more you journal, the better the advice gets.
+                <span className="font-medium text-foreground">How it all connects:</span> your journal and intel radar feed into your steward. Goals shape what opportunities surface. Research fills knowledge gaps. The more context you provide, the sharper the guidance.
               </div>
             </div>
 
@@ -239,9 +239,9 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
               <div className="mx-auto mb-1 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                 <Brain className="h-6 w-6 text-primary" />
               </div>
-              <SheetTitle className="text-center text-xl">Welcome to Journal Assistant</SheetTitle>
+              <SheetTitle className="text-center text-xl">Welcome to StewardMe</SheetTitle>
               <SheetDescription className="text-center">
-                Your personal journaling and advisory companion
+                Let&apos;s set up your AI steward for navigating what&apos;s next
               </SheetDescription>
             </SheetHeader>
 
@@ -376,7 +376,7 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
               </div>
               <SheetTitle className="text-center text-xl">You&apos;re all set!</SheetTitle>
               <SheetDescription className="text-center">
-                Profile created{goalsCreated > 0 ? ` and ${goalsCreated} goal${goalsCreated > 1 ? "s" : ""} set up` : ""} — your assistant is ready.
+                Profile created{goalsCreated > 0 ? ` and ${goalsCreated} goal${goalsCreated > 1 ? "s" : ""} set up` : ""} — your steward is ready.
               </SheetDescription>
             </SheetHeader>
 

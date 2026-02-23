@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Journal Assistant",
-  description: "Personal AI advisor dashboard",
+  title: "StewardMe",
+  description: "Your AI steward for navigating rapid change",
 };
 
 export default function RootLayout({

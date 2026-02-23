@@ -88,7 +88,7 @@ export function SettingsSheet({
         <SheetContent className="overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Settings</SheetTitle>
-            <SheetDescription>Configure your AI model and API keys</SheetDescription>
+            <SheetDescription>Configure your steward&apos;s AI model and API keys</SheetDescription>
           </SheetHeader>
 
           {!settings ? (

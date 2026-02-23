@@ -19,10 +19,10 @@ export default function LoginPage() {
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
             <Brain className="h-6 w-6 text-primary" />
           </div>
-          <CardTitle className="text-2xl">Journal Assistant</CardTitle>
+          <CardTitle className="text-2xl">StewardMe</CardTitle>
           <CardDescription className="text-balance">
-            Your personal journaling and advisory companion. Write, set goals,
-            track intelligence, and get contextual advice.
+            Your AI steward for navigating rapid change — proactive intelligence,
+            opportunity discovery, and focus optimization.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
