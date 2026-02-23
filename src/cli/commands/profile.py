@@ -137,6 +137,10 @@ def profile_set(field: str, value: str):
         list_fields = {"interests", "languages_frameworks"}
         if field in list_fields:
             value = [v.strip() for v in value.split(",")]
+        elif field == "skills":
+            from profile.storage import Skill
+
+            value = [Skill(name=v.strip(), proficiency=3) for v in value.split(",")]
 
         ps.update_field(field, value)
         console.print(f"[green]Updated {field}[/]")

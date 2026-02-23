@@ -1,4 +1,4 @@
-"""Google Gemini LLM provider."""
+"""Google Gemini LLM provider using google-genai SDK."""
 
 import uuid
 
@@ -23,7 +23,7 @@ def _handle_gemini_error(e: Exception):
 
 
 class GeminiProvider(LLMProvider):
-    """Google Gemini provider."""
+    """Google Gemini provider (google-genai SDK)."""
 
     provider_name = "gemini"
 
@@ -36,16 +36,13 @@ class GeminiProvider(LLMProvider):
             return
 
         try:
-            import google.generativeai as genai
+            from google import genai
         except ImportError:
             raise LLMError(
-                "google-generativeai package not installed. Run: pip install 'ai-coach[gemini]'"
+                "google-genai package not installed. Run: pip install 'ai-coach[gemini]'"
             )
 
-        if api_key:
-            genai.configure(api_key=api_key)
-
-        self.client = genai.GenerativeModel(self.model_name)
+        self.client = genai.Client(api_key=api_key)
 
     def generate(
         self, messages: list[dict], system: str | None = None, max_tokens: int = 2000
@@ -58,9 +55,12 @@ class GeminiProvider(LLMProvider):
         prompt = "\n".join(parts)
 
         try:
-            response = self.client.generate_content(
-                prompt,
-                generation_config={"max_output_tokens": max_tokens},
+            from google.genai import types
+
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(max_output_tokens=max_tokens),
             )
             return response.text
         except Exception as e:
@@ -75,43 +75,40 @@ class GeminiProvider(LLMProvider):
         tool_choice: str = "auto",
     ) -> GenerateResponse:
         try:
-            import google.generativeai as genai
+            from google.genai import types
         except ImportError:
-            raise LLMError("google-generativeai package not installed")
+            raise LLMError("google-genai package not installed")
 
         try:
             # Build FunctionDeclarations
             func_decls = []
             for t in tools:
-                # Strip unsupported keys from schema for Gemini
                 schema = {
                     k: v
                     for k, v in t.input_schema.items()
                     if k in ("type", "properties", "required")
                 }
                 func_decls.append(
-                    genai.types.FunctionDeclaration(
+                    types.FunctionDeclaration(
                         name=t.name,
                         description=t.description,
                         parameters=schema if schema.get("properties") else None,
                     )
                 )
 
-            gemini_tools = [genai.types.Tool(function_declarations=func_decls)]
-
-            # Build a model with tools + optional system instruction
-            model = genai.GenerativeModel(
-                self.model_name,
-                tools=gemini_tools,
-                system_instruction=system,
-            )
+            gemini_tools = [types.Tool(function_declarations=func_decls)]
 
             # Convert messages to Gemini Content format
             contents = self._convert_messages(messages)
 
-            response = model.generate_content(
-                contents,
-                generation_config={"max_output_tokens": max_tokens},
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    tools=gemini_tools,
+                    system_instruction=system,
+                    max_output_tokens=max_tokens,
+                ),
             )
 
             # Parse response
@@ -120,7 +117,7 @@ class GeminiProvider(LLMProvider):
 
             if response.candidates:
                 for part in response.candidates[0].content.parts:
-                    if hasattr(part, "function_call") and part.function_call.name:
+                    if part.function_call and part.function_call.name:
                         fc = part.function_call
                         tool_calls.append(
                             ToolCall(
@@ -129,7 +126,7 @@ class GeminiProvider(LLMProvider):
                                 arguments=dict(fc.args) if fc.args else {},
                             )
                         )
-                    elif hasattr(part, "text") and part.text:
+                    elif part.text:
                         text_parts.append(part.text)
 
             content = "\n".join(text_parts) if text_parts else None
@@ -142,41 +139,43 @@ class GeminiProvider(LLMProvider):
 
     def _convert_messages(self, messages: list[dict]) -> list:
         """Convert generic messages to Gemini Content format."""
-        import google.generativeai as genai
+        from google.genai import types
 
         contents = []
         for msg in messages:
             role = msg.get("role")
 
             if role == "user":
-                contents.append({"role": "user", "parts": [msg["content"]]})
+                contents.append(
+                    types.Content(role="user", parts=[types.Part.from_text(msg["content"])])
+                )
 
             elif role == "assistant":
                 parts = []
                 if msg.get("content"):
-                    parts.append(msg["content"])
+                    parts.append(types.Part.from_text(msg["content"]))
                 if msg.get("tool_calls"):
                     for tc in msg["tool_calls"]:
                         parts.append(
-                            genai.protos.FunctionCall(
+                            types.Part.from_function_call(
                                 name=tc["name"],
                                 args=tc["arguments"],
                             )
                         )
                 if parts:
-                    contents.append({"role": "model", "parts": parts})
+                    contents.append(types.Content(role="model", parts=parts))
 
             elif role == "tool":
                 contents.append(
-                    {
-                        "role": "user",
-                        "parts": [
-                            genai.protos.FunctionResponse(
+                    types.Content(
+                        role="user",
+                        parts=[
+                            types.Part.from_function_response(
                                 name=msg.get("name", "tool"),
                                 response={"result": msg["content"]},
                             )
                         ],
-                    }
+                    )
                 )
 
         return contents

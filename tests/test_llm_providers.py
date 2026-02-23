@@ -118,7 +118,7 @@ class TestGeminiProvider:
         mock_client = MagicMock()
         mock_resp = MagicMock()
         mock_resp.text = "Hello from Gemini"
-        mock_client.generate_content.return_value = mock_resp
+        mock_client.models.generate_content.return_value = mock_resp
 
         provider = GeminiProvider(client=mock_client)
         result = provider.generate(
@@ -127,27 +127,25 @@ class TestGeminiProvider:
         )
 
         assert result == "Hello from Gemini"
-        call_args = mock_client.generate_content.call_args
-        prompt = call_args[0][0]
-        assert "Be helpful" in prompt
-        assert "hi" in prompt
+        call_kwargs = mock_client.models.generate_content.call_args.kwargs
+        assert "Be helpful" in call_kwargs["contents"]
+        assert "hi" in call_kwargs["contents"]
 
     def test_generate_no_system(self):
         mock_client = MagicMock()
         mock_resp = MagicMock()
         mock_resp.text = "response"
-        mock_client.generate_content.return_value = mock_resp
+        mock_client.models.generate_content.return_value = mock_resp
 
         provider = GeminiProvider(client=mock_client)
         provider.generate(messages=[{"role": "user", "content": "hi"}])
 
-        call_args = mock_client.generate_content.call_args
-        prompt = call_args[0][0]
-        assert "System:" not in prompt
+        call_kwargs = mock_client.models.generate_content.call_args.kwargs
+        assert "System:" not in call_kwargs["contents"]
 
     def test_auth_error(self):
         mock_client = MagicMock()
-        mock_client.generate_content.side_effect = Exception("API key not valid")
+        mock_client.models.generate_content.side_effect = Exception("API key not valid")
 
         provider = GeminiProvider(client=mock_client)
         with pytest.raises(LLMAuthError):
@@ -155,7 +153,7 @@ class TestGeminiProvider:
 
     def test_generic_error(self):
         mock_client = MagicMock()
-        mock_client.generate_content.side_effect = Exception("something broke")
+        mock_client.models.generate_content.side_effect = Exception("something broke")
 
         provider = GeminiProvider(client=mock_client)
         with pytest.raises(LLMError):

@@ -66,7 +66,7 @@ def init(samples: bool):
     paths = get_paths(config)
 
     for name, path in paths.items():
-        if name == "intel_db":
+        if name in ("intel_db", "log_file"):
             path.parent.mkdir(parents=True, exist_ok=True)
         else:
             path.mkdir(parents=True, exist_ok=True)
