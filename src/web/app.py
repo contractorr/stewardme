@@ -10,11 +10,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from web.routes import (
     advisor,
     briefing,
+    engagement,
     goals,
     intel,
     journal,
     learning,
     onboarding,
+    profile,
     projects,
     research,
     settings,
@@ -79,6 +81,8 @@ app.include_router(briefing.router)
 app.include_router(trends.router)
 app.include_router(learning.router)
 app.include_router(projects.router)
+app.include_router(engagement.router)
+app.include_router(profile.router)
 
 
 @app.get("/api/health")

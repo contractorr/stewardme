@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from starlette.responses import StreamingResponse
@@ -49,10 +50,13 @@ def _get_engine(user_id: str, use_tools: bool = False):
     intel_storage = IntelStorage(paths["intel_db"])  # shared
     journal_search = JournalSearch(journal_storage, embeddings)
 
+    users_db = Path.home() / "coach" / "users.db"
     rag = RAGRetriever(
         journal_search=journal_search,
         intel_db_path=paths["intel_db"],
         profile_path=str(paths["profile"]),
+        users_db_path=users_db,
+        user_id=user_id,
     )
 
     api_key = get_api_key_for_user(user_id, config.llm.provider)

@@ -23,6 +23,8 @@ class RAGRetriever:
         max_context_chars: int = 8000,
         journal_weight: float = 0.7,
         profile_path: Optional[str] = None,
+        users_db_path: Optional[Path] = None,
+        user_id: Optional[str] = None,
     ):
         self.journal = journal_search
         self.intel_db_path = Path(intel_db_path).expanduser() if intel_db_path else None
@@ -30,6 +32,8 @@ class RAGRetriever:
         self.max_context_chars = max_context_chars
         self.journal_weight = journal_weight
         self._profile_path = profile_path or "~/coach/profile.yaml"
+        self._users_db_path = users_db_path
+        self._user_id = user_id
 
     def get_profile_context(self) -> str:
         """Load user profile summary for LLM context injection."""
@@ -126,6 +130,55 @@ class RAGRetriever:
         except sqlite3.OperationalError:
             return "No external intelligence available."
 
+    def compute_dynamic_weight(self, user_id: Optional[str] = None) -> float:
+        """Compute journal_weight from engagement data.
+
+        Formula: base(0.7) + 0.15 * (journal_ratio - 0.5), clamped [0.5, 0.85].
+        Returns default 0.7 when <10 events in last 30 days.
+        """
+        uid = user_id or self._user_id
+        if not uid or not self._users_db_path:
+            return self.journal_weight
+
+        try:
+            with sqlite3.connect(str(self._users_db_path)) as conn:
+                conn.row_factory = sqlite3.Row
+                rows = conn.execute(
+                    """
+                    SELECT target_type, event_type, COUNT(*) as cnt
+                    FROM engagement_events
+                    WHERE user_id = ? AND created_at >= datetime('now', '-30 days')
+                    GROUP BY target_type, event_type
+                    """,
+                    (uid,),
+                ).fetchall()
+
+            total = sum(r["cnt"] for r in rows)
+            if total < 10:
+                return self.journal_weight
+
+            positive_events = {"opened", "saved", "acted_on", "feedback_useful"}
+            journal_score = sum(
+                r["cnt"]
+                for r in rows
+                if r["target_type"] == "journal" and r["event_type"] in positive_events
+            )
+            intel_score = sum(
+                r["cnt"]
+                for r in rows
+                if r["target_type"] == "intel" and r["event_type"] in positive_events
+            )
+            denom = journal_score + intel_score
+            if denom == 0:
+                return self.journal_weight
+
+            journal_ratio = journal_score / denom
+            weight = 0.7 + 0.15 * (journal_ratio - 0.5)
+            return max(0.5, min(0.85, weight))
+        except Exception as e:
+            logger.debug("dynamic_weight_fallback", error=str(e))
+            return self.journal_weight
+
     def get_combined_context(
         self,
         query: str,
@@ -140,7 +193,12 @@ class RAGRetriever:
         Returns:
             Tuple of (journal_context, intel_context)
         """
-        weight = journal_weight if journal_weight is not None else self.journal_weight
+        if journal_weight is not None:
+            weight = journal_weight
+        elif self._users_db_path and self._user_id:
+            weight = self.compute_dynamic_weight()
+        else:
+            weight = self.journal_weight
         total_chars = self.max_context_chars
         journal_chars = int(total_chars * weight)
         intel_chars = total_chars - journal_chars

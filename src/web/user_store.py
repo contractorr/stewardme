@@ -1,5 +1,6 @@
 """Multi-user SQLite store: users table + per-user encrypted secrets."""
 
+import json as _json
 import os
 import sqlite3
 from datetime import datetime, timezone
@@ -60,6 +61,29 @@ def init_db(db_path: Path | None = None) -> None:
                 FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
             );
             CREATE INDEX IF NOT EXISTS idx_msg_conv ON conversation_messages(conversation_id, created_at ASC);
+
+            CREATE TABLE IF NOT EXISTS onboarding_responses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL REFERENCES users(id),
+                turn_number INTEGER NOT NULL,
+                role TEXT NOT NULL CHECK(role IN ('user','assistant')),
+                content TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_onboard_user ON onboarding_responses(user_id, created_at);
+
+            CREATE TABLE IF NOT EXISTS engagement_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL REFERENCES users(id),
+                event_type TEXT NOT NULL CHECK(event_type IN (
+                    'opened','saved','dismissed','acted_on','feedback_useful','feedback_irrelevant'
+                )),
+                target_type TEXT NOT NULL,
+                target_id TEXT NOT NULL,
+                metadata_json TEXT DEFAULT '{}',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_engage_user ON engagement_events(user_id, created_at DESC);
         """)
         conn.commit()
     finally:
@@ -225,5 +249,109 @@ def delete_user_secret(
             (user_id, secret_key),
         )
         conn.commit()
+    finally:
+        conn.close()
+
+
+# --- Onboarding responses ---
+
+
+def save_onboarding_turn(
+    user_id: str,
+    turn_number: int,
+    role: str,
+    content: str,
+    db_path: Path | None = None,
+) -> None:
+    """Persist a single onboarding conversation turn."""
+    conn = _get_conn(db_path)
+    try:
+        conn.execute(
+            "INSERT INTO onboarding_responses (user_id, turn_number, role, content) VALUES (?, ?, ?, ?)",
+            (user_id, turn_number, role, content),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_onboarding_responses(
+    user_id: str,
+    db_path: Path | None = None,
+) -> list[dict]:
+    """Get all onboarding responses for a user, ordered by turn."""
+    conn = _get_conn(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT turn_number, role, content, created_at FROM onboarding_responses "
+            "WHERE user_id = ? ORDER BY turn_number, created_at",
+            (user_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def clear_onboarding_responses(
+    user_id: str,
+    db_path: Path | None = None,
+) -> None:
+    """Delete all onboarding responses for a user (for re-onboarding)."""
+    conn = _get_conn(db_path)
+    try:
+        conn.execute("DELETE FROM onboarding_responses WHERE user_id = ?", (user_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# --- Engagement events ---
+
+
+def log_engagement(
+    user_id: str,
+    event_type: str,
+    target_type: str,
+    target_id: str,
+    metadata: dict | None = None,
+    db_path: Path | None = None,
+) -> None:
+    """Record an engagement event."""
+    conn = _get_conn(db_path)
+    try:
+        conn.execute(
+            "INSERT INTO engagement_events (user_id, event_type, target_type, target_id, metadata_json) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (user_id, event_type, target_type, target_id, _json.dumps(metadata or {})),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_engagement_stats(
+    user_id: str,
+    days: int = 30,
+    db_path: Path | None = None,
+) -> dict:
+    """Return engagement counts by target_type and event_type for the last N days."""
+    conn = _get_conn(db_path)
+    try:
+        rows = conn.execute(
+            """
+            SELECT target_type, event_type, COUNT(*) as cnt
+            FROM engagement_events
+            WHERE user_id = ? AND created_at >= datetime('now', ?)
+            GROUP BY target_type, event_type
+            """,
+            (user_id, f"-{days} days"),
+        ).fetchall()
+        stats: dict = {"by_target": {}, "by_event": {}, "total": 0}
+        for r in rows:
+            tt, et, cnt = r["target_type"], r["event_type"], r["cnt"]
+            stats["by_target"].setdefault(tt, {})[et] = cnt
+            stats["by_event"].setdefault(et, {})[tt] = cnt
+            stats["total"] += cnt
+        return stats
     finally:
         conn.close()
