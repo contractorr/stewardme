@@ -150,6 +150,15 @@ class IntelStorage:
             ).fetchone()
             return row is not None
 
+    @staticmethod
+    def _row_to_dict(row: sqlite3.Row) -> dict:
+        item = dict(row)
+        if item.get("tags"):
+            item["tags"] = [t.strip() for t in item["tags"].split(",")]
+        else:
+            item["tags"] = []
+        return item
+
     def get_recent(self, days: int = 7, limit: int = 50) -> list[dict]:
         """Get recent intel items."""
         with sqlite3.connect(self.db_path) as conn:
@@ -163,7 +172,7 @@ class IntelStorage:
             """,
                 (f"-{days} days", limit),
             )
-            return [dict(row) for row in cursor.fetchall()]
+            return [self._row_to_dict(row) for row in cursor.fetchall()]
 
     def search(self, query: str, limit: int = 20) -> list[dict]:
         """Simple text search in titles and summaries."""
@@ -178,7 +187,7 @@ class IntelStorage:
             """,
                 (f"%{query}%", f"%{query}%", limit),
             )
-            return [dict(row) for row in cursor.fetchall()]
+            return [self._row_to_dict(row) for row in cursor.fetchall()]
 
 
 class BaseScraper(ABC):
