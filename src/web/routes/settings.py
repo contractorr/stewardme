@@ -52,9 +52,9 @@ async def test_llm_connectivity(user: dict = Depends(get_current_user)):
     provider_name = get_user_secret(user["id"], "llm_provider", fernet_key) or "auto"
 
     try:
-        from llm import create_provider
+        from llm import create_llm_provider
 
-        provider = create_provider(provider_name=provider_name, api_key=api_key)
+        provider = create_llm_provider(provider=provider_name, api_key=api_key)
         response = provider.generate(
             system="Reply with exactly: ok",
             prompt="ping",

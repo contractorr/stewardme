@@ -73,7 +73,7 @@ async def generate_ideas(
         from journal.embeddings import EmbeddingManager
         from journal.search import JournalSearch
         from journal.storage import JournalStorage
-        from llm.factory import create_provider
+        from llm.factory import create_llm_provider
 
         paths = get_user_paths(user_id)
         journal_storage = JournalStorage(paths["journal_dir"])
@@ -89,7 +89,7 @@ async def generate_ideas(
             profile_path=str(paths["profile"]),
         )
 
-        provider = create_provider(
+        provider = create_llm_provider(
             provider=config.llm.provider,
             api_key=api_key,
             model=config.llm.model,
