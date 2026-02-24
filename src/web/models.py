@@ -163,6 +163,8 @@ class OnboardingResponse(BaseModel):
     message: str
     done: bool = False
     goals_created: int = 0
+    turn: int = 0
+    estimated_total: int = 8
 
 
 # --- Briefing ---

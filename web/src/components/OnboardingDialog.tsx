@@ -89,6 +89,7 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [goalsCreated, setGoalsCreated] = useState(0);
+  const [turn, setTurn] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const handleClose = useCallback((completed = false) => {
@@ -106,12 +107,13 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
       (async () => {
         setSending(true);
         try {
-          const res = await apiFetch<{ message: string; done: boolean }>(
+          const res = await apiFetch<{ message: string; done: boolean; turn: number }>(
             "/api/onboarding/start",
             { method: "POST" },
             token
           );
           setMessages([{ role: "assistant", content: res.message }]);
+          setTurn(res.turn);
         } catch (e) {
           toast.error((e as Error).message);
         } finally {
@@ -148,12 +150,13 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
 
       // Start onboarding chat
       setSending(true);
-      const res = await apiFetch<{ message: string; done: boolean }>(
+      const res = await apiFetch<{ message: string; done: boolean; turn: number }>(
         "/api/onboarding/start",
         { method: "POST" },
         token
       );
       setMessages([{ role: "assistant", content: res.message }]);
+      setTurn(res.turn);
       setPhase("chat");
     } catch (e) {
       toast.error((e as Error).message);
@@ -171,12 +174,13 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
     setSending(true);
 
     try {
-      const res = await apiFetch<{ message: string; done: boolean; goals_created: number }>(
+      const res = await apiFetch<{ message: string; done: boolean; goals_created: number; turn: number }>(
         "/api/onboarding/chat",
         { method: "POST", body: JSON.stringify({ message: text }) },
         token
       );
       setMessages((prev) => [...prev, { role: "assistant", content: res.message }]);
+      setTurn(res.turn);
       if (res.done) {
         setGoalsCreated(res.goals_created);
         setPhase("done");
@@ -307,6 +311,19 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
                 Answer a few questions so we can personalize your experience
               </SheetDescription>
             </SheetHeader>
+
+            <div className="px-4 pt-2">
+              <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                <span>Question {turn} of ~8</span>
+                <span>{Math.min(100, Math.round((turn / 8) * 100))}%</span>
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-500"
+                  style={{ width: `${Math.min(100, (turn / 8) * 100)}%` }}
+                />
+              </div>
+            </div>
 
             <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-2">
               {messages.map((msg, i) => (

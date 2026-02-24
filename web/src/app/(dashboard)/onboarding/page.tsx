@@ -79,6 +79,7 @@ export default function OnboardingPage() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [goalsCreated, setGoalsCreated] = useState(0);
+  const [turn, setTurn] = useState(0);
   const [hasApiKey, setHasApiKey] = useState<boolean | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -99,12 +100,13 @@ export default function OnboardingPage() {
     (async () => {
       setSending(true);
       try {
-        const res = await apiFetch<{ message: string; done: boolean }>(
+        const res = await apiFetch<{ message: string; done: boolean; turn: number }>(
           "/api/onboarding/start",
           { method: "POST" },
           token
         );
         setMessages([{ role: "assistant", content: res.message }]);
+        setTurn(res.turn);
       } catch (e) {
         toast.error((e as Error).message);
       } finally {
@@ -185,12 +187,14 @@ export default function OnboardingPage() {
         message: string;
         done: boolean;
         goals_created: number;
+        turn: number;
       }>(
         "/api/onboarding/chat",
         { method: "POST", body: JSON.stringify({ message: text }) },
         token
       );
       setMessages((prev) => [...prev, { role: "assistant", content: res.message }]);
+      setTurn(res.turn);
       if (res.done) {
         setGoalsCreated(res.goals_created);
         setPhase("done");
@@ -336,6 +340,19 @@ export default function OnboardingPage() {
               <p className="text-sm text-muted-foreground">
                 Answer a few questions so we can personalize your experience
               </p>
+            </div>
+
+            <div className="px-6 pt-2">
+              <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                <span>Question {turn} of ~8</span>
+                <span>{Math.min(100, Math.round((turn / 8) * 100))}%</span>
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-500"
+                  style={{ width: `${Math.min(100, (turn / 8) * 100)}%` }}
+                />
+              </div>
             </div>
 
             <div
