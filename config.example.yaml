@@ -36,6 +36,10 @@ sources:
     # feeds:  # override default AI/ML + Networking feeds
     #   - https://patents.google.com/api/feed?q=CPC%3DG06N&num=20
     max_per_feed: 15
+  ai_capabilities:
+    enabled: false
+    sources: [metr, chatbot_arena, helm]
+    max_items_per_source: 10
   enabled:
     - hn_top
     - rss_feeds
@@ -46,6 +50,7 @@ sources:
     # - producthunt      # uncomment to enable
     # - yc_jobs          # uncomment to enable
     # - google_patents   # uncomment to enable
+    # - ai_capabilities  # METR evals, Chatbot Arena, HELM benchmarks
 
 schedule:
   weekly_review: "sunday 9am"

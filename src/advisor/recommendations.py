@@ -18,11 +18,14 @@ logger = structlog.get_logger()
 CATEGORY_QUERIES = {
     "learning": "skills learning goals career development courses",
     "career": "career job role position goals ambitions work",
-    "entrepreneurial": "problems frustrations ideas business startup project",
-    "investment": "technology trends funding investment market opportunity",
+    "entrepreneurial": "problems frustrations ideas business startup project AI automation capabilities model",
+    "investment": "technology trends funding investment market opportunity AI trends model performance benchmarks",
     "events": "conference meetup workshop event speaking cfp",
-    "projects": "open source contribution project coding side-project",
+    "projects": "open source contribution project coding side-project AI tools coding assistants agents",
 }
+
+# Categories where AI capability context adds value
+AI_RELEVANT_CATEGORIES = {"entrepreneurial", "projects", "investment", "learning"}
 
 
 class Recommender:
@@ -68,12 +71,35 @@ class Recommender:
         )
         intel_ctx = self.rag.get_intel_context(context_query, max_chars=3000)
 
-        prompt = PromptTemplates.UNIFIED_RECOMMENDATIONS.format(
-            category=category,
-            journal_context=profile_ctx + journal_ctx,
-            intel_context=intel_ctx,
-            max_items=max_items,
-        )
+        # Inject AI capability context for relevant categories
+        if category in AI_RELEVANT_CATEGORIES:
+            try:
+                ai_ctx = self.rag.get_ai_capabilities_context(context_query)
+                ai_section = PromptTemplates.AI_CAPABILITIES_SECTION.format(
+                    ai_capabilities_context=ai_ctx,
+                )
+                prompt = PromptTemplates.UNIFIED_RECOMMENDATIONS_WITH_AI.format(
+                    category=category,
+                    journal_context=profile_ctx + journal_ctx,
+                    intel_context=intel_ctx,
+                    ai_capabilities_section=ai_section,
+                    max_items=max_items,
+                )
+            except Exception as e:
+                logger.warning("ai_capabilities_context_failed", error=str(e))
+                prompt = PromptTemplates.UNIFIED_RECOMMENDATIONS.format(
+                    category=category,
+                    journal_context=profile_ctx + journal_ctx,
+                    intel_context=intel_ctx,
+                    max_items=max_items,
+                )
+        else:
+            prompt = PromptTemplates.UNIFIED_RECOMMENDATIONS.format(
+                category=category,
+                journal_context=profile_ctx + journal_ctx,
+                intel_context=intel_ctx,
+                max_items=max_items,
+            )
 
         response = self.llm_caller(PromptTemplates.SYSTEM, prompt)
         recs = self._parse_recommendations(response, category)

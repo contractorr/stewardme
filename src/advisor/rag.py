@@ -208,6 +208,36 @@ class RAGRetriever:
 
         return journal_ctx, intel_ctx
 
+    def get_ai_capabilities_context(self, query: str, max_chars: int = 1500) -> str:
+        """Get AI capability context combining static KB + recent intel.
+
+        Args:
+            query: User query to match against AI capability intel
+            max_chars: Max total characters for combined context
+
+        Returns:
+            Combined context string with KB summary + relevant scraped items
+        """
+        from advisor.ai_capabilities_kb import render_summary
+
+        parts = []
+        # Static KB summary (~500 chars)
+        summary = render_summary()
+        parts.append(summary)
+        remaining = max_chars - len(summary) - 20
+
+        # Recent AI capabilities intel from scraper
+        if remaining > 100:
+            ai_intel = self.get_intel_context(
+                query + " AI capabilities benchmarks model performance",
+                max_items=5,
+                max_chars=remaining,
+            )
+            if ai_intel and "No" not in ai_intel[:10]:
+                parts.append(ai_intel)
+
+        return "\n\n".join(parts)
+
     def get_recent_entries(self, days: int = 7, max_chars: int = 6000) -> str:
         """Get recent journal entries for weekly review."""
         # For weekly review, use recency-based retrieval

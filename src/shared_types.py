@@ -37,6 +37,7 @@ class IntelSource(StrEnum):
     PRODUCTHUNT = "producthunt"
     YC_JOBS = "yc_jobs"
     GOOGLE_PATENTS = "google_patents"
+    AI_CAPABILITIES = "ai_capabilities"
 
 
 class EntryType(StrEnum):

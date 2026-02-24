@@ -17,6 +17,7 @@ from observability import metrics
 
 from .scraper import IntelStorage
 from .sources import (
+    AICapabilitiesScraper,
     ArxivScraper,
     EventScraper,
     GitHubIssuesScraper,
@@ -291,6 +292,17 @@ class IntelScheduler:
                     self.storage,
                     feeds=patents_config.get("feeds"),
                     max_per_feed=patents_config.get("max_per_feed", 15),
+                )
+            )
+
+        # AI Capabilities (METR, Chatbot Arena, HELM)
+        ai_cap_config = self.config.get("ai_capabilities", {})
+        if "ai_capabilities" in enabled or ai_cap_config.get("enabled", False):
+            self._scrapers.append(
+                AICapabilitiesScraper(
+                    self.storage,
+                    sources=ai_cap_config.get("sources", ["metr", "chatbot_arena", "helm"]),
+                    max_items_per_source=ai_cap_config.get("max_items_per_source", 10),
                 )
             )
 

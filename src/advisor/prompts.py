@@ -102,7 +102,14 @@ USER QUESTION: {question}
 
 Use the research context when relevant to provide more informed, thorough answers. Cite specific insights from research when applicable:"""
 
-    # === Recommendation Prompt ===
+    # === Recommendation Prompts ===
+
+    AI_CAPABILITIES_SECTION = """
+AI CAPABILITY CONTEXT (current state of AI systems):
+{ai_capabilities_context}
+
+When recommending AI-enabled opportunities, cite specific benchmarks and be realistic about limitations.
+Identify where recent AI capability gains create new opportunities that weren't viable 6-12 months ago."""
 
     UNIFIED_RECOMMENDATIONS = """Generate {category} recommendations based on the user's profile and market conditions.
 
@@ -127,6 +134,31 @@ CONFIDENCE: [0.0-1.0]
 CAVEATS: [risks, time commitment, limitations]
 
 Be specific and actionable. Prioritize practical value over theoretical interest."""
+
+    UNIFIED_RECOMMENDATIONS_WITH_AI = """Generate {category} recommendations based on the user's profile, market conditions, and current AI capabilities.
+
+USER PROFILE (from journal):
+{journal_context}
+
+INTELLIGENCE:
+{intel_context}
+{ai_capabilities_section}
+
+Generate {max_items} actionable {category} recommendations. For each:
+
+### [Title]
+**Description**: What this is and why it matters
+**Why**: Why this is relevant to them specifically (cite journal entries)
+SCORE: [0-10 single score weighing relevance, feasibility, and impact]
+**Next Steps**: Concrete actions to take
+
+**REASONING**
+SOURCE: [specific journal entry or intel item that triggered this]
+PROFILE_MATCH: [how this aligns with user goals/skills/interests]
+CONFIDENCE: [0.0-1.0]
+CAVEATS: [risks, time commitment, limitations]
+
+Be specific and actionable. Cite AI benchmarks when recommending AI-enabled opportunities. Be realistic about limitations."""
 
     WEEKLY_ACTION_BRIEF = """Generate a weekly action brief with the top prioritized recommendations.
 
