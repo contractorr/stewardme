@@ -120,7 +120,13 @@ class UserProfile(BaseModel):
                 by_level.setdefault(s.proficiency, []).append(s.name)
             skill_lines = []
             for level in sorted(by_level.keys(), reverse=True):
-                label = {5: "Expert", 4: "Advanced", 3: "Intermediate", 2: "Beginner", 1: "Novice"}.get(level, str(level))
+                label = {
+                    5: "Expert",
+                    4: "Advanced",
+                    3: "Intermediate",
+                    2: "Beginner",
+                    1: "Novice",
+                }.get(level, str(level))
                 skill_lines.append(f"  {label} ({level}/5): {', '.join(by_level[level])}")
             sections.append("[SKILLS]\n" + "\n".join(skill_lines))
 
@@ -141,7 +147,9 @@ class UserProfile(BaseModel):
 
         # Active projects
         if self.active_projects:
-            sections.append("[ACTIVE PROJECTS]\n" + "\n".join(f"- {p}" for p in self.active_projects))
+            sections.append(
+                "[ACTIVE PROJECTS]\n" + "\n".join(f"- {p}" for p in self.active_projects)
+            )
 
         # Constraints
         constraint_parts = []

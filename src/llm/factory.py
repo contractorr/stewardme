@@ -13,7 +13,7 @@ _PROVIDER_ENV_KEYS = {
 _AUTO_DETECT_ORDER = ["claude", "openai", "gemini"]
 
 _CHEAP_MODELS = {
-    "claude": "claude-haiku-4-20250514",
+    "claude": "claude-haiku-4-5",
     "openai": "gpt-4o-mini",
     "gemini": "gemini-2.0-flash",
 }
@@ -38,6 +38,7 @@ def create_llm_provider(
     api_key: str | None = None,
     model: str | None = None,
     client=None,
+    extended_thinking: bool = False,
 ) -> LLMProvider:
     """Create an LLM provider instance.
 
@@ -46,6 +47,7 @@ def create_llm_provider(
         api_key: Explicit API key (overrides env var)
         model: Model name (None = provider default)
         client: Pre-built SDK client for testing/DI
+        extended_thinking: Enable extended thinking support (Claude only)
 
     Returns:
         LLMProvider instance
@@ -63,7 +65,9 @@ def create_llm_provider(
     if resolved == "claude":
         from .providers.claude import ClaudeProvider
 
-        return ClaudeProvider(api_key=api_key, model=model, client=client)
+        return ClaudeProvider(
+            api_key=api_key, model=model, client=client, extended_thinking=extended_thinking
+        )
     elif resolved == "openai":
         from .providers.openai import OpenAIProvider
 

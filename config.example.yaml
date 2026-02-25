@@ -1,7 +1,15 @@
 llm:
+  # NOTE: This app uses the Anthropic API (console.anthropic.com).
+  # A claude.ai consumer subscription (Claude Pro / Claude Max) does NOT cover
+  # API usage. You must load credits at console.anthropic.com separately.
   provider: auto  # auto-detect from API key, or: claude, openai, gemini
   api_key: ${ANTHROPIC_API_KEY}  # or ${OPENAI_API_KEY} or ${GOOGLE_API_KEY}
-  model: null  # null = provider default
+  model: null  # null = provider default (claude-sonnet-4-6)
+  extended_thinking: true
+  # Extended thinking uses more tokens and costs more. It is opt-in per call
+  # site and should only be used for complex reasoning tasks, not routine queries.
+  max_tokens: 16000
+  cheap_max_tokens: 4000
 
 paths:
   journal_dir: ~/coach/journal

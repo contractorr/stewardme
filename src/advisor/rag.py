@@ -399,6 +399,25 @@ class RAGRetriever:
 
         return journal_ctx, intel_ctx
 
+    def get_capability_context(self) -> str:
+        """Load latest CapabilityHorizonModel and return horizon context.
+
+        Intended for injection into entrepreneurial, career, investment,
+        and learning recommendation categories only.
+        """
+        try:
+            from intelligence.capability_model import CapabilityHorizonModel
+
+            db_path = self.intel_db_path
+            if not db_path:
+                return ""
+            model = CapabilityHorizonModel(db_path)
+            if model.load():
+                return model.get_horizon_context()
+        except Exception as e:
+            logger.debug("capability_context_load_failed", error=str(e))
+        return ""
+
     def get_ai_capabilities_context(self, query: str, max_chars: int = 1500) -> str:
         """Get AI capability context combining static KB + recent intel.
 

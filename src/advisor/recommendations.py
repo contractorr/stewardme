@@ -126,6 +126,10 @@ class Recommender:
         if category in AI_RELEVANT_CATEGORIES:
             try:
                 ai_ctx = self.rag.get_ai_capabilities_context(intel_query)
+                # Append dynamic capability horizon model if available
+                cap_ctx = self.rag.get_capability_context()
+                if cap_ctx:
+                    ai_ctx = f"{ai_ctx}\n\n{cap_ctx}"
                 ai_section = PromptTemplates.AI_CAPABILITIES_SECTION.format(
                     ai_capabilities_context=ai_ctx,
                 )
@@ -175,10 +179,7 @@ class Recommender:
 
         async def _gather():
             # Wave 1: all intel contradiction checks in parallel
-            intel_tasks = [
-                asyncio.to_thread(self._safe_intel_check, rec)
-                for rec in recs
-            ]
+            intel_tasks = [asyncio.to_thread(self._safe_intel_check, rec) for rec in recs]
             intel_results = await asyncio.gather(*intel_tasks)
 
             # Wave 2: all critic calls in parallel (using wave 1 results)
@@ -210,7 +211,10 @@ class Recommender:
             return None
 
     def _safe_critic_apply(
-        self, rec: Recommendation, profile_ctx: str, intel_ctx: str,
+        self,
+        rec: Recommendation,
+        profile_ctx: str,
+        intel_ctx: str,
         intel_contradictions: str | None,
     ) -> None:
         try:
@@ -392,7 +396,10 @@ class Recommender:
         )
 
     def _apply_adversarial_critic(
-        self, rec: Recommendation, profile_ctx: str, intel_ctx: str,
+        self,
+        rec: Recommendation,
+        profile_ctx: str,
+        intel_ctx: str,
         intel_contradictions: str | None,
     ) -> None:
         """Apply intel contradictions + adversarial critic to a recommendation.

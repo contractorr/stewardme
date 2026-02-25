@@ -61,7 +61,11 @@ class OpenAIProvider(LLMProvider):
         self.client = OpenAI(api_key=api_key)
 
     def generate(
-        self, messages: list[dict], system: str | None = None, max_tokens: int = 2000
+        self,
+        messages: list[dict],
+        system: str | None = None,
+        max_tokens: int = 2000,
+        use_thinking: bool = False,
     ) -> str:
         full_messages = []
         if system:

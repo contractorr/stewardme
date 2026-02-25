@@ -74,7 +74,7 @@ def _make_components(tmp_path, skip_advisor=False):
             "recommendations": {},
             "research": {"enabled": False},
             "paths": {"intel_db": str(tmp_path / "intel.db")},
-            "llm": {"model": "claude-sonnet-4-20250514"},
+            "llm": {"model": "claude-sonnet-4-6"},
         },
         "config_model": MagicMock(),
         "paths": {

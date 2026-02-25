@@ -26,7 +26,7 @@ class TestClaudeProvider:
 
         assert result == "Hello from Claude"
         mock_client.messages.create.assert_called_once_with(
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-6",
             max_tokens=100,
             messages=[{"role": "user", "content": "hi"}],
             system="Be helpful",

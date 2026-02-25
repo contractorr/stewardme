@@ -13,13 +13,13 @@ class TestConfigValidation:
 
         config = CoachConfig.from_dict(
             {
-                "llm": {"model": "claude-sonnet-4-20250514"},
+                "llm": {"model": "claude-sonnet-4-6"},
                 "research": {"schedule": "0 8 * * 0"},
                 "logging": {"level": "DEBUG"},
             }
         )
 
-        assert config.llm.model == "claude-sonnet-4-20250514"
+        assert config.llm.model == "claude-sonnet-4-6"
         assert config.logging.level == "DEBUG"
 
     def test_invalid_cron_expression(self):

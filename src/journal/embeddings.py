@@ -114,7 +114,9 @@ class EmbeddingManager:
             existing_data = self.collection.get()
             existing = set(existing_data["ids"]) if existing_data["ids"] else set()
         except Exception as e:
-            logger.warning("chroma_get_existing_failed", collection=self.collection_name, error=str(e))
+            logger.warning(
+                "chroma_get_existing_failed", collection=self.collection_name, error=str(e)
+            )
 
         current_ids = {e["id"] for e in entries}
 

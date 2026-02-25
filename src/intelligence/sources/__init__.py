@@ -1,6 +1,13 @@
 """Intelligence sources - async only."""
 
-from .ai_capabilities import AICapabilitiesScraper
+from .ai_capabilities import (
+    AICapabilitiesScraper,
+    AIIndexScraper,
+    ARCEvalsScraper,
+    EpochAIScraper,
+    FrontierEvalsGitHubScraper,
+    METRScraper,
+)
 from .arxiv import ArxivScraper
 from .events import EventScraper
 from .github import GitHubTrendingScraper
@@ -14,6 +21,11 @@ from .yc_jobs import YCJobsScraper
 
 __all__ = [
     "AICapabilitiesScraper",
+    "AIIndexScraper",
+    "ARCEvalsScraper",
+    "EpochAIScraper",
+    "FrontierEvalsGitHubScraper",
+    "METRScraper",
     "RSSFeedScraper",
     "HackerNewsScraper",
     "GitHubTrendingScraper",

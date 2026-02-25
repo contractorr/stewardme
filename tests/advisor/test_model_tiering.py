@@ -18,7 +18,7 @@ class TestCheapProviderFactory:
         client.messages.create.return_value = resp
 
         provider = create_cheap_provider(provider="claude", client=client)
-        assert provider.model == "claude-haiku-4-20250514"
+        assert provider.model == "claude-haiku-4-5"
 
     def test_create_cheap_provider_respects_override(self):
         from llm.factory import create_cheap_provider

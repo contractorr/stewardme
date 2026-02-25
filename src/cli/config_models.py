@@ -16,6 +16,9 @@ class LLMConfig(BaseModel):
     provider: str = "auto"
     model: Optional[str] = None  # None = use provider default
     api_key: Optional[str] = None
+    extended_thinking: bool = True
+    max_tokens: int = 16000
+    cheap_max_tokens: int = 4000
 
     @field_validator("provider")
     @classmethod

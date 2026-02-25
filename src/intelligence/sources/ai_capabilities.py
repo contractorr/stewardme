@@ -1,16 +1,88 @@
-"""AI capabilities scraper — METR evals, Chatbot Arena, HELM benchmarks."""
+"""AI capabilities scrapers — METR, Epoch AI, AI Index, ARC Evals, frontier GitHub evals."""
 
+import json
 from datetime import datetime
 from typing import Optional
 
 import httpx
 import structlog
+from bs4 import BeautifulSoup
 
 from cli.retry import http_retry
 from intelligence.scraper import BaseScraper, IntelItem, IntelStorage
+from llm.factory import create_cheap_provider
 from shared_types import IntelSource
 
 logger = structlog.get_logger().bind(source="ai_capabilities")
+
+
+def _strip_html_to_text(html: str) -> str:
+    """Strip HTML to plain text."""
+    soup = BeautifulSoup(html, "html.parser")
+    for tag in soup(["script", "style"]):
+        tag.decompose()
+    return soup.get_text(separator=" ", strip=True)
+
+
+def _llm_extract_json(text: str, fields_prompt: str, max_chars: int = 8000) -> list[dict]:
+    """Use cheap LLM to extract structured JSON from plain text.
+
+    Returns parsed list of dicts, or empty list on failure.
+    """
+    truncated = text[:max_chars]
+    prompt = (
+        f"{fields_prompt}\n\n"
+        "Return ONLY a valid JSON array of objects. No other text.\n\n"
+        f"TEXT:\n{truncated}"
+    )
+    try:
+        provider = create_cheap_provider()
+        response = provider.generate(
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=2000,
+        )
+        # Strip markdown code fences if present
+        cleaned = response.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("\n", 1)[-1]
+            if cleaned.endswith("```"):
+                cleaned = cleaned[: cleaned.rfind("```")]
+        parsed = json.loads(cleaned)
+        if isinstance(parsed, list):
+            return parsed
+        if isinstance(parsed, dict):
+            return [parsed]
+        return []
+    except Exception as e:
+        logger.warning("llm_extract_json_failed", error=str(e))
+        return []
+
+
+def _llm_extract_single(text: str, fields_prompt: str, max_chars: int = 8000) -> dict:
+    """Use cheap LLM to extract a single JSON object from text."""
+    truncated = text[:max_chars]
+    prompt = (
+        f"{fields_prompt}\n\n"
+        "Return ONLY valid JSON (a single object or empty object {{}}). No other text.\n\n"
+        f"TEXT:\n{truncated}"
+    )
+    try:
+        provider = create_cheap_provider()
+        response = provider.generate(
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=1000,
+        )
+        cleaned = response.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("\n", 1)[-1]
+            if cleaned.endswith("```"):
+                cleaned = cleaned[: cleaned.rfind("```")]
+        parsed = json.loads(cleaned)
+        return parsed if isinstance(parsed, dict) else {}
+    except Exception as e:
+        logger.warning("llm_extract_single_failed", error=str(e))
+        return {}
+
 
 _DEFAULT_TAGS = ["ai-capabilities", "benchmarks"]
 
@@ -193,4 +265,300 @@ class AICapabilitiesScraper(BaseScraper):
         except httpx.RequestError as e:
             logger.warning("HELM scrape failed: %s", e)
 
+        return items
+
+
+# ---------------------------------------------------------------------------
+# New capability-grounding scrapers (LLM-based extraction)
+# ---------------------------------------------------------------------------
+
+_METR_FIELDS_PROMPT = (
+    "Extract published AI evaluation benchmarks and autonomy assessments from this text. "
+    "For each item, extract as JSON with fields: "
+    "task_category (str), current_success_rate (str), projected_horizon_months (int or null), "
+    "eval_date (str YYYY-MM-DD or null)."
+)
+
+_EPOCH_FIELDS_PROMPT = (
+    "Extract notable AI model training information from this text. "
+    "For each item, extract as JSON with fields: "
+    "model_name (str), training_compute_flops (str or null), "
+    "capability_notes (str), publication_date (str YYYY-MM-DD or null)."
+)
+
+_AI_INDEX_FIELDS_PROMPT = (
+    "Extract headline AI benchmark and economic impact metrics from this text. "
+    "For each item, extract as JSON with fields: "
+    "metric_name (str), current_value (str), "
+    "year_over_year_change (str or null), report_year (int)."
+)
+
+_ARC_EVALS_FIELDS_PROMPT = (
+    "Extract frontier model evaluation results from this text. "
+    "For each item, extract as JSON with fields: "
+    "model_name (str), task_category (str), score (str), eval_date (str YYYY-MM-DD or null)."
+)
+
+_GITHUB_FILTER_PROMPT = (
+    "Read this GitHub issue. If it is about a bug, dependency conflict, typo, CI failure, "
+    "or routine software maintenance, return an empty JSON object {}. "
+    "If it discusses a new evaluation benchmark, a new AI capability being tested, "
+    "a dataset for frontier models, or a notable limitation or failure mode of a current model, "
+    "extract it as JSON with the fields: repo_name (str), capability_tested (str), "
+    "evaluation_method (str), significance (str), is_limitation (bool — true if this "
+    "describes a failure or limitation rather than a new capability)."
+)
+
+
+class METRScraper(BaseScraper):
+    """Scrape METR research and taskdev blog for benchmark/autonomy data."""
+
+    URLS = [
+        "https://metr.org/research",
+        "https://taskdev.metr.org/blog",
+    ]
+
+    def __init__(self, storage: IntelStorage):
+        super().__init__(storage)
+
+    @property
+    def source_name(self) -> str:
+        return IntelSource.METR_EVALS
+
+    async def scrape(self) -> list[IntelItem]:
+        items: list[IntelItem] = []
+        for url in self.URLS:
+            try:
+                response = await self.client.get(url)
+                response.raise_for_status()
+                plain_text = _strip_html_to_text(response.text)
+                extracted = _llm_extract_json(plain_text, _METR_FIELDS_PROMPT)
+                for entry in extracted:
+                    if not entry.get("task_category"):
+                        continue
+                    items.append(
+                        IntelItem(
+                            source=self.source_name,
+                            title=f"METR: {entry['task_category']}",
+                            url=url,
+                            summary=json.dumps(entry),
+                            published=datetime.now(),
+                            tags=["ai-capabilities", "metr", "evals"],
+                        )
+                    )
+            except Exception as e:
+                logger.warning("metr_scraper_failed", url=url, error=str(e))
+        return items
+
+
+class EpochAIScraper(BaseScraper):
+    """Scrape Epoch AI blog and notable models data."""
+
+    URLS = [
+        "https://epochai.org/blog",
+        "https://epochai.org/data/notable-ai-models",
+    ]
+
+    def __init__(self, storage: IntelStorage):
+        super().__init__(storage)
+
+    @property
+    def source_name(self) -> str:
+        return IntelSource.EPOCH_AI
+
+    async def scrape(self) -> list[IntelItem]:
+        items: list[IntelItem] = []
+        for url in self.URLS:
+            try:
+                response = await self.client.get(url)
+                response.raise_for_status()
+                plain_text = _strip_html_to_text(response.text)
+                extracted = _llm_extract_json(plain_text, _EPOCH_FIELDS_PROMPT)
+                for entry in extracted:
+                    if not entry.get("model_name") and not entry.get("capability_notes"):
+                        continue
+                    title = entry.get("model_name") or entry.get("capability_notes", "")[:60]
+                    items.append(
+                        IntelItem(
+                            source=self.source_name,
+                            title=f"EpochAI: {title}",
+                            url=url,
+                            summary=json.dumps(entry),
+                            published=datetime.now(),
+                            tags=["ai-capabilities", "epoch-ai", "compute"],
+                        )
+                    )
+            except Exception as e:
+                logger.warning("epoch_ai_scraper_failed", url=url, error=str(e))
+        return items
+
+
+class AIIndexScraper(BaseScraper):
+    """Scrape Stanford AI Index report for benchmark and economic metrics."""
+
+    URLS = [
+        "https://aiindex.stanford.edu/report/",
+    ]
+
+    def __init__(self, storage: IntelStorage):
+        super().__init__(storage)
+
+    @property
+    def source_name(self) -> str:
+        return IntelSource.AI_INDEX
+
+    async def scrape(self) -> list[IntelItem]:
+        items: list[IntelItem] = []
+        for url in self.URLS:
+            try:
+                response = await self.client.get(url)
+                response.raise_for_status()
+                plain_text = _strip_html_to_text(response.text)
+                extracted = _llm_extract_json(plain_text, _AI_INDEX_FIELDS_PROMPT)
+                for entry in extracted:
+                    if not entry.get("metric_name"):
+                        continue
+                    items.append(
+                        IntelItem(
+                            source=self.source_name,
+                            title=f"AI Index: {entry['metric_name']}",
+                            url=url,
+                            summary=json.dumps(entry),
+                            published=datetime.now(),
+                            tags=["ai-capabilities", "ai-index", "stanford"],
+                        )
+                    )
+            except Exception as e:
+                logger.warning("ai_index_scraper_failed", url=url, error=str(e))
+        return items
+
+
+class ARCEvalsScraper(BaseScraper):
+    """Scrape ARC Evals (Alignment Research Center) evaluation results."""
+
+    URLS = [
+        "https://evals.alignment.org",
+    ]
+
+    def __init__(self, storage: IntelStorage):
+        super().__init__(storage)
+
+    @property
+    def source_name(self) -> str:
+        return IntelSource.ARC_EVALS
+
+    async def scrape(self) -> list[IntelItem]:
+        items: list[IntelItem] = []
+        for url in self.URLS:
+            try:
+                response = await self.client.get(url)
+                response.raise_for_status()
+                plain_text = _strip_html_to_text(response.text)
+                extracted = _llm_extract_json(plain_text, _ARC_EVALS_FIELDS_PROMPT)
+                for entry in extracted:
+                    if not entry.get("model_name"):
+                        continue
+                    items.append(
+                        IntelItem(
+                            source=self.source_name,
+                            title=f"ARC Evals: {entry['model_name']}",
+                            url=url,
+                            summary=json.dumps(entry),
+                            published=datetime.now(),
+                            tags=["ai-capabilities", "arc-evals", "alignment"],
+                        )
+                    )
+            except Exception as e:
+                logger.warning("arc_evals_scraper_failed", url=url, error=str(e))
+        return items
+
+
+class FrontierEvalsGitHubScraper(BaseScraper):
+    """Scrape frontier eval repos for capability-relevant issues, LLM-filtered.
+
+    Inherits BaseScraper (not GitHubIssuesScraper) but reuses GitHub API patterns.
+    Caps at 20 issues per repo. Filters out maintenance noise via LLM.
+    """
+
+    REPOS = [
+        "metr/task-standard",
+        "EleutherAI/lm-evaluation-harness",
+        "openai/evals",
+        "anthropics/evals",
+    ]
+    MAX_PER_REPO = 20
+
+    def __init__(self, storage: IntelStorage, token: Optional[str] = None):
+        super().__init__(storage)
+        self.client.headers["Accept"] = "application/vnd.github.v3+json"
+        if token:
+            self.client.headers["Authorization"] = f"token {token}"
+
+    @property
+    def source_name(self) -> str:
+        return IntelSource.FRONTIER_EVALS_GITHUB
+
+    async def scrape(self) -> list[IntelItem]:
+        items: list[IntelItem] = []
+        for repo in self.REPOS:
+            try:
+                repo_items = await self._fetch_repo_issues(repo)
+                items.extend(repo_items)
+            except Exception as e:
+                logger.warning("frontier_evals_repo_failed", repo=repo, error=str(e))
+        return items
+
+    async def _fetch_repo_issues(self, repo: str) -> list[IntelItem]:
+        """Fetch up to MAX_PER_REPO issues, then LLM-filter each."""
+        url = f"https://api.github.com/repos/{repo}/issues"
+        params = {
+            "state": "open",
+            "sort": "created",
+            "direction": "desc",
+            "per_page": self.MAX_PER_REPO,
+        }
+        try:
+            response = await self.client.get(url, params=params)
+            if response.status_code == 403:
+                logger.warning("github_rate_limited", repo=repo)
+                return []
+            response.raise_for_status()
+            issues = response.json()
+        except Exception as e:
+            logger.warning("frontier_evals_fetch_failed", repo=repo, error=str(e))
+            return []
+
+        items: list[IntelItem] = []
+        for issue in issues[: self.MAX_PER_REPO]:
+            title = issue.get("title", "")
+            body = (issue.get("body") or "")[:1000]
+            issue_text = f"Title: {title}\nBody: {body}"
+
+            # LLM filter
+            extracted = _llm_extract_single(issue_text, _GITHUB_FILTER_PROMPT)
+            if not extracted or not extracted.get("capability_tested"):
+                continue
+
+            published = None
+            if issue.get("created_at"):
+                try:
+                    published = datetime.fromisoformat(issue["created_at"].replace("Z", "+00:00"))
+                except ValueError:
+                    pass
+
+            items.append(
+                IntelItem(
+                    source=self.source_name,
+                    title=f"[{repo}] {title[:80]}",
+                    url=issue.get("html_url", ""),
+                    summary=json.dumps(extracted),
+                    published=published,
+                    tags=[
+                        "ai-capabilities",
+                        "frontier-evals",
+                        repo.split("/")[0],
+                        *(["limitation"] if extracted.get("is_limitation") else []),
+                    ],
+                )
+            )
         return items

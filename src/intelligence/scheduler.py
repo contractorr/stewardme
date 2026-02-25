@@ -19,12 +19,17 @@ from .health import ScraperHealthTracker
 from .scraper import IntelStorage
 from .sources import (
     AICapabilitiesScraper,
+    AIIndexScraper,
+    ARCEvalsScraper,
     ArxivScraper,
+    EpochAIScraper,
     EventScraper,
+    FrontierEvalsGitHubScraper,
     GitHubIssuesScraper,
     GitHubTrendingScraper,
     GooglePatentsScraper,
     HackerNewsScraper,
+    METRScraper,
     ProductHuntScraper,
     RedditScraper,
     RSSFeedScraper,
@@ -348,6 +353,18 @@ class IntelScheduler:
                 )
             )
 
+        # Capability horizon scrapers (always enabled alongside ai_capabilities)
+        cap_config = self.config.get("capability_horizon", {})
+        if cap_config.get("enabled", False) or (
+            "ai_capabilities" in enabled or ai_cap_config.get("enabled", False)
+        ):
+            self._scrapers.append(METRScraper(self.storage))
+            self._scrapers.append(EpochAIScraper(self.storage))
+            self._scrapers.append(AIIndexScraper(self.storage))
+            self._scrapers.append(ARCEvalsScraper(self.storage))
+            gh_token = self.full_config.get("projects", {}).get("github_issues", {}).get("token")
+            self._scrapers.append(FrontierEvalsGitHubScraper(self.storage, token=gh_token))
+
     async def _run_async(self) -> dict:
         """Run all scrapers concurrently."""
         # Generate correlation ID and bind to structlog
@@ -536,6 +553,55 @@ class IntelScheduler:
             logger.error("autonomous_actions_failed", error=str(e))
             return []
 
+    def refresh_capability_model(self) -> dict:
+        """Run capability scrapers and refresh the CapabilityHorizonModel."""
+        from intelligence.capability_model import CapabilityHorizonModel
+        from intelligence.sources.ai_capabilities import (
+            AIIndexScraper,
+            ARCEvalsScraper,
+            EpochAIScraper,
+            FrontierEvalsGitHubScraper,
+            METRScraper,
+        )
+
+        async def _run():
+            scrapers = [
+                METRScraper(self.storage),
+                EpochAIScraper(self.storage),
+                AIIndexScraper(self.storage),
+                ARCEvalsScraper(self.storage),
+                FrontierEvalsGitHubScraper(self.storage),
+            ]
+            all_items = []
+            for scraper in scrapers:
+                try:
+                    items = await asyncio.wait_for(scraper.scrape(), timeout=60.0)
+                    all_items.extend(items)
+                except Exception as e:
+                    logger.warning("cap_scraper_failed", source=scraper.source_name, error=str(e))
+                finally:
+                    await scraper.close()
+            return all_items
+
+        try:
+            items = asyncio.run(_run())
+        except Exception as e:
+            logger.error("capability_model_scrape_failed", error=str(e))
+            items = []
+
+        model = CapabilityHorizonModel(self.storage.db_path)
+        model.refresh(items)
+
+        updated = sum(1 for d in model.domains if d.last_updated)
+        fallback = len(model.domains) - updated if model.domains else 0
+        logger.info(
+            "capability_model_refreshed",
+            total_items=len(items),
+            domains_updated=len(model.domains),
+            domains_fallback=fallback,
+        )
+        return {"items_scraped": len(items), "domains": len(model.domains)}
+
     def start_with_research(
         self,
         scrape_cron: str = "0 6 * * *",
@@ -550,6 +616,23 @@ class IntelScheduler:
             id="intel_gather",
             replace_existing=True,
         )
+
+        # Add capability model refresh on same schedule as scraping
+        cap_config = self.config.get("capability_horizon", {})
+        ai_cap_config = self.config.get("ai_capabilities", {})
+        enabled_sources = self.config.get("enabled", [])
+        if (
+            cap_config.get("enabled", False)
+            or "ai_capabilities" in enabled_sources
+            or ai_cap_config.get("enabled", False)
+        ):
+            self.scheduler.add_job(
+                self.refresh_capability_model,
+                trigger=_parse_cron(scrape_cron),
+                id="refresh_capability_model",
+                replace_existing=True,
+            )
+            logger.info("Capability model refresh job scheduled: %s", scrape_cron)
 
         # Add research job if enabled
         research_config = self.full_config.get("research", {})

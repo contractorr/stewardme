@@ -38,6 +38,11 @@ class IntelSource(StrEnum):
     YC_JOBS = "yc_jobs"
     GOOGLE_PATENTS = "google_patents"
     AI_CAPABILITIES = "ai_capabilities"
+    METR_EVALS = "metr_evals"
+    EPOCH_AI = "epoch_ai"
+    AI_INDEX = "ai_index"
+    ARC_EVALS = "arc_evals"
+    FRONTIER_EVALS_GITHUB = "frontier_evals_github"
 
 
 class EntryType(StrEnum):

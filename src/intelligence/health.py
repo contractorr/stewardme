@@ -69,8 +69,15 @@ class ScraperHealthTracker:
                     last_error = ?,
                     backoff_until = ?
                 """,
-                (source, now_iso, error_truncated, backoff_until,
-                 now_iso, error_truncated, backoff_until),
+                (
+                    source,
+                    now_iso,
+                    error_truncated,
+                    backoff_until,
+                    now_iso,
+                    error_truncated,
+                    backoff_until,
+                ),
             )
             logger.info(
                 "scraper_backoff",
@@ -95,9 +102,7 @@ class ScraperHealthTracker:
         """Return health status for all tracked sources."""
         with wal_connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
-            rows = conn.execute(
-                "SELECT * FROM scraper_health ORDER BY source"
-            ).fetchall()
+            rows = conn.execute("SELECT * FROM scraper_health ORDER BY source").fetchall()
             return [dict(r) for r in rows]
 
     def get_source_health(self, source: str) -> dict | None:

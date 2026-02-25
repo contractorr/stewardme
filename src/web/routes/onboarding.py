@@ -310,7 +310,9 @@ Output the JSON block now with whatever information you have."""
         clean_msg = _strip_json_block(response)
         if not clean_msg:
             clean_msg = "Great, I've got everything I need! Your profile is set up and will continue to deepen over time."
-        return OnboardingResponse(message=clean_msg, done=True, goals_created=goals_created, turn=turn)
+        return OnboardingResponse(
+            message=clean_msg, done=True, goals_created=goals_created, turn=turn
+        )
 
     session["messages"].append(("assistant", response))
 
@@ -327,13 +329,17 @@ Output the JSON block now with whatever information you have."""
 Coach: {response}
 
 Now output ONLY the JSON block with profile and goals based on everything discussed."""
-        force_response = await asyncio.to_thread(caller, ONBOARDING_SYSTEM, force_prompt, max_tokens=2000)
+        force_response = await asyncio.to_thread(
+            caller, ONBOARDING_SYSTEM, force_prompt, max_tokens=2000
+        )
         completion = _extract_completion_json(force_response)
         goals_created = 0
         if completion:
             goals_created = _save_results(user_id, completion)
         _sessions.pop(user_id, None)
-        return OnboardingResponse(message=response, done=True, goals_created=goals_created, turn=turn)
+        return OnboardingResponse(
+            message=response, done=True, goals_created=goals_created, turn=turn
+        )
 
     return OnboardingResponse(message=response, done=False, turn=turn)
 

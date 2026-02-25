@@ -59,7 +59,11 @@ class LLMProvider(ABC):
 
     @abstractmethod
     def generate(
-        self, messages: list[dict], system: str | None = None, max_tokens: int = 2000
+        self,
+        messages: list[dict],
+        system: str | None = None,
+        max_tokens: int = 2000,
+        use_thinking: bool = False,
     ) -> str:
         """Generate a response from messages.
 
@@ -67,6 +71,7 @@ class LLMProvider(ABC):
             messages: List of {"role": ..., "content": ...} dicts
             system: Optional system prompt
             max_tokens: Max response tokens
+            use_thinking: If True and provider supports it, enable extended thinking
 
         Returns:
             Generated text

@@ -97,16 +97,18 @@ async def get_briefing(
                         "alternative": meta.get("alternative"),
                         "intel_contradictions": meta.get("intel_contradictions"),
                     }
-                recommendations.append({
-                    "id": r.id or "",
-                    "category": r.category,
-                    "title": r.title,
-                    "description": r.description[:200] if r.description else "",
-                    "score": r.score,
-                    "status": r.status,
-                    "reasoning_trace": meta.get("reasoning_trace"),
-                    "critic": critic,
-                })
+                recommendations.append(
+                    {
+                        "id": r.id or "",
+                        "category": r.category,
+                        "title": r.title,
+                        "description": r.description[:200] if r.description else "",
+                        "score": r.score,
+                        "status": r.status,
+                        "reasoning_trace": meta.get("reasoning_trace"),
+                        "critic": critic,
+                    }
+                )
     except Exception as e:
         logger.warning("briefing.recommendations_error", error=str(e))
 

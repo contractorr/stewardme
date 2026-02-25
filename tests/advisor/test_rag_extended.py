@@ -122,7 +122,11 @@ class TestLoadProfileTerms:
         with patch("profile.storage.ProfileStorage", return_value=ps_instance):
             terms = rag._load_profile_terms()
 
-        assert "python" in {s.lower() for s in terms.skills} if isinstance(terms.skills, list) else "python" in terms.skills
+        assert (
+            "python" in {s.lower() for s in terms.skills}
+            if isinstance(terms.skills, list)
+            else "python" in terms.skills
+        )
         assert any("fastapi" in t.lower() for t in terms.tech)
 
     def test_no_profile_returns_empty_terms(self, rag):
@@ -204,8 +208,7 @@ class TestGetResearchContext:
         from advisor.rag import RAGRetriever
 
         entries = [
-            {"title": f"Report {i}", "path": f"/tmp/r{i}.md", "type": "research"}
-            for i in range(5)
+            {"title": f"Report {i}", "path": f"/tmp/r{i}.md", "type": "research"} for i in range(5)
         ]
         mock_journal_search.storage.list_entries.return_value = entries
         post = MagicMock()

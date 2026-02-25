@@ -33,7 +33,9 @@ class ProfileTerms:
 
     @property
     def is_empty(self) -> bool:
-        return not any([self.skills, self.tech, self.interests, self.goal_keywords, self.project_keywords])
+        return not any(
+            [self.skills, self.tech, self.interests, self.goal_keywords, self.project_keywords]
+        )
 
     @property
     def all_terms(self) -> set[str]:
@@ -130,7 +132,9 @@ def score_profile_relevance(item: dict, profile_terms: ProfileTerms) -> tuple[fl
     # Project keyword match (weight: 0.1)
     project_hits = profile_terms.project_keywords & item_terms
     if project_hits:
-        project_score = min(1.0, len(project_hits) / max(1, min(3, len(profile_terms.project_keywords))))
+        project_score = min(
+            1.0, len(project_hits) / max(1, min(3, len(profile_terms.project_keywords)))
+        )
         weighted_score += 0.1 * project_score
         matches.extend(f"project:{h}" for h in sorted(project_hits)[:2])
 

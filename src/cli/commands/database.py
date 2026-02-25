@@ -158,6 +158,4 @@ def rebuild(collection: str, yes: bool):
     refreshed = _get_db_components(collection)
     for name, comp in refreshed.items():
         health = comp["embeddings"].health_check()
-        console.print(
-            f"[green]{name}:[/] {health['count']} embeddings, model={health['model']}"
-        )
+        console.print(f"[green]{name}:[/] {health['count']} embeddings, model={health['model']}")

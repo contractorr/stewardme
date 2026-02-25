@@ -19,7 +19,6 @@ def research():
     warn_experimental("Deep research")
 
 
-
 @research.command("run")
 @click.option("--topic", "-t", help="Specific topic to research (overrides auto-selection)")
 def research_run(topic: str):

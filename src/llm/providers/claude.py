@@ -16,8 +16,15 @@ class ClaudeProvider(LLMProvider):
 
     provider_name = "claude"
 
-    def __init__(self, api_key: str | None = None, model: str | None = None, client=None):
-        self.model = model or "claude-sonnet-4-20250514"
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model: str | None = None,
+        client=None,
+        extended_thinking: bool = False,
+    ):
+        self.model = model or "claude-sonnet-4-6"
+        self.extended_thinking = extended_thinking
 
         if client:
             self.client = client
@@ -46,7 +53,11 @@ class ClaudeProvider(LLMProvider):
         raise LLMError(f"Claude error: {e}") from e
 
     def generate(
-        self, messages: list[dict], system: str | None = None, max_tokens: int = 2000
+        self,
+        messages: list[dict],
+        system: str | None = None,
+        max_tokens: int = 2000,
+        use_thinking: bool = False,
     ) -> str:
         try:
             self._get_exceptions()
@@ -62,7 +73,19 @@ class ClaudeProvider(LLMProvider):
             if system:
                 kwargs["system"] = system
 
+            if use_thinking and self.extended_thinking:
+                budget = 8000
+                # max_tokens must be strictly greater than budget_tokens
+                if kwargs["max_tokens"] <= budget:
+                    kwargs["max_tokens"] = budget + 1024
+                kwargs["thinking"] = {"type": "enabled", "budget_tokens": budget}
+
             response = self.client.messages.create(**kwargs)
+
+            # With thinking enabled, extract the text block (skip thinking blocks)
+            for block in response.content:
+                if hasattr(block, "type") and block.type == "text":
+                    return block.text
             return response.content[0].text
         except Exception as e:
             self._handle_error(e)

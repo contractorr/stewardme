@@ -73,7 +73,6 @@ def goals():
     warn_experimental("Goal tracking")
 
 
-
 @goals.command("analyze")
 @click.argument("goal", required=False)
 def goals_analyze(goal: str):

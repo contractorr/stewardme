@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from cli.commands import (
     ask,
     brief,
+    capabilities,
     daemon,
     db,
     export,
@@ -54,6 +55,7 @@ cli.add_command(export)
 cli.add_command(profile)
 cli.add_command(learn)
 cli.add_command(projects)
+cli.add_command(capabilities)
 
 # Register standalone commands
 cli.add_command(ask)

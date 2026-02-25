@@ -134,7 +134,5 @@ CAVEATS: Competitive market
             mock_rag, mock_llm, storage, {"scoring": {"min_threshold": 0.0}}
         )
         # Should not raise
-        recs = engine.generate_category(
-            "entrepreneurial", save=False, with_action_plans=False
-        )
+        recs = engine.generate_category("entrepreneurial", save=False, with_action_plans=False)
         assert isinstance(recs, list)
