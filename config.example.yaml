@@ -18,6 +18,12 @@ sources:
     - https://feeds.arstechnica.com/arstechnica/technology-lab
     - https://sifted.eu/feed
     - https://techcrunch.com/feed/
+    - https://www.reddit.com/r/programming/.rss
+    - https://www.reddit.com/r/MachineLearning/.rss
+    - https://export.arxiv.org/rss/cs.AI
+    - https://export.arxiv.org/rss/cs.LG
+  # When rss_feeds covers HN/Reddit/arXiv, dedicated scrapers auto-disabled
+  deduplicate_rss_sources: true
   github_trending:
     enabled: true
     languages: [python, rust, go]

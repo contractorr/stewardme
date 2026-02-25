@@ -32,13 +32,34 @@ def _extract_entry_tags(entry) -> list[str]:
     return tags
 
 
+def _detect_source_tag(url: str) -> str | None:
+    """Detect source tag from well-known feed URLs."""
+    url_lower = url.lower()
+    if "news.ycombinator.com" in url_lower:
+        return "hn"
+    if "reddit.com" in url_lower:
+        return "reddit"
+    if "arxiv.org" in url_lower:
+        return "arxiv"
+    if "github.com" in url_lower:
+        return "github"
+    return None
+
+
 class RSSFeedScraper(BaseScraper):
     """Async scraper for RSS/Atom feeds."""
 
-    def __init__(self, storage: IntelStorage, feed_url: str, name: Optional[str] = None):
+    def __init__(
+        self,
+        storage: IntelStorage,
+        feed_url: str,
+        name: Optional[str] = None,
+        source_tag: Optional[str] = None,
+    ):
         super().__init__(storage)
         self.feed_url = feed_url
         self._name = name or _extract_name(feed_url)
+        self.source_tag = source_tag or _detect_source_tag(feed_url)
 
     @property
     def source_name(self) -> str:
@@ -64,6 +85,9 @@ class RSSFeedScraper(BaseScraper):
             published = None
             if hasattr(entry, "published_parsed") and entry.published_parsed:
                 published = datetime.fromtimestamp(mktime(entry.published_parsed))
+            elif hasattr(entry, "updated_parsed") and entry.updated_parsed:
+                # Atom feeds (arXiv) use updated instead of published
+                published = datetime.fromtimestamp(mktime(entry.updated_parsed))
 
             summary = ""
             if hasattr(entry, "summary"):

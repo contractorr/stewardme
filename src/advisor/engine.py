@@ -7,10 +7,11 @@ from typing import Optional
 import structlog
 
 from llm import LLMError as BaseLLMError
-from llm import LLMRateLimitError, create_llm_provider
+from llm import LLMRateLimitError, create_cheap_provider, create_llm_provider
 
 from .action_brief import ActionBriefGenerator
 from .agentic import AgenticOrchestrator
+from .context_cache import ContextCache
 from .goals import GoalTracker
 from .learning_paths import LearningPathGenerator, LearningPathStorage
 from .prompts import PromptTemplates
@@ -73,11 +74,25 @@ class AdvisorEngine:
         self.model = model
         self.use_tools = use_tools
 
+        # Attach context cache to RAG if not already set
+        if not getattr(rag, "cache", None):
+            try:
+                cache_path = Path("~/coach/context_cache.db").expanduser()
+                cache_path.parent.mkdir(parents=True, exist_ok=True)
+                rag.cache = ContextCache(cache_path)
+            except Exception:
+                pass  # non-critical
+
         try:
             self.llm = create_llm_provider(
                 provider=provider,
                 api_key=api_key,
                 model=model,
+                client=client,
+            )
+            self.cheap_llm = create_cheap_provider(
+                provider=provider,
+                api_key=api_key,
                 client=client,
             )
         except BaseLLMError as e:
@@ -112,6 +127,28 @@ class AdvisorEngine:
             )
         except BaseLLMError as e:
             logger.error("LLM call failed: %s", e)
+            raise LLMError(str(e)) from e
+
+    @_llm_retry
+    def _call_cheap_llm(
+        self,
+        system: str,
+        user_prompt: str,
+        max_tokens: int = 2000,
+        conversation_history: list[dict] | None = None,
+    ) -> str:
+        """Make LLM call using cheap-tier model for critic/background tasks."""
+        try:
+            logger.debug("Calling cheap LLM provider=%s", self.cheap_llm.provider_name)
+            messages = list(conversation_history or [])
+            messages.append({"role": "user", "content": user_prompt})
+            return self.cheap_llm.generate(
+                messages=messages,
+                system=system,
+                max_tokens=max_tokens,
+            )
+        except BaseLLMError as e:
+            logger.error("Cheap LLM call failed: %s", e)
             raise LLMError(str(e)) from e
 
     def ask(
@@ -260,6 +297,7 @@ class AdvisorEngine:
             llm_caller=self._call_llm,
             storage=storage,
             config=config,
+            cheap_llm_caller=self._call_cheap_llm,
         )
 
     def generate_recommendations(

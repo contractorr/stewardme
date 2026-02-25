@@ -192,7 +192,17 @@ class IntelScheduler:
 
         enabled = self.config.get("enabled", ["hn_top", "rss_feeds"])
 
-        if "hn_top" in enabled:
+        # Detect which sources are covered by RSS feeds for dedup
+        rss_covered_sources = set()
+        if self.config.get("deduplicate_rss_sources", True):
+            from intelligence.sources.rss import _detect_source_tag
+
+            for url in self.config.get("rss_feeds", []):
+                tag = _detect_source_tag(url)
+                if tag:
+                    rss_covered_sources.add(tag)
+
+        if "hn_top" in enabled and "hn" not in rss_covered_sources:
             self._scrapers.append(HackerNewsScraper(self.storage))
 
         if "rss_feeds" in enabled:
@@ -214,9 +224,11 @@ class IntelScheduler:
                 )
             )
 
-        # arXiv
+        # arXiv (skip if covered by RSS feeds)
         arxiv_config = self.config.get("arxiv", {})
-        if "arxiv" in enabled or arxiv_config.get("enabled", False):
+        if (
+            "arxiv" in enabled or arxiv_config.get("enabled", False)
+        ) and "arxiv" not in rss_covered_sources:
             self._scrapers.append(
                 ArxivScraper(
                     self.storage,
@@ -225,9 +237,11 @@ class IntelScheduler:
                 )
             )
 
-        # Reddit
+        # Reddit (skip if covered by RSS feeds)
         reddit_config = self.config.get("reddit", {})
-        if "reddit" in enabled or reddit_config.get("enabled", False):
+        if (
+            "reddit" in enabled or reddit_config.get("enabled", False)
+        ) and "reddit" not in rss_covered_sources:
             self._scrapers.append(
                 RedditScraper(
                     self.storage,

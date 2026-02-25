@@ -12,6 +12,26 @@ _PROVIDER_ENV_KEYS = {
 
 _AUTO_DETECT_ORDER = ["claude", "openai", "gemini"]
 
+_CHEAP_MODELS = {
+    "claude": "claude-haiku-4-20250514",
+    "openai": "gpt-4o-mini",
+    "gemini": "gemini-2.0-flash",
+}
+
+
+def create_cheap_provider(
+    provider: str | None = None,
+    api_key: str | None = None,
+    model: str | None = None,
+    client=None,
+) -> LLMProvider:
+    """Create a cheap-tier provider for background/critic calls."""
+    resolved = provider or "auto"
+    if resolved == "auto":
+        resolved = _auto_detect_provider(api_key)
+    cheap_model = model or _CHEAP_MODELS.get(resolved)
+    return create_llm_provider(provider=resolved, api_key=api_key, model=cheap_model, client=client)
+
 
 def create_llm_provider(
     provider: str | None = None,

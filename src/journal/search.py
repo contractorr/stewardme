@@ -68,15 +68,20 @@ class JournalSearch:
         entry_type: Optional[str] = None,
         limit: int = 20,
     ) -> list[dict]:
-        """Simple keyword search in content."""
+        """Keyword search in content, ranked by occurrence frequency."""
         entries = self.storage.list_entries(entry_type=entry_type, limit=limit * 2)
         matches = []
 
-        keyword_lower = keyword.lower()
+        # Split multi-word query into individual terms
+        terms = [t.lower() for t in keyword.lower().split() if t]
+
         for entry in entries:
             try:
                 post = frontmatter.load(entry["path"])
-                if keyword_lower in post.content.lower():
+                content_lower = post.content.lower()
+                # Count total occurrences of all terms
+                count = sum(content_lower.count(t) for t in terms)
+                if count > 0:
                     matches.append(
                         {
                             "path": entry["path"],
@@ -85,14 +90,45 @@ class JournalSearch:
                             "created": entry["created"],
                             "tags": entry["tags"],
                             "content": post.content,
+                            "relevance": count,
                         }
                     )
-                    if len(matches) >= limit:
-                        break
             except (OSError, ValueError):
                 continue
 
-        return matches
+        # Sort by relevance (occurrence count) descending
+        matches.sort(key=lambda m: m["relevance"], reverse=True)
+        return matches[:limit]
+
+    def hybrid_search(
+        self,
+        query: str,
+        n_results: int = 5,
+        semantic_weight: float = 0.7,
+        entry_type: Optional[str] = None,
+    ) -> list[dict]:
+        """Combine semantic + keyword search with reciprocal rank fusion."""
+        semantic_results = self.semantic_search(
+            query, n_results=n_results * 2, entry_type=entry_type
+        )
+        keyword_results = self.keyword_search(query, entry_type=entry_type, limit=n_results * 2)
+
+        scores: dict[str, float] = {}
+        items: dict[str, dict] = {}
+
+        for i, item in enumerate(semantic_results):
+            key = str(item["path"])
+            scores[key] = scores.get(key, 0) + (1.0 / (i + 1)) * semantic_weight
+            items[key] = item
+
+        for i, item in enumerate(keyword_results):
+            key = str(item["path"])
+            scores[key] = scores.get(key, 0) + (1.0 / (i + 1)) * (1 - semantic_weight)
+            if key not in items:
+                items[key] = item
+
+        sorted_keys = sorted(scores, key=lambda k: scores[k], reverse=True)
+        return [items[k] for k in sorted_keys[:n_results]]
 
     def get_context_for_query(
         self,
@@ -110,7 +146,7 @@ class JournalSearch:
         Returns:
             Formatted context string for LLM
         """
-        results = self.semantic_search(query, n_results=max_entries)
+        results = self.hybrid_search(query, n_results=max_entries)
 
         if not results:
             return "No relevant journal entries found."

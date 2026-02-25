@@ -10,11 +10,12 @@ from .base import (
     ToolDefinition,
     ToolResult,
 )
-from .factory import create_llm_provider
+from .factory import create_cheap_provider, create_llm_provider
 
 __all__ = [
     "LLMProvider",
     "create_llm_provider",
+    "create_cheap_provider",
     "LLMError",
     "LLMRateLimitError",
     "LLMAuthError",

@@ -1,5 +1,6 @@
 """Unified recommendation engine."""
 
+import asyncio
 from pathlib import Path
 from typing import Optional
 
@@ -28,7 +29,9 @@ CATEGORY_QUERIES = {
 AI_RELEVANT_CATEGORIES = {"entrepreneurial", "projects", "investment", "learning"}
 
 
-def _build_personalized_query(base_query: str, profile_keywords: list[str], max_keywords: int = 8) -> str:
+def _build_personalized_query(
+    base_query: str, profile_keywords: list[str], max_keywords: int = 8
+) -> str:
     """Augment a category query with user-specific keywords from their profile."""
     if not profile_keywords:
         return base_query
@@ -57,9 +60,11 @@ class Recommender:
         llm_caller,
         scorer: RecommendationScorer,
         storage: RecommendationStorage,
+        cheap_llm_caller=None,
     ):
         self.rag = rag
         self.llm_caller = llm_caller
+        self.cheap_llm_caller = cheap_llm_caller or llm_caller
         self.scorer = scorer
         self.storage = storage
 
@@ -132,28 +137,74 @@ class Recommender:
         response = self.llm_caller(PromptTemplates.SYSTEM, prompt)
         recs = self._parse_recommendations(response, category)
 
-        # === Pass 2: Adversarial critic pipeline ===
-        # COST NOTE: Each recommendation incurs 2 additional LLM calls here
-        # (intel contradiction check + adversarial critic). For 3 recs per
-        # category × 6 categories = up to 36 extra calls per full generation.
-        # Optimisation: batch or skip for low-score recs if cost is a concern.
-        for rec in recs:
-            try:
-                self._run_adversarial_pipeline(rec, profile_ctx, intel_ctx)
-            except (LLMError, KeyError, ValueError) as e:
-                logger.warning("adversarial_pipeline_failed", title=rec.title[:50], error=str(e))
+        # === Pass 2: Adversarial critic pipeline (parallel) ===
+        self._run_adversarial_pipeline_parallel(recs, profile_ctx, intel_ctx)
 
         if with_action_plans:
-            for rec in recs:
-                if rec.score >= 7.0:
-                    try:
-                        action_plan = self._generate_action_plan(rec)
-                        rec.metadata = rec.metadata or {}
-                        rec.metadata["action_plan"] = action_plan
-                    except (LLMError, KeyError, ValueError) as e:
-                        logger.warning("Failed to generate action plan", error=str(e))
+            self._run_action_plans_parallel(recs)
 
         return recs
+
+    def _run_adversarial_pipeline_parallel(
+        self, recs: list[Recommendation], profile_ctx: str, intel_ctx: str
+    ) -> None:
+        """Run adversarial pipeline on all recs concurrently."""
+
+        async def _gather():
+            tasks = [
+                asyncio.to_thread(self._safe_adversarial, rec, profile_ctx, intel_ctx)
+                for rec in recs
+            ]
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            # Already in async context — run sequentially to avoid nested loop
+            for rec in recs:
+                self._safe_adversarial(rec, profile_ctx, intel_ctx)
+        else:
+            asyncio.run(_gather())
+
+    def _safe_adversarial(self, rec: Recommendation, profile_ctx: str, intel_ctx: str) -> None:
+        """Run adversarial pipeline with error handling."""
+        try:
+            self._run_adversarial_pipeline(rec, profile_ctx, intel_ctx)
+        except (LLMError, KeyError, ValueError) as e:
+            logger.warning("adversarial_pipeline_failed", title=rec.title[:50], error=str(e))
+
+    def _run_action_plans_parallel(self, recs: list[Recommendation]) -> None:
+        """Generate action plans for high-scoring recs concurrently."""
+        eligible = [r for r in recs if r.score >= 7.0]
+        if not eligible:
+            return
+
+        async def _gather():
+            tasks = [asyncio.to_thread(self._safe_action_plan, rec) for rec in eligible]
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            for rec in eligible:
+                self._safe_action_plan(rec)
+        else:
+            asyncio.run(_gather())
+
+    def _safe_action_plan(self, rec: Recommendation) -> None:
+        """Generate action plan with error handling."""
+        try:
+            action_plan = self._generate_action_plan(rec)
+            rec.metadata = rec.metadata or {}
+            rec.metadata["action_plan"] = action_plan
+        except (LLMError, KeyError, ValueError) as e:
+            logger.warning("action_plan_failed", error=str(e))
 
     def _parse_recommendations(self, response: str, category: str) -> list[Recommendation]:
         """Parse LLM response into Recommendation objects."""
@@ -173,9 +224,17 @@ class Recommender:
                 if current.get("title"):
                     recs.append(self._build_recommendation(current, category))
                 current = {"title": line.lstrip("#").strip()}
-            elif line.startswith("**Why you, specifically**:") or line.startswith("**Why**:") or line.startswith("RATIONALE:"):
+            elif (
+                line.startswith("**Why you, specifically**:")
+                or line.startswith("**Why**:")
+                or line.startswith("RATIONALE:")
+            ):
                 current["rationale"] = line.split(":", 1)[-1].strip()
-            elif line.startswith("**What**:") or line.startswith("**Description**:") or line.startswith("DESCRIPTION:"):
+            elif (
+                line.startswith("**What**:")
+                or line.startswith("**Description**:")
+                or line.startswith("DESCRIPTION:")
+            ):
                 current["description"] = line.split(":", 1)[-1].strip()
             elif line.startswith("**Intel trigger**:"):
                 current["intel_trigger"] = line.split(":", 1)[-1].strip()
@@ -185,22 +244,30 @@ class Recommender:
                 current["next_step"] = line.split(":", 1)[-1].strip()
             elif line.startswith("RELEVANCE:"):
                 try:
-                    current["relevance"] = min(10.0, max(0.0, float(line.split(":")[-1].strip().split()[0])))
+                    current["relevance"] = min(
+                        10.0, max(0.0, float(line.split(":")[-1].strip().split()[0]))
+                    )
                 except (ValueError, IndexError):
                     pass
             elif line.startswith("FEASIBILITY:"):
                 try:
-                    current["feasibility"] = min(10.0, max(0.0, float(line.split(":")[-1].strip().split()[0])))
+                    current["feasibility"] = min(
+                        10.0, max(0.0, float(line.split(":")[-1].strip().split()[0]))
+                    )
                 except (ValueError, IndexError):
                     pass
             elif line.startswith("IMPACT:"):
                 try:
-                    current["impact"] = min(10.0, max(0.0, float(line.split(":")[-1].strip().split()[0])))
+                    current["impact"] = min(
+                        10.0, max(0.0, float(line.split(":")[-1].strip().split()[0]))
+                    )
                 except (ValueError, IndexError):
                     pass
             elif line.startswith("SCORE:"):
                 try:
-                    current["score"] = min(10.0, max(0.0, float(line.split(":")[-1].strip().split()[0])))
+                    current["score"] = min(
+                        10.0, max(0.0, float(line.split(":")[-1].strip().split()[0]))
+                    )
                 except (ValueError, IndexError):
                     current["score"] = 5.0
             elif line.startswith("SOURCE:") or line.startswith("- SOURCE:"):
@@ -209,7 +276,9 @@ class Recommender:
                 current["reasoning_profile_match"] = line.split(":", 1)[-1].strip()
             elif line.startswith("CONFIDENCE:") or line.startswith("- CONFIDENCE:"):
                 try:
-                    current["reasoning_confidence"] = min(1.0, max(0.0, float(line.split(":", 1)[-1].strip())))
+                    current["reasoning_confidence"] = min(
+                        1.0, max(0.0, float(line.split(":", 1)[-1].strip()))
+                    )
                 except ValueError:
                     current["reasoning_confidence"] = 0.5
             elif line.startswith("CAVEATS:") or line.startswith("- CAVEATS:"):
@@ -335,7 +404,7 @@ class Recommender:
             recent_intel=recent_intel,
         )
 
-        response = self.llm_caller(PromptTemplates.SYSTEM, prompt, max_tokens=600)
+        response = self.cheap_llm_caller(PromptTemplates.SYSTEM, prompt, max_tokens=600)
 
         # Parse verdict
         verdict = ""
@@ -369,7 +438,7 @@ class Recommender:
             intel_contradictions=intel_contradictions or "No contradictions found in live intel.",
         )
 
-        response = self.llm_caller(PromptTemplates.SYSTEM, prompt, max_tokens=800)
+        response = self.cheap_llm_caller(PromptTemplates.SYSTEM, prompt, max_tokens=800)
 
         # Parse structured response
         result = {}
@@ -423,9 +492,11 @@ class RecommendationEngine:
         config: Optional[dict] = None,
         users_db_path: Optional[Path] = None,
         user_id: Optional[str] = None,
+        cheap_llm_caller=None,
     ):
         self.rag = rag
         self.llm_caller = llm_caller
+        self.cheap_llm_caller = cheap_llm_caller or llm_caller
         self.storage = storage
         self.config = config or {}
 
@@ -436,7 +507,9 @@ class RecommendationEngine:
             user_id=user_id,
         )
 
-        self.recommender = Recommender(rag, llm_caller, self.scorer, storage)
+        self.recommender = Recommender(
+            rag, llm_caller, self.scorer, storage, cheap_llm_caller=self.cheap_llm_caller
+        )
 
         # Determine enabled categories
         categories = self.config.get("categories", {})
@@ -602,7 +675,7 @@ class RecommendationEngine:
             recent_intel=recent_intel,
         )
 
-        response = self.llm_caller(PromptTemplates.SYSTEM, prompt, max_tokens=600)
+        response = self.cheap_llm_caller(PromptTemplates.SYSTEM, prompt, max_tokens=600)
 
         # Parse FLIP field
         flip = False

@@ -26,6 +26,7 @@ class RAGRetriever:
         profile_path: Optional[str] = None,
         users_db_path: Optional[Path] = None,
         user_id: Optional[str] = None,
+        cache=None,
     ):
         self.journal = journal_search
         self.intel_db_path = Path(intel_db_path).expanduser() if intel_db_path else None
@@ -35,6 +36,7 @@ class RAGRetriever:
         self._profile_path = profile_path or "~/coach/profile.yaml"
         self._users_db_path = users_db_path
         self._user_id = user_id
+        self.cache = cache
 
     def get_profile_context(self, structured: bool = False) -> str:
         """Load user profile summary for LLM context injection.
@@ -89,11 +91,23 @@ class RAGRetriever:
         entry_type: Optional[str] = None,
     ) -> str:
         """Get relevant journal entries for query."""
-        return self.journal.get_context_for_query(
+        if self.cache:
+            key = self.cache.make_key(
+                "journal", query, max_entries=max_entries, max_chars=max_chars
+            )
+            cached = self.cache.get(key)
+            if cached is not None:
+                return cached
+
+        result = self.journal.get_context_for_query(
             query=query,
             max_entries=max_entries,
             max_chars=max_chars,
         )
+
+        if self.cache:
+            self.cache.set(key, result)
+        return result
 
     def _load_profile_terms(self):
         """Load profile and build ProfileTerms for intel filtering."""
@@ -116,11 +130,45 @@ class RAGRetriever:
                     # Extract meaningful words (3+ chars, skip stopwords)
                     words = re.findall(r"[a-z][a-z0-9\-]+", text.lower())
                     stopwords = {
-                        "the", "and", "for", "that", "with", "this", "from", "have",
-                        "will", "are", "was", "been", "being", "would", "could", "should",
-                        "into", "about", "more", "some", "than", "also", "just", "over",
-                        "such", "want", "like", "get", "make", "see", "know", "take",
-                        "next", "year", "years", "month", "months", "within", "achieve",
+                        "the",
+                        "and",
+                        "for",
+                        "that",
+                        "with",
+                        "this",
+                        "from",
+                        "have",
+                        "will",
+                        "are",
+                        "was",
+                        "been",
+                        "being",
+                        "would",
+                        "could",
+                        "should",
+                        "into",
+                        "about",
+                        "more",
+                        "some",
+                        "than",
+                        "also",
+                        "just",
+                        "over",
+                        "such",
+                        "want",
+                        "like",
+                        "get",
+                        "make",
+                        "see",
+                        "know",
+                        "take",
+                        "next",
+                        "year",
+                        "years",
+                        "month",
+                        "months",
+                        "within",
+                        "achieve",
                     }
                     goal_keywords.extend(w for w in words if len(w) > 2 and w not in stopwords)
 
@@ -182,6 +230,25 @@ class RAGRetriever:
 
         Uses semantic search if IntelSearch is configured, falls back to keyword search.
         """
+        if self.cache:
+            key = self.cache.make_key("intel", query, max_items=max_items, max_chars=max_chars)
+            cached = self.cache.get(key)
+            if cached is not None:
+                return cached
+
+        result = self._get_intel_context_uncached(query, max_items=max_items, max_chars=max_chars)
+
+        if self.cache:
+            self.cache.set(key, result)
+        return result
+
+    def _get_intel_context_uncached(
+        self,
+        query: str,
+        max_items: int = 5,
+        max_chars: int = 3000,
+    ) -> str:
+        """Get intel context without cache layer."""
         # Use semantic search if available
         if self.intel_search:
             return self.intel_search.get_context_for_query(
@@ -313,8 +380,22 @@ class RAGRetriever:
         journal_chars = int(total_chars * weight)
         intel_chars = total_chars - journal_chars
 
+        if self.cache:
+            key = self.cache.make_key("combined", query, weight=weight, total_chars=total_chars)
+            cached = self.cache.get(key)
+            if cached is not None:
+                import json
+
+                parts = json.loads(cached)
+                return parts["journal"], parts["intel"]
+
         journal_ctx = self.get_journal_context(query, max_chars=journal_chars)
         intel_ctx = self.get_intel_context(query, max_chars=intel_chars)
+
+        if self.cache:
+            import json
+
+            self.cache.set(key, json.dumps({"journal": journal_ctx, "intel": intel_ctx}))
 
         return journal_ctx, intel_ctx
 
