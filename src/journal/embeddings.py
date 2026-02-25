@@ -9,6 +9,9 @@ from chromadb.config import Settings
 
 logger = structlog.get_logger()
 
+# Default embedding model used by ChromaDB
+DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+
 
 class EmbeddingManager:
     """Manages vector embeddings for journal entries."""
@@ -16,6 +19,7 @@ class EmbeddingManager:
     def __init__(self, chroma_dir: str | Path, collection_name: str = "journal"):
         self.chroma_dir = Path(chroma_dir).expanduser()
         self.chroma_dir.mkdir(parents=True, exist_ok=True)
+        self.collection_name = collection_name
 
         self.client = chromadb.PersistentClient(
             path=str(self.chroma_dir),
@@ -23,7 +27,7 @@ class EmbeddingManager:
         )
         self.collection = self.client.get_or_create_collection(
             name=collection_name,
-            metadata={"hnsw:space": "cosine"},
+            metadata={"hnsw:space": "cosine", "embedding_model": DEFAULT_EMBEDDING_MODEL},
         )
 
     def add_entry(
@@ -109,8 +113,8 @@ class EmbeddingManager:
         try:
             existing_data = self.collection.get()
             existing = set(existing_data["ids"]) if existing_data["ids"] else set()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("chroma_get_existing_failed", collection=self.collection_name, error=str(e))
 
         current_ids = {e["id"] for e in entries}
 
@@ -132,3 +136,31 @@ class EmbeddingManager:
     def count(self) -> int:
         """Get total number of embedded entries."""
         return self.collection.count()
+
+    def health_check(self) -> dict:
+        """Return health info for this collection."""
+        try:
+            count = self.collection.count()
+            meta = self.collection.metadata or {}
+            return {
+                "status": "ok",
+                "count": count,
+                "collection_name": self.collection_name,
+                "model": meta.get("embedding_model", "unknown"),
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "count": 0,
+                "collection_name": self.collection_name,
+                "model": "unknown",
+                "error": str(e),
+            }
+
+    def delete_collection(self) -> None:
+        """Delete and reinitialize the collection."""
+        self.client.delete_collection(self.collection_name)
+        self.collection = self.client.get_or_create_collection(
+            name=self.collection_name,
+            metadata={"hnsw:space": "cosine", "embedding_model": DEFAULT_EMBEDDING_MODEL},
+        )

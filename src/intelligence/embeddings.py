@@ -9,6 +9,9 @@ from chromadb.config import Settings
 
 logger = structlog.get_logger()
 
+# Default embedding model used by ChromaDB
+DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+
 
 class IntelEmbeddingManager:
     """Manages vector embeddings for intelligence items."""
@@ -20,14 +23,15 @@ class IntelEmbeddingManager:
         self.chroma_dir.mkdir(parents=True, exist_ok=True)
         self.default_results = default_results
         self.similarity_threshold = similarity_threshold
+        self.collection_name = "intel"
 
         self.client = chromadb.PersistentClient(
             path=str(self.chroma_dir),
             settings=Settings(anonymized_telemetry=False),
         )
         self.collection = self.client.get_or_create_collection(
-            name="intel",
-            metadata={"hnsw:space": "cosine"},
+            name=self.collection_name,
+            metadata={"hnsw:space": "cosine", "embedding_model": DEFAULT_EMBEDDING_MODEL},
         )
 
     def add_item(
@@ -126,8 +130,8 @@ class IntelEmbeddingManager:
         try:
             existing_data = self.collection.get()
             existing = set(existing_data["ids"]) if existing_data["ids"] else set()
-        except Exception:
-            pass  # ChromaDB edge case
+        except Exception as e:
+            logger.warning("chroma_get_existing_failed", collection=self.collection_name, error=str(e))
 
         current_ids = {str(item["id"]) for item in items}
 
@@ -150,6 +154,34 @@ class IntelEmbeddingManager:
     def count(self) -> int:
         """Get total number of embedded items."""
         return self.collection.count()
+
+    def health_check(self) -> dict:
+        """Return health info for this collection."""
+        try:
+            count = self.collection.count()
+            meta = self.collection.metadata or {}
+            return {
+                "status": "ok",
+                "count": count,
+                "collection_name": self.collection_name,
+                "model": meta.get("embedding_model", "unknown"),
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "count": 0,
+                "collection_name": self.collection_name,
+                "model": "unknown",
+                "error": str(e),
+            }
+
+    def delete_collection(self) -> None:
+        """Delete and reinitialize the collection."""
+        self.client.delete_collection(self.collection_name)
+        self.collection = self.client.get_or_create_collection(
+            name=self.collection_name,
+            metadata={"hnsw:space": "cosine", "embedding_model": DEFAULT_EMBEDDING_MODEL},
+        )
 
     def find_similar(self, text: str, threshold: float | None = None) -> bool:
         """Check if similar content exists.

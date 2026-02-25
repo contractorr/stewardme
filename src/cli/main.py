@@ -12,6 +12,7 @@ from cli.commands import (
     ask,
     brief,
     daemon,
+    db,
     export,
     goals,
     init,
@@ -47,6 +48,7 @@ def cli(verbose: bool):
 # Register command groups
 cli.add_command(journal)
 cli.add_command(daemon)
+cli.add_command(db)
 cli.add_command(research)
 cli.add_command(recommend)
 cli.add_command(export)

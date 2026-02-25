@@ -30,12 +30,22 @@ def get_components(skip_advisor: bool = False):
     paths = get_paths(config)
 
     storage = JournalStorage(paths["journal_dir"])
-    embeddings = EmbeddingManager(paths["chroma_dir"])
-    search = JournalSearch(storage, embeddings)
     intel_storage = IntelStorage(paths["intel_db"])
 
-    # Initialize intel semantic search
-    intel_embeddings = IntelEmbeddingManager(paths["chroma_dir"] / "intel")
+    try:
+        embeddings = EmbeddingManager(paths["chroma_dir"])
+        intel_embeddings = IntelEmbeddingManager(paths["chroma_dir"] / "intel")
+    except Exception as e:
+        err = str(e).lower()
+        if "dimension" in err or "mismatch" in err:
+            console.print(
+                "[red]ChromaDB dimension mismatch — embedding model may have changed.[/]\n"
+                "Run [bold]coach db rebuild --collection all[/] to fix."
+            )
+            sys.exit(1)
+        raise
+
+    search = JournalSearch(storage, embeddings)
     intel_search = IntelSearch(intel_storage, intel_embeddings)
 
     # Pass intel_search to RAG for semantic intel retrieval

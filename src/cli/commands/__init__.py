@@ -2,6 +2,7 @@
 
 from .advisor import ask, goals, opportunities, review
 from .daemon import daemon
+from .database import db
 from .export import export
 from .init import init
 from .intelligence import brief, intel_export, scrape, sources
@@ -26,6 +27,7 @@ __all__ = [
     "sources",
     "intel_export",
     "daemon",
+    "db",
     "research",
     "recommend",
     "init",
