@@ -5,7 +5,11 @@ from unittest.mock import Mock
 import pytest
 
 from advisor.recommendation_storage import Recommendation, RecommendationStorage
-from advisor.recommendations import Recommender
+from advisor.recommendations import (
+    Recommender,
+    _parse_critic_with_regex,
+    _preprocess_llm_response,
+)
 from advisor.scoring import RecommendationScorer
 
 # -- Structured mock responses --
@@ -244,7 +248,8 @@ class TestAdversarialPipeline:
         )
         recommender = _make_recommender(mock_rag, storage, llm)
         rec = _make_rec()
-        recommender._run_adversarial_pipeline(rec, "profile ctx", "intel ctx")
+        intel = recommender._run_intel_contradiction_check(rec)
+        recommender._apply_adversarial_critic(rec, "profile ctx", "intel ctx", intel)
 
         meta = rec.metadata
         assert meta["confidence"] == "High"
@@ -263,7 +268,8 @@ class TestAdversarialPipeline:
         )
         recommender = _make_recommender(mock_rag, storage, llm)
         rec = _make_rec()
-        recommender._run_adversarial_pipeline(rec, "profile ctx", "intel ctx")
+        intel = recommender._run_intel_contradiction_check(rec)
+        recommender._apply_adversarial_critic(rec, "profile ctx", "intel ctx", intel)
 
         meta = rec.metadata
         assert "intel_contradictions" in meta
@@ -279,7 +285,8 @@ class TestAdversarialPipeline:
         )
         recommender = _make_recommender(mock_rag, storage, llm)
         rec = _make_rec()
-        recommender._run_adversarial_pipeline(rec, "profile ctx", "intel ctx")
+        intel = recommender._run_intel_contradiction_check(rec)
+        recommender._apply_adversarial_critic(rec, "profile ctx", "intel ctx", intel)
 
         assert rec.metadata["alternative"] is None
 
@@ -291,8 +298,107 @@ class TestAdversarialPipeline:
         )
         recommender = _make_recommender(mock_rag, storage, llm)
         rec = _make_rec()
-        recommender._run_adversarial_pipeline(rec, "profile ctx", "intel ctx")
+        intel = recommender._run_intel_contradiction_check(rec)
+        recommender._apply_adversarial_critic(rec, "profile ctx", "intel ctx", intel)
 
         assert rec.metadata["confidence"] == "Low"
         assert rec.metadata["reasoning_trace"]["confidence"] == 0.25
         assert "intel_contradictions" in rec.metadata
+
+
+# ===== Preprocessing: <think> tag stripping =====
+
+
+class TestPreprocessLLMResponse:
+    def test_preprocess_strips_think_tags(self):
+        """<think>...</think> removed, structured fields intact."""
+        raw = "<think>Let me reason about this...</think>\nCHALLENGE: Too optimistic\nCONFIDENCE: High"
+        result = _preprocess_llm_response(raw)
+        assert "<think>" not in result
+        assert "CHALLENGE: Too optimistic" in result
+        assert "CONFIDENCE: High" in result
+
+    def test_preprocess_no_think_tags_noop(self):
+        """Clean input passes through unchanged."""
+        clean = "CHALLENGE: Solid point\nCONFIDENCE: Medium"
+        assert _preprocess_llm_response(clean) == clean
+
+
+# ===== Regex fallback parsing =====
+
+
+class TestCriticRegexFallback:
+    def test_critic_regex_fallback_multiline(self):
+        """Fields spanning multiple lines extracted correctly."""
+        response = (
+            "CHALLENGE: The recommendation is overly optimistic\n"
+            "and ignores market headwinds.\n"
+            "MISSING_CONTEXT: User's budget constraints\n"
+            "ALTERNATIVE: Consider a phased approach\n"
+            "CONFIDENCE: High\n"
+            "CONFIDENCE_RATIONALE: Strong evidence supports concern"
+        )
+        result = _parse_critic_with_regex(response)
+        assert "overly optimistic" in result["challenge"]
+        assert "market headwinds" in result["challenge"]
+        assert result["confidence"] == "High"
+        assert "budget" in result["missing_context"]
+
+    def test_critic_regex_fallback_minimal(self):
+        """Only CONFIDENCE present → defaults work."""
+        response = "Some preamble text\nCONFIDENCE: Low\nSome trailing text"
+        result = _parse_critic_with_regex(response)
+        assert result["confidence"] == "Low"
+        # Other fields absent but no crash
+        assert "challenge" not in result
+
+
+# ===== 2-Wave Parallel Pipeline =====
+
+
+class TestTwoWavePipeline:
+    def test_two_wave_ordering(self, mock_rag, storage):
+        """Call log shows all intel checks before any critics."""
+        call_log = []
+
+        def _tracking_llm(system, prompt, **kwargs):
+            if "contrarian" in prompt.lower():
+                call_log.append("critic")
+                return CRITIC_RESPONSE_HIGH
+            if "contradict" in prompt.lower():
+                call_log.append("intel")
+                return INTEL_CHECK_SUPPORTED
+            return "SCORE: 8.0"
+
+        recommender = _make_recommender(mock_rag, storage, _tracking_llm)
+        recs = [_make_rec(title=f"Rec {i}") for i in range(3)]
+        recommender._run_adversarial_pipeline_parallel(recs, "profile", "intel")
+
+        # All intel checks should appear before any critic calls
+        intel_indices = [i for i, c in enumerate(call_log) if c == "intel"]
+        critic_indices = [i for i, c in enumerate(call_log) if c == "critic"]
+        assert intel_indices, "expected intel calls"
+        assert critic_indices, "expected critic calls"
+        assert max(intel_indices) < min(critic_indices)
+
+    def test_pipeline_parallel_error_isolation(self, mock_rag, storage):
+        """One rec's intel check fails, others still get critic results."""
+        call_count = {"intel": 0}
+
+        def _failing_llm(system, prompt, **kwargs):
+            if "contrarian" in prompt.lower():
+                return CRITIC_RESPONSE_MEDIUM
+            if "contradict" in prompt.lower():
+                call_count["intel"] += 1
+                if call_count["intel"] == 2:
+                    raise ValueError("Simulated intel failure")
+                return INTEL_CHECK_SUPPORTED
+            return "SCORE: 8.0"
+
+        recommender = _make_recommender(mock_rag, storage, _failing_llm)
+        recs = [_make_rec(title=f"Rec {i}") for i in range(3)]
+        recommender._run_adversarial_pipeline_parallel(recs, "profile", "intel")
+
+        # Recs 0 and 2 should have critic metadata; rec 1 (failed intel) still gets critic
+        critics_applied = [r for r in recs if r.metadata and "confidence" in r.metadata]
+        assert len(critics_applied) >= 2, f"expected ≥2 critics, got {len(critics_applied)}"

@@ -155,7 +155,7 @@ CAVEATS: Steep learning curve, requires dedicated time commitment
         assert "confidence" in meta  # High/Medium/Low string
 
     def test_reasoning_trace_absent_backward_compat(self, mock_rag, storage):
-        """Recs without reasoning block still work — no reasoning_trace in metadata."""
+        """Recs without reasoning block in LLM output still work — critic adds trace."""
 
         def llm_no_reasoning(system, prompt, **kwargs):
             return """
@@ -170,4 +170,7 @@ SCORE: 7.5
         )
         recs = engine.generate_category("learning", save=False, with_action_plans=False)
         assert len(recs) >= 1
-        assert recs[0].metadata is None or "reasoning_trace" not in (recs[0].metadata or {})
+        # Critic pipeline always runs, so reasoning_trace gets added with confidence
+        meta = recs[0].metadata or {}
+        trace = meta.get("reasoning_trace", {})
+        assert "source_signal" not in trace  # initial parse had no SOURCE field

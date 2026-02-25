@@ -1,6 +1,7 @@
 """Unified recommendation engine."""
 
 import asyncio
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -27,6 +28,26 @@ CATEGORY_QUERIES = {
 
 # Categories where AI capability context adds value
 AI_RELEVANT_CATEGORIES = {"entrepreneurial", "projects", "investment", "learning"}
+
+_THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
+
+
+def _preprocess_llm_response(text: str) -> str:
+    """Strip <think> tags from reasoning models before parsing."""
+    return _THINK_RE.sub("", text).strip()
+
+
+def _parse_critic_with_regex(response: str) -> dict:
+    """Regex fallback when line-by-line critic parsing returns < 3 fields."""
+    result = {}
+    for field in ("CHALLENGE", "MISSING_CONTEXT", "ALTERNATIVE", "CONFIDENCE_RATIONALE"):
+        m = re.search(rf"{field}:\s*(.+?)(?=\n[A-Z_]+:|$)", response, re.DOTALL)
+        if m:
+            result[field.lower()] = m.group(1).strip()
+    # Confidence needs special handling (extract level keyword)
+    m = re.search(r"CONFIDENCE:\s*(High|Medium|Low)", response, re.IGNORECASE)
+    result["confidence"] = m.group(1).capitalize() if m else "Medium"
+    return result
 
 
 def _build_personalized_query(
@@ -148,14 +169,26 @@ class Recommender:
     def _run_adversarial_pipeline_parallel(
         self, recs: list[Recommendation], profile_ctx: str, intel_ctx: str
     ) -> None:
-        """Run adversarial pipeline on all recs concurrently."""
+        """Run adversarial pipeline in 2 waves: intel checks → critics."""
+        if not recs:
+            return
 
         async def _gather():
-            tasks = [
-                asyncio.to_thread(self._safe_adversarial, rec, profile_ctx, intel_ctx)
+            # Wave 1: all intel contradiction checks in parallel
+            intel_tasks = [
+                asyncio.to_thread(self._safe_intel_check, rec)
                 for rec in recs
             ]
-            await asyncio.gather(*tasks, return_exceptions=True)
+            intel_results = await asyncio.gather(*intel_tasks)
+
+            # Wave 2: all critic calls in parallel (using wave 1 results)
+            critic_tasks = [
+                asyncio.to_thread(
+                    self._safe_critic_apply, rec, profile_ctx, intel_ctx, intel_result
+                )
+                for rec, intel_result in zip(recs, intel_results)
+            ]
+            await asyncio.gather(*critic_tasks)
 
         try:
             loop = asyncio.get_running_loop()
@@ -163,18 +196,27 @@ class Recommender:
             loop = None
 
         if loop and loop.is_running():
-            # Already in async context — run sequentially to avoid nested loop
             for rec in recs:
-                self._safe_adversarial(rec, profile_ctx, intel_ctx)
+                intel = self._safe_intel_check(rec)
+                self._safe_critic_apply(rec, profile_ctx, intel_ctx, intel)
         else:
             asyncio.run(_gather())
 
-    def _safe_adversarial(self, rec: Recommendation, profile_ctx: str, intel_ctx: str) -> None:
-        """Run adversarial pipeline with error handling."""
+    def _safe_intel_check(self, rec: Recommendation) -> str | None:
         try:
-            self._run_adversarial_pipeline(rec, profile_ctx, intel_ctx)
+            return self._run_intel_contradiction_check(rec)
         except (LLMError, KeyError, ValueError) as e:
-            logger.warning("adversarial_pipeline_failed", title=rec.title[:50], error=str(e))
+            logger.warning("intel_check_failed", title=rec.title[:50], error=str(e))
+            return None
+
+    def _safe_critic_apply(
+        self, rec: Recommendation, profile_ctx: str, intel_ctx: str,
+        intel_contradictions: str | None,
+    ) -> None:
+        try:
+            self._apply_adversarial_critic(rec, profile_ctx, intel_ctx, intel_contradictions)
+        except (LLMError, KeyError, ValueError) as e:
+            logger.warning("adversarial_critic_failed", title=rec.title[:50], error=str(e))
 
     def _run_action_plans_parallel(self, recs: list[Recommendation]) -> None:
         """Generate action plans for high-scoring recs concurrently."""
@@ -349,24 +391,21 @@ class Recommender:
             metadata=metadata or None,
         )
 
-    def _run_adversarial_pipeline(
-        self, rec: Recommendation, profile_ctx: str, intel_ctx: str
+    def _apply_adversarial_critic(
+        self, rec: Recommendation, profile_ctx: str, intel_ctx: str,
+        intel_contradictions: str | None,
     ) -> None:
-        """Run intel contradiction check + adversarial critic on a recommendation.
+        """Apply intel contradictions + adversarial critic to a recommendation.
 
         Mutates rec.metadata in place to add critic fields.
+        Intel check already done in wave 1; this handles metadata + critic call.
         """
         rec.metadata = rec.metadata or {}
         premortem = rec.metadata.get("premortem", "None provided")
 
-        # Step 1: Check live intel for contradictions
-        # COST NOTE: 1 LLM call per recommendation
-        intel_contradictions = self._run_intel_contradiction_check(rec)
         if intel_contradictions:
             rec.metadata["intel_contradictions"] = intel_contradictions
 
-        # Step 2: Adversarial critic with intel check results
-        # COST NOTE: 1 LLM call per recommendation
         critic = self._run_adversarial_critic(
             rec, profile_ctx, intel_ctx, premortem, intel_contradictions
         )
@@ -405,6 +444,7 @@ class Recommender:
         )
 
         response = self.cheap_llm_caller(PromptTemplates.SYSTEM, prompt, max_tokens=600)
+        response = _preprocess_llm_response(response)
 
         # Parse verdict
         verdict = ""
@@ -439,8 +479,9 @@ class Recommender:
         )
 
         response = self.cheap_llm_caller(PromptTemplates.SYSTEM, prompt, max_tokens=800)
+        response = _preprocess_llm_response(response)
 
-        # Parse structured response
+        # Parse structured response (line-by-line)
         result = {}
         for line in response.split("\n"):
             line = line.strip()
@@ -461,6 +502,13 @@ class Recommender:
                     result["confidence"] = "Medium"
             elif line.startswith("CONFIDENCE_RATIONALE:"):
                 result["confidence_rationale"] = line.split(":", 1)[-1].strip()
+
+        # Regex fallback if line-by-line parsing got < 3 fields
+        if len(result) < 3:
+            logger.debug("critic_line_parse_sparse", fields=len(result), falling_back="regex")
+            result = _parse_critic_with_regex(response)
+            if "challenge" not in result or "confidence" not in result:
+                logger.warning("critic_parse_incomplete", fields=list(result.keys()))
 
         return result if result else None
 
