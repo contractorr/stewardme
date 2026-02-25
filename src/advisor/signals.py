@@ -11,6 +11,8 @@ from typing import Optional
 
 import structlog
 
+from db import wal_connect
+
 logger = structlog.get_logger()
 
 
@@ -52,7 +54,7 @@ class SignalStore:
         self._init_tables()
 
     def _init_tables(self):
-        with sqlite3.connect(self.db_path) as conn:
+        with wal_connect(self.db_path) as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS signals (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -79,7 +81,7 @@ class SignalStore:
         """Save signal, skip if duplicate hash exists and is unacknowledged."""
         h = signal.signal_hash()
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with wal_connect(self.db_path) as conn:
                 # Check for existing unacknowledged signal with same hash
                 existing = conn.execute(
                     "SELECT id FROM signals WHERE signal_hash = ? AND acknowledged = 0",
@@ -120,7 +122,7 @@ class SignalStore:
         limit: int = 20,
     ) -> list[dict]:
         """Get active (unacknowledged, unexpired) signals."""
-        with sqlite3.connect(self.db_path) as conn:
+        with wal_connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             query = """
                 SELECT * FROM signals
@@ -139,7 +141,7 @@ class SignalStore:
 
     def acknowledge(self, signal_id: int) -> bool:
         """Mark signal as acknowledged."""
-        with sqlite3.connect(self.db_path) as conn:
+        with wal_connect(self.db_path) as conn:
             conn.execute("UPDATE signals SET acknowledged = 1 WHERE id = ?", (signal_id,))
             return conn.total_changes > 0
 

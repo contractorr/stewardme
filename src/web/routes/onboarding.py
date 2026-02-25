@@ -1,5 +1,6 @@
 """Onboarding chat — LLM-driven profile interview + goal creation."""
 
+import asyncio
 import json
 import re
 
@@ -231,7 +232,7 @@ async def start_onboarding(user: dict = Depends(get_current_user)):
 
     try:
         caller = _make_llm_caller(user_id)
-        response = caller(ONBOARDING_SYSTEM, ONBOARDING_START)
+        response = await asyncio.to_thread(caller, ONBOARDING_SYSTEM, ONBOARDING_START)
     except HTTPException:
         raise
     except Exception as e:
@@ -292,7 +293,7 @@ Output the JSON block now with whatever information you have."""
 
     caller = session["caller"]
     try:
-        response = caller(ONBOARDING_SYSTEM, prompt, max_tokens=2000)
+        response = await asyncio.to_thread(caller, ONBOARDING_SYSTEM, prompt, max_tokens=2000)
     except Exception as e:
         logger.error("onboarding.chat_failed", user_id=user_id, error=str(e))
         raise HTTPException(status_code=502, detail=f"LLM call failed: {e}")
@@ -326,7 +327,7 @@ Output the JSON block now with whatever information you have."""
 Coach: {response}
 
 Now output ONLY the JSON block with profile and goals based on everything discussed."""
-        force_response = caller(ONBOARDING_SYSTEM, force_prompt, max_tokens=2000)
+        force_response = await asyncio.to_thread(caller, ONBOARDING_SYSTEM, force_prompt, max_tokens=2000)
         completion = _extract_completion_json(force_response)
         goals_created = 0
         if completion:

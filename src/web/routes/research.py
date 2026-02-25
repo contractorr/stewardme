@@ -1,5 +1,7 @@
 """Research routes wrapping src/research/agent.py (per-user)."""
 
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from web.auth import get_current_user
@@ -36,7 +38,7 @@ def _get_agent(user_id: str):
 async def get_topics(user: dict = Depends(get_current_user)):
     try:
         agent = _get_agent(user["id"])
-        return agent.get_suggested_topics()
+        return await asyncio.to_thread(agent.get_suggested_topics)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -48,7 +50,7 @@ async def run_research(
 ):
     try:
         agent = _get_agent(user["id"])
-        results = agent.run(specific_topic=topic)
+        results = await asyncio.to_thread(agent.run, specific_topic=topic)
         return {"results": results}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

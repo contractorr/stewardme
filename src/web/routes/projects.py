@@ -1,5 +1,7 @@
 """Project discovery routes — matching issues + idea generation."""
 
+import asyncio
+
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -99,7 +101,7 @@ async def generate_ideas(
             return provider.generate(system=system, prompt=prompt, max_tokens=max_tokens)
 
         gen = ProjectIdeaGenerator(rag, llm_caller)
-        ideas = gen.generate_ideas()
+        ideas = await asyncio.to_thread(gen.generate_ideas)
         return {"ideas": ideas}
     except HTTPException:
         raise

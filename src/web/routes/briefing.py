@@ -1,5 +1,6 @@
 """Daily briefing routes — aggregates signals, patterns, recommendations, stale goals."""
 
+import asyncio
 from pathlib import Path
 
 import structlog
@@ -63,7 +64,7 @@ async def get_briefing(
             except Exception:
                 pass
         detector = PatternDetector(storage, embeddings=embeddings)
-        raw_patterns = detector.detect_all()
+        raw_patterns = await asyncio.to_thread(detector.detect_all)
         patterns = [
             {
                 "type": p.type,

@@ -6,6 +6,7 @@ from typing import Optional
 
 import structlog
 
+from db import wal_connect
 from intelligence.search import IntelSearch
 from journal.search import JournalSearch
 
@@ -194,7 +195,7 @@ class RAGRetriever:
             return "No external intelligence available yet."
 
         try:
-            with sqlite3.connect(self.intel_db_path) as conn:
+            with wal_connect(self.intel_db_path) as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.execute(
                     """
@@ -250,7 +251,7 @@ class RAGRetriever:
             return self.journal_weight
 
         try:
-            with sqlite3.connect(str(self._users_db_path)) as conn:
+            with wal_connect(self._users_db_path) as conn:
                 conn.row_factory = sqlite3.Row
                 rows = conn.execute(
                     """

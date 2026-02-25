@@ -7,6 +7,8 @@ from typing import Optional
 
 import structlog
 
+from db import wal_connect
+
 logger = structlog.get_logger()
 
 # Minimum engagement events before applying boosts
@@ -54,7 +56,7 @@ class RecommendationScorer:
             return 0.0
 
         try:
-            with sqlite3.connect(str(self._users_db_path)) as conn:
+            with wal_connect(self._users_db_path) as conn:
                 conn.row_factory = sqlite3.Row
                 rows = conn.execute(
                     """

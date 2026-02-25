@@ -9,8 +9,16 @@ import structlog
 from llm import LLMError as BaseLLMError
 from llm import LLMRateLimitError, create_llm_provider
 
+from .action_brief import ActionBriefGenerator
+from .agentic import AgenticOrchestrator
+from .goals import GoalTracker
+from .learning_paths import LearningPathGenerator, LearningPathStorage
 from .prompts import PromptTemplates
 from .rag import RAGRetriever
+from .recommendation_storage import RecommendationStorage
+from .recommendations import RecommendationEngine
+from .skills import SkillGapAnalyzer
+from .tools import ToolRegistry
 
 logger = structlog.get_logger()
 
@@ -77,9 +85,6 @@ class AdvisorEngine:
 
         self._orchestrator = None
         if use_tools and components:
-            from .agentic import AgenticOrchestrator
-            from .tools import ToolRegistry
-
             registry = ToolRegistry(components)
             self._orchestrator = AgenticOrchestrator(
                 llm=self.llm,
@@ -172,8 +177,6 @@ class AdvisorEngine:
         # Add stale goals warning if storage provided
         stale_goals_ctx = ""
         if journal_storage:
-            from .goals import GoalTracker
-
             tracker = GoalTracker(journal_storage)
             stale = tracker.get_stale_goals()
             if stale:
@@ -228,8 +231,6 @@ class AdvisorEngine:
 
     def analyze_skill_gaps(self) -> str:
         """Analyze skill gaps between current state and aspirations."""
-        from .skills import SkillGapAnalyzer
-
         analyzer = SkillGapAnalyzer(self.rag, self._call_llm)
         return analyzer.analyze()
 
@@ -241,8 +242,6 @@ class AdvisorEngine:
         target_level: int = 4,
     ) -> Path:
         """Generate a structured learning path for a skill."""
-        from .learning_paths import LearningPathGenerator, LearningPathStorage
-
         storage = LearningPathStorage(lp_dir)
         generator = LearningPathGenerator(self.rag, self._call_llm, storage)
         return generator.generate(skill, current_level=current_level, target_level=target_level)
@@ -251,14 +250,10 @@ class AdvisorEngine:
 
     def _get_rec_storage(self, rec_path: Path):
         """Lazy init recommendation storage."""
-        from .recommendation_storage import RecommendationStorage
-
         return RecommendationStorage(rec_path)
 
     def _get_rec_engine(self, db_path: Path, config: Optional[dict] = None):
         """Lazy init recommendation engine."""
-        from .recommendations import RecommendationEngine
-
         storage = self._get_rec_storage(db_path)
         return RecommendationEngine(
             rag=self.rag,
@@ -317,8 +312,6 @@ class AdvisorEngine:
         Returns:
             Action brief markdown
         """
-        from .action_brief import ActionBriefGenerator
-
         storage = self._get_rec_storage(db_path)
         generator = ActionBriefGenerator(
             rag=self.rag,

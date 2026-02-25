@@ -1,7 +1,6 @@
 """Autonomous action engine — executes actions triggered by signals without user prompting."""
 
 import json
-import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -9,6 +8,7 @@ from typing import Optional
 import structlog
 
 from advisor.signals import Signal, SignalType
+from db import wal_connect
 
 logger = structlog.get_logger()
 
@@ -29,7 +29,7 @@ class ActionLog:
         self._init_table()
 
     def _init_table(self):
-        with sqlite3.connect(self.db_path) as conn:
+        with wal_connect(self.db_path) as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS action_log (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,7 +45,7 @@ class ActionLog:
             """)
 
     def log(self, result: ActionResult, context: Optional[dict] = None) -> int:
-        with sqlite3.connect(self.db_path) as conn:
+        with wal_connect(self.db_path) as conn:
             cursor = conn.execute(
                 """INSERT INTO action_log (action_type, signal_id, context_json, result_json)
                 VALUES (?, ?, ?, ?)""",
@@ -59,7 +59,7 @@ class ActionLog:
             return cursor.lastrowid
 
     def count_today(self) -> int:
-        with sqlite3.connect(self.db_path) as conn:
+        with wal_connect(self.db_path) as conn:
             row = conn.execute(
                 "SELECT COUNT(*) FROM action_log WHERE date(executed_at) = date('now')"
             ).fetchone()
@@ -67,7 +67,7 @@ class ActionLog:
 
     def has_recent_action(self, action_type: str, signal_title: str, hours: int = 24) -> bool:
         """Check if a similar action was taken recently to prevent duplicates."""
-        with sqlite3.connect(self.db_path) as conn:
+        with wal_connect(self.db_path) as conn:
             row = conn.execute(
                 """SELECT 1 FROM action_log
                 WHERE action_type = ?

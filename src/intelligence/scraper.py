@@ -13,6 +13,8 @@ import httpx
 import structlog
 from bs4 import BeautifulSoup
 
+from db import wal_connect
+
 logger = structlog.get_logger().bind(source="intel_storage")
 
 _ALLOWED_SCHEMES = {"http", "https"}
@@ -66,7 +68,7 @@ class IntelStorage:
 
     def _init_db(self):
         """Initialize database schema."""
-        with sqlite3.connect(self.db_path) as conn:
+        with wal_connect(self.db_path) as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS intel_items (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -110,7 +112,7 @@ class IntelStorage:
             return False
 
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with wal_connect(self.db_path) as conn:
                 conn.execute(
                     """
                     INSERT OR IGNORE INTO intel_items
@@ -138,7 +140,7 @@ class IntelStorage:
 
     def hash_exists(self, content_hash: str, days: int = 7) -> bool:
         """Check if content hash exists in recent items."""
-        with sqlite3.connect(self.db_path) as conn:
+        with wal_connect(self.db_path) as conn:
             row = conn.execute(
                 """
                 SELECT 1 FROM intel_items
@@ -161,7 +163,7 @@ class IntelStorage:
 
     def get_recent(self, days: int = 7, limit: int = 50) -> list[dict]:
         """Get recent intel items."""
-        with sqlite3.connect(self.db_path) as conn:
+        with wal_connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.execute(
                 """
@@ -176,7 +178,7 @@ class IntelStorage:
 
     def search(self, query: str, limit: int = 20) -> list[dict]:
         """Simple text search in titles and summaries."""
-        with sqlite3.connect(self.db_path) as conn:
+        with wal_connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.execute(
                 """

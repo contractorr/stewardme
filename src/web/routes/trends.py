@@ -1,5 +1,7 @@
 """Mood + topic trend routes."""
 
+import asyncio
+
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -55,7 +57,7 @@ async def get_topics(
 
         search = JournalSearch(storage, embeddings)
         detector = TrendDetector(search)
-        return detector.detect_trends(days=days, window=window)
+        return await asyncio.to_thread(detector.detect_trends, days=days, window=window)
     except Exception as e:
         logger.error("trends.topics_error", error=str(e))
         return []

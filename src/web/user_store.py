@@ -9,6 +9,7 @@ from typing import Any
 
 import structlog
 
+from db import wal_connect
 from web.crypto import decrypt_value, encrypt_value
 
 logger = structlog.get_logger()
@@ -19,9 +20,7 @@ _DEFAULT_DB_PATH = Path(os.environ.get("COACH_HOME", Path.home() / "coach")) / "
 def _get_conn(db_path: Path | None = None) -> sqlite3.Connection:
     path = db_path or _DEFAULT_DB_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(path))
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
+    conn = wal_connect(path, row_factory=True)
     conn.execute("PRAGMA foreign_keys=ON")
     return conn
 

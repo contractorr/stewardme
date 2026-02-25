@@ -1,5 +1,7 @@
 """API key and settings management routes (per-user)."""
 
+import asyncio
+
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -55,7 +57,8 @@ async def test_llm_connectivity(user: dict = Depends(get_current_user)):
         from llm import create_llm_provider
 
         provider = create_llm_provider(provider=provider_name, api_key=api_key)
-        response = provider.generate(
+        response = await asyncio.to_thread(
+            provider.generate,
             system="Reply with exactly: ok",
             prompt="ping",
             max_tokens=5,

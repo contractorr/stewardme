@@ -123,7 +123,8 @@ async def ask_advisor(
         add_message(conv_id, "user", body.question)
 
         engine = _get_engine(user_id, use_tools=use_tools)
-        answer = engine.ask(
+        answer = await asyncio.to_thread(
+            engine.ask,
             body.question,
             advice_type=body.advice_type,
             conversation_history=history or None,

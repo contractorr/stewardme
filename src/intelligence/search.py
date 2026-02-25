@@ -6,6 +6,8 @@ from typing import Optional
 
 import structlog
 
+from db import wal_connect
+
 from .embeddings import IntelEmbeddingManager
 from .scraper import IntelStorage
 
@@ -411,7 +413,7 @@ class IntelSearch:
             return 0, 0
 
         # Get all items from storage
-        with sqlite3.connect(self.storage.db_path) as conn:
+        with wal_connect(self.storage.db_path) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.execute("""
                 SELECT id, source, title, url, summary, content, tags
@@ -440,7 +442,7 @@ class IntelSearch:
     def _get_item_by_id(self, item_id: int) -> Optional[dict]:
         """Fetch single item by ID."""
         try:
-            with sqlite3.connect(self.storage.db_path) as conn:
+            with wal_connect(self.storage.db_path) as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.execute(
                     "SELECT * FROM intel_items WHERE id = ?",

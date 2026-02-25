@@ -1,5 +1,7 @@
 """Learning path CRUD + generation routes."""
 
+import asyncio
+
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -98,7 +100,8 @@ async def generate_path(
 
         storage = _get_storage(user_id)
         gen = LearningPathGenerator(rag, llm_caller, storage)
-        filepath = gen.generate(
+        filepath = await asyncio.to_thread(
+            gen.generate,
             body.skill,
             current_level=body.current_level,
             target_level=body.target_level,
