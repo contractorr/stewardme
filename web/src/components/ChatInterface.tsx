@@ -125,6 +125,7 @@ function QuickCaptureInput({ token }: { token: string }) {
 
 function BriefingPanel({ briefing, onChipClick, token }: { briefing: BriefingResponse; onChipClick: (text: string) => void; token: string }) {
   const [expandedRecs, setExpandedRecs] = useState<Set<string>>(new Set());
+  const [expandedCritic, setExpandedCritic] = useState<Set<string>>(new Set());
   const [feedbackGiven, setFeedbackGiven] = useState<Record<string, "useful" | "irrelevant">>({});
 
   const toggleReasoning = (id: string) => {
@@ -213,6 +214,7 @@ function BriefingPanel({ briefing, onChipClick, token }: { briefing: BriefingRes
           <div className="flex items-center gap-2 px-1 text-xs font-medium text-muted-foreground">
             <Lightbulb className="h-3.5 w-3.5" />
             Suggestions
+            <span className="text-[10px] font-normal ml-1">— hypotheses, not certainties</span>
           </div>
           {briefing.recommendations.map((r) => (
             <div key={r.id} className="rounded-lg border bg-card text-left">
@@ -223,10 +225,20 @@ function BriefingPanel({ briefing, onChipClick, token }: { briefing: BriefingRes
                 }}
                 className="w-full p-3 transition-colors hover:bg-accent rounded-lg text-left"
               >
-                <p className="text-sm font-medium">{r.title}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-sm font-medium flex-1">{r.title}</p>
+                  {r.critic && (
+                    <Badge
+                      variant={r.critic.confidence === "High" ? "outline" : r.critic.confidence === "Low" ? "destructive" : "secondary"}
+                      className="text-[10px] px-1.5 py-0 shrink-0"
+                    >
+                      {r.critic.confidence}
+                    </Badge>
+                  )}
+                </div>
                 <p className="mt-0.5 text-xs text-muted-foreground">{r.description}</p>
               </button>
-              <div className="flex items-center gap-1 px-3 pb-2">
+              <div className="flex items-center gap-1 px-3 pb-2 flex-wrap">
                 {r.reasoning_trace && (
                   <button
                     onClick={() => toggleReasoning(r.id)}
@@ -234,6 +246,26 @@ function BriefingPanel({ briefing, onChipClick, token }: { briefing: BriefingRes
                   >
                     Why this?
                     {expandedRecs.has(r.id) ? (
+                      <ChevronUp className="h-3 w-3" />
+                    ) : (
+                      <ChevronDown className="h-3 w-3" />
+                    )}
+                  </button>
+                )}
+                {r.critic?.critic_challenge && (
+                  <button
+                    onClick={() => {
+                      setExpandedCritic((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(r.id)) next.delete(r.id);
+                        else next.add(r.id);
+                        return next;
+                      });
+                    }}
+                    className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-0.5"
+                  >
+                    Why this might be wrong
+                    {expandedCritic.has(r.id) ? (
                       <ChevronUp className="h-3 w-3" />
                     ) : (
                       <ChevronDown className="h-3 w-3" />
@@ -273,16 +305,55 @@ function BriefingPanel({ briefing, onChipClick, token }: { briefing: BriefingRes
                   {r.reasoning_trace.profile_match && (
                     <p><span className="font-medium text-foreground">Match:</span> {r.reasoning_trace.profile_match}</p>
                   )}
-                  <p>
-                    <span className="font-medium text-foreground">Confidence:</span>{" "}
-                    <Badge variant="secondary" className="text-[10px] px-1 py-0">
-                      {Math.round(r.reasoning_trace.confidence * 100)}%
-                    </Badge>
-                  </p>
+                  {r.critic && (
+                    <p>
+                      <span className="font-medium text-foreground">Confidence:</span>{" "}
+                      <Badge
+                        variant={r.critic.confidence === "High" ? "outline" : r.critic.confidence === "Low" ? "destructive" : "secondary"}
+                        className="text-[10px] px-1 py-0"
+                      >
+                        {r.critic.confidence}
+                      </Badge>
+                      {r.critic.confidence_rationale && (
+                        <span className="ml-1">{r.critic.confidence_rationale}</span>
+                      )}
+                    </p>
+                  )}
+                  {!r.critic && (
+                    <p>
+                      <span className="font-medium text-foreground">Confidence:</span>{" "}
+                      <Badge variant="secondary" className="text-[10px] px-1 py-0">
+                        {Math.round(r.reasoning_trace.confidence * 100)}%
+                      </Badge>
+                    </p>
+                  )}
                   {r.reasoning_trace.caveats && (
                     <p className="text-amber-600 dark:text-amber-400">
                       <span className="font-medium">Caveats:</span> {r.reasoning_trace.caveats}
                     </p>
+                  )}
+                </div>
+              )}
+              {r.critic && expandedCritic.has(r.id) && (
+                <div className="mx-3 mb-2 rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 p-2 text-xs space-y-1">
+                  {r.critic.critic_challenge && (
+                    <p><span className="font-medium">Challenge:</span> {r.critic.critic_challenge}</p>
+                  )}
+                  {r.critic.missing_context && (
+                    <p className="text-muted-foreground">
+                      <span className="font-medium text-foreground">Missing context:</span> {r.critic.missing_context}
+                    </p>
+                  )}
+                  {r.critic.intel_contradictions && (
+                    <p className="text-amber-700 dark:text-amber-400">
+                      <span className="font-medium">Signals that complicate this:</span> {r.critic.intel_contradictions}
+                    </p>
+                  )}
+                  {r.critic.alternative && (
+                    <div className="mt-1 pt-1 border-t border-amber-200 dark:border-amber-800">
+                      <p className="font-medium">Contrarian take:</p>
+                      <p className="text-muted-foreground">{r.critic.alternative}</p>
+                    </div>
                   )}
                 </div>
               )}

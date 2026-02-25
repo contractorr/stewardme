@@ -84,18 +84,28 @@ async def get_briefing(
         if rec_dir:
             rec_storage = RecommendationStorage(rec_dir)
             recs = rec_storage.get_top_by_score(limit=max_recommendations)
-            recommendations = [
-                {
+            for r in recs:
+                meta = r.metadata or {}
+                critic = None
+                if any(meta.get(k) for k in ("confidence", "critic_challenge", "missing_context")):
+                    critic = {
+                        "confidence": meta.get("confidence", "Medium"),
+                        "confidence_rationale": meta.get("confidence_rationale", ""),
+                        "critic_challenge": meta.get("critic_challenge", ""),
+                        "missing_context": meta.get("missing_context", ""),
+                        "alternative": meta.get("alternative"),
+                        "intel_contradictions": meta.get("intel_contradictions"),
+                    }
+                recommendations.append({
                     "id": r.id or "",
                     "category": r.category,
                     "title": r.title,
                     "description": r.description[:200] if r.description else "",
                     "score": r.score,
                     "status": r.status,
-                    "reasoning_trace": r.metadata.get("reasoning_trace") if r.metadata else None,
-                }
-                for r in recs
-            ]
+                    "reasoning_trace": meta.get("reasoning_trace"),
+                    "critic": critic,
+                })
     except Exception as e:
         logger.warning("briefing.recommendations_error", error=str(e))
 

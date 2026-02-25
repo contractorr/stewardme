@@ -187,6 +187,16 @@ export function PatternsCard({
   );
 }
 
+function confidenceBadge(level: string) {
+  const lower = level.toLowerCase();
+  const variant = lower === "high" ? "outline" : lower === "low" ? "destructive" : "secondary";
+  return (
+    <Badge variant={variant} className="text-[10px] px-1.5 py-0 shrink-0">
+      {level}
+    </Badge>
+  );
+}
+
 export function RecommendationsCard({
   recommendations,
   onAskAbout,
@@ -197,6 +207,7 @@ export function RecommendationsCard({
   token?: string;
 }) {
   const [expandedRecs, setExpandedRecs] = useState<Set<string>>(new Set());
+  const [expandedCritic, setExpandedCritic] = useState<Set<string>>(new Set());
   const [feedbackGiven, setFeedbackGiven] = useState<Record<string, "useful" | "irrelevant">>({});
 
   const handleFeedback = (id: string, category: string, type: "useful" | "irrelevant") => {
@@ -221,6 +232,15 @@ export function RecommendationsCard({
     });
   };
 
+  const toggleCritic = (id: string) => {
+    setExpandedCritic((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   if (recommendations.length === 0) return null;
   return (
     <Card>
@@ -229,6 +249,9 @@ export function RecommendationsCard({
           <Lightbulb className="h-4 w-4" />
           Recommendations
         </CardTitle>
+        <p className="text-[11px] text-muted-foreground mt-1">
+          Informed hypotheses, not certainties. Each includes an adversarial challenge.
+        </p>
       </CardHeader>
       <CardContent className="space-y-3">
         {recommendations.map((r) => (
@@ -243,16 +266,18 @@ export function RecommendationsCard({
                   <Badge variant="outline" className="text-xs shrink-0">
                     {r.category}
                   </Badge>
-                  <Badge variant="secondary" className="text-xs shrink-0">
-                    {r.score.toFixed(1)}
-                  </Badge>
+                  {r.critic ? confidenceBadge(r.critic.confidence) : (
+                    <Badge variant="secondary" className="text-xs shrink-0">
+                      {r.score.toFixed(1)}
+                    </Badge>
+                  )}
                 </div>
                 {r.description && (
                   <p className="mt-0.5 text-muted-foreground line-clamp-2">
                     {r.description}
                   </p>
                 )}
-                <div className="flex items-center gap-2 mt-0.5">
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   <Button
                     variant="link"
                     size="sm"
@@ -270,6 +295,21 @@ export function RecommendationsCard({
                     >
                       Why this?
                       {expandedRecs.has(r.id) ? (
+                        <ChevronUp className="ml-0.5 h-3 w-3" />
+                      ) : (
+                        <ChevronDown className="ml-0.5 h-3 w-3" />
+                      )}
+                    </Button>
+                  )}
+                  {r.critic?.critic_challenge && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto px-1 py-0 text-xs text-muted-foreground"
+                      onClick={() => toggleCritic(r.id)}
+                    >
+                      Why this might be wrong
+                      {expandedCritic.has(r.id) ? (
                         <ChevronUp className="ml-0.5 h-3 w-3" />
                       ) : (
                         <ChevronDown className="ml-0.5 h-3 w-3" />
@@ -315,16 +355,52 @@ export function RecommendationsCard({
                 {r.reasoning_trace.profile_match && (
                   <p><span className="font-medium">Match:</span> {r.reasoning_trace.profile_match}</p>
                 )}
-                <p>
-                  <span className="font-medium">Confidence:</span>{" "}
-                  <Badge variant="secondary" className="text-[10px] px-1 py-0">
-                    {Math.round(r.reasoning_trace.confidence * 100)}%
-                  </Badge>
-                </p>
+                {r.critic && (
+                  <p>
+                    <span className="font-medium">Confidence:</span>{" "}
+                    {confidenceBadge(r.critic.confidence)}
+                    {r.critic.confidence_rationale && (
+                      <span className="ml-1 text-muted-foreground">{r.critic.confidence_rationale}</span>
+                    )}
+                  </p>
+                )}
+                {!r.critic && (
+                  <p>
+                    <span className="font-medium">Confidence:</span>{" "}
+                    <Badge variant="secondary" className="text-[10px] px-1 py-0">
+                      {Math.round(r.reasoning_trace.confidence * 100)}%
+                    </Badge>
+                  </p>
+                )}
                 {r.reasoning_trace.caveats && (
                   <p className="text-amber-600 dark:text-amber-400">
                     <span className="font-medium">Caveats:</span> {r.reasoning_trace.caveats}
                   </p>
+                )}
+              </div>
+            )}
+            {r.critic && expandedCritic.has(r.id) && (
+              <div className="mt-1 rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 p-2 text-xs space-y-1.5">
+                {r.critic.critic_challenge && (
+                  <p>
+                    <span className="font-medium">Challenge:</span> {r.critic.critic_challenge}
+                  </p>
+                )}
+                {r.critic.missing_context && (
+                  <p className="text-muted-foreground">
+                    <span className="font-medium text-foreground">Missing context:</span> {r.critic.missing_context}
+                  </p>
+                )}
+                {r.critic.intel_contradictions && (
+                  <p className="text-amber-700 dark:text-amber-400">
+                    <span className="font-medium">Signals that complicate this:</span> {r.critic.intel_contradictions}
+                  </p>
+                )}
+                {r.critic.alternative && (
+                  <div className="mt-1 pt-1 border-t border-amber-200 dark:border-amber-800">
+                    <p className="font-medium">Contrarian take:</p>
+                    <p className="text-muted-foreground">{r.critic.alternative}</p>
+                  </div>
                 )}
               </div>
             )}

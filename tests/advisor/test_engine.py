@@ -13,8 +13,10 @@ def mock_rag():
     rag.get_combined_context.return_value = ("journal ctx", "intel ctx")
     rag.get_recent_entries.return_value = "recent entries"
     rag.get_intel_context.return_value = "intel context"
+    rag.get_filtered_intel_context.return_value = "intel context"
     rag.get_journal_context.return_value = "journal context"
     rag.get_research_context.return_value = ""
+    rag.get_profile_keywords.return_value = []
     return rag
 
 

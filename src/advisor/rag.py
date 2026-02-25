@@ -35,18 +35,50 @@ class RAGRetriever:
         self._users_db_path = users_db_path
         self._user_id = user_id
 
-    def get_profile_context(self) -> str:
-        """Load user profile summary for LLM context injection."""
+    def get_profile_context(self, structured: bool = False) -> str:
+        """Load user profile summary for LLM context injection.
+
+        Args:
+            structured: If True, return multi-section structured format
+                        optimized for recommendation prompts. If False,
+                        return compact one-line summary.
+        """
         try:
             from profile.storage import ProfileStorage
 
             ps = ProfileStorage(self._profile_path)
             profile = ps.load()
             if profile:
+                if structured:
+                    return f"\n{profile.structured_summary()}\n"
                 return f"\nUSER PROFILE: {profile.summary()}\n"
         except Exception as e:
             logger.debug("profile_load_skipped", error=str(e))
         return ""
+
+    def get_profile_keywords(self) -> list[str]:
+        """Extract key terms from profile for intel query augmentation."""
+        try:
+            from profile.storage import ProfileStorage
+
+            ps = ProfileStorage(self._profile_path)
+            profile = ps.load()
+            if not profile:
+                return []
+
+            keywords = []
+            if profile.skills:
+                keywords.extend(s.name for s in profile.skills[:8])
+            keywords.extend(profile.languages_frameworks[:6])
+            keywords.extend(profile.technologies_watching[:6])
+            keywords.extend(profile.industries_watching[:4])
+            keywords.extend(profile.interests[:4])
+            # Extract key terms from active projects
+            for p in profile.active_projects[:3]:
+                keywords.extend(p.lower().split()[:3])
+            return [k.lower().strip() for k in keywords if k.strip()]
+        except Exception:
+            return []
 
     def get_journal_context(
         self,
@@ -60,6 +92,83 @@ class RAGRetriever:
             query=query,
             max_entries=max_entries,
             max_chars=max_chars,
+        )
+
+    def _load_profile_terms(self):
+        """Load profile and build ProfileTerms for intel filtering."""
+        try:
+            from profile.storage import ProfileStorage
+
+            from intelligence.search import ProfileTerms
+
+            ps = ProfileStorage(self._profile_path)
+            profile = ps.load()
+            if not profile:
+                return ProfileTerms()
+
+            # Extract goal keywords from free-text goal fields
+            import re
+
+            goal_keywords = []
+            for text in [profile.goals_short_term, profile.goals_long_term, profile.aspirations]:
+                if text:
+                    # Extract meaningful words (3+ chars, skip stopwords)
+                    words = re.findall(r"[a-z][a-z0-9\-]+", text.lower())
+                    stopwords = {
+                        "the", "and", "for", "that", "with", "this", "from", "have",
+                        "will", "are", "was", "been", "being", "would", "could", "should",
+                        "into", "about", "more", "some", "than", "also", "just", "over",
+                        "such", "want", "like", "get", "make", "see", "know", "take",
+                        "next", "year", "years", "month", "months", "within", "achieve",
+                    }
+                    goal_keywords.extend(w for w in words if len(w) > 2 and w not in stopwords)
+
+            # Extract project keywords
+            project_keywords = []
+            for p in profile.active_projects:
+                words = re.findall(r"[a-z][a-z0-9\-]+", p.lower())
+                project_keywords.extend(w for w in words if len(w) > 2)
+
+            return ProfileTerms(
+                skills=[s.name for s in profile.skills],
+                tech=profile.languages_frameworks + profile.technologies_watching,
+                interests=profile.interests + profile.industries_watching,
+                goal_keywords=goal_keywords[:20],  # cap to avoid noise
+                project_keywords=project_keywords[:10],
+            )
+        except Exception as e:
+            logger.debug("profile_terms_load_failed", error=str(e))
+            from intelligence.search import ProfileTerms
+
+            return ProfileTerms()
+
+    def get_filtered_intel_context(
+        self,
+        query: str,
+        max_items: int = 5,
+        max_chars: int = 3000,
+        min_relevance: float = 0.05,
+    ) -> str:
+        """Get intel context filtered and annotated by profile relevance.
+
+        Two-stage pipeline:
+        1. Broad retrieval using profile-augmented query
+        2. Re-rank by profile term overlap, filter below threshold, annotate matches
+
+        Falls back to standard get_intel_context if IntelSearch not available
+        or profile is empty.
+        """
+        if not self.intel_search:
+            return self.get_intel_context(query, max_items=max_items, max_chars=max_chars)
+
+        profile_terms = self._load_profile_terms()
+
+        return self.intel_search.get_filtered_context_for_query(
+            query=query,
+            profile_terms=profile_terms,
+            max_items=max_items,
+            max_chars=max_chars,
+            min_relevance=min_relevance,
         )
 
     def get_intel_context(

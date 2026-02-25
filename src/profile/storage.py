@@ -84,6 +84,83 @@ class UserProfile(BaseModel):
         parts.append(f"Learning style: {self.learning_style}")
         return " | ".join(parts)
 
+    def structured_summary(self) -> str:
+        """Multi-section profile summary optimized for LLM recommendation context.
+
+        Produces clearly labeled sections so the LLM can reference specific
+        aspects of the user's situation when generating recommendations.
+        """
+        sections = []
+
+        # Identity
+        identity_parts = []
+        if self.current_role:
+            identity_parts.append(f"Current role: {self.current_role}")
+        identity_parts.append(f"Career stage: {self.career_stage}")
+        if self.location:
+            identity_parts.append(f"Location: {self.location}")
+        if identity_parts:
+            sections.append("[IDENTITY]\n" + "\n".join(identity_parts))
+
+        # Goals — full text, not truncated
+        goals_parts = []
+        if self.goals_short_term:
+            goals_parts.append(f"6-month goals: {self.goals_short_term}")
+        if self.goals_long_term:
+            goals_parts.append(f"3-year vision: {self.goals_long_term}")
+        if self.aspirations:
+            goals_parts.append(f"Career aspirations: {self.aspirations}")
+        if goals_parts:
+            sections.append("[GOALS & ASPIRATIONS]\n" + "\n".join(goals_parts))
+
+        # Skills — all skills with proficiency, not just top 5
+        if self.skills:
+            by_level = {}
+            for s in sorted(self.skills, key=lambda s: s.proficiency, reverse=True):
+                by_level.setdefault(s.proficiency, []).append(s.name)
+            skill_lines = []
+            for level in sorted(by_level.keys(), reverse=True):
+                label = {5: "Expert", 4: "Advanced", 3: "Intermediate", 2: "Beginner", 1: "Novice"}.get(level, str(level))
+                skill_lines.append(f"  {label} ({level}/5): {', '.join(by_level[level])}")
+            sections.append("[SKILLS]\n" + "\n".join(skill_lines))
+
+        # Tech stack
+        if self.languages_frameworks:
+            sections.append("[TECH STACK]\n" + ", ".join(self.languages_frameworks))
+
+        # Interests & watching
+        watch_parts = []
+        if self.interests:
+            watch_parts.append(f"Professional interests: {', '.join(self.interests)}")
+        if self.industries_watching:
+            watch_parts.append(f"Industries watching: {', '.join(self.industries_watching)}")
+        if self.technologies_watching:
+            watch_parts.append(f"Technologies watching: {', '.join(self.technologies_watching)}")
+        if watch_parts:
+            sections.append("[INTERESTS & WATCHING]\n" + "\n".join(watch_parts))
+
+        # Active projects
+        if self.active_projects:
+            sections.append("[ACTIVE PROJECTS]\n" + "\n".join(f"- {p}" for p in self.active_projects))
+
+        # Constraints
+        constraint_parts = []
+        hrs = self.constraints.get("time_per_week", self.weekly_hours_available)
+        if hrs:
+            constraint_parts.append(f"Available time: {hrs} hours/week")
+        if self.constraints.get("geography"):
+            constraint_parts.append(f"Geography: {self.constraints['geography']}")
+        if self.constraints.get("budget_sensitivity"):
+            constraint_parts.append(f"Budget sensitivity: {self.constraints['budget_sensitivity']}")
+        constraint_parts.append(f"Learning style: {self.learning_style}")
+        sections.append("[CONSTRAINTS]\n" + "\n".join(constraint_parts))
+
+        # Fears & concerns
+        if self.fears_risks:
+            sections.append("[CONCERNS & RISKS]\n" + "\n".join(f"- {f}" for f in self.fears_risks))
+
+        return "\n\n".join(sections)
+
 
 class ProfileStorage:
     """YAML-backed profile storage."""

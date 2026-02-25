@@ -9,6 +9,7 @@ import structlog
 from .prompts import PromptTemplates
 from .rag import RAGRetriever
 from .recommendation_storage import Recommendation, RecommendationStorage
+from .recommendations import RecommendationEngine
 
 logger = structlog.get_logger()
 
@@ -23,12 +24,14 @@ class ActionBriefGenerator:
         rec_storage: RecommendationStorage,
         journal_storage=None,
         config: Optional[dict] = None,
+        rec_engine: Optional[RecommendationEngine] = None,
     ):
         self.rag = rag
         self.llm_caller = llm_caller
         self.rec_storage = rec_storage
         self.journal_storage = journal_storage
         self.config = config or {}
+        self.rec_engine = rec_engine
 
     def generate(
         self,
@@ -37,6 +40,9 @@ class ActionBriefGenerator:
     ) -> str:
         """Generate weekly action brief with events, learning, and projects.
 
+        Uses top-picks consolidation when a RecommendationEngine is available,
+        falling back to score-sorted recommendations otherwise.
+
         Args:
             max_items: Max recommendations to include
             min_score: Minimum score threshold
@@ -44,6 +50,17 @@ class ActionBriefGenerator:
         Returns:
             Formatted action brief markdown
         """
+        # Try top-picks consolidation first (Priority 2)
+        top_picks_section = ""
+        if self.rec_engine:
+            try:
+                top_picks_section = self.rec_engine.generate_top_picks(
+                    max_picks=min(max_items, 5),
+                    min_score=min_score,
+                )
+            except Exception as e:
+                logger.warning("top_picks_failed_falling_back", error=str(e))
+
         # Get top recommendations
         recs = self.rec_storage.get_top_by_score(
             min_score=min_score,
@@ -51,15 +68,15 @@ class ActionBriefGenerator:
             exclude_status=["completed", "dismissed"],
         )
 
-        if not recs:
+        if not recs and not top_picks_section:
             return self._generate_empty_brief()
 
         # Format recommendations for prompt
-        rec_text = self._format_recommendations(recs)
+        rec_text = self._format_recommendations(recs) if recs else ""
 
         # Get context
         journal_ctx = self.rag.get_recent_entries(days=7)
-        profile_ctx = self.rag.get_profile_context()
+        profile_ctx = self.rag.get_profile_context(structured=True)
         intel_ctx = self.rag.get_intel_context("trends opportunities news", max_chars=2000)
 
         # Gather extra sections
@@ -68,6 +85,8 @@ class ActionBriefGenerator:
         projects_section = self._get_projects_section()
 
         extra_context = ""
+        if top_picks_section:
+            extra_context += f"\n\nTOP PICKS (LLM-ranked priority actions):\n{top_picks_section}"
         if events_section:
             extra_context += f"\n\nTIME-SENSITIVE EVENTS:\n{events_section}"
         if learning_section:

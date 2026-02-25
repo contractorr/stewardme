@@ -197,6 +197,17 @@ class ReasoningTrace(BaseModel):
     caveats: str = ""
 
 
+class CriticData(BaseModel):
+    """Adversarial critic output for a recommendation."""
+
+    confidence: str = "Medium"  # High / Medium / Low
+    confidence_rationale: str = ""
+    critic_challenge: str = ""
+    missing_context: str = ""
+    alternative: Optional[str] = None
+    intel_contradictions: Optional[str] = None
+
+
 class BriefingRecommendation(BaseModel):
     id: str = ""
     category: str = ""
@@ -205,6 +216,7 @@ class BriefingRecommendation(BaseModel):
     score: float = 0.0
     status: str = ""
     reasoning_trace: Optional[ReasoningTrace] = None
+    critic: Optional[CriticData] = None
 
 
 class BriefingGoal(BaseModel):

@@ -65,7 +65,9 @@ class TestAIContextInjection:
         rag = Mock()
         rag.get_journal_context.return_value = "User interested in AI automation"
         rag.get_intel_context.return_value = "AI tools trending"
+        rag.get_filtered_intel_context.return_value = "AI tools trending"
         rag.get_profile_context.return_value = ""
+        rag.get_profile_keywords.return_value = []
         rag.get_ai_capabilities_context.return_value = (
             "AI Capabilities Snapshot: Coding agents solve ~70% of GitHub issues."
         )

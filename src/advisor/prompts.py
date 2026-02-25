@@ -111,54 +111,148 @@ AI CAPABILITY CONTEXT (current state of AI systems):
 When recommending AI-enabled opportunities, cite specific benchmarks and be realistic about limitations.
 Identify where recent AI capability gains create new opportunities that weren't viable 6-12 months ago."""
 
-    UNIFIED_RECOMMENDATIONS = """Generate {category} recommendations based on the user's profile and market conditions.
+    UNIFIED_RECOMMENDATIONS = """Generate {category} recommendations for this specific user.
 
-USER PROFILE (from journal):
+=== USER PROFILE ===
+{profile_context}
+
+=== RECENT JOURNAL ENTRIES ===
 {journal_context}
 
-INTELLIGENCE:
+=== EXTERNAL INTELLIGENCE ===
 {intel_context}
 
-Generate {max_items} actionable {category} recommendations. For each:
+BEFORE generating each recommendation, apply this pre-mortem test:
+1. Articulate the strongest case that this recommendation is wrong or that the conventional \
+wisdom behind it is outdated.
+2. Ask: is this advice that was true 18 months ago but may no longer apply? Is it overrepresented \
+in internet discourse in a way that inflates its perceived importance?
+3. Only after surviving this test should the recommendation proceed.
 
-### [Title]
-**Description**: What this is and why it matters
-**Why**: Why this is relevant to them specifically (cite journal entries)
-SCORE: [0-10 single score weighing relevance, feasibility, and impact]
-**Next Steps**: Concrete actions to take
+Generate exactly {max_items} {category} recommendations. Each must be eerily specific to THIS user — \
+not something you'd recommend to anyone in their field.
+
+A GOOD recommendation: "Submit a talk proposal to GopherCon 2026 on your service-mesh migration \
+experience — the CFP closes March 15 and your 3 years of Go + Istio is exactly what they're looking for. \
+This directly supports your goal of building a public profile for the consulting business you want to launch."
+
+A BAD recommendation: "Consider attending industry conferences to expand your network and stay \
+current with trends."
+
+The difference: good recommendations name a SPECIFIC action, tie it to a SPECIFIC intel item, \
+and explain why it matters given THIS user's specific goals, skills, and constraints.
+
+For each recommendation:
+
+### [Specific, actionable title]
+**What**: Concise description of the specific action or opportunity
+**Why you, specifically**: Explain the connection between this recommendation and 2-3 specific \
+elements from the user's profile (e.g., "Your goal to X + your skill in Y + the fact that Z"). \
+Reference their constraints (time, budget, location) if relevant.
+**Intel trigger**: Which specific intelligence item or trend prompted this
+**Pre-mortem**: The strongest 1-2 sentence case that this recommendation could be wrong
+**Next step**: One concrete action they can take this week
+RELEVANCE: [1-10 how personally relevant to this user's goals and situation]
+FEASIBILITY: [1-10 given their skills, time constraints, and resources]
+IMPACT: [1-10 potential to move the needle on their stated goals]
+SCORE: [weighted average: 0.5*RELEVANCE + 0.2*FEASIBILITY + 0.3*IMPACT]
 
 **REASONING**
 SOURCE: [specific journal entry or intel item that triggered this]
-PROFILE_MATCH: [how this aligns with user goals/skills/interests]
+PROFILE_MATCH: [which profile fields this connects to and how]
 CONFIDENCE: [0.0-1.0]
-CAVEATS: [risks, time commitment, limitations]
+CAVEATS: [risks, time commitment, prerequisites]
 
-Be specific and actionable. Prioritize practical value over theoretical interest."""
+Skip any recommendation where RELEVANCE < 6. Quality over quantity — return fewer than \
+{max_items} if you can't find enough highly relevant items."""
 
-    UNIFIED_RECOMMENDATIONS_WITH_AI = """Generate {category} recommendations based on the user's profile, market conditions, and current AI capabilities.
+    UNIFIED_RECOMMENDATIONS_WITH_AI = """Generate {category} recommendations for this specific user.
 
-USER PROFILE (from journal):
+=== USER PROFILE ===
+{profile_context}
+
+=== RECENT JOURNAL ENTRIES ===
 {journal_context}
 
-INTELLIGENCE:
+=== EXTERNAL INTELLIGENCE ===
 {intel_context}
 {ai_capabilities_section}
 
-Generate {max_items} actionable {category} recommendations. For each:
+BEFORE generating each recommendation, apply this pre-mortem test:
+1. Articulate the strongest case that this recommendation is wrong or that the conventional \
+wisdom behind it is outdated.
+2. Ask: is this advice that was true 18 months ago but may no longer apply? Is it overrepresented \
+in internet discourse in a way that inflates its perceived importance? For AI-related recs, \
+are benchmarks cited from a period that no longer reflects the current state?
+3. Only after surviving this test should the recommendation proceed.
 
-### [Title]
-**Description**: What this is and why it matters
-**Why**: Why this is relevant to them specifically (cite journal entries)
-SCORE: [0-10 single score weighing relevance, feasibility, and impact]
-**Next Steps**: Concrete actions to take
+Generate exactly {max_items} {category} recommendations. Each must be eerily specific to THIS user — \
+not something you'd recommend to anyone in their field.
+
+A GOOD recommendation: "Build an AI-powered code review bot using Claude's tool-use API for your \
+team's Django codebase — your Python expertise (5/5) means you can prototype in a weekend, and your \
+manager mentioned wanting to improve PR turnaround. Claude's function calling accuracy is >90% per \
+recent benchmarks, making this viable now."
+
+A BAD recommendation: "Explore AI tools to improve your workflow."
+
+The difference: good recommendations name a SPECIFIC action, tie it to SPECIFIC intel and benchmarks, \
+and explain why it matters given THIS user's specific goals, skills, and constraints.
+
+For each recommendation:
+
+### [Specific, actionable title]
+**What**: Concise description of the specific action or opportunity
+**Why you, specifically**: Explain the connection between this recommendation and 2-3 specific \
+elements from the user's profile. Reference their constraints (time, budget, location) if relevant. \
+Cite specific AI capability benchmarks when relevant.
+**Intel trigger**: Which specific intelligence item, trend, or benchmark prompted this
+**Pre-mortem**: The strongest 1-2 sentence case that this recommendation could be wrong
+**Next step**: One concrete action they can take this week
+RELEVANCE: [1-10 how personally relevant to this user's goals and situation]
+FEASIBILITY: [1-10 given their skills, time constraints, and resources]
+IMPACT: [1-10 potential to move the needle on their stated goals]
+SCORE: [weighted average: 0.5*RELEVANCE + 0.2*FEASIBILITY + 0.3*IMPACT]
 
 **REASONING**
 SOURCE: [specific journal entry or intel item that triggered this]
-PROFILE_MATCH: [how this aligns with user goals/skills/interests]
+PROFILE_MATCH: [which profile fields this connects to and how]
 CONFIDENCE: [0.0-1.0]
-CAVEATS: [risks, time commitment, limitations]
+CAVEATS: [risks, time commitment, prerequisites]
 
-Be specific and actionable. Cite AI benchmarks when recommending AI-enabled opportunities. Be realistic about limitations."""
+Skip any recommendation where RELEVANCE < 6. Quality over quantity — return fewer than \
+{max_items} if you can't find enough highly relevant items. Cite AI benchmarks when \
+recommending AI-enabled opportunities. Be realistic about current AI limitations."""
+
+    TOP_PICKS = """You are selecting the most important actions for this user this week from a pool \
+of recommendations across multiple categories.
+
+=== USER PROFILE ===
+{profile_context}
+
+=== ALL RECOMMENDATIONS (across categories) ===
+{all_recommendations}
+
+Select the {max_picks} most important recommendations. Rank by: urgency (time-sensitive items \
+first), impact on stated goals, and feasibility given constraints.
+
+For each pick, output:
+
+### TOP {rank}: [{category}] {title}
+**Why this is #{{rank}} this week**: 1-2 sentences explaining why this rises above the others \
+right now — cite time-sensitivity, goal alignment, or compounding value.
+**Key action**: The single most important thing to do this week toward this.
+ORIGINAL_SCORE: {original_score}
+PICK_RANK: {rank}
+
+After the picks, add:
+
+### Parked for later
+List 2-3 good recommendations that didn't make the cut this week with a one-line reason why \
+they can wait (e.g., "no deadline pressure", "depends on completing X first").
+
+Be ruthless about prioritization. The user has {weekly_hours} hours/week. \
+Three focused actions beat ten scattered ones."""
 
     WEEKLY_ACTION_BRIEF = """Generate a weekly action brief with the top prioritized recommendations.
 
@@ -222,6 +316,82 @@ Create a step-by-step action plan with:
 - 2-3 measurable outcomes
 
 Be specific and practical. Each step should be completable in 1-2 hours."""
+
+    # === Adversarial / Contrarian Prompts ===
+
+    INTEL_CONTRADICTION_CHECK = """Does anything in the following current intelligence contradict, \
+complicate, or add important nuance to this recommendation? List any relevant items and explain \
+how they affect the recommendation's validity. If nothing contradicts it, say so explicitly.
+
+RECOMMENDATION:
+Title: {title}
+Description: {description}
+Rationale: {rationale}
+
+CURRENT INTELLIGENCE (most recent scraped items):
+{recent_intel}
+
+Respond with:
+CONTRADICTIONS: [list any items that contradict or complicate the recommendation, or "None found"]
+NUANCE: [any important context that should temper the recommendation, or "None"]
+VERDICT: [SUPPORTED / COMPLICATED / CONTRADICTED] — one word"""
+
+    ADVERSARIAL_CRITIC = """You are a contrarian technology analyst with a track record of being \
+right by questioning consensus. You have been shown the following recommendation generated for \
+a user. Your job is to steelman the case against it.
+
+USER PROFILE:
+{profile_context}
+
+RECOMMENDATION:
+Title: {title}
+Description: {description}
+Rationale: {rationale}
+Pre-mortem from generator: {premortem}
+
+INTELLIGENCE USED:
+{intel_summary}
+
+LIVE INTEL CHECK:
+{intel_contradictions}
+
+Respond with EXACTLY these fields:
+
+CHALLENGE: [The strongest argument that this recommendation is wrong or misleading — be specific, \
+not vaguely contrarian. Reference concrete trends, market shifts, or logical gaps.]
+MISSING_CONTEXT: [What information the model may be missing that would change the recommendation. \
+What would you want to know before acting on this?]
+ALTERNATIVE: [An alternative recommendation if you have one, or "null" if you broadly agree \
+with the original despite your challenge]
+CONFIDENCE: [High / Medium / Low]
+CONFIDENCE_RATIONALE: [One sentence explaining the rating. High = strong evidence supports it \
+and the challenge is weak. Medium = reasonable but material uncertainty exists. Low = significant \
+chance this is wrong or outdated.]"""
+
+    TOP_PICK_CONTRARIAN = """This is the app's top recommendation for this user this week. \
+Before confirming it, check: is there a strong argument that the OPPOSITE of this \
+recommendation is actually better advice?
+
+USER PROFILE:
+{profile_context}
+
+TOP RECOMMENDATION:
+Title: {title}
+Description: {description}
+Rationale: {rationale}
+Critic challenge: {critic_challenge}
+
+CURRENT INTELLIGENCE:
+{recent_intel}
+
+If the case for the opposite is genuinely strong — not just contrarian for its own sake — \
+surface the alternative as the top pick instead, with explanation. If not, confirm the original.
+
+Respond with:
+FLIP: [YES / NO]
+REASONING: [Why the opposite is better (if FLIP=YES) or why the original stands (if FLIP=NO)]
+ALTERNATIVE_TITLE: [Alternative recommendation title if FLIP=YES, otherwise "null"]
+ALTERNATIVE_DESCRIPTION: [1-2 sentence alternative if FLIP=YES, otherwise "null"]"""
 
     EVENT_RECOMMENDATIONS = """Based on the user's profile and upcoming events, recommend events to attend.
 

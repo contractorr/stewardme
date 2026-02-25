@@ -14,7 +14,7 @@ from .scoring import RecommendationScorer
 
 logger = structlog.get_logger()
 
-# Context queries per category
+# Base category queries — augmented with profile keywords at runtime
 CATEGORY_QUERIES = {
     "learning": "skills learning goals career development courses",
     "career": "career job role position goals ambitions work",
@@ -26,6 +26,26 @@ CATEGORY_QUERIES = {
 
 # Categories where AI capability context adds value
 AI_RELEVANT_CATEGORIES = {"entrepreneurial", "projects", "investment", "learning"}
+
+
+def _build_personalized_query(base_query: str, profile_keywords: list[str], max_keywords: int = 8) -> str:
+    """Augment a category query with user-specific keywords from their profile."""
+    if not profile_keywords:
+        return base_query
+    # Deduplicate and take top keywords not already in base query
+    base_lower = base_query.lower()
+    unique = []
+    seen = set()
+    for kw in profile_keywords:
+        kw_lower = kw.lower()
+        if kw_lower not in seen and kw_lower not in base_lower:
+            unique.append(kw)
+            seen.add(kw_lower)
+            if len(unique) >= max_keywords:
+                break
+    if unique:
+        return f"{base_query} {' '.join(unique)}"
+    return base_query
 
 
 class Recommender:
@@ -61,26 +81,32 @@ class Recommender:
         except Exception:
             pass
 
-        context_query = CATEGORY_QUERIES.get(category, category)
+        # Build profile-aware query for intel retrieval
+        base_query = CATEGORY_QUERIES.get(category, category)
+        profile_keywords = self.rag.get_profile_keywords()
+        intel_query = _build_personalized_query(base_query, profile_keywords)
 
-        profile_ctx = self.rag.get_profile_context()
+        # Get structured profile (separate from journal)
+        profile_ctx = self.rag.get_profile_context(structured=True)
         journal_ctx = self.rag.get_journal_context(
-            context_query,
+            base_query,
             max_entries=8,
             max_chars=5000,
         )
-        intel_ctx = self.rag.get_intel_context(context_query, max_chars=3000)
+        # Use profile-filtered intel retrieval (re-ranks by profile relevance)
+        intel_ctx = self.rag.get_filtered_intel_context(intel_query, max_chars=3000)
 
         # Inject AI capability context for relevant categories
         if category in AI_RELEVANT_CATEGORIES:
             try:
-                ai_ctx = self.rag.get_ai_capabilities_context(context_query)
+                ai_ctx = self.rag.get_ai_capabilities_context(intel_query)
                 ai_section = PromptTemplates.AI_CAPABILITIES_SECTION.format(
                     ai_capabilities_context=ai_ctx,
                 )
                 prompt = PromptTemplates.UNIFIED_RECOMMENDATIONS_WITH_AI.format(
                     category=category,
-                    journal_context=profile_ctx + journal_ctx,
+                    profile_context=profile_ctx,
+                    journal_context=journal_ctx,
                     intel_context=intel_ctx,
                     ai_capabilities_section=ai_section,
                     max_items=max_items,
@@ -89,20 +115,33 @@ class Recommender:
                 logger.warning("ai_capabilities_context_failed", error=str(e))
                 prompt = PromptTemplates.UNIFIED_RECOMMENDATIONS.format(
                     category=category,
-                    journal_context=profile_ctx + journal_ctx,
+                    profile_context=profile_ctx,
+                    journal_context=journal_ctx,
                     intel_context=intel_ctx,
                     max_items=max_items,
                 )
         else:
             prompt = PromptTemplates.UNIFIED_RECOMMENDATIONS.format(
                 category=category,
-                journal_context=profile_ctx + journal_ctx,
+                profile_context=profile_ctx,
+                journal_context=journal_ctx,
                 intel_context=intel_ctx,
                 max_items=max_items,
             )
 
         response = self.llm_caller(PromptTemplates.SYSTEM, prompt)
         recs = self._parse_recommendations(response, category)
+
+        # === Pass 2: Adversarial critic pipeline ===
+        # COST NOTE: Each recommendation incurs 2 additional LLM calls here
+        # (intel contradiction check + adversarial critic). For 3 recs per
+        # category × 6 categories = up to 36 extra calls per full generation.
+        # Optimisation: batch or skip for low-score recs if cost is a concern.
+        for rec in recs:
+            try:
+                self._run_adversarial_pipeline(rec, profile_ctx, intel_ctx)
+            except (LLMError, KeyError, ValueError) as e:
+                logger.warning("adversarial_pipeline_failed", title=rec.title[:50], error=str(e))
 
         if with_action_plans:
             for rec in recs:
@@ -124,17 +163,45 @@ class Recommender:
         for line in response.split("\n"):
             line = line.strip()
             if line.startswith("### ") or line.startswith("## "):
+                # Skip "Parked for later" section
+                heading = line.lstrip("#").strip().lower()
+                if "parked" in heading or "later" in heading:
+                    if current.get("title"):
+                        recs.append(self._build_recommendation(current, category))
+                    current = {}
+                    continue
                 if current.get("title"):
                     recs.append(self._build_recommendation(current, category))
                 current = {"title": line.lstrip("#").strip()}
-            elif line.startswith("**Why**:") or line.startswith("RATIONALE:"):
+            elif line.startswith("**Why you, specifically**:") or line.startswith("**Why**:") or line.startswith("RATIONALE:"):
                 current["rationale"] = line.split(":", 1)[-1].strip()
-            elif line.startswith("**Description**:") or line.startswith("DESCRIPTION:"):
+            elif line.startswith("**What**:") or line.startswith("**Description**:") or line.startswith("DESCRIPTION:"):
                 current["description"] = line.split(":", 1)[-1].strip()
+            elif line.startswith("**Intel trigger**:"):
+                current["intel_trigger"] = line.split(":", 1)[-1].strip()
+            elif line.startswith("**Pre-mortem**:"):
+                current["premortem"] = line.split(":", 1)[-1].strip()
+            elif line.startswith("**Next step**:"):
+                current["next_step"] = line.split(":", 1)[-1].strip()
+            elif line.startswith("RELEVANCE:"):
+                try:
+                    current["relevance"] = min(10.0, max(0.0, float(line.split(":")[-1].strip().split()[0])))
+                except (ValueError, IndexError):
+                    pass
+            elif line.startswith("FEASIBILITY:"):
+                try:
+                    current["feasibility"] = min(10.0, max(0.0, float(line.split(":")[-1].strip().split()[0])))
+                except (ValueError, IndexError):
+                    pass
+            elif line.startswith("IMPACT:"):
+                try:
+                    current["impact"] = min(10.0, max(0.0, float(line.split(":")[-1].strip().split()[0])))
+                except (ValueError, IndexError):
+                    pass
             elif line.startswith("SCORE:"):
                 try:
-                    current["score"] = min(10.0, max(0.0, float(line.split(":")[-1].strip())))
-                except ValueError:
+                    current["score"] = min(10.0, max(0.0, float(line.split(":")[-1].strip().split()[0])))
+                except (ValueError, IndexError):
                     current["score"] = 5.0
             elif line.startswith("SOURCE:") or line.startswith("- SOURCE:"):
                 current["reasoning_source"] = line.split(":", 1)[-1].strip()
@@ -178,7 +245,30 @@ class Recommender:
         if reasoning_trace:
             metadata["reasoning_trace"] = reasoning_trace
 
-        raw_score = data.get("score", 5.0)
+        # Store disaggregated scores
+        sub_scores = {}
+        if "relevance" in data:
+            sub_scores["relevance"] = data["relevance"]
+        if "feasibility" in data:
+            sub_scores["feasibility"] = data["feasibility"]
+        if "impact" in data:
+            sub_scores["impact"] = data["impact"]
+        if sub_scores:
+            metadata["sub_scores"] = sub_scores
+
+        # Store intel trigger, premortem, and next step if present
+        if data.get("intel_trigger"):
+            metadata["intel_trigger"] = data["intel_trigger"]
+        if data.get("premortem"):
+            metadata["premortem"] = data["premortem"]
+        if data.get("next_step"):
+            metadata["next_step"] = data["next_step"]
+
+        # Compute weighted score from sub-scores if available, else use raw
+        if all(k in data for k in ("relevance", "feasibility", "impact")):
+            raw_score = 0.5 * data["relevance"] + 0.2 * data["feasibility"] + 0.3 * data["impact"]
+        else:
+            raw_score = data.get("score", 5.0)
         adjusted = self.scorer.adjust_score(raw_score, category)
 
         return Recommendation(
@@ -189,6 +279,121 @@ class Recommender:
             score=adjusted,
             metadata=metadata or None,
         )
+
+    def _run_adversarial_pipeline(
+        self, rec: Recommendation, profile_ctx: str, intel_ctx: str
+    ) -> None:
+        """Run intel contradiction check + adversarial critic on a recommendation.
+
+        Mutates rec.metadata in place to add critic fields.
+        """
+        rec.metadata = rec.metadata or {}
+        premortem = rec.metadata.get("premortem", "None provided")
+
+        # Step 1: Check live intel for contradictions
+        # COST NOTE: 1 LLM call per recommendation
+        intel_contradictions = self._run_intel_contradiction_check(rec)
+        if intel_contradictions:
+            rec.metadata["intel_contradictions"] = intel_contradictions
+
+        # Step 2: Adversarial critic with intel check results
+        # COST NOTE: 1 LLM call per recommendation
+        critic = self._run_adversarial_critic(
+            rec, profile_ctx, intel_ctx, premortem, intel_contradictions
+        )
+        if critic:
+            rec.metadata["confidence"] = critic.get("confidence", "Medium")
+            rec.metadata["confidence_rationale"] = critic.get("confidence_rationale", "")
+            rec.metadata["critic_challenge"] = critic.get("challenge", "")
+            rec.metadata["missing_context"] = critic.get("missing_context", "")
+            alt = critic.get("alternative")
+            rec.metadata["alternative"] = alt if alt and alt.lower() != "null" else None
+
+            # Update reasoning_trace confidence to match critic assessment
+            trace = rec.metadata.get("reasoning_trace", {})
+            confidence_map = {"high": 0.85, "medium": 0.55, "low": 0.25}
+            trace["confidence"] = confidence_map.get(
+                rec.metadata["confidence"].lower(), trace.get("confidence", 0.5)
+            )
+            rec.metadata["reasoning_trace"] = trace
+
+    def _run_intel_contradiction_check(self, rec: Recommendation) -> str | None:
+        """Check recent intel for contradictions to a recommendation."""
+        # Get broad recent intel (not profile-filtered — we want contradictions)
+        recent_intel = self.rag.get_intel_context(
+            f"{rec.title} {rec.category}",
+            max_items=8,
+            max_chars=3000,
+        )
+        if not recent_intel or "No" in recent_intel[:15]:
+            return None
+
+        prompt = PromptTemplates.INTEL_CONTRADICTION_CHECK.format(
+            title=rec.title,
+            description=rec.description,
+            rationale=rec.rationale,
+            recent_intel=recent_intel,
+        )
+
+        response = self.llm_caller(PromptTemplates.SYSTEM, prompt, max_tokens=600)
+
+        # Parse verdict
+        verdict = ""
+        for line in response.split("\n"):
+            line = line.strip()
+            if line.startswith("VERDICT:"):
+                verdict = line.split(":", 1)[-1].strip().upper()
+
+        if verdict in ("SUPPORTED", ""):
+            return None
+
+        # Return the full response for contradicted/complicated cases
+        return response
+
+    def _run_adversarial_critic(
+        self,
+        rec: Recommendation,
+        profile_ctx: str,
+        intel_ctx: str,
+        premortem: str,
+        intel_contradictions: str | None,
+    ) -> dict | None:
+        """Run adversarial critic on a recommendation."""
+        prompt = PromptTemplates.ADVERSARIAL_CRITIC.format(
+            profile_context=profile_ctx,
+            title=rec.title,
+            description=rec.description,
+            rationale=rec.rationale,
+            premortem=premortem,
+            intel_summary=intel_ctx[:2000],
+            intel_contradictions=intel_contradictions or "No contradictions found in live intel.",
+        )
+
+        response = self.llm_caller(PromptTemplates.SYSTEM, prompt, max_tokens=800)
+
+        # Parse structured response
+        result = {}
+        for line in response.split("\n"):
+            line = line.strip()
+            if line.startswith("CHALLENGE:"):
+                result["challenge"] = line.split(":", 1)[-1].strip()
+            elif line.startswith("MISSING_CONTEXT:"):
+                result["missing_context"] = line.split(":", 1)[-1].strip()
+            elif line.startswith("ALTERNATIVE:"):
+                result["alternative"] = line.split(":", 1)[-1].strip()
+            elif line.startswith("CONFIDENCE:"):
+                val = line.split(":", 1)[-1].strip()
+                # Extract just High/Medium/Low from potentially longer text
+                for level in ("High", "Medium", "Low"):
+                    if level.lower() in val.lower():
+                        result["confidence"] = level
+                        break
+                else:
+                    result["confidence"] = "Medium"
+            elif line.startswith("CONFIDENCE_RATIONALE:"):
+                result["confidence_rationale"] = line.split(":", 1)[-1].strip()
+
+        return result if result else None
 
     def _generate_action_plan(self, rec: Recommendation) -> str:
         profile_ctx = self.rag.get_profile_context()
@@ -289,3 +494,123 @@ class RecommendationEngine:
             limit=limit,
             exclude_status=["completed", "dismissed"],
         )
+
+    def generate_top_picks(
+        self,
+        max_picks: int = 5,
+        min_score: float = 6.0,
+        pool_size: int = 15,
+    ) -> str:
+        """Select top picks across all categories using LLM consolidation.
+
+        Gathers the best recommendations from storage, then asks the LLM
+        to rank and select the most important actions for this week.
+
+        Returns:
+            Markdown-formatted top picks with justification.
+        """
+        # Get pool of candidates
+        candidates = self.storage.get_top_by_score(
+            min_score=min_score,
+            limit=pool_size,
+            exclude_status=["completed", "dismissed"],
+        )
+
+        if not candidates:
+            return "No recommendations available. Generate some first with `coach recommend all`."
+
+        if len(candidates) <= max_picks:
+            # Not enough to warrant consolidation
+            lines = [f"# Top {len(candidates)} Picks This Week\n"]
+            for i, rec in enumerate(candidates, 1):
+                lines.append(f"### {i}. [{rec.category.upper()}] {rec.title}")
+                lines.append(f"Score: {rec.score:.1f} — {rec.description[:200]}")
+                if rec.rationale:
+                    lines.append(f"Why: {rec.rationale[:200]}")
+                lines.append("")
+            return "\n".join(lines)
+
+        # Format candidates for prompt
+        rec_lines = []
+        for rec in candidates:
+            sub = rec.metadata.get("sub_scores", {}) if rec.metadata else {}
+            score_detail = f"SCORE: {rec.score:.1f}"
+            if sub:
+                score_detail += f" (R:{sub.get('relevance', '?')} F:{sub.get('feasibility', '?')} I:{sub.get('impact', '?')})"
+            rec_lines.append(
+                f"- [{rec.category.upper()}] {rec.title} — {score_detail}\n"
+                f"  {rec.description[:200]}\n"
+                f"  Why: {rec.rationale[:200] if rec.rationale else 'N/A'}"
+            )
+        all_rec_text = "\n\n".join(rec_lines)
+
+        # Get profile for context
+        profile_ctx = self.rag.get_profile_context(structured=True)
+
+        # Get weekly hours from profile
+        weekly_hours = 5
+        try:
+            from profile.storage import ProfileStorage
+
+            ps = ProfileStorage(self.rag._profile_path)
+            profile = ps.load()
+            if profile:
+                weekly_hours = profile.constraints.get(
+                    "time_per_week", profile.weekly_hours_available
+                )
+        except Exception:
+            pass
+
+        prompt = PromptTemplates.TOP_PICKS.format(
+            profile_context=profile_ctx,
+            all_recommendations=all_rec_text,
+            max_picks=max_picks,
+            rank="{rank}",  # literal for template
+            category="{category}",
+            title="{title}",
+            original_score="{original_score}",
+            weekly_hours=weekly_hours,
+        )
+
+        top_picks_text = self.llm_caller(PromptTemplates.SYSTEM, prompt)
+
+        # Contrarianism check on #1 pick only
+        # COST NOTE: 1 additional LLM call per top-picks generation
+        top_rec = candidates[0]  # highest-scored rec
+        try:
+            contrarian_result = self._run_top_pick_contrarian(top_rec, profile_ctx)
+            if contrarian_result:
+                top_picks_text += f"\n\n---\n{contrarian_result}"
+        except (LLMError, KeyError, ValueError) as e:
+            logger.warning("top_pick_contrarian_failed", error=str(e))
+
+        return top_picks_text
+
+    def _run_top_pick_contrarian(self, rec: Recommendation, profile_ctx: str) -> str | None:
+        """Run contrarianism check on the top pick."""
+        meta = rec.metadata or {}
+        recent_intel = self.rag.get_intel_context(
+            f"{rec.title} {rec.category}", max_items=5, max_chars=2000
+        )
+
+        prompt = PromptTemplates.TOP_PICK_CONTRARIAN.format(
+            profile_context=profile_ctx,
+            title=rec.title,
+            description=rec.description,
+            rationale=rec.rationale,
+            critic_challenge=meta.get("critic_challenge", "No critic challenge available"),
+            recent_intel=recent_intel,
+        )
+
+        response = self.llm_caller(PromptTemplates.SYSTEM, prompt, max_tokens=600)
+
+        # Parse FLIP field
+        flip = False
+        for line in response.split("\n"):
+            if line.strip().startswith("FLIP:"):
+                flip = "YES" in line.upper()
+                break
+
+        if flip:
+            return f"### Contrarian check — top pick flipped\n{response}"
+        return None  # original stands, no additional text

@@ -24,6 +24,15 @@ export interface ReasoningTrace {
   caveats: string;
 }
 
+export interface CriticData {
+  confidence: string; // "High" | "Medium" | "Low"
+  confidence_rationale: string;
+  critic_challenge: string;
+  missing_context: string;
+  alternative?: string | null;
+  intel_contradictions?: string | null;
+}
+
 export interface BriefingRecommendation {
   id: string;
   category: string;
@@ -32,6 +41,7 @@ export interface BriefingRecommendation {
   score: number;
   status: string;
   reasoning_trace?: ReasoningTrace | null;
+  critic?: CriticData | null;
 }
 
 export interface BriefingGoal {

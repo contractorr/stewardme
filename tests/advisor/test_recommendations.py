@@ -93,7 +93,9 @@ class TestRecommendationEngine:
         rag = Mock()
         rag.get_journal_context.return_value = "User wants to learn Rust"
         rag.get_intel_context.return_value = "Rust demand growing 40%"
+        rag.get_filtered_intel_context.return_value = "Rust demand growing 40%"
         rag.get_profile_context.return_value = ""
+        rag.get_profile_keywords.return_value = []
         return rag
 
     @pytest.fixture
@@ -135,7 +137,7 @@ CAVEATS: Steep learning curve, requires dedicated time commitment
         assert "career" not in engine.enabled_categories
 
     def test_reasoning_trace_extracted(self, mock_rag, mock_llm, storage):
-        """Reasoning trace fields parsed into metadata."""
+        """Reasoning trace fields parsed into metadata, critic pipeline runs."""
         engine = RecommendationEngine(
             mock_rag, mock_llm, storage, {"scoring": {"min_threshold": 0.0}}
         )
@@ -145,8 +147,12 @@ CAVEATS: Steep learning curve, requires dedicated time commitment
         assert trace is not None
         assert trace["source_signal"] == "Journal entry about wanting to learn systems programming"
         assert trace["profile_match"] == "Aligns with stated goal of backend performance work"
-        assert trace["confidence"] == 0.85
+        # Confidence is now set by adversarial critic (High=0.85, Medium=0.55, Low=0.25)
+        assert trace["confidence"] in (0.85, 0.55, 0.25)
         assert "Steep learning curve" in trace["caveats"]
+        # Adversarial critic fields should be present
+        meta = recs[0].metadata
+        assert "confidence" in meta  # High/Medium/Low string
 
     def test_reasoning_trace_absent_backward_compat(self, mock_rag, storage):
         """Recs without reasoning block still work — no reasoning_trace in metadata."""
