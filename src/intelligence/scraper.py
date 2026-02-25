@@ -98,6 +98,19 @@ class IntelStorage:
             except sqlite3.OperationalError:
                 pass  # Column already exists
 
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS scraper_health (
+                    source TEXT PRIMARY KEY,
+                    last_run_at TIMESTAMP,
+                    last_success_at TIMESTAMP,
+                    consecutive_errors INTEGER DEFAULT 0,
+                    total_runs INTEGER DEFAULT 0,
+                    total_errors INTEGER DEFAULT 0,
+                    last_error TEXT,
+                    backoff_until TIMESTAMP
+                )
+            """)
+
     def save(self, item: IntelItem) -> bool:
         """Save intel item, skip if URL invalid/exists or content hash exists."""
         if not validate_url(item.url):

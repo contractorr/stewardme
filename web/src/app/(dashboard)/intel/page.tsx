@@ -3,7 +3,15 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useToken } from "@/hooks/useToken";
-import { ExternalLink, Newspaper, RefreshCw, Search } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  ExternalLink,
+  Heart,
+  Newspaper,
+  RefreshCw,
+  Search,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -23,6 +31,118 @@ interface IntelItem {
   summary: string;
   published?: string;
   tags?: string[];
+}
+
+interface ScraperHealth {
+  source: string;
+  last_run_at: string | null;
+  last_success_at: string | null;
+  consecutive_errors: number;
+  total_runs: number;
+  total_errors: number;
+  last_error: string | null;
+  backoff_until: string | null;
+}
+
+function timeAgo(dateStr: string | null): string {
+  if (!dateStr) return "never";
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const hours = Math.floor(diff / 3600000);
+  if (hours < 1) return "< 1h ago";
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+function healthColor(h: ScraperHealth): "green" | "yellow" | "red" {
+  if (h.consecutive_errors >= 3) return "red";
+  if (h.last_success_at) {
+    const hoursSinceSuccess =
+      (Date.now() - new Date(h.last_success_at).getTime()) / 3600000;
+    if (hoursSinceSuccess > 72) return "red";
+  } else if (h.total_runs > 0) {
+    return "red";
+  }
+  if (h.consecutive_errors > 0) return "yellow";
+  return "green";
+}
+
+const dotColors = {
+  green: "bg-green-500",
+  yellow: "bg-yellow-500",
+  red: "bg-red-500",
+};
+
+function HealthDashboard({ token }: { token: string }) {
+  const [health, setHealth] = useState<ScraperHealth[]>([]);
+  const [expanded, setExpanded] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    apiFetch<{ scrapers: ScraperHealth[] }>("/api/intel/health", {}, token)
+      .then((d) => setHealth(d.scrapers))
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, [token]);
+
+  if (!loaded || health.length === 0) return null;
+
+  const healthyCount = health.filter((h) => healthColor(h) === "green").length;
+
+  return (
+    <Card>
+      <CardHeader
+        className="cursor-pointer pb-3"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Heart className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-base">Scraper Health</CardTitle>
+            <Badge variant={healthyCount === health.length ? "secondary" : "destructive"}>
+              {healthyCount}/{health.length} healthy
+            </Badge>
+          </div>
+          {expanded ? (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          )}
+        </div>
+      </CardHeader>
+      {expanded && (
+        <CardContent>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {health.map((h) => {
+              const color = healthColor(h);
+              return (
+                <div
+                  key={h.source}
+                  className="rounded-lg border p-3 text-sm"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`h-2.5 w-2.5 rounded-full ${dotColors[color]}`} />
+                    <span className="font-medium">{h.source}</span>
+                  </div>
+                  <div className="mt-2 space-y-0.5 text-xs text-muted-foreground">
+                    <p>Last success: {timeAgo(h.last_success_at)}</p>
+                    <p>
+                      Runs: {h.total_runs} | Errors: {h.total_errors}
+                    </p>
+                    {h.last_error && (
+                      <p className="truncate text-red-500" title={h.last_error}>
+                        {h.last_error.slice(0, 80)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      )}
+    </Card>
+  );
 }
 
 function IntelSkeleton() {
@@ -112,6 +232,9 @@ export default function IntelPage() {
           {scraping ? "Scraping..." : "Scrape Now"}
         </Button>
       </div>
+
+      {/* Scraper Health */}
+      {token && <HealthDashboard token={token} />}
 
       {/* Search */}
       <div className="flex gap-2">

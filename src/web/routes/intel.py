@@ -34,6 +34,16 @@ async def search_intel(
     return storage.search(q, limit=limit)
 
 
+@router.get("/health")
+async def get_health(user: dict = Depends(get_current_user)):
+    """Get scraper health status for all sources."""
+    from intelligence.health import ScraperHealthTracker
+
+    paths = get_coach_paths()
+    tracker = ScraperHealthTracker(paths["intel_db"])
+    return {"scrapers": tracker.get_all_health()}
+
+
 @router.post("/scrape")
 async def scrape_now(user: dict = Depends(get_current_user)):
     """Trigger immediate scrape of all sources."""

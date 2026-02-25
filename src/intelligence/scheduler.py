@@ -15,6 +15,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from observability import metrics
 
+from .health import ScraperHealthTracker
 from .scraper import IntelStorage
 from .sources import (
     AICapabilitiesScraper,
@@ -183,6 +184,7 @@ class IntelScheduler:
         self.scheduler = BackgroundScheduler()
         self._scrapers: list = []
 
+        self._health = ScraperHealthTracker(storage.db_path)
         self._research = ResearchRunner(storage, journal_storage, embeddings, self.full_config)
         self._recommendations = RecommendationRunner(storage, journal_storage, self.full_config)
 
@@ -357,30 +359,38 @@ class IntelScheduler:
             results = {}
 
             async def run_scraper(scraper):
+                source = scraper.source_name
+                if self._health.should_skip(source):
+                    logger.info("scraper_skipped_backoff", source=source)
+                    return source, {"skipped": "backoff"}
                 try:
                     with metrics.timer("scrape_duration"):
                         items = await asyncio.wait_for(scraper.scrape(), timeout=60.0)
                         new_count = await scraper.save_items(items)
 
+                    self._health.record_success(source)
                     metrics.counter("scraper_success")
                     metrics.counter("scraper_items_new", new_count)
 
-                    return scraper.source_name, {
+                    return source, {
                         "scraped": len(items),
                         "new": new_count,
                     }
                 except asyncio.TimeoutError:
+                    self._health.record_failure(source, "timeout")
                     metrics.counter("scraper_failure")
-                    return scraper.source_name, {"error": "timeout"}
+                    return source, {"error": "timeout"}
                 except Exception as e:
+                    error_str = str(e)
                     logger.warning(
                         "scraper_failed",
-                        source=scraper.source_name,
-                        error=str(e),
+                        source=source,
+                        error=error_str,
                         error_type=type(e).__name__,
                     )
+                    self._health.record_failure(source, error_str)
                     metrics.counter("scraper_failure")
-                    return scraper.source_name, {"error": str(e)}
+                    return source, {"error": error_str}
                 finally:
                     await scraper.close()
 
