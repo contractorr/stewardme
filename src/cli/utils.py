@@ -10,6 +10,12 @@ console = Console()
 logger = structlog.get_logger()
 
 
+def warn_experimental(feature: str):
+    import click
+
+    click.echo(f"[EXPERIMENTAL] {feature} — may change or be removed", err=True)
+
+
 def get_components(skip_advisor: bool = False):
     """Initialize all components from config.
 

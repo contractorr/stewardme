@@ -17,7 +17,6 @@ logger = structlog.get_logger()
 
 
 class SignalType(str, Enum):
-    SENTIMENT_ALERT = "sentiment_alert"
     TOPIC_EMERGENCE = "topic_emergence"
     GOAL_STALE = "goal_stale"
     GOAL_COMPLETE_CANDIDATE = "goal_complete"
@@ -167,7 +166,6 @@ class SignalDetector:
         """Run all detectors, persist new signals, return active list."""
         signals = []
         detectors = [
-            self._detect_sentiment,
             self._detect_goal_staleness,
             self._detect_goal_completion,
             self._detect_journal_gap,
@@ -190,74 +188,6 @@ class SignalDetector:
         return sorted(signals, key=lambda s: s.severity, reverse=True)
 
     # --- Detectors ---
-
-    def _detect_sentiment(self) -> list[Signal]:
-        """Detect sustained negative mood (3+ consecutive negative days or avg < -0.3 over 7 days)."""
-        try:
-            from journal.sentiment import get_mood_history
-
-            history = get_mood_history(self.storage, days=14)
-        except Exception:
-            return []
-
-        if len(history) < 3:
-            return []
-
-        signals = []
-        threshold = self.agent_config.get("sentiment_consecutive_negative", 3)
-
-        # Check consecutive negative days
-        consecutive_neg = 0
-        neg_entries = []
-        for entry in reversed(history):
-            if entry["score"] < -0.2:
-                consecutive_neg += 1
-                neg_entries.append(entry.get("title", entry["date"]))
-            else:
-                break
-
-        if consecutive_neg >= threshold:
-            signals.append(
-                Signal(
-                    type=SignalType.SENTIMENT_ALERT,
-                    severity=min(8, 5 + consecutive_neg),
-                    title=f"Negative mood for {consecutive_neg} consecutive days",
-                    detail=f"Sentiment has been negative for the last {consecutive_neg} entries. This may indicate burnout or sustained stress.",
-                    suggested_actions=[
-                        "Take a break or do something restorative",
-                        "Review recent wins and accomplishments",
-                        "Consider journaling about what's causing the stress",
-                    ],
-                    evidence=neg_entries[:5],
-                    expires_at=datetime.now() + timedelta(days=3),
-                )
-            )
-
-        # Check 7-day average
-        recent_7d = [
-            e
-            for e in history
-            if e["date"] >= (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
-        ]
-        if len(recent_7d) >= 3:
-            avg_score = sum(e["score"] for e in recent_7d) / len(recent_7d)
-            if avg_score < -0.3:
-                signals.append(
-                    Signal(
-                        type=SignalType.SENTIMENT_ALERT,
-                        severity=7,
-                        title=f"Weekly mood average is low ({avg_score:.2f})",
-                        detail="Average sentiment over the past 7 days is significantly negative.",
-                        suggested_actions=[
-                            "Reflect on what's been weighing on you",
-                            "Consider talking to someone about current challenges",
-                        ],
-                        evidence=[f"7-day avg: {avg_score:.2f} across {len(recent_7d)} entries"],
-                        expires_at=datetime.now() + timedelta(days=7),
-                    )
-                )
-
-        return signals
 
     def _detect_goal_staleness(self) -> list[Signal]:
         """Detect goals with no check-in past threshold."""

@@ -106,12 +106,13 @@ projects:
     # token: ${GITHUB_TOKEN}  # optional, increases rate limit
     labels: [good-first-issue, help-wanted]
 
+# --- FEATURE FREEZE: core loop stabilization in progress, do not add new features ---
+
 # --- Agentic Coaching ---
 agent:
   enabled: true
   signals:
     schedule: "0 9 * * *"              # daily at 9am
-    sentiment_consecutive_negative: 3   # days before burnout alert
     topic_mention_threshold: 3          # mentions/week to trigger research
     deadline_warning_days: 14           # days before CFP/event deadline alert
   autonomous:
@@ -120,6 +121,5 @@ agent:
     auto_check_in_reminders: true       # create reminder entries for stale goals
     max_actions_per_day: 5              # rate limit on autonomous actions
   coaching:
-    burnout_detection: true
     blind_spot_detection: true
     celebration: true

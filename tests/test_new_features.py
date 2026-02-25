@@ -2,7 +2,7 @@
 
 import json
 
-from journal.sentiment import analyze_sentiment, get_mood_history
+from journal.sentiment import analyze_sentiment
 from journal.storage import JournalStorage
 from journal.templates import get_template, list_templates
 
@@ -50,18 +50,6 @@ class TestSentiment:
     def test_mixed_sentiment(self):
         result = analyze_sentiment("Good progress on the project but stressed about deadline.")
         assert result["label"] in ("mixed", "positive", "negative")
-
-    def test_mood_history(self, tmp_path):
-        storage = JournalStorage(tmp_path / "journal")
-        storage.create(
-            content="Today was great and productive!", entry_type="daily", title="Good day"
-        )
-        storage.create(
-            content="Feeling stressed and overwhelmed.", entry_type="daily", title="Hard day"
-        )
-
-        timeline = get_mood_history(storage, days=7)
-        assert len(timeline) == 2
 
 
 class TestExportBackup:

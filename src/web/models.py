@@ -238,13 +238,6 @@ class BriefingResponse(BaseModel):
 # --- Trends ---
 
 
-class MoodDataPoint(BaseModel):
-    date: str
-    score: float
-    label: str
-    title: str
-
-
 class TopicTrend(BaseModel):
     topic: str
     direction: str  # emerging/declining/stable

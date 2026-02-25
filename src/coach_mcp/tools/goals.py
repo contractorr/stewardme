@@ -114,7 +114,7 @@ TOOLS = [
     (
         "goals_list",
         {
-            "description": "List all goals with staleness info, progress, and milestones.",
+            "description": "[Experimental] List all goals with staleness info, progress, and milestones.",
             "type": "object",
             "properties": {
                 "include_inactive": {
@@ -130,7 +130,7 @@ TOOLS = [
     (
         "goals_add",
         {
-            "description": "Create a new goal with optional milestones tracking.",
+            "description": "[Experimental] Create a new goal with optional milestones tracking.",
             "type": "object",
             "properties": {
                 "title": {"type": "string", "description": "Goal title"},
@@ -153,7 +153,7 @@ TOOLS = [
     (
         "goals_check_in",
         {
-            "description": "Record a check-in on a goal, optionally with notes.",
+            "description": "[Experimental] Record a check-in on a goal, optionally with notes.",
             "type": "object",
             "properties": {
                 "goal_path": {
@@ -169,7 +169,7 @@ TOOLS = [
     (
         "goals_update_status",
         {
-            "description": "Update goal status (active/paused/completed/abandoned).",
+            "description": "[Experimental] Update goal status (active/paused/completed/abandoned).",
             "type": "object",
             "properties": {
                 "goal_path": {"type": "string", "description": "Full path to the goal file"},
@@ -186,7 +186,7 @@ TOOLS = [
     (
         "goals_add_milestone",
         {
-            "description": "Add a milestone to a goal for progress tracking.",
+            "description": "[Experimental] Add a milestone to a goal for progress tracking.",
             "type": "object",
             "properties": {
                 "goal_path": {"type": "string", "description": "Full path to the goal file"},
@@ -199,7 +199,7 @@ TOOLS = [
     (
         "goals_complete_milestone",
         {
-            "description": "Mark a goal milestone as completed.",
+            "description": "[Experimental] Mark a goal milestone as completed.",
             "type": "object",
             "properties": {
                 "goal_path": {"type": "string", "description": "Full path to the goal file"},

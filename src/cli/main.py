@@ -19,7 +19,6 @@ from cli.commands import (
     intel_export,
     journal,
     learn,
-    mood,
     opportunities,
     profile,
     projects,
@@ -67,7 +66,6 @@ cli.add_command(sources)
 cli.add_command(intel_export)
 cli.add_command(init)
 cli.add_command(trends)
-cli.add_command(mood)
 cli.add_command(reflect)
 
 

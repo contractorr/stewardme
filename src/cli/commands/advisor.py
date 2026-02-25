@@ -68,7 +68,10 @@ def opportunities():
 @click.group()
 def goals():
     """Goal tracking, check-ins, and analysis."""
-    pass
+    from cli.utils import warn_experimental
+
+    warn_experimental("Goal tracking")
+
 
 
 @goals.command("analyze")

@@ -98,37 +98,6 @@ def _get_proactive_context(args: dict) -> dict:
         result["stale_goals"] = []
         result["active_goals_summary"] = []
 
-    # Mood trend
-    try:
-        from journal.sentiment import get_mood_history
-
-        mood = get_mood_history(storage, days=7)
-        if mood:
-            avg_score = sum(e["score"] for e in mood) / len(mood)
-            # Trend direction from first half vs second half
-            mid = len(mood) // 2
-            if mid > 0:
-                first_avg = sum(e["score"] for e in mood[:mid]) / mid
-                second_avg = sum(e["score"] for e in mood[mid:]) / max(1, len(mood) - mid)
-                direction = (
-                    "improving"
-                    if second_avg > first_avg + 0.1
-                    else "declining"
-                    if second_avg < first_avg - 0.1
-                    else "stable"
-                )
-            else:
-                direction = "stable"
-            result["mood_trend"] = {
-                "last_7d_avg": round(avg_score, 2),
-                "direction": direction,
-                "entries": len(mood),
-            }
-        else:
-            result["mood_trend"] = {"last_7d_avg": 0, "direction": "no_data", "entries": 0}
-    except Exception:
-        result["mood_trend"] = {"last_7d_avg": 0, "direction": "error", "entries": 0}
-
     # Journal health
     try:
         entries = storage.list_entries(limit=10)

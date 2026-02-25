@@ -78,17 +78,12 @@ def journal_add(entry_type: str, title: str, tags: str, template_name: str, cont
 
     tag_list = [t.strip() for t in tags.split(",")] if tags else []
 
-    # Analyze sentiment
-    from journal.sentiment import analyze_sentiment
-
-    mood = analyze_sentiment(content)
-
     filepath = c["storage"].create(
         content=content,
         entry_type=entry_type,
         title=title,
         tags=tag_list,
-        metadata={"mood": mood},
+        metadata={},
     )
 
     # Add to embeddings
@@ -98,12 +93,7 @@ def journal_add(entry_type: str, title: str, tags: str, template_name: str, cont
         {"type": entry_type, "tags": ",".join(tag_list)},
     )
 
-    mood_indicator = {
-        "positive": "[green]↑[/]",
-        "negative": "[red]↓[/]",
-        "mixed": "[yellow]~[/]",
-    }.get(mood["label"], "[dim]-[/]")
-    console.print(f"[green]Created:[/] {filepath.name}  {mood_indicator} {mood['label']}")
+    console.print(f"[green]Created:[/] {filepath.name}")
 
 
 @journal.command("list")

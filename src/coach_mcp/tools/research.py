@@ -53,7 +53,7 @@ TOOLS = [
     (
         "research_topics",
         {
-            "description": "Get auto-suggested research topics based on journal entries and goals.",
+            "description": "[Experimental] Get auto-suggested research topics based on journal entries and goals.",
             "type": "object",
             "properties": {},
             "required": [],
@@ -63,7 +63,7 @@ TOOLS = [
     (
         "research_run",
         {
-            "description": "Run deep research on a topic (or auto-select). Uses configured LLM for synthesis.",
+            "description": "[Experimental] Run deep research on a topic (or auto-select). Uses configured LLM for synthesis.",
             "type": "object",
             "properties": {
                 "topic": {

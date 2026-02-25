@@ -8,7 +8,6 @@ from .init import init
 from .intelligence import brief, intel_export, scrape, sources
 from .journal import journal
 from .learn import learn
-from .mood import mood
 from .profile import profile
 from .projects import projects
 from .recommend import recommend
@@ -32,7 +31,6 @@ __all__ = [
     "recommend",
     "init",
     "trends",
-    "mood",
     "reflect",
     "export",
     "profile",

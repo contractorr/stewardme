@@ -14,7 +14,10 @@ console = Console()
 @click.group()
 def research():
     """Deep research on topics from your goals and journal."""
-    pass
+    from cli.utils import warn_experimental
+
+    warn_experimental("Deep research")
+
 
 
 @research.command("run")

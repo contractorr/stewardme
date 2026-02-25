@@ -41,14 +41,13 @@ TOOLS = [
     (
         "signals_list",
         {
-            "description": "List active (unacknowledged) signals by type and severity. Signals detect burnout, stale goals, deadlines, emerging topics, etc.",
+            "description": "List active (unacknowledged) signals by type and severity. Signals detect stale goals, deadlines, emerging topics, etc.",
             "type": "object",
             "properties": {
                 "type": {
                     "type": "string",
                     "description": "Filter by signal type",
                     "enum": [
-                        "sentiment_alert",
                         "topic_emergence",
                         "goal_stale",
                         "goal_complete",

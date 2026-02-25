@@ -1,7 +1,6 @@
 """Simple keyword-based sentiment analysis for journal entries."""
 
 import re
-from datetime import datetime, timedelta
 
 # Lexicon-based sentiment (no external deps needed)
 _POSITIVE = {
@@ -103,37 +102,3 @@ def analyze_sentiment(text: str) -> dict:
         "positive_count": pos,
         "negative_count": neg,
     }
-
-
-def get_mood_history(journal_storage, days: int = 30) -> list[dict]:
-    """Get mood timeline from journal entries.
-
-    Returns list of {date, score, label, title} sorted by date.
-    """
-    cutoff = (datetime.now() - timedelta(days=days)).isoformat()
-    entries = journal_storage.list_entries(limit=200)
-
-    timeline = []
-    for entry in entries:
-        created = entry.get("created", "")
-        if created < cutoff:
-            continue
-
-        post = journal_storage.read(entry["path"])
-        # Use frontmatter mood if already computed
-        if post.get("mood"):
-            sentiment = post["mood"]
-        else:
-            sentiment = analyze_sentiment(post.content)
-
-        timeline.append(
-            {
-                "date": created[:10],
-                "score": sentiment.get("score", 0),
-                "label": sentiment.get("label", "neutral"),
-                "title": entry.get("title", ""),
-            }
-        )
-
-    timeline.sort(key=lambda x: x["date"])
-    return timeline

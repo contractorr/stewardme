@@ -15,6 +15,10 @@ console = Console()
 @click.option("-n", "--clusters", default=8, help="Number of topic clusters")
 def trends(days: int, window: str, clusters: int):
     """Detect emerging and declining journal topics."""
+    from cli.utils import warn_experimental
+
+    warn_experimental("Trend clustering")
+
     from journal.trends import TrendDetector
 
     c = get_components(skip_advisor=True)

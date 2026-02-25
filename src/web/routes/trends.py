@@ -1,9 +1,9 @@
-"""Mood + topic trend routes."""
+"""Topic trend routes."""
 
 import asyncio
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 
 from web.auth import get_current_user
 from web.deps import get_user_paths, safe_user_id
@@ -11,24 +11,6 @@ from web.deps import get_user_paths, safe_user_id
 logger = structlog.get_logger()
 
 router = APIRouter(prefix="/api/trends", tags=["trends"])
-
-
-@router.get("/mood")
-async def get_mood(
-    days: int = 30,
-    user: dict = Depends(get_current_user),
-):
-    """Mood timeline from journal sentiment analysis."""
-    try:
-        from journal.sentiment import get_mood_history
-        from journal.storage import JournalStorage
-
-        paths = get_user_paths(user["id"])
-        storage = JournalStorage(paths["journal_dir"])
-        return get_mood_history(storage, days=days)
-    except Exception as e:
-        logger.error("trends.mood_error", error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/topics")
