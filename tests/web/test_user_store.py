@@ -3,6 +3,7 @@
 from cryptography.fernet import Fernet
 
 from web.user_store import (
+    delete_user,
     delete_user_secret,
     get_or_create_user,
     get_user_secret,
@@ -124,3 +125,26 @@ def test_wrong_fernet_key_skips_in_get_all(tmp_path):
 
     secrets = get_user_secrets("u1", key2, db)
     assert secrets == {}
+
+
+def test_delete_user(tmp_path):
+    """Delete user removes user + secrets, cascades conversations."""
+    db = tmp_path / "users.db"
+    fernet_key = Fernet.generate_key().decode()
+    init_db(db)
+    get_or_create_user("u1", email="a@b.com", name="Alice", db_path=db)
+    set_user_secret("u1", "api_key", "sk-123", fernet_key, db)
+
+    assert delete_user("u1", db) is True
+
+    # User gone
+    user = get_or_create_user("u1", db_path=db)
+    assert user["email"] is None  # freshly created, no email
+    # Secrets gone
+    assert get_user_secret("u1", "api_key", fernet_key, db) is None
+
+
+def test_delete_nonexistent_user(tmp_path):
+    db = tmp_path / "users.db"
+    init_db(db)
+    assert delete_user("ghost", db) is False

@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ApiKeyInput } from "@/components/ApiKeyInput";
+import { DeleteAccountModal } from "@/components/DeleteAccountModal";
 import { apiFetch } from "@/lib/api";
 
 interface Settings {
@@ -355,6 +356,7 @@ export default function SettingsPage() {
   const [nameDraft, setNameDraft] = useState("");
   const [editingName, setEditingName] = useState(false);
   const [savingName, setSavingName] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const isDirty = Object.keys(form).length > 0;
 
@@ -588,6 +590,25 @@ export default function SettingsPage() {
           </span>
         )}
       </div>
+
+      <Card className="border-destructive/50">
+        <CardHeader>
+          <CardTitle className="text-destructive">Danger Zone</CardTitle>
+          <CardDescription>Irreversible actions</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Delete account</p>
+              <p className="text-xs text-muted-foreground">Permanently delete your account and all data</p>
+            </div>
+            <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
+              Delete account
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+      <DeleteAccountModal open={deleteOpen} onOpenChange={setDeleteOpen} />
     </div>
   );
 }

@@ -507,6 +507,28 @@ def get_usage_stats(days: int = 30, db_path: Path | None = None) -> dict:
         conn.close()
 
 
+def delete_user(
+    user_id: str,
+    db_path: Path | None = None,
+) -> bool:
+    """Delete a user and all associated data. Returns True if user existed."""
+    conn = _get_conn(db_path)
+    try:
+        row = conn.execute("SELECT 1 FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not row:
+            return False
+        conn.execute("DELETE FROM user_secrets WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM onboarding_responses WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM engagement_events WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM usage_events WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.commit()
+        logger.info("user_store.user_deleted", user_id=user_id)
+        return True
+    finally:
+        conn.close()
+
+
 def get_feedback_count(
     user_id: str,
     days: int = 30,
