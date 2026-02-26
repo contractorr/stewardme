@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import os
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -386,6 +387,11 @@ class IntelScheduler:
                         new_count = await scraper.save_items(items)
 
                     self._health.record_success(source)
+                    try:
+                        from web.user_store import log_event
+                        log_event("scraper_run", metadata={"source": source, "items_added": new_count})
+                    except ImportError:
+                        pass
                     metrics.counter("scraper_success")
                     metrics.counter("scraper_items_new", new_count)
 
@@ -693,8 +699,54 @@ class IntelScheduler:
             )
             logger.info("Autonomous actions job scheduled")
 
+        # Weekly usage summary — always enabled
+        self.scheduler.add_job(
+            self.run_weekly_summary,
+            trigger=_parse_cron("0 8 * * 1"),
+            id="weekly_summary",
+            replace_existing=True,
+        )
+        logger.info("Weekly summary job scheduled: Monday 8am")
+
         self.scheduler.add_listener(self._default_error_handler, EVENT_JOB_ERROR)
         self.scheduler.start()
+
+    def run_weekly_summary(self):
+        """Generate and write a weekly usage summary to logs dir."""
+        try:
+            from web.user_store import get_usage_stats
+        except ImportError:
+            logger.warning("weekly_summary.skip: web.user_store not available")
+            return
+
+        try:
+            stats = get_usage_stats(days=7)
+            lines = [
+                f"Weekly Usage Summary ({datetime.now().strftime('%Y-%m-%d')})",
+                "=" * 50,
+                f"Chat queries: {stats['chat_queries']}",
+                f"Avg latency: {stats['avg_latency_ms'] or 'N/A'}ms",
+                f"Active users (7d): {stats['active_users_7d']}",
+            ]
+            for ev, cnt in stats.get("event_counts", {}).items():
+                lines.append(f"{ev}: {cnt}")
+            if stats.get("scraper_health"):
+                lines.append("\nScraper Health:")
+                for s in stats["scraper_health"]:
+                    lines.append(f"  {s['source']}: {s['runs']} runs, avg {s['avg_items']} items")
+            if stats.get("page_views"):
+                lines.append("\nPage Views:")
+                for p in stats["page_views"]:
+                    lines.append(f"  {p['path']}: {p['count']}")
+
+            log_dir = Path(
+                os.environ.get("COACH_HOME", Path.home() / "coach")
+            ) / "logs"
+            log_dir.mkdir(parents=True, exist_ok=True)
+            (log_dir / "weekly_summary.txt").write_text("\n".join(lines))
+            logger.info("weekly_summary.written", path=str(log_dir / "weekly_summary.txt"))
+        except Exception as e:
+            logger.error("weekly_summary.failed", error=str(e))
 
     def _add_recommendations_job(self, cron_expr: str):
         """Add weekly recommendations/action brief job."""

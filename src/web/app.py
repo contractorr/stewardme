@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from web.routes import (
+    admin,
     advisor,
     briefing,
     engagement,
@@ -15,6 +16,7 @@ from web.routes import (
     intel,
     journal,
     onboarding,
+    pageview,
     profile,
     recommendations,
     research,
@@ -81,6 +83,8 @@ app.include_router(recommendations.router)
 app.include_router(engagement.router)
 app.include_router(profile.router)
 app.include_router(user.router)
+app.include_router(pageview.router)
+app.include_router(admin.router)
 
 
 @app.get("/api/health")

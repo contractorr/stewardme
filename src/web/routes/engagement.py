@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends
 
 from web.auth import get_current_user
 from web.models import EngagementEvent, EngagementStats
-from web.user_store import get_engagement_stats, log_engagement
+from web.user_store import get_engagement_stats, log_engagement, log_event
 
 logger = structlog.get_logger()
 
@@ -31,6 +31,11 @@ async def post_engagement(
         target_id=body.target_id,
         metadata=body.metadata,
     )
+    if body.event_type in ("feedback_useful", "feedback_irrelevant"):
+        log_event("recommendation_feedback", user["id"], {
+            "category": (body.metadata or {}).get("category", ""),
+            "score": 1 if body.event_type == "feedback_useful" else -1,
+        })
     return {"ok": True}
 
 

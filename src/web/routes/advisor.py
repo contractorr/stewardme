@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import time
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -25,6 +26,7 @@ from web.models import (
     ConversationListItem,
     ConversationMessage,
 )
+from web.user_store import log_event
 
 router = APIRouter(prefix="/api/advisor", tags=["advisor"])
 
@@ -123,6 +125,7 @@ async def ask_advisor(
         add_message(conv_id, "user", body.question)
 
         engine = _get_engine(user_id, use_tools=use_tools)
+        start = time.monotonic()
         answer = await asyncio.to_thread(
             engine.ask,
             body.question,
@@ -132,6 +135,7 @@ async def ask_advisor(
 
         # Save assistant response
         add_message(conv_id, "assistant", answer)
+        log_event("chat_query", user_id, {"latency_ms": int((time.monotonic() - start) * 1000)})
 
         return AdvisorResponse(answer=answer, advice_type=body.advice_type, conversation_id=conv_id)
     except HTTPException:
@@ -173,6 +177,7 @@ async def ask_advisor_stream(
         try:
             engine = _get_engine(user_id, use_tools=use_tools)
             loop = asyncio.get_event_loop()
+            start = time.monotonic()
             answer = await loop.run_in_executor(
                 None,
                 lambda: engine.ask(
@@ -184,6 +189,7 @@ async def ask_advisor_stream(
             )
             # Save assistant response
             add_message(conv_id, "assistant", answer)
+            log_event("chat_query", user_id, {"latency_ms": int((time.monotonic() - start) * 1000)})
             # Send final answer event (may already have been sent by callback for
             # agentic mode, but for classic RAG mode the callback isn't invoked)
             queue.put_nowait(

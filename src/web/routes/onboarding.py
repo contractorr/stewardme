@@ -14,7 +14,7 @@ from llm import create_llm_provider
 from web.auth import get_current_user
 from web.deps import get_api_key_for_user, get_config, get_user_paths
 from web.models import OnboardingChat, OnboardingResponse, ProfileStatus
-from web.user_store import clear_onboarding_responses, save_onboarding_turn
+from web.user_store import clear_onboarding_responses, log_event, save_onboarding_turn
 
 logger = structlog.get_logger()
 
@@ -310,6 +310,7 @@ Output the JSON block now with whatever information you have."""
         clean_msg = _strip_json_block(response)
         if not clean_msg:
             clean_msg = "Great, I've got everything I need! Your profile is set up and will continue to deepen over time."
+        log_event("onboarding_complete", user_id, {"goals_created": goals_created, "turns": turn})
         return OnboardingResponse(
             message=clean_msg, done=True, goals_created=goals_created, turn=turn
         )
@@ -337,6 +338,7 @@ Now output ONLY the JSON block with profile and goals based on everything discus
         if completion:
             goals_created = _save_results(user_id, completion)
         _sessions.pop(user_id, None)
+        log_event("onboarding_complete", user_id, {"goals_created": goals_created, "turns": turn})
         return OnboardingResponse(
             message=response, done=True, goals_created=goals_created, turn=turn
         )

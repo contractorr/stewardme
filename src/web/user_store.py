@@ -83,6 +83,15 @@ def init_db(db_path: Path | None = None) -> None:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             CREATE INDEX IF NOT EXISTS idx_engage_user ON engagement_events(user_id, created_at DESC);
+
+            CREATE TABLE IF NOT EXISTS usage_events (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                event      TEXT NOT NULL,
+                user_id    TEXT,
+                metadata   TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_usage_event ON usage_events(event, created_at DESC);
         """)
         conn.commit()
     finally:
@@ -379,6 +388,121 @@ def get_user_name(
     try:
         row = conn.execute("SELECT name FROM users WHERE id = ?", (user_id,)).fetchone()
         return row["name"] if row else None
+    finally:
+        conn.close()
+
+
+def log_event(
+    event: str,
+    user_id: str | None = None,
+    metadata: dict | None = None,
+    db_path: Path | None = None,
+) -> None:
+    """Record a usage analytics event. Fail-silent — never bubbles up."""
+    try:
+        conn = _get_conn(db_path)
+        conn.execute(
+            "INSERT INTO usage_events (event, user_id, metadata) VALUES (?, ?, ?)",
+            (event, user_id, _json.dumps(metadata) if metadata else None),
+        )
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
+
+def get_usage_stats(days: int = 30, db_path: Path | None = None) -> dict:
+    """Return aggregate usage stats for the last N days."""
+    conn = _get_conn(db_path)
+    window = f"-{days} days"
+    try:
+        # Chat queries
+        row = conn.execute(
+            "SELECT COUNT(*) as cnt FROM usage_events WHERE event='chat_query' AND created_at >= datetime('now', ?)",
+            (window,),
+        ).fetchone()
+        chat_queries = row["cnt"] if row else 0
+
+        # Avg latency
+        row = conn.execute(
+            "SELECT AVG(json_extract(metadata, '$.latency_ms')) as avg_ms FROM usage_events "
+            "WHERE event='chat_query' AND created_at >= datetime('now', ?)",
+            (window,),
+        ).fetchone()
+        avg_latency_ms = round(row["avg_ms"]) if row and row["avg_ms"] else None
+
+        # Active users (7d)
+        row = conn.execute(
+            "SELECT COUNT(DISTINCT user_id) as cnt FROM usage_events "
+            "WHERE created_at >= datetime('now', '-7 days') AND user_id IS NOT NULL"
+        ).fetchone()
+        active_users_7d = row["cnt"] if row else 0
+
+        # Event counts
+        event_counts = {}
+        for ev in ("onboarding_complete", "journal_entry_created", "goal_created"):
+            row = conn.execute(
+                "SELECT COUNT(*) as cnt FROM usage_events WHERE event=? AND created_at >= datetime('now', ?)",
+                (ev, window),
+            ).fetchone()
+            event_counts[ev] = row["cnt"] if row else 0
+
+        # Recommendation feedback
+        feedback_rows = conn.execute(
+            "SELECT json_extract(metadata, '$.category') as cat, "
+            "json_extract(metadata, '$.score') as score, COUNT(*) as cnt "
+            "FROM usage_events WHERE event='recommendation_feedback' AND created_at >= datetime('now', ?) "
+            "GROUP BY cat, score",
+            (window,),
+        ).fetchall()
+        feedback: dict = {}
+        for r in feedback_rows:
+            cat = r["cat"] or "unknown"
+            feedback.setdefault(cat, {"positive": 0, "negative": 0})
+            if r["score"] and int(r["score"]) >= 1:
+                feedback[cat]["positive"] += r["cnt"]
+            else:
+                feedback[cat]["negative"] += r["cnt"]
+
+        # Scraper health
+        scraper_rows = conn.execute(
+            "SELECT json_extract(metadata, '$.source') as src, "
+            "MAX(created_at) as last_run, "
+            "AVG(json_extract(metadata, '$.items_added')) as avg_items, "
+            "COUNT(*) as runs "
+            "FROM usage_events WHERE event='scraper_run' AND created_at >= datetime('now', ?) "
+            "GROUP BY src",
+            (window,),
+        ).fetchall()
+        scraper_health = [
+            {
+                "source": r["src"],
+                "last_run": r["last_run"],
+                "avg_items": round(r["avg_items"], 1) if r["avg_items"] else 0,
+                "runs": r["runs"],
+            }
+            for r in scraper_rows
+        ]
+
+        # Page views
+        pv_rows = conn.execute(
+            "SELECT json_extract(metadata, '$.path') as path, COUNT(*) as cnt "
+            "FROM usage_events WHERE event='page_view' AND created_at >= datetime('now', ?) "
+            "GROUP BY path ORDER BY cnt DESC",
+            (window,),
+        ).fetchall()
+        page_views = [{"path": r["path"], "count": r["cnt"]} for r in pv_rows]
+
+        return {
+            "days": days,
+            "chat_queries": chat_queries,
+            "avg_latency_ms": avg_latency_ms,
+            "active_users_7d": active_users_7d,
+            "event_counts": event_counts,
+            "recommendation_feedback": feedback,
+            "scraper_health": scraper_health,
+            "page_views": page_views,
+        }
     finally:
         conn.close()
 

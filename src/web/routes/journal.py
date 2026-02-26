@@ -9,6 +9,7 @@ from journal.storage import JournalStorage
 from web.auth import get_current_user
 from web.deps import get_user_paths
 from web.models import JournalCreate, JournalEntry, JournalUpdate, QuickCapture
+from web.user_store import log_event
 
 logger = structlog.get_logger()
 
@@ -69,6 +70,8 @@ async def create_entry(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+    log_event("journal_entry_created", user["id"])
+
     post = storage.read(filepath)
     return JournalEntry(
         path=str(filepath),
@@ -98,6 +101,8 @@ async def quick_capture(
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+    log_event("journal_entry_created", user["id"])
 
     # Embed in ChromaDB for RAG
     try:

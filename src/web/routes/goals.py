@@ -9,6 +9,7 @@ from journal.storage import JournalStorage
 from web.auth import get_current_user
 from web.deps import get_user_paths
 from web.models import GoalCheckIn, GoalCreate, GoalStatusUpdate, MilestoneAdd, MilestoneComplete
+from web.user_store import log_event
 
 router = APIRouter(prefix="/api/goals", tags=["goals"])
 
@@ -63,6 +64,7 @@ async def create_goal(
             tags=body.tags,
             metadata=get_goal_defaults(),
         )
+        log_event("goal_created", user["id"])
         return {"path": str(filepath), "title": body.title}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

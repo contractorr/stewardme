@@ -52,3 +52,10 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
         )
+
+
+async def get_admin_user(user: dict = Depends(get_current_user)) -> dict:
+    admin_ids = os.getenv("ADMIN_USER_IDS", "").split(",")
+    if not admin_ids[0] or user["id"] not in admin_ids:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user
