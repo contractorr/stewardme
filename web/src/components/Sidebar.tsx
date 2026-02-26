@@ -11,7 +11,6 @@ import {
   Rocket,
   Settings,
   Target,
-  TrendingUp,
   X,
   LogOut,
 } from "lucide-react";
@@ -20,15 +19,14 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 const primaryNav = [
-  { href: "/", label: "Home", icon: Home },
+  { href: "/", label: "Brief", icon: Home },
   { href: "/journal", label: "Journal", icon: BookOpen },
   { href: "/goals", label: "Goals", icon: Target },
 ];
 
 const discoverNav = [
-  { href: "/advisor", label: "Chat History", icon: Brain },
-  { href: "/intel", label: "Intel", icon: Newspaper },
-  { href: "/trends", label: "Trends", icon: TrendingUp },
+  { href: "/advisor", label: "Conversations", icon: Brain },
+  { href: "/intel", label: "Radar", icon: Newspaper },
   { href: "/learning", label: "Learning", icon: GraduationCap },
   { href: "/projects", label: "Projects", icon: Rocket },
 ];
@@ -85,7 +83,7 @@ export function Sidebar({
             ))}
           </div>
           <div className="flex flex-col gap-1">
-            <span className="px-3 text-xs font-medium text-muted-foreground/60">Discover</span>
+            <span className="px-3 text-xs font-medium text-muted-foreground/60">Explore</span>
             {discoverNav.map(({ href, label, icon: Icon }) => (
               <Link
                 key={href}

@@ -1,6 +1,6 @@
 """Intelligence feed routes."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from intelligence.scraper import IntelStorage
 from web.auth import get_current_user
@@ -16,8 +16,8 @@ def _get_storage() -> IntelStorage:
 
 @router.get("/recent")
 async def get_recent(
-    days: int = 7,
-    limit: int = 50,
+    days: int = Query(default=7, ge=1, le=90),
+    limit: int = Query(default=50, ge=1, le=200),
     user: dict = Depends(get_current_user),
 ):
     storage = _get_storage()
@@ -26,8 +26,8 @@ async def get_recent(
 
 @router.get("/search")
 async def search_intel(
-    q: str,
-    limit: int = 20,
+    q: str = Query(..., max_length=500),
+    limit: int = Query(default=20, ge=1, le=100),
     user: dict = Depends(get_current_user),
 ):
     storage = _get_storage()

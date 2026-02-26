@@ -112,7 +112,7 @@ class TestEngagementBoost:
 
         s = RecommendationScorer(users_db_path=users_db, user_id="u1")
         # First call populates cache
-        b1 = s.engagement_boost("career")
+        _b1 = s.engagement_boost("career")
         # Mutate internal cache to verify second call uses it
         s._category_boosts["career"] = 99.0
         b2 = s.engagement_boost("career")

@@ -98,7 +98,7 @@ function HealthDashboard({ token }: { token: string }) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Heart className="h-4 w-4 text-muted-foreground" />
-            <CardTitle className="text-base">Scraper Health</CardTitle>
+            <CardTitle className="text-base">Source health</CardTitle>
             <Badge variant={healthyCount === health.length ? "secondary" : "destructive"}>
               {healthyCount}/{health.length} healthy
             </Badge>
@@ -125,7 +125,7 @@ function HealthDashboard({ token }: { token: string }) {
                     <span className="font-medium">{h.source}</span>
                   </div>
                   <div className="mt-2 space-y-0.5 text-xs text-muted-foreground">
-                    <p>Last success: {timeAgo(h.last_success_at)}</p>
+                    <p>Last scan: {timeAgo(h.last_success_at)}</p>
                     <p>
                       Runs: {h.total_runs} | Errors: {h.total_errors}
                     </p>
@@ -220,16 +220,16 @@ export default function IntelPage() {
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-4 md:p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Intelligence</h1>
+        <h1 className="text-2xl font-semibold">Radar</h1>
         <Button
           variant="outline"
           onClick={handleScrape}
           disabled={scraping}
         >
           <RefreshCw className={`mr-2 h-4 w-4 ${scraping ? "animate-spin" : ""}`} />
-          {scraping ? "Scraping..." : "Scrape Now"}
+          {scraping ? "Scanning..." : "Scan Now"}
         </Button>
       </div>
 
@@ -239,7 +239,7 @@ export default function IntelPage() {
       {/* Search */}
       <div className="flex gap-2">
         <Input
-          placeholder="Search intelligence..."
+          placeholder="Search your radar..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -265,10 +265,10 @@ export default function IntelPage() {
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
             <Newspaper className="h-7 w-7 text-muted-foreground" />
           </div>
-          <h3 className="text-lg font-medium">No intelligence items</h3>
+          <h3 className="text-lg font-medium">Your radar is quiet</h3>
           <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-            Scrape sources like Hacker News, GitHub trending, arXiv, and RSS
-            feeds to populate your intelligence feed.
+            I haven&apos;t scanned anything yet. Run a scan to pull in signals from
+            Hacker News, GitHub, arXiv, and RSS feeds.
           </p>
           <Button
             variant="outline"
@@ -277,7 +277,7 @@ export default function IntelPage() {
             disabled={scraping}
           >
             <RefreshCw className={`mr-2 h-4 w-4 ${scraping ? "animate-spin" : ""}`} />
-            {scraping ? "Scraping..." : "Run First Scrape"}
+            {scraping ? "Scanning..." : "Run First Scan"}
           </Button>
         </div>
       )}

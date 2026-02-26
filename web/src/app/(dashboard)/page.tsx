@@ -13,11 +13,19 @@ interface ProfileStatus {
   has_api_key: boolean;
 }
 
+function getGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+}
+
 export default function HomePage() {
   const token = useToken();
   const router = useRouter();
   const [briefing, setBriefing] = useState<BriefingResponse | null>(null);
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
 
   const loadBriefing = useCallback(
     async (t: string) => {
@@ -39,7 +47,8 @@ export default function HomePage() {
       loadBriefing(token),
       apiFetch<{ llm_api_key_set: boolean }>("/api/settings", {}, token),
       apiFetch<ProfileStatus>("/api/onboarding/profile-status", {}, token),
-    ]).then(([, settingsRes, profileRes]) => {
+      apiFetch<{ name: string | null }>("/api/user/me", {}, token),
+    ]).then(([, settingsRes, profileRes, userRes]) => {
       if (cancelled) return;
 
       const noApiKey =
@@ -52,6 +61,10 @@ export default function HomePage() {
       if (noApiKey || noProfile) {
         router.replace("/onboarding");
         return;
+      }
+
+      if (userRes.status === "fulfilled" && userRes.value.name) {
+        setUserName(userRes.value.name);
       }
       setNeedsOnboarding(false);
     });
@@ -72,6 +85,13 @@ export default function HomePage() {
 
   return (
     <div className="h-full flex flex-col">
+      {userName && (
+        <div className="px-6 pt-4 pb-1">
+          <p className="text-base font-medium">
+            {getGreeting()}, {userName}
+          </p>
+        </div>
+      )}
       <ChatInterface
         token={token}
         briefing={briefing}

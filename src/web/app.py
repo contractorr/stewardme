@@ -20,7 +20,7 @@ from web.routes import (
     projects,
     research,
     settings,
-    trends,
+    user,
 )
 from web.user_store import init_db
 
@@ -78,11 +78,11 @@ app.include_router(intel.router)
 app.include_router(research.router)
 app.include_router(onboarding.router)
 app.include_router(briefing.router)
-app.include_router(trends.router)
 app.include_router(learning.router)
 app.include_router(projects.router)
 app.include_router(engagement.router)
 app.include_router(profile.router)
+app.include_router(user.router)
 
 
 @app.get("/api/health")

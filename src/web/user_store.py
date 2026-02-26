@@ -356,6 +356,33 @@ def get_engagement_stats(
         conn.close()
 
 
+def update_user_name(
+    user_id: str,
+    name: str,
+    db_path: Path | None = None,
+) -> None:
+    """Update the display name for a user."""
+    conn = _get_conn(db_path)
+    try:
+        conn.execute("UPDATE users SET name = ? WHERE id = ?", (name, user_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_user_name(
+    user_id: str,
+    db_path: Path | None = None,
+) -> str | None:
+    """Get the display name for a user."""
+    conn = _get_conn(db_path)
+    try:
+        row = conn.execute("SELECT name FROM users WHERE id = ?", (user_id,)).fetchone()
+        return row["name"] if row else None
+    finally:
+        conn.close()
+
+
 def get_feedback_count(
     user_id: str,
     days: int = 30,

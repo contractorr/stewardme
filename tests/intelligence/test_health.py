@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
-from intelligence.health import ScraperHealthTracker, _MAX_BACKOFF_SECONDS
+from intelligence.health import _MAX_BACKOFF_SECONDS, ScraperHealthTracker
 from intelligence.scraper import IntelStorage
 
 
@@ -43,7 +43,7 @@ class TestScraperHealthTracker:
         h3 = tracker.get_source_health("rss")
 
         # backoff_until should increase: 2^1*60=120s, 2^2*60=240s, 2^3*60=480s
-        b1 = datetime.fromisoformat(h1["backoff_until"])
+        _b1 = datetime.fromisoformat(h1["backoff_until"])
         b2 = datetime.fromisoformat(h2["backoff_until"])
         b3 = datetime.fromisoformat(h3["backoff_until"])
         r2 = datetime.fromisoformat(h2["last_run_at"])

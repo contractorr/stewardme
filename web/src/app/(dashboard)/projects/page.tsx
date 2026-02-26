@@ -86,7 +86,7 @@ export default function ProjectsPage() {
   const noData = !issuesLoading && issues.length === 0 && !ideas;
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-4 md:p-6">
       <h1 className="text-2xl font-semibold">Projects</h1>
 
       {noData && (
@@ -94,10 +94,10 @@ export default function ProjectsPage() {
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
             <Rocket className="h-7 w-7 text-muted-foreground" />
           </div>
-          <h3 className="text-lg font-medium">No project data yet</h3>
+          <h3 className="text-lg font-medium">Nothing matched yet</h3>
           <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-            Run the scraper from the Intel page to find matching GitHub issues,
-            or generate project ideas below.
+            Scan the Radar to find GitHub issues that match your skills,
+            or generate project ideas based on your journal.
           </p>
         </div>
       )}
@@ -105,7 +105,7 @@ export default function ProjectsPage() {
       {/* Matching Issues */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-medium">Matching Issues</h2>
+          <h2 className="text-lg font-medium">Open issues that match your skills</h2>
           <div className="flex items-center gap-2">
             {DAYS_OPTIONS.map((d) => (
               <Button
@@ -130,7 +130,7 @@ export default function ProjectsPage() {
 
         {!issuesLoading && issues.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            No GitHub issues found for this time range.
+            No matching issues in this window. Try a longer range or run a Radar scan.
           </p>
         )}
 
@@ -215,7 +215,9 @@ export default function ProjectsPage() {
 
         {!hasKey && (
           <p className="text-sm text-muted-foreground">
-            Set an LLM API key in Settings to generate ideas.
+            Add an LLM API key in{" "}
+            <a href="/settings" className="underline hover:text-foreground">Settings</a>{" "}
+            to generate ideas.
           </p>
         )}
 
@@ -232,7 +234,7 @@ export default function ProjectsPage() {
         {!ideas && !ideasLoading && hasKey && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Lightbulb className="h-4 w-4" />
-            Click Generate to get side-project ideas based on your journal entries.
+            Generate side-project ideas grounded in your journal and goals.
           </div>
         )}
       </section>

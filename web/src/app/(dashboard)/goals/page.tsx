@@ -203,7 +203,7 @@ export default function GoalsPage() {
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-4 md:p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Goals</h1>
         <Sheet>
@@ -212,12 +212,12 @@ export default function GoalsPage() {
               <Plus className="mr-2 h-4 w-4" /> New Goal
             </Button>
           </SheetTrigger>
-          <SheetContent className="sm:max-w-lg">
+          <SheetContent className="sm:max-w-lg overflow-y-auto">
             <SheetHeader>
-              <SheetTitle>New Goal</SheetTitle>
-              <SheetDescription>Define a goal to track progress</SheetDescription>
+              <SheetTitle>New goal</SheetTitle>
+              <SheetDescription>What are you committing to?</SheetDescription>
             </SheetHeader>
-            <div className="mt-6 space-y-4">
+            <div className="mt-6 space-y-4 px-6 pb-6">
               <div className="space-y-1.5">
                 <Label>Title</Label>
                 <Input
@@ -241,7 +241,7 @@ export default function GoalsPage() {
                 />
               </div>
               <Button onClick={handleCreate} disabled={creating || !form.title}>
-                {creating ? "Creating..." : "Create Goal"}
+                {creating ? "Saving..." : "Add Goal"}
               </Button>
             </div>
           </SheetContent>
@@ -263,9 +263,10 @@ export default function GoalsPage() {
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
             <Target className="h-7 w-7 text-muted-foreground" />
           </div>
-          <h3 className="text-lg font-medium">No goals yet</h3>
+          <h3 className="text-lg font-medium">No commitments tracked yet</h3>
           <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-            Create goals to track your progress and get AI-powered check-in reminders.
+            Set a goal and I&apos;ll track your progress, flag when it goes stale,
+            and surface it in your daily brief.
           </p>
         </div>
       )}
@@ -289,7 +290,7 @@ export default function GoalsPage() {
                     <CardTitle className="text-base">{g.title}</CardTitle>
                     <div className="flex gap-2">
                       {g.is_stale && (
-                        <Badge variant="destructive">Stale</Badge>
+                        <Badge variant="destructive">Needs check-in</Badge>
                       )}
                       <Badge variant={statusColor[g.status] as "default" | "secondary" | "outline" | "destructive"}>
                         {g.status}
@@ -362,10 +363,10 @@ export default function GoalsPage() {
 
                     {/* Check-in */}
                     <div className="space-y-2">
-                      <h4 className="text-sm font-medium">Check In</h4>
+                      <h4 className="text-sm font-medium">Check in</h4>
                       <Textarea
                         rows={2}
-                        placeholder="Progress notes..."
+                        placeholder="What's changed since your last check-in?"
                         value={checkInInputs[g.path] || ""}
                         onChange={(e) =>
                           setCheckInInputs((prev) => ({ ...prev, [g.path]: e.target.value }))

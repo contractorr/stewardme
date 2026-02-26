@@ -157,7 +157,7 @@ export default function LearningPage() {
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-4 md:p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Learning Paths</h1>
         <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
@@ -227,7 +227,9 @@ export default function LearningPage() {
 
       {!hasKey && (
         <p className="text-sm text-muted-foreground">
-          Set an LLM API key in Settings to generate new paths.
+          Add an LLM API key in{" "}
+          <a href="/settings" className="underline hover:text-foreground">Settings</a>{" "}
+          to generate learning paths.
         </p>
       )}
 
@@ -244,9 +246,10 @@ export default function LearningPage() {
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
             <GraduationCap className="h-7 w-7 text-muted-foreground" />
           </div>
-          <h3 className="text-lg font-medium">No learning paths yet</h3>
+          <h3 className="text-lg font-medium">No paths in progress</h3>
           <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-            Generate one to get a structured curriculum for any skill.
+            Tell me a skill you want to build and I&apos;ll map out a structured
+            path from where you are to where you want to be.
           </p>
         </div>
       )}

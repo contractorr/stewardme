@@ -40,6 +40,11 @@ interface Settings {
   eventbrite_token_set: boolean;
 }
 
+interface UserMe {
+  name: string | null;
+  email: string | null;
+}
+
 interface ProfileData {
   current_role: string;
   career_stage: string;
@@ -321,7 +326,7 @@ function ProfileField({
 
 function SettingsSkeleton() {
   return (
-    <div className="mx-auto max-w-2xl space-y-6 p-6">
+    <div className="mx-auto max-w-2xl space-y-6 p-4 md:p-6">
       <div className="h-7 w-24 animate-pulse rounded bg-muted" />
       {Array.from({ length: 3 }).map((_, i) => (
         <Card key={i}>
@@ -344,8 +349,12 @@ export default function SettingsPage() {
   const router = useRouter();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [userMe, setUserMe] = useState<UserMe | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [editingName, setEditingName] = useState(false);
+  const [savingName, setSavingName] = useState(false);
 
   const isDirty = Object.keys(form).length > 0;
 
@@ -357,7 +366,29 @@ export default function SettingsPage() {
     apiFetch<ProfileData>("/api/profile", {}, token)
       .then(setProfile)
       .catch(() => {}); // profile may not exist yet
+    apiFetch<UserMe>("/api/user/me", {}, token)
+      .then((u) => { setUserMe(u); setNameDraft(u.name || ""); })
+      .catch(() => {});
   }, [token]);
+
+  const handleSaveName = async () => {
+    if (!token) return;
+    setSavingName(true);
+    try {
+      const updated = await apiFetch<UserMe>(
+        "/api/user/me",
+        { method: "PATCH", body: JSON.stringify({ name: nameDraft.trim() }) },
+        token
+      );
+      setUserMe(updated);
+      setEditingName(false);
+      toast.success("Name updated");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!token) return;
@@ -385,8 +416,54 @@ export default function SettingsPage() {
   if (!settings) return <SettingsSkeleton />;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 p-6">
+    <div className="mx-auto max-w-2xl space-y-6 p-4 md:p-6">
       <h1 className="text-2xl font-semibold">Settings</h1>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Account</CardTitle>
+          <CardDescription>Your display name</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-start gap-2">
+            <div className="flex-1 min-w-0">
+              <Label className="text-xs text-muted-foreground">Name</Label>
+              {editingName ? (
+                <div className="mt-1 space-y-2">
+                  <Input
+                    value={nameDraft}
+                    onChange={(e) => setNameDraft(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSaveName()}
+                    className="h-8 text-sm"
+                    autoFocus
+                  />
+                  <div className="flex gap-1">
+                    <Button size="sm" variant="outline" onClick={handleSaveName} disabled={savingName} className="h-7 text-xs">
+                      <Check className="mr-1 h-3 w-3" />
+                      Save
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => { setEditingName(false); setNameDraft(userMe?.name || ""); }} className="h-7 text-xs">
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-0.5">
+                  {userMe?.name
+                    ? <span className="text-sm">{userMe.name}</span>
+                    : <span className="text-sm text-muted-foreground">Not set</span>
+                  }
+                </div>
+              )}
+            </div>
+            {!editingName && (
+              <Button size="icon" variant="ghost" onClick={() => setEditingName(true)} className="h-7 w-7 shrink-0 mt-3">
+                <Pencil className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -470,7 +547,7 @@ export default function SettingsPage() {
               </CardDescription>
             </div>
             {profile?.is_stale && (
-              <Badge variant="secondary" className="text-xs">Stale</Badge>
+              <Badge variant="secondary" className="text-xs">Needs update</Badge>
             )}
           </div>
         </CardHeader>
@@ -489,7 +566,7 @@ export default function SettingsPage() {
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              No profile yet. Complete onboarding to create one.
+              I don&apos;t have a profile for you yet. Run onboarding to get me up to speed.
             </p>
           )}
           <Separator className="my-4" />

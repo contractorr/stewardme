@@ -247,10 +247,10 @@ export function RecommendationsCard({
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <Lightbulb className="h-4 w-4" />
-          Recommendations
+          Your next moves
         </CardTitle>
         <p className="text-[11px] text-muted-foreground mt-1">
-          Informed hypotheses, not certainties. Each includes an adversarial challenge.
+          Informed hypotheses, not certainties — each includes a challenge to stress-test it.
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -424,7 +424,7 @@ export function StaleGoalsCard({
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <Target className="h-4 w-4" />
-          Stale Goals
+          Goals going quiet
           <Badge variant="secondary" className="ml-auto text-xs">
             {goals.length}
           </Badge>

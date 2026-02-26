@@ -109,7 +109,7 @@ class GoalCheckIn(BaseModel):
 
 
 class GoalStatusUpdate(BaseModel):
-    status: str  # active, paused, completed, abandoned
+    status: str = Field(..., pattern=r"^(active|paused|completed|abandoned)$")
 
 
 class MilestoneAdd(BaseModel):
@@ -305,6 +305,18 @@ class EngagementStats(BaseModel):
     by_target: dict = {}
     by_event: dict = {}
     total: int = 0
+
+
+# --- User ---
+
+
+class UserMe(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+
+
+class UserMeUpdate(BaseModel):
+    name: Optional[str] = Field(None, max_length=100)
 
 
 # --- Profile ---

@@ -194,7 +194,7 @@ export default function AdvisorPage() {
   };
 
   return (
-    <div className="flex h-full gap-4 p-6">
+    <div className="flex h-full gap-4 p-4 md:p-6">
       {/* Conversation sidebar */}
       <div className="hidden w-64 flex-col border-r pr-4 md:flex">
         <Button
@@ -232,7 +232,7 @@ export default function AdvisorPage() {
       {/* Main chat area */}
       <div className="flex flex-1 flex-col">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Chat History</h1>
+          <h1 className="text-2xl font-semibold">Advisor</h1>
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
@@ -263,11 +263,10 @@ export default function AdvisorPage() {
               <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
                 <Brain className="h-7 w-7 text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-medium">Ask your AI advisor</h3>
+              <h3 className="text-lg font-medium">What&apos;s on your mind?</h3>
               <p className="mt-1 max-w-md text-sm text-muted-foreground">
-                Get personalized advice powered by your journal entries and
-                intelligence data. Try asking about career moves, goal
-                strategies, or emerging opportunities.
+                Ask about a decision, a career move, a goal you&apos;re stuck on,
+                or what to focus on next. I&apos;ll draw on your journal and radar.
               </p>
             </div>
           )}
@@ -314,7 +313,7 @@ export default function AdvisorPage() {
         <div className="mt-4 flex gap-2">
           <Textarea
             rows={2}
-            placeholder="Ask a question..."
+            placeholder="Ask me anything..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {

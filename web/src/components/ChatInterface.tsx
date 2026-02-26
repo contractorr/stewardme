@@ -56,12 +56,12 @@ interface Message {
 const CONV_KEY = "main_chat_conv_id";
 
 const SUGGESTION_CHIPS = [
-  "What should I focus on?",
-  "Show me opportunities",
-  "What's trending in my field?",
-  "Suggest a learning path",
-  "Help me prioritize",
-  "Review my progress",
+  "What should I focus on today?",
+  "What opportunities am I missing?",
+  "Where am I losing momentum?",
+  "What's worth learning right now?",
+  "Help me think through a decision",
+  "How are my goals progressing?",
 ];
 
 function QuickCaptureInput({ token }: { token: string }) {
@@ -148,21 +148,14 @@ function BriefingPanel({ briefing, onChipClick, token }: { briefing: BriefingRes
     );
   };
 
-  const hour = new Date().getHours();
-  const greeting =
-    hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-
   const hasSignals = briefing.signals.length > 0;
   const hasRecommendations = briefing.recommendations.length > 0;
   const hasStaleGoals = briefing.stale_goals.length > 0;
   const hasPatterns = briefing.patterns.length > 0;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4 py-6">
-      <div className="text-center">
-        <h2 className="text-lg font-medium">{greeting}</h2>
-        <p className="text-sm text-muted-foreground">Here&apos;s what needs your attention.</p>
-      </div>
+    <div className="mx-auto max-w-2xl space-y-4 py-4">
+      <p className="px-1 text-sm text-muted-foreground">Here&apos;s what needs your attention.</p>
 
       <QuickCaptureInput token={token} />
 
@@ -606,7 +599,8 @@ export function ChatInterface({
             </div>
             <h2 className="text-xl font-semibold">Welcome to <span className="text-primary">StewardMe</span></h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Enter your LLM API key to get started. Your key is encrypted and stored per-user.
+              Connect your LLM API key to activate your steward. Your key is
+              encrypted and stored only for your account.
             </p>
           </div>
 
@@ -652,9 +646,9 @@ export function ChatInterface({
     return (
       <div className="flex h-full flex-col">
         <div className="border-b px-4 py-2">
-          <p className="text-sm font-medium">Setting up your profile</p>
+          <p className="text-sm font-medium">Getting to know you</p>
           <p className="text-xs text-muted-foreground">
-            Answer a few questions to personalize your experience
+            A few quick questions so I can hit the ground running
           </p>
         </div>
 
@@ -699,7 +693,7 @@ export function ChatInterface({
         {onboardingDone ? (
           <div className="border-t px-4 py-3 text-center">
             <p className="text-sm text-muted-foreground">
-              Profile set up! Reloading...
+              All set. Taking you to your brief...
             </p>
           </div>
         ) : (
@@ -746,9 +740,10 @@ export function ChatInterface({
             <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
               <Brain className="h-7 w-7 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-medium">What should we navigate?</h3>
+            <h3 className="text-lg font-medium">What do you need to work through?</h3>
             <p className="mt-1 max-w-md text-sm text-muted-foreground">
-              Ask about opportunities, trends, goals, or journal your thoughts — your steward handles the rest.
+              Ask me anything — a decision, a priority, a goal, or what to do next.
+              I&apos;ll draw on your journal and radar to give you a grounded answer.
             </p>
             <div className="mx-auto mt-5 w-full max-w-md">
               <QuickCaptureInput token={token} />
@@ -806,7 +801,7 @@ export function ChatInterface({
           <Textarea
             ref={textareaRef}
             rows={1}
-            placeholder="Ask anything..."
+            placeholder="Ask me anything..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {

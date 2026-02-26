@@ -145,7 +145,7 @@ export default function JournalPage() {
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-4 md:p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Journal</h1>
         <Sheet>
@@ -156,8 +156,8 @@ export default function JournalPage() {
           </SheetTrigger>
           <SheetContent className="w-full sm:max-w-lg md:max-w-xl overflow-y-auto">
             <SheetHeader>
-              <SheetTitle>New Journal Entry</SheetTitle>
-              <SheetDescription>Capture your thoughts and reflections</SheetDescription>
+              <SheetTitle>New entry</SheetTitle>
+              <SheetDescription>What&apos;s on your mind? Capture thoughts, decisions, or progress.</SheetDescription>
             </SheetHeader>
             <div className="mt-6 space-y-4 px-6 pb-6">
               <div className="space-y-1.5">
@@ -205,11 +205,11 @@ export default function JournalPage() {
                   onChange={(e) =>
                     setForm({ ...form, content: e.target.value })
                   }
-                  placeholder="Write your journal entry..."
+                  placeholder="What happened, what you're thinking, or what you want to work through..."
                 />
               </div>
               <Button onClick={handleCreate} disabled={creating || !form.content}>
-                {creating ? "Creating..." : "Create Entry"}
+                {creating ? "Saving..." : "Save Entry"}
               </Button>
             </div>
           </SheetContent>
@@ -231,10 +231,10 @@ export default function JournalPage() {
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
             <BookOpen className="h-7 w-7 text-muted-foreground" />
           </div>
-          <h3 className="text-lg font-medium">No journal entries yet</h3>
+          <h3 className="text-lg font-medium">Nothing here yet</h3>
           <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-            Start writing to capture your thoughts, reflections, and progress.
-            Your entries power the AI advisor&apos;s context.
+            I don&apos;t have enough context yet. Add a journal entry and I&apos;ll
+            start building a picture of what matters to you.
           </p>
         </div>
       )}
@@ -284,7 +284,7 @@ export default function JournalPage() {
           <SheetContent className="w-full sm:max-w-xl md:max-w-2xl overflow-y-auto">
             <SheetHeader>
               <SheetTitle>{selected.title}</SheetTitle>
-              <SheetDescription>Journal entry detail</SheetDescription>
+              <SheetDescription>Entry detail</SheetDescription>
             </SheetHeader>
             <div className="mt-4 space-y-4">
               <div className="flex gap-2">

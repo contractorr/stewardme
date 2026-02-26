@@ -33,7 +33,7 @@ interface OnboardingDialogProps {
   startPhase?: Phase;
 }
 
-type Phase = "intro" | "welcome" | "chat" | "done";
+type Phase = "intro" | "name" | "welcome" | "chat" | "done";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -82,6 +82,7 @@ const introSections = [
 
 export function OnboardingDialog({ open, onClose, onComplete, token, startPhase = "intro" }: OnboardingDialogProps) {
   const [phase, setPhase] = useState<Phase>(startPhase);
+  const [name, setName] = useState("");
   const [provider, setProvider] = useState("auto");
   const [apiKey, setApiKey] = useState("");
   const [saving, setSaving] = useState(false);
@@ -136,6 +137,20 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
       return () => clearTimeout(timer);
     }
   }, [phase, handleClose]);
+
+  const handleSaveName = async () => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      toast.error("Please enter your name");
+      return;
+    }
+    try {
+      await apiFetch("/api/user/me", { method: "PATCH", body: JSON.stringify({ name: trimmed }) }, token);
+    } catch {
+      // non-blocking — name save failure shouldn't block onboarding
+    }
+    setPhase("welcome");
+  };
 
   const handleSaveKey = async () => {
     if (!apiKey.trim()) {
@@ -227,7 +242,42 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
             </div>
 
             <SheetFooter>
-              <Button onClick={() => setPhase("welcome")} className="w-full">
+              <Button onClick={() => setPhase("name")} className="w-full">
+                Continue
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </SheetFooter>
+          </>
+        )}
+
+        {phase === "name" && (
+          <>
+            <SheetHeader>
+              <div className="mx-auto mb-1 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                <Brain className="h-6 w-6 text-primary" />
+              </div>
+              <SheetTitle className="text-center text-xl">What&apos;s your name?</SheetTitle>
+              <SheetDescription className="text-center">
+                Your steward will use this to personalise your experience
+              </SheetDescription>
+            </SheetHeader>
+
+            <div className="flex-1 flex items-center px-4">
+              <div className="w-full space-y-1.5">
+                <Label htmlFor="user-name">Name</Label>
+                <Input
+                  id="user-name"
+                  placeholder="Alex"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSaveName()}
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <SheetFooter>
+              <Button onClick={handleSaveName} className="w-full">
                 Continue
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
