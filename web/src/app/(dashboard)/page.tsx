@@ -13,13 +13,6 @@ interface ProfileStatus {
   has_api_key: boolean;
 }
 
-function getGreeting(): string {
-  const h = new Date().getHours();
-  if (h < 12) return "Good morning";
-  if (h < 17) return "Good afternoon";
-  return "Good evening";
-}
-
 export default function HomePage() {
   const token = useToken();
   const router = useRouter();
@@ -85,18 +78,12 @@ export default function HomePage() {
 
   return (
     <div className="h-full flex flex-col">
-      {userName && (
-        <div className="px-6 pt-4 pb-1">
-          <p className="text-base font-medium">
-            {getGreeting()}, {userName}
-          </p>
-        </div>
-      )}
       <ChatInterface
         token={token}
         briefing={briefing}
         onRefresh={handleRefresh}
         onboardingMode={false}
+        userName={userName}
       />
     </div>
   );

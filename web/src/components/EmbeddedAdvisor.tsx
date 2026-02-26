@@ -151,7 +151,7 @@ export function EmbeddedAdvisor({
         <CardTitle className="flex items-center justify-between text-base">
           <span className="flex items-center gap-2">
             <Brain className="h-4 w-4" />
-            Ask Your Advisor
+            Ask Your Steward
           </span>
           <Button variant="ghost" size="sm" asChild>
             <Link href="/advisor" className="flex items-center gap-1 text-xs">
@@ -184,7 +184,7 @@ export function EmbeddedAdvisor({
               }`}
             >
               <span className="mb-0.5 block text-xs font-medium text-muted-foreground">
-                {msg.role === "user" ? "You" : "Advisor"}
+                {msg.role === "user" ? "You" : "Steward"}
               </span>
               {msg.role === "assistant" ? (
                 <div className="prose prose-sm max-w-none dark:prose-invert">

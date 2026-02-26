@@ -505,7 +505,7 @@ export default function SettingsPage() {
             onChange={(v) => setForm({ ...form, llm_api_key: v })}
             isSet={settings.llm_api_key_set}
             hint={settings.llm_api_key_hint}
-            description="Required. Powers the Advisor. Your key is encrypted and stored per-user."
+            description="Required. Powers your steward. Your key is encrypted and stored per-user."
           />
         </CardContent>
       </Card>

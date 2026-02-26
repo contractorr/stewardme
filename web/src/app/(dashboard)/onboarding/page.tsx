@@ -29,7 +29,7 @@ import { useToken } from "@/hooks/useToken";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
 
-type Phase = "intro" | "welcome" | "chat" | "done";
+type Phase = "intro" | "name" | "welcome" | "chat" | "done";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -82,6 +82,7 @@ export default function OnboardingPage() {
   const [goalsCreated, setGoalsCreated] = useState(0);
   const [turn, setTurn] = useState(0);
   const [hasApiKey, setHasApiKey] = useState<boolean | null>(null);
+  const [name, setName] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Check if user already has API key to skip welcome phase
@@ -134,6 +135,20 @@ export default function OnboardingPage() {
       return () => clearTimeout(timer);
     }
   }, [phase, handleDone]);
+
+  const handleSaveName = async () => {
+    if (!token || !name.trim()) return;
+    try {
+      await apiFetch(
+        "/api/user/me",
+        { method: "PATCH", body: JSON.stringify({ name: name.trim() }) },
+        token
+      );
+    } catch {
+      // non-blocking — name is optional
+    }
+    setPhase(hasApiKey ? "chat" : "welcome");
+  };
 
   const [testing, setTesting] = useState(false);
 
@@ -249,13 +264,37 @@ export default function OnboardingPage() {
 
             <div className="px-6 pb-6">
               <Button
-                onClick={() => setPhase(hasApiKey ? "chat" : "welcome")}
+                onClick={() => setPhase("name")}
                 className="w-full"
               >
                 Continue
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
+          </div>
+        )}
+
+        {phase === "name" && (
+          <div className="flex flex-1 flex-col items-center justify-center px-6">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+              <Brain className="h-6 w-6 text-primary" />
+            </div>
+            <h2 className="text-lg font-semibold">What should I call you?</h2>
+            <p className="mt-1 text-sm text-muted-foreground text-center">
+              First name is fine — used for greetings only.
+            </p>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSaveName()}
+              placeholder="Your name"
+              className="mt-4 max-w-xs text-center"
+              autoFocus
+            />
+            <Button onClick={handleSaveName} className="mt-4 w-full max-w-xs">
+              Continue
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
           </div>
         )}
 

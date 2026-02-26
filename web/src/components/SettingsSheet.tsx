@@ -140,7 +140,7 @@ export function SettingsSheet({
                   onChange={(v) => setForm({ ...form, llm_api_key: v })}
                   isSet={settings.llm_api_key_set}
                   hint={settings.llm_api_key_hint}
-                  description="Required. Powers the Advisor."
+                  description="Required. Powers your steward."
                 />
               </div>
 

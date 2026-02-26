@@ -232,7 +232,7 @@ export default function AdvisorPage() {
       {/* Main chat area */}
       <div className="flex flex-1 flex-col">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Advisor</h1>
+          <h1 className="text-2xl font-semibold">Steward</h1>
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
@@ -279,7 +279,7 @@ export default function AdvisorPage() {
             >
               <CardHeader className="pb-2">
                 <CardTitle className="text-xs text-muted-foreground">
-                  {msg.role === "user" ? "You" : "Advisor"}
+                  {msg.role === "user" ? "You" : "Steward"}
                 </CardTitle>
               </CardHeader>
               <CardContent>

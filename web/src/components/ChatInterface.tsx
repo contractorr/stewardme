@@ -55,14 +55,59 @@ interface Message {
 
 const CONV_KEY = "main_chat_conv_id";
 
-const SUGGESTION_CHIPS = [
+const STATIC_CHIPS = [
   "What should I focus on today?",
-  "What opportunities am I missing?",
-  "Where am I losing momentum?",
-  "What's worth learning right now?",
   "Help me think through a decision",
   "How are my goals progressing?",
 ];
+
+function getGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+function buildSuggestionChips(briefing: BriefingResponse | null): string[] {
+  if (!briefing) return STATIC_CHIPS;
+  const chips: string[] = [];
+  for (const g of briefing.stale_goals) {
+    if (chips.length >= 4) break;
+    chips.push(`Check in on: ${g.title}`);
+  }
+  if (chips.length < 4 && briefing.recommendations.length > 0) {
+    chips.push(`Tell me more about: ${briefing.recommendations[0].title}`);
+  }
+  while (chips.length < 4 && chips.length < STATIC_CHIPS.length) {
+    const fallback = STATIC_CHIPS[chips.length];
+    if (!chips.includes(fallback)) chips.push(fallback);
+    else break;
+  }
+  return chips.slice(0, 4);
+}
+
+interface TopPriority {
+  kind: "recommendation" | "goal" | "signal";
+  title: string;
+  description: string;
+  action: string;
+}
+
+function getTopPriority(briefing: BriefingResponse): TopPriority | null {
+  if (briefing.recommendations.length > 0) {
+    const top = [...briefing.recommendations].sort((a, b) => b.score - a.score)[0];
+    return { kind: "recommendation", title: top.title, description: top.description, action: `Tell me more about: ${top.title}` };
+  }
+  if (briefing.stale_goals.length > 0) {
+    const g = briefing.stale_goals[0];
+    return { kind: "goal", title: g.title, description: `Last check-in ${g.days_since_check} days ago`, action: `Help me with my goal: ${g.title}` };
+  }
+  if (briefing.signals.length > 0) {
+    const s = briefing.signals[0];
+    return { kind: "signal", title: s.title, description: s.detail, action: `Tell me more about: ${s.title}` };
+  }
+  return null;
+}
 
 function QuickCaptureInput({ token }: { token: string }) {
   const [text, setText] = useState("");
@@ -123,7 +168,7 @@ function QuickCaptureInput({ token }: { token: string }) {
   );
 }
 
-function BriefingPanel({ briefing, onChipClick, token }: { briefing: BriefingResponse; onChipClick: (text: string) => void; token: string }) {
+function BriefingPanel({ briefing, onChipClick, token, userName }: { briefing: BriefingResponse; onChipClick: (text: string) => void; token: string; userName?: string | null }) {
   const [expandedRecs, setExpandedRecs] = useState<Set<string>>(new Set());
   const [expandedCritic, setExpandedCritic] = useState<Set<string>>(new Set());
   const [feedbackGiven, setFeedbackGiven] = useState<Record<string, "useful" | "irrelevant">>({});
@@ -148,14 +193,47 @@ function BriefingPanel({ briefing, onChipClick, token }: { briefing: BriefingRes
     );
   };
 
-  const hasSignals = briefing.signals.length > 0;
-  const hasRecommendations = briefing.recommendations.length > 0;
-  const hasStaleGoals = briefing.stale_goals.length > 0;
+  const topPriority = getTopPriority(briefing);
+  const chips = buildSuggestionChips(briefing);
+
+  // Dedup: skip top priority item from its section
+  const filteredRecommendations = topPriority?.kind === "recommendation"
+    ? briefing.recommendations.filter((r) => r.title !== topPriority.title)
+    : briefing.recommendations;
+  const filteredStaleGoals = topPriority?.kind === "goal"
+    ? briefing.stale_goals.filter((g) => g.title !== topPriority.title)
+    : briefing.stale_goals;
+  const filteredSignals = topPriority?.kind === "signal"
+    ? briefing.signals.filter((s) => s.title !== topPriority.title)
+    : briefing.signals;
+
+  const hasSignals = filteredSignals.length > 0;
+  const hasRecommendations = filteredRecommendations.length > 0;
+  const hasStaleGoals = filteredStaleGoals.length > 0;
   const hasPatterns = briefing.patterns.length > 0;
+
+  const greeting = userName ? `${getGreeting()}, ${userName}` : getGreeting();
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 py-4">
-      <p className="px-1 text-sm text-muted-foreground">Here&apos;s what needs your attention.</p>
+      <div className="px-1">
+        <p className="text-base font-medium">{greeting}</p>
+        <p className="text-sm text-muted-foreground">Here&apos;s your situation.</p>
+      </div>
+
+      {topPriority && (
+        <div className="rounded-lg border-l-4 border-primary bg-primary/5 p-3">
+          <p className="text-xs font-medium text-muted-foreground mb-1">Act on this today</p>
+          <p className="text-sm font-medium">{topPriority.title}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{topPriority.description}</p>
+          <button
+            onClick={() => onChipClick(topPriority.action)}
+            className="mt-2 text-xs font-medium text-primary hover:underline"
+          >
+            Discuss this &rarr;
+          </button>
+        </div>
+      )}
 
       <QuickCaptureInput token={token} />
 
@@ -165,7 +243,7 @@ function BriefingPanel({ briefing, onChipClick, token }: { briefing: BriefingRes
             <AlertTriangle className="h-3.5 w-3.5" />
             Heads up
           </div>
-          {briefing.signals.map((s) => (
+          {filteredSignals.map((s) => (
             <button
               key={s.id}
               onClick={() => {
@@ -187,7 +265,7 @@ function BriefingPanel({ briefing, onChipClick, token }: { briefing: BriefingRes
             <Target className="h-3.5 w-3.5" />
             Goals that need attention
           </div>
-          {briefing.stale_goals.map((g) => (
+          {filteredStaleGoals.map((g) => (
             <button
               key={g.path}
               onClick={() => onChipClick(`Help me with my goal: ${g.title}`)}
@@ -209,7 +287,7 @@ function BriefingPanel({ briefing, onChipClick, token }: { briefing: BriefingRes
             Suggestions
             <span className="text-[10px] font-normal ml-1">— hypotheses, not certainties</span>
           </div>
-          {briefing.recommendations.map((r) => (
+          {filteredRecommendations.map((r) => (
             <div key={r.id} className="rounded-lg border bg-card text-left">
               <button
                 onClick={() => {
@@ -387,7 +465,7 @@ function BriefingPanel({ briefing, onChipClick, token }: { briefing: BriefingRes
       )}
 
       <div className="flex flex-wrap justify-center gap-2 pt-2">
-        {SUGGESTION_CHIPS.slice(0, 3).map((chip) => (
+        {chips.map((chip) => (
           <button
             key={chip}
             onClick={() => onChipClick(chip)}
@@ -406,11 +484,13 @@ export function ChatInterface({
   briefing,
   onRefresh,
   onboardingMode,
+  userName,
 }: {
   token: string;
   briefing: BriefingResponse | null;
   onRefresh: () => void;
   onboardingMode?: boolean;
+  userName?: string | null;
 }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -660,7 +740,7 @@ export function ChatInterface({
             >
               <CardHeader className="pb-2">
                 <CardTitle className="text-xs text-muted-foreground">
-                  {msg.role === "user" ? "You" : "Advisor"}
+                  {msg.role === "user" ? "You" : "Steward"}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -733,7 +813,7 @@ export function ChatInterface({
       {/* Chat messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
         {showBriefing && briefing && (
-          <BriefingPanel briefing={briefing} onChipClick={handleChipClick} token={token} />
+          <BriefingPanel briefing={briefing} onChipClick={handleChipClick} token={token} userName={userName} />
         )}
         {messages.length === 0 && !showBriefing && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -749,7 +829,7 @@ export function ChatInterface({
               <QuickCaptureInput token={token} />
             </div>
             <div className="mt-6 flex flex-wrap justify-center gap-2">
-              {SUGGESTION_CHIPS.map((chip) => (
+              {buildSuggestionChips(briefing).map((chip) => (
                 <button
                   key={chip}
                   onClick={() => handleChipClick(chip)}
