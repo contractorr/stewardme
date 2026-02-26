@@ -12,6 +12,7 @@ import {
   Send,
   FlaskConical,
   ArrowRight,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,31 +41,31 @@ const introSections = [
     icon: Newspaper,
     title: "Intelligence Radar",
     description:
-      "Continuously scans Hacker News, GitHub trending, arXiv, Reddit, and RSS feeds. Surfaces what matters to you without the noise.",
+      "Scans HN, GitHub trending, arXiv, Reddit & RSS. Surfaces what matters, skips the noise.",
   },
   {
     icon: Brain,
     title: "AI Steward",
     description:
-      "Proactive advice grounded in your context and world intel. Helps you navigate change, spot opportunities, and stay ahead.",
+      "Proactive guidance grounded in your context and real-time intel. Spots opportunities, flags what needs attention.",
   },
   {
     icon: Target,
     title: "Goal Alignment",
     description:
-      "Tracks your objectives against market trends and emerging opportunities. Flags when priorities should shift.",
+      "Tracks objectives against trends and opportunities. Flags when priorities should shift.",
   },
   {
     icon: BookOpen,
     title: "Journal",
     description:
-      "Capture reflections, decisions, and observations. Every entry trains your personal AI to give sharper, more relevant guidance.",
+      "Capture reflections, decisions, and observations. Every entry sharpens your steward's guidance.",
   },
   {
     icon: FlaskConical,
     title: "Deep Research",
     description:
-      "On-demand analysis of emerging opportunities, technologies, or trends drawn from your goals and interests.",
+      "Deep dives into opportunities, technologies, or trends — driven by your goals and interests.",
   },
 ];
 
@@ -221,7 +222,7 @@ export default function OnboardingPage() {
               </div>
               <h1 className="text-xl font-semibold text-primary">StewardMe</h1>
               <p className="text-sm text-muted-foreground">
-                Your AI steward for navigating rapid change
+                Scans the world. Learns your context. Tells you what matters next.
               </p>
             </div>
 
@@ -241,25 +242,18 @@ export default function OnboardingPage() {
               ))}
               <div className="rounded-lg border bg-muted/50 p-3 text-xs text-muted-foreground leading-relaxed">
                 <span className="font-medium text-foreground">How it connects:</span>{" "}
-                your journal and intel radar feed your steward. Goals shape what
-                surfaces. The more context you provide, the sharper the guidance.
+                Journal + intel feed your steward. Goals shape what surfaces.
+                More context = sharper guidance.
               </div>
             </div>
 
-            <div className="space-y-2 px-6 pb-6">
+            <div className="px-6 pb-6">
               <Button
                 onClick={() => setPhase(hasApiKey ? "chat" : "welcome")}
                 className="w-full"
               >
                 Continue
                 <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => router.replace("/")}
-                className="w-full text-muted-foreground"
-              >
-                Skip for Now
               </Button>
             </div>
           </div>
@@ -280,9 +274,25 @@ export default function OnboardingPage() {
             </div>
 
             <div className="flex-1 space-y-6 overflow-y-auto px-6 py-4">
-              <div className="rounded-lg border bg-muted/50 p-3 text-xs text-muted-foreground">
-                An LLM API key is required for the Advisor. Your key is encrypted and
-                stored per-user.
+              <div className="rounded-lg border bg-muted/50 p-3 text-xs text-muted-foreground space-y-2">
+                <p>
+                  An API key is required to power your steward. Your key is
+                  encrypted and stored per-user.
+                </p>
+                <p>
+                  <span className="font-medium text-foreground">Need a key?</span>{" "}
+                  Go to{" "}
+                  <a
+                    href="https://console.anthropic.com/settings/keys"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-0.5 underline hover:text-foreground"
+                  >
+                    console.anthropic.com
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                  {" "}&rarr; create a key &rarr; paste it below.
+                </p>
               </div>
 
               <div className="space-y-4">
@@ -312,20 +322,13 @@ export default function OnboardingPage() {
               </div>
             </div>
 
-            <div className="space-y-2 px-6 pb-6">
+            <div className="px-6 pb-6">
               <Button
                 onClick={handleSaveKey}
                 disabled={saving || testing}
                 className="w-full"
               >
                 {testing ? "Testing connection..." : saving ? "Saving..." : "Get Started"}
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => router.replace("/")}
-                className="w-full text-muted-foreground"
-              >
-                Skip for Now
               </Button>
             </div>
           </div>
@@ -415,13 +418,6 @@ export default function OnboardingPage() {
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
-              <Button
-                variant="ghost"
-                onClick={() => router.replace("/")}
-                className="mt-1 w-full text-xs text-muted-foreground"
-              >
-                Skip — I&apos;ll set up my profile later
-              </Button>
             </div>
           </div>
         )}

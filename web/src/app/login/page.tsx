@@ -24,25 +24,25 @@ const features = [
     icon: Newspaper,
     title: "Intelligence Radar",
     description:
-      "Scans Hacker News, GitHub trending, arXiv, Reddit, and RSS feeds to surface what matters to you.",
+      "Scans HN, GitHub, arXiv, Reddit & RSS — surfaces what matters, skips the noise.",
   },
   {
     icon: Sparkles,
-    title: "AI Advisor",
+    title: "AI Steward",
     description:
-      "Personalized advice powered by retrieval-augmented generation over your journal and external intel.",
+      "Personalized guidance grounded in your journal, goals, and real-time intel.",
   },
   {
     icon: Target,
     title: "Goal Tracking",
     description:
-      "Set goals with milestones, track progress, and get alerts when priorities should shift.",
+      "Track objectives with milestones. Get nudged when priorities should shift.",
   },
   {
     icon: BookOpen,
     title: "Journal",
     description:
-      "Capture reflections and decisions. Every entry trains your AI to give sharper guidance.",
+      "Capture reflections and decisions. Every entry sharpens your steward's guidance.",
   },
 ];
 
@@ -56,9 +56,8 @@ export default function LoginPage() {
           </div>
           <CardTitle className="text-2xl text-primary">StewardMe</CardTitle>
           <CardDescription className="text-balance">
-            An open-source, self-hosted AI steward that combines your journal,
-            goals, and external intelligence into personalized guidance. Your
-            data stays on your infrastructure.
+            AI steward that scans the world, learns from your journal, and
+            tells you what matters next. Open-source and self-hosted.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
