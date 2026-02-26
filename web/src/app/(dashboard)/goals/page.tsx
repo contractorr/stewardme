@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useToken } from "@/hooks/useToken";
-import { CheckCircle2, Circle, Plus, Target } from "lucide-react";
+import { CheckCircle2, Circle, Lightbulb, Plus, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -25,6 +25,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { apiFetch } from "@/lib/api";
+import type { BriefingRecommendation } from "@/types/briefing";
 
 interface Milestone {
   title: string;
@@ -73,6 +74,8 @@ export default function GoalsPage() {
   const [creating, setCreating] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
   const [progressMap, setProgressMap] = useState<Record<string, Progress>>({});
+  const [recommendationsMap, setRecommendationsMap] = useState<Record<string, BriefingRecommendation[]>>({});
+  const [unanchored, setUnanchored] = useState<BriefingRecommendation[]>([]);
   // Per-goal input state
   const [milestoneInputs, setMilestoneInputs] = useState<Record<string, string>>({});
   const [checkInInputs, setCheckInInputs] = useState<Record<string, string>>({});
@@ -89,6 +92,29 @@ export default function GoalsPage() {
   };
 
   useEffect(loadGoals, [token]);
+
+  const loadRecommendations = async (path: string, title: string) => {
+    if (!token) return;
+    try {
+      const recs = await apiFetch<BriefingRecommendation[]>(
+        `/api/recommendations?search=${encodeURIComponent(title)}&limit=3`,
+        {},
+        token
+      );
+      setRecommendationsMap((prev) => ({ ...prev, [path]: recs }));
+    } catch {
+      /* no recs */
+    }
+  };
+
+  const loadUnanchored = () => {
+    if (!token) return;
+    apiFetch<BriefingRecommendation[]>("/api/recommendations?limit=4", {}, token)
+      .then(setUnanchored)
+      .catch(() => {});
+  };
+
+  useEffect(loadUnanchored, [token]);
 
   const loadProgress = async (path: string) => {
     if (!token) return;
@@ -283,7 +309,10 @@ export default function GoalsPage() {
                   onClick={() => {
                     const next = selectedGoal === g.path ? null : g.path;
                     setSelectedGoal(next);
-                    if (next) loadProgress(g.path);
+                    if (next) {
+                      loadProgress(g.path);
+                      loadRecommendations(g.path, g.title);
+                    }
                   }}
                 >
                   <div className="flex items-center justify-between">
@@ -410,11 +439,69 @@ export default function GoalsPage() {
                         </Button>
                       )}
                     </div>
+
+                    {/* Goal-contextual recommendations */}
+                    {recommendationsMap[g.path]?.length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="flex items-center gap-1.5 text-sm font-medium">
+                          <Lightbulb className="h-4 w-4 text-yellow-500" />
+                          Suggested next moves
+                        </h4>
+                        {recommendationsMap[g.path].map((rec) => (
+                          <div
+                            key={rec.id}
+                            className="flex items-start gap-2 rounded-md border px-3 py-2 text-sm"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <span className="font-medium">{rec.title}</span>
+                              <Badge variant="secondary" className="ml-2 text-xs">
+                                {rec.category}
+                              </Badge>
+                              {rec.description && (
+                                <p className="mt-0.5 text-muted-foreground line-clamp-1">
+                                  {rec.description}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 )}
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* Unanchored recommendations */}
+      {!loading && goals.length > 0 && unanchored.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <Lightbulb className="h-4 w-4" />
+            Worth exploring
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {unanchored.map((rec) => (
+              <div
+                key={rec.id}
+                className="rounded-lg border px-4 py-3 text-sm"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{rec.title}</span>
+                  <Badge variant="secondary" className="text-xs">
+                    {rec.category}
+                  </Badge>
+                </div>
+                {rec.description && (
+                  <p className="mt-1 text-muted-foreground line-clamp-1">
+                    {rec.description}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

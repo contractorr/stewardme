@@ -157,8 +157,6 @@ Config locations (checked in order): `./config.yaml` → `~/.coach/config.yaml` 
 | `/goals` | Goals + milestones + check-ins |
 | `/intel` | Intelligence feed |
 | `/trends` | Topic trend visualization |
-| `/learning` | Learning paths |
-| `/projects` | Project discovery |
 | `/settings` | API key management (Fernet-encrypted) |
 
 ## MCP server

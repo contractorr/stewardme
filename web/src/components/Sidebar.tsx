@@ -5,10 +5,8 @@ import { usePathname } from "next/navigation";
 import {
   BookOpen,
   Brain,
-  GraduationCap,
   Home,
   Newspaper,
-  Rocket,
   Settings,
   Target,
   X,
@@ -27,8 +25,6 @@ const primaryNav = [
 const discoverNav = [
   { href: "/advisor", label: "Conversations", icon: Brain },
   { href: "/intel", label: "Radar", icon: Newspaper },
-  { href: "/learning", label: "Learning", icon: GraduationCap },
-  { href: "/projects", label: "Projects", icon: Rocket },
 ];
 
 export function Sidebar({

@@ -14,10 +14,9 @@ from web.routes import (
     goals,
     intel,
     journal,
-    learning,
     onboarding,
     profile,
-    projects,
+    recommendations,
     research,
     settings,
     user,
@@ -78,8 +77,7 @@ app.include_router(intel.router)
 app.include_router(research.router)
 app.include_router(onboarding.router)
 app.include_router(briefing.router)
-app.include_router(learning.router)
-app.include_router(projects.router)
+app.include_router(recommendations.router)
 app.include_router(engagement.router)
 app.include_router(profile.router)
 app.include_router(user.router)
