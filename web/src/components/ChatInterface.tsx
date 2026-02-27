@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
-import ReactMarkdown from "react-markdown";
+import { MessageRenderer } from "@/components/MessageRenderer";
 import {
   AlertTriangle,
   ArrowRight,
@@ -870,9 +870,7 @@ export function ChatInterface({
               </CardHeader>
               <CardContent>
                 {msg.role === "assistant" ? (
-                  <div className="prose prose-sm max-w-none dark:prose-invert">
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
-                  </div>
+                  <MessageRenderer content={msg.content} onAction={handleChipClick} />
                 ) : (
                   <div className="text-sm">{msg.content}</div>
                 )}
@@ -977,9 +975,7 @@ export function ChatInterface({
               }
             >
               {msg.role === "assistant" ? (
-                <div className="prose prose-sm max-w-none dark:prose-invert">
-                  <ReactMarkdown>{msg.content}</ReactMarkdown>
-                </div>
+                <MessageRenderer content={msg.content} onAction={handleChipClick} />
               ) : (
                 <p className="text-sm">{msg.content}</p>
               )}

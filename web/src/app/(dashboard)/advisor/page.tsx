@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
-import ReactMarkdown from "react-markdown";
+import { MessageRenderer } from "@/components/MessageRenderer";
 import { Brain, Send, Plus, MessageSquare, Trash2 } from "lucide-react";
 import { useToken } from "@/hooks/useToken";
 import { Button } from "@/components/ui/button";
@@ -59,6 +59,7 @@ export default function AdvisorPage() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const loadConversations = useCallback(async () => {
     if (!token) return;
@@ -284,9 +285,7 @@ export default function AdvisorPage() {
               </CardHeader>
               <CardContent>
                 {msg.role === "assistant" ? (
-                  <div className="prose prose-sm max-w-none dark:prose-invert">
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
-                  </div>
+                  <MessageRenderer content={msg.content} onAction={(text) => { setInput(text); setTimeout(() => textareaRef.current?.focus(), 100); }} />
                 ) : (
                   <div className="text-sm">{msg.content}</div>
                 )}
@@ -312,6 +311,7 @@ export default function AdvisorPage() {
         {/* Input */}
         <div className="mt-4 flex gap-2">
           <Textarea
+            ref={textareaRef}
             rows={2}
             placeholder="Ask me anything..."
             value={input}

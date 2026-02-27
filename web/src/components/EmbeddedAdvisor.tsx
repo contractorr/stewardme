@@ -3,7 +3,7 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import ReactMarkdown from "react-markdown";
+import { MessageRenderer } from "@/components/MessageRenderer";
 import { Brain, Send, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -187,9 +187,7 @@ export function EmbeddedAdvisor({
                 {msg.role === "user" ? "You" : "Steward"}
               </span>
               {msg.role === "assistant" ? (
-                <div className="prose prose-sm max-w-none dark:prose-invert">
-                  <ReactMarkdown>{msg.content}</ReactMarkdown>
-                </div>
+                <MessageRenderer content={msg.content} onAction={(text) => { setInput(text); setTimeout(() => textareaRef.current?.focus(), 100); }} compact />
               ) : (
                 <span>{msg.content}</span>
               )}
