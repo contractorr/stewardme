@@ -72,6 +72,35 @@ def _learning_path_progress(args: dict) -> dict:
     return {"success": False, "error": "Learning path not found"}
 
 
+def _learning_check_in(args: dict) -> dict:
+    """Check in on a learning module. Returns updated path + context for Claude to reason over."""
+    c = get_components()
+    storage = _get_lp_storage(c)
+    path_id = args["path_id"]
+    action = args["action"]
+    module_number = args.get("module_number")
+
+    path = storage.get(path_id)
+    if not path:
+        return {"error": "Learning path not found"}
+
+    if not module_number:
+        module_number = path.get("completed_modules", 0) + 1
+
+    result = storage.check_in(path_id, module_number, action)
+    if not result:
+        return {"error": "Check-in failed"}
+
+    return {
+        "success": True,
+        "path": result,
+        "action": action,
+        "module_number": module_number,
+        "needs_deep_dive": action == "deepen",
+        "instruction": "If action is 'deepen', generate a deep-dive subsection for this module and present it to the user.",
+    }
+
+
 TOOLS = [
     (
         "learning_gaps",
@@ -126,5 +155,26 @@ TOOLS = [
             "required": ["path_id", "completed_modules"],
         },
         _learning_path_progress,
+    ),
+    (
+        "learning_check_in",
+        {
+            "description": "Check in on a learning module with continue/deepen/skip. Returns updated path + context.",
+            "type": "object",
+            "properties": {
+                "path_id": {"type": "string", "description": "Learning path ID"},
+                "action": {
+                    "type": "string",
+                    "description": "Check-in action",
+                    "enum": ["continue", "deepen", "skip"],
+                },
+                "module_number": {
+                    "type": "integer",
+                    "description": "Module number (defaults to current)",
+                },
+            },
+            "required": ["path_id", "action"],
+        },
+        _learning_check_in,
     ),
 ]

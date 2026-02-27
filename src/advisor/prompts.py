@@ -521,6 +521,30 @@ Guidelines:
 - Call multiple tools if needed for complete context
 - Don't over-fetch — be strategic about which tools to call"""
 
+    CHECK_IN_ANALYSIS = """Analyze this learning check-in and provide brief adaptive feedback.
+
+SKILL: {skill}
+MODULE {module_number}: {module_title}
+ACTION: {action}
+CHECK-IN HISTORY: {check_in_history}
+PROGRESS: {completed}/{total} modules
+
+Provide 2-3 sentences: acknowledge the action, suggest what to focus on next, and any encouragement or adjustment based on the pattern of check-ins."""
+
+    DEEP_DIVE_GENERATION = """Generate a deep-dive subsection for this learning module.
+
+SKILL: {skill}
+MODULE: {module_title}
+MODULE CONTENT:
+{module_content}
+
+Create a focused deep-dive that:
+- Expands on the most important concept in this module
+- Includes a practical exercise or worked example
+- Adds 2-3 additional resources (prefer free)
+
+Format as markdown starting with #### Deep Dive. Keep under 500 words."""
+
     @classmethod
     def get_prompt(cls, prompt_type: str, with_research: bool = False) -> str:
         """Get prompt template by type.

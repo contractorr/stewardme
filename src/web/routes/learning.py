@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from web.auth import get_current_user
 from web.deps import get_api_key_for_user, get_config, get_user_paths, safe_user_id
-from web.models import LearningGenerate, LearningProgress
+from web.models import LearningCheckIn, LearningCheckInResponse, LearningGenerate, LearningProgress
 
 logger = structlog.get_logger()
 
@@ -53,6 +53,56 @@ async def update_progress(
     if not ok:
         raise HTTPException(status_code=404, detail="Learning path not found")
     return {"ok": True}
+
+
+@router.post("/{path_id}/check-in", response_model=LearningCheckInResponse)
+async def check_in(
+    path_id: str,
+    body: LearningCheckIn,
+    user: dict = Depends(get_current_user),
+):
+    """Interactive check-in on a learning module."""
+    user_id = user["id"]
+    storage = _get_storage(user_id)
+
+    path = storage.get(path_id)
+    if not path:
+        raise HTTPException(status_code=404, detail="Learning path not found")
+
+    module_number = path.get("completed_modules", 0) + 1
+    result = storage.check_in(path_id, module_number, body.action)
+    if not result:
+        raise HTTPException(status_code=400, detail="Check-in failed")
+
+    deep_dive_content = None
+    if body.action == "deepen":
+        config = get_config()
+        api_key = get_api_key_for_user(user_id, config.llm.provider)
+        if api_key:
+            try:
+                from advisor.learning_paths import SubModuleGenerator
+                from llm.factory import create_llm_provider
+
+                provider = create_llm_provider(
+                    provider=config.llm.provider,
+                    api_key=api_key,
+                    model=config.llm.model,
+                )
+
+                def llm_caller(system, prompt, max_tokens=2000):
+                    return provider.generate(system=system, prompt=prompt, max_tokens=max_tokens)
+
+                gen = SubModuleGenerator(llm_caller, storage)
+                deep_dive_content = await asyncio.to_thread(
+                    gen.generate_deep_dive, path_id, module_number
+                )
+            except Exception as e:
+                logger.error("learning.deep_dive_error", error=str(e))
+
+    return LearningCheckInResponse(
+        path=result,
+        deep_dive_content=deep_dive_content,
+    )
 
 
 @router.post("/generate")

@@ -110,6 +110,48 @@ class LearningPathStorage:
                 continue
         return False
 
+    def check_in(self, path_id: str, module_number: int, action: str) -> dict | None:
+        """Record check-in on a module. action: continue|deepen|skip.
+
+        Returns updated path dict or None if not found/invalid.
+        """
+        if action not in ("continue", "deepen", "skip"):
+            return None
+
+        for f in self.dir.glob("*.md"):
+            try:
+                post = frontmatter.load(f)
+                if str(post.metadata.get("id")) != path_id:
+                    continue
+
+                # Record check-in in frontmatter
+                check_ins = post.metadata.get("check_ins", [])
+                check_ins.append(
+                    {
+                        "module": module_number,
+                        "action": action,
+                        "timestamp": datetime.now().isoformat(),
+                    }
+                )
+                post.metadata["check_ins"] = check_ins
+                post.metadata["updated_at"] = datetime.now().isoformat()
+
+                # continue/skip increment progress; deepen does not
+                if action in ("continue", "skip"):
+                    total = post.metadata.get("total_modules", 1) or 1
+                    completed = post.metadata.get("completed_modules", 0) + 1
+                    completed = min(completed, total)
+                    post.metadata["completed_modules"] = completed
+                    post.metadata["progress"] = round(completed / total * 100)
+                    if completed >= total:
+                        post.metadata["status"] = "completed"
+
+                f.write_text(frontmatter.dumps(post))
+                return {**post.metadata, "content": post.content, "path": str(f)}
+            except Exception:
+                continue
+        return None
+
     def _count_modules(self, content: str) -> int:
         """Count modules in learning path content."""
         return max(1, len(re.findall(r"^###\s+Module\s+\d+", content, re.MULTILINE)))
@@ -200,3 +242,55 @@ FULL PATH:
 Give a concise, actionable suggestion for this week's study session."""
 
         return self.llm_caller(PromptTemplates.SYSTEM, prompt, max_tokens=500)
+
+
+class SubModuleGenerator:
+    """Generate deep-dive content and inject into learning path markdown."""
+
+    def __init__(self, llm_caller, storage: LearningPathStorage):
+        self.llm_caller = llm_caller
+        self.storage = storage
+
+    def generate_deep_dive(self, path_id: str, module_number: int) -> str | None:
+        """Generate deep-dive subsection, inject into path markdown, return content."""
+        path_data = self.storage.get(path_id)
+        if not path_data:
+            return None
+
+        content = path_data["content"]
+        skill = path_data.get("skill", "")
+
+        # Extract target module section
+        pattern = rf"(###\s+Module\s+{module_number}\b[^\n]*\n)(.*?)(?=###\s+Module\s+\d+|##\s+|\Z)"
+        match = re.search(pattern, content, re.DOTALL)
+        if not match:
+            return None
+
+        module_header = match.group(1).strip()
+        module_body = match.group(2).strip()
+        module_title = re.sub(r"^###\s+Module\s+\d+\s*:\s*", "", module_header).strip()
+
+        prompt = PromptTemplates.DEEP_DIVE_GENERATION.format(
+            skill=skill,
+            module_title=module_title,
+            module_content=f"{module_header}\n{module_body}",
+        )
+
+        deep_dive = self.llm_caller(PromptTemplates.SYSTEM, prompt, max_tokens=1500)
+
+        # Ensure it starts with #### Deep Dive
+        if not deep_dive.strip().startswith("#### Deep Dive"):
+            deep_dive = "#### Deep Dive\n\n" + deep_dive.strip()
+
+        # Inject at end of module section (before next ### Module or ## or EOF)
+        insert_pos = match.end(2)
+        new_content = content[:insert_pos].rstrip() + "\n\n" + deep_dive + "\n\n" + content[insert_pos:].lstrip()
+
+        # Write back
+        filepath = Path(path_data["path"])
+        post = frontmatter.load(filepath)
+        post.content = new_content
+        post.metadata["updated_at"] = datetime.now().isoformat()
+        filepath.write_text(frontmatter.dumps(post))
+
+        return deep_dive

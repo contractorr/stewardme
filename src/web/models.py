@@ -309,6 +309,16 @@ class LearningProgress(BaseModel):
     completed_modules: int = Field(..., ge=0)
 
 
+class LearningCheckIn(BaseModel):
+    action: str = Field(..., pattern=r"^(continue|deepen|skip)$")
+
+
+class LearningCheckInResponse(BaseModel):
+    path: dict
+    deep_dive_content: Optional[str] = None
+    feedback: Optional[str] = None
+
+
 # --- Projects ---
 
 

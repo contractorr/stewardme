@@ -15,6 +15,7 @@ from web.routes import (
     goals,
     intel,
     journal,
+    learning,
     onboarding,
     pageview,
     profile,
@@ -84,6 +85,7 @@ app.include_router(engagement.router)
 app.include_router(profile.router)
 app.include_router(user.router)
 app.include_router(pageview.router)
+app.include_router(learning.router)
 app.include_router(admin.router)
 
 

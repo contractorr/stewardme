@@ -160,6 +160,68 @@ def learn_next():
         sys.exit(1)
 
 
+@learn.command("check-in")
+@click.argument("path_id")
+def learn_check_in(path_id: str):
+    """Interactive check-in on your current learning module."""
+    c = get_components(skip_advisor=True)
+    storage = _get_lp_storage(c["config"])
+
+    path = storage.get(path_id)
+    if not path:
+        console.print(f"[red]Learning path {path_id} not found[/]")
+        return
+
+    current_module = path.get("completed_modules", 0) + 1
+    total = path.get("total_modules", 1)
+
+    if current_module > total:
+        console.print("[green]All modules completed![/]")
+        return
+
+    # Extract module title from content
+    import re
+
+    pattern = rf"###\s+Module\s+{current_module}\b[^\n]*"
+    match = re.search(pattern, path.get("content", ""))
+    module_title = match.group(0).strip() if match else f"Module {current_module}"
+
+    console.print(f"\n[cyan bold]{path['skill']}[/] — {module_title}")
+    console.print(f"[dim]Progress: {path['completed_modules']}/{total} modules[/]\n")
+
+    action = click.prompt(
+        "Action",
+        type=click.Choice(["continue", "deepen", "skip"], case_sensitive=False),
+    )
+
+    result = storage.check_in(path_id, current_module, action)
+    if not result:
+        console.print("[red]Check-in failed[/]")
+        return
+
+    if action == "deepen":
+        from advisor.learning_paths import SubModuleGenerator
+
+        try:
+            full_c = get_components()
+            generator = SubModuleGenerator(full_c["advisor"]._call_llm, storage)
+            with console.status("Generating deep dive..."):
+                deep_dive = generator.generate_deep_dive(path_id, current_module)
+            if deep_dive:
+                console.print()
+                console.print(Markdown(deep_dive))
+            else:
+                console.print("[yellow]Could not generate deep dive[/]")
+        except Exception as e:
+            console.print(f"[yellow]Deep dive unavailable: {e}[/]")
+    else:
+        console.print(
+            f"[green]Updated:[/] {result['completed_modules']}/{result['total_modules']} modules ({result['progress']}%)"
+        )
+        if result.get("status") == "completed":
+            console.print("[bold green]Learning path completed![/]")
+
+
 @learn.command("view")
 @click.argument("path_id")
 def learn_view(path_id: str):
