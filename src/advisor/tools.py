@@ -62,6 +62,7 @@ class ToolRegistry:
         self._register_journal_tools()
         self._register_goal_tools()
         self._register_intel_tools()
+        self._register_rss_tools()
         self._register_misc_tools()
 
     # --- Journal tools ---
@@ -446,6 +447,113 @@ class ToolRegistry:
                 "required": [],
             },
             intel_get_recent,
+        )
+
+    # --- RSS feed management tools ---
+
+    def _register_rss_tools(self):
+        user_id = self.components.get("user_id")
+        if not user_id:
+            return
+
+        def intel_list_rss_feeds(args: dict) -> dict:
+            from web.user_store import get_user_rss_feeds
+
+            feeds = get_user_rss_feeds(user_id)
+            return {
+                "feeds": [
+                    {"url": f["url"], "name": f["name"], "added_by": f["added_by"]}
+                    for f in feeds
+                ],
+                "count": len(feeds),
+            }
+
+        self._register(
+            "intel_list_rss_feeds",
+            "List the user's custom RSS feeds. Check before suggesting duplicates.",
+            {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
+            intel_list_rss_feeds,
+        )
+
+        def intel_add_rss_feed(args: dict) -> dict:
+            import asyncio
+            from urllib.parse import urlparse
+
+            import httpx
+
+            from web.user_store import add_user_rss_feed
+
+            url = args["url"]
+            name = args.get("name")
+            reason = args.get("reason", "")
+
+            # Validate URL scheme
+            parsed = urlparse(url)
+            if parsed.scheme not in ("http", "https"):
+                return {"error": "URL must be http or https"}
+
+            # Validate feed
+            try:
+                with httpx.Client(timeout=10, follow_redirects=True) as client:
+                    resp = client.get(url, headers={"User-Agent": "CoachBot/1.0"})
+                    resp.raise_for_status()
+                    snippet = resp.text[:2048].lower()
+                    if "<rss" not in snippet and "<feed" not in snippet and "<channel" not in snippet:
+                        return {"error": "URL does not appear to be a valid RSS/Atom feed"}
+            except httpx.HTTPError as e:
+                return {"error": f"Failed to fetch feed: {e}"}
+
+            # Persist
+            feed = add_user_rss_feed(user_id, url, name, added_by="advisor")
+
+            # One-shot scrape
+            items_scraped = 0
+            try:
+                from intelligence.sources import RSSFeedScraper
+
+                intel_storage = self.components["intel_storage"]
+                scraper = RSSFeedScraper(intel_storage, url, name=name)
+                items = asyncio.get_event_loop().run_until_complete(scraper.scrape())
+                items_scraped = asyncio.get_event_loop().run_until_complete(
+                    scraper.save_items(items)
+                )
+                asyncio.get_event_loop().run_until_complete(scraper.close())
+            except Exception as e:
+                logger.warning("rss_oneshot_scrape_failed", url=url, error=str(e))
+
+            return {
+                "added": True,
+                "feed": feed,
+                "items_scraped": items_scraped,
+                "reason": reason,
+            }
+
+        self._register(
+            "intel_add_rss_feed",
+            "Add an RSS/Atom feed to the user's custom intel sources. Validates the URL and does an immediate scrape.",
+            {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "RSS/Atom feed URL",
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Display name for the feed",
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Why this feed is relevant to the user",
+                    },
+                },
+                "required": ["url"],
+            },
+            intel_add_rss_feed,
         )
 
     # --- Misc tools (recommendations, profile, context) ---

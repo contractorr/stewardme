@@ -73,6 +73,7 @@ def _get_engine(user_id: str, use_tools: bool = False):
             "rag": rag,
             "profile_path": str(paths["profile"]),
             "recommendations_dir": paths["recommendations_dir"],
+            "user_id": user_id,
         }
 
     return AdvisorEngine(

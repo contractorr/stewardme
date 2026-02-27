@@ -213,9 +213,24 @@ class IntelScheduler:
         if "hn_top" in enabled and "hn" not in rss_covered_sources:
             self._scrapers.append(HackerNewsScraper(self.storage))
 
+        config_rss_urls: set[str] = set()
         if "rss_feeds" in enabled:
             for url in self.config.get("rss_feeds", []):
                 self._scrapers.append(RSSFeedScraper(self.storage, url))
+                config_rss_urls.add(url)
+
+        # Merge user-added RSS feeds
+        try:
+            from web.user_store import get_all_user_rss_feeds
+
+            for feed in get_all_user_rss_feeds():
+                if feed["url"] not in config_rss_urls:
+                    self._scrapers.append(
+                        RSSFeedScraper(self.storage, feed["url"], name=feed.get("name"))
+                    )
+                    config_rss_urls.add(feed["url"])
+        except Exception:
+            pass  # web module may not be available in CLI mode
 
         if "custom_blogs" in enabled:
             for url in self.config.get("custom_blogs", []):

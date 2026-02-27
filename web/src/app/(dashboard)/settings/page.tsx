@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Pencil, Check, X, RefreshCw } from "lucide-react";
+import { Pencil, Check, X, RefreshCw, Rss, Loader2, Trash2, Plus } from "lucide-react";
 import { useToken } from "@/hooks/useToken";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,6 +44,14 @@ interface Settings {
 interface UserMe {
   name: string | null;
   email: string | null;
+}
+
+interface RSSFeed {
+  id: number;
+  url: string;
+  name: string | null;
+  added_by: string;
+  created_at: string;
 }
 
 interface ProfileData {
@@ -357,6 +365,10 @@ export default function SettingsPage() {
   const [editingName, setEditingName] = useState(false);
   const [savingName, setSavingName] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [rssFeeds, setRssFeeds] = useState<RSSFeed[]>([]);
+  const [rssUrl, setRssUrl] = useState("");
+  const [rssAdding, setRssAdding] = useState(false);
+  const [rssRemoving, setRssRemoving] = useState<string | null>(null);
 
   const isDirty = Object.keys(form).length > 0;
 
@@ -370,6 +382,9 @@ export default function SettingsPage() {
       .catch(() => {}); // profile may not exist yet
     apiFetch<UserMe>("/api/user/me", {}, token)
       .then((u) => { setUserMe(u); setNameDraft(u.name || ""); })
+      .catch(() => {});
+    apiFetch<RSSFeed[]>("/api/intel/rss-feeds", {}, token)
+      .then(setRssFeeds)
       .catch(() => {});
   }, [token]);
 
@@ -412,6 +427,43 @@ export default function SettingsPage() {
       toast.error((e as Error).message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleAddFeed = async () => {
+    if (!token || !rssUrl.trim()) return;
+    setRssAdding(true);
+    try {
+      const feed = await apiFetch<RSSFeed>(
+        "/api/intel/rss-feeds",
+        { method: "POST", body: JSON.stringify({ url: rssUrl.trim() }) },
+        token
+      );
+      setRssFeeds((prev) => [feed, ...prev]);
+      setRssUrl("");
+      toast.success("Feed added");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setRssAdding(false);
+    }
+  };
+
+  const handleRemoveFeed = async (url: string) => {
+    if (!token) return;
+    setRssRemoving(url);
+    try {
+      await apiFetch(
+        "/api/intel/rss-feeds",
+        { method: "DELETE", body: JSON.stringify({ url }) },
+        token
+      );
+      setRssFeeds((prev) => prev.filter((f) => f.url !== url));
+      toast.success("Feed removed");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setRssRemoving(null);
     }
   };
 
@@ -536,6 +588,67 @@ export default function SettingsPage() {
             hint={settings.github_token_hint}
             description="Optional. Raises GitHub scraper rate limit from 60 to 5,000 req/hr. Needs only public_repo scope."
           />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Rss className="h-4 w-4" />
+            RSS Feeds
+          </CardTitle>
+          <CardDescription>Custom feeds added to your intel radar</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {rssFeeds.length === 0 && (
+            <p className="text-sm text-muted-foreground">No custom feeds yet.</p>
+          )}
+          {rssFeeds.map((feed) => (
+            <div key={feed.id} className="flex items-center justify-between gap-2 rounded-md border p-2">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">
+                  {feed.name || new URL(feed.url).hostname}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">{feed.url}</p>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {feed.added_by === "advisor" && (
+                  <Badge variant="outline" className="text-[10px]">advisor</Badge>
+                )}
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
+                  disabled={rssRemoving === feed.url}
+                  onClick={() => handleRemoveFeed(feed.url)}
+                >
+                  {rssRemoving === feed.url
+                    ? <Loader2 className="h-3 w-3 animate-spin" />
+                    : <Trash2 className="h-3 w-3" />
+                  }
+                </Button>
+              </div>
+            </div>
+          ))}
+          <div className="flex gap-2">
+            <Input
+              value={rssUrl}
+              onChange={(e) => setRssUrl(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleAddFeed()}
+              placeholder="https://example.com/feed.xml"
+              className="h-8 text-sm"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleAddFeed}
+              disabled={rssAdding || !rssUrl.trim()}
+              className="h-8 shrink-0"
+            >
+              {rssAdding ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Plus className="mr-1 h-3 w-3" />}
+              Add
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

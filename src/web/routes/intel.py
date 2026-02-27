@@ -1,12 +1,30 @@
 """Intelligence feed routes."""
 
+from urllib.parse import urlparse
+
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 
 from intelligence.scraper import IntelStorage
 from web.auth import get_current_user
 from web.deps import get_coach_paths, get_config
+from web.user_store import (
+    add_user_rss_feed,
+    get_user_rss_feeds,
+    remove_user_rss_feed,
+)
 
 router = APIRouter(prefix="/api/intel", tags=["intel"])
+
+
+class RSSFeedAdd(BaseModel):
+    url: str
+    name: str | None = None
+
+
+class RSSFeedRemove(BaseModel):
+    url: str
 
 
 def _get_storage() -> IntelStorage:
@@ -44,13 +62,55 @@ async def get_health(user: dict = Depends(get_current_user)):
     return {"scrapers": tracker.get_all_health()}
 
 
+@router.get("/rss-feeds")
+async def list_rss_feeds(user: dict = Depends(get_current_user)):
+    """List user's custom RSS feeds."""
+    return get_user_rss_feeds(user["id"])
+
+
+@router.post("/rss-feeds")
+async def add_rss_feed(body: RSSFeedAdd, user: dict = Depends(get_current_user)):
+    """Validate and add an RSS feed."""
+    parsed = urlparse(body.url)
+    if parsed.scheme not in ("http", "https"):
+        raise HTTPException(status_code=400, detail="URL must be http or https")
+
+    # Validate feed is reachable and looks like RSS/Atom
+    try:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+            resp = await client.get(body.url, headers={"User-Agent": "CoachBot/1.0"})
+            resp.raise_for_status()
+            snippet = resp.text[:2048].lower()
+            if "<rss" not in snippet and "<feed" not in snippet and "<channel" not in snippet:
+                raise HTTPException(
+                    status_code=400,
+                    detail="URL does not appear to be a valid RSS/Atom feed",
+                )
+    except httpx.HTTPError as e:
+        raise HTTPException(status_code=400, detail=f"Failed to fetch feed: {e}")
+
+    feed = add_user_rss_feed(user["id"], body.url, body.name, added_by="user")
+    return feed
+
+
+@router.delete("/rss-feeds")
+async def delete_rss_feed(body: RSSFeedRemove, user: dict = Depends(get_current_user)):
+    """Remove a user's RSS feed."""
+    removed = remove_user_rss_feed(user["id"], body.url)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Feed not found")
+    return {"ok": True}
+
+
 @router.post("/scrape")
 async def scrape_now(user: dict = Depends(get_current_user)):
     """Trigger immediate scrape of all sources."""
     try:
         from intelligence.scheduler import IntelScheduler
+        from intelligence.sources import RSSFeedScraper
         from journal.embeddings import EmbeddingManager
         from journal.storage import JournalStorage
+        from web.user_store import get_all_user_rss_feeds
 
         config = get_config()
         paths = get_coach_paths()
@@ -65,6 +125,15 @@ async def scrape_now(user: dict = Depends(get_current_user)):
             embeddings=embeddings,
             full_config=config.to_dict(),
         )
+
+        # Merge user-added RSS feeds
+        config_urls = set(config.to_dict().get("sources", {}).get("rss_feeds", []))
+        for feed in get_all_user_rss_feeds():
+            if feed["url"] not in config_urls:
+                scheduler._scrapers.append(
+                    RSSFeedScraper(storage, feed["url"], name=feed.get("name"))
+                )
+
         result = await scheduler._run_async()
         return {"status": "completed", "result": result}
     except Exception as e:

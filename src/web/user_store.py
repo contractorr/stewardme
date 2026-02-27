@@ -92,6 +92,17 @@ def init_db(db_path: Path | None = None) -> None:
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
             CREATE INDEX IF NOT EXISTS idx_usage_event ON usage_events(event, created_at DESC);
+
+            CREATE TABLE IF NOT EXISTS user_rss_feeds (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL REFERENCES users(id),
+                url TEXT NOT NULL,
+                name TEXT,
+                added_by TEXT NOT NULL DEFAULT 'user',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, url)
+            );
+            CREATE INDEX IF NOT EXISTS idx_rss_user ON user_rss_feeds(user_id);
         """)
         conn.commit()
     finally:
@@ -521,10 +532,90 @@ def delete_user(
         conn.execute("DELETE FROM onboarding_responses WHERE user_id = ?", (user_id,))
         conn.execute("DELETE FROM engagement_events WHERE user_id = ?", (user_id,))
         conn.execute("DELETE FROM usage_events WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM user_rss_feeds WHERE user_id = ?", (user_id,))
         conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
         conn.commit()
         logger.info("user_store.user_deleted", user_id=user_id)
         return True
+    finally:
+        conn.close()
+
+
+# --- User RSS feeds ---
+
+
+def get_user_rss_feeds(
+    user_id: str,
+    db_path: Path | None = None,
+) -> list[dict]:
+    """Get all RSS feeds for a user."""
+    conn = _get_conn(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT id, user_id, url, name, added_by, created_at FROM user_rss_feeds "
+            "WHERE user_id = ? ORDER BY created_at DESC",
+            (user_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def add_user_rss_feed(
+    user_id: str,
+    url: str,
+    name: str | None = None,
+    added_by: str = "user",
+    db_path: Path | None = None,
+) -> dict:
+    """Upsert an RSS feed for a user. Returns the row."""
+    conn = _get_conn(db_path)
+    try:
+        conn.execute(
+            "INSERT INTO user_rss_feeds (user_id, url, name, added_by) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(user_id, url) DO UPDATE SET name = COALESCE(excluded.name, name)",
+            (user_id, url, name, added_by),
+        )
+        conn.commit()
+        row = conn.execute(
+            "SELECT id, user_id, url, name, added_by, created_at FROM user_rss_feeds "
+            "WHERE user_id = ? AND url = ?",
+            (user_id, url),
+        ).fetchone()
+        return dict(row)
+    finally:
+        conn.close()
+
+
+def remove_user_rss_feed(
+    user_id: str,
+    url: str,
+    db_path: Path | None = None,
+) -> bool:
+    """Remove an RSS feed for a user. Returns True if deleted."""
+    conn = _get_conn(db_path)
+    try:
+        cur = conn.execute(
+            "DELETE FROM user_rss_feeds WHERE user_id = ? AND url = ?",
+            (user_id, url),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def get_all_user_rss_feeds(
+    db_path: Path | None = None,
+) -> list[dict]:
+    """Get all user RSS feeds across all users (for scheduler merge)."""
+    conn = _get_conn(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT id, user_id, url, name, added_by, created_at FROM user_rss_feeds "
+            "ORDER BY created_at DESC"
+        ).fetchall()
+        return [dict(r) for r in rows]
     finally:
         conn.close()
 
