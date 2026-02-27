@@ -284,7 +284,13 @@ class SubModuleGenerator:
 
         # Inject at end of module section (before next ### Module or ## or EOF)
         insert_pos = match.end(2)
-        new_content = content[:insert_pos].rstrip() + "\n\n" + deep_dive + "\n\n" + content[insert_pos:].lstrip()
+        new_content = (
+            content[:insert_pos].rstrip()
+            + "\n\n"
+            + deep_dive
+            + "\n\n"
+            + content[insert_pos:].lstrip()
+        )
 
         # Write back
         filepath = Path(path_data["path"])

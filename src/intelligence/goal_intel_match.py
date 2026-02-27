@@ -249,9 +249,7 @@ class GoalIntelMatcher:
         matches.sort(key=lambda m: m["score"], reverse=True)
         return matches
 
-    def match_all_goals(
-        self, goals: list[dict], days: int = 7, limit: int = 100
-    ) -> list[dict]:
+    def match_all_goals(self, goals: list[dict], days: int = 7, limit: int = 100) -> list[dict]:
         """Match all goals against recent intel. Single DB call for intel."""
         intel_items = self.intel_storage.get_recent(days=days, limit=500)
         if not intel_items:

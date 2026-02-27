@@ -41,7 +41,9 @@ def today():
 
     learning_paths: list[dict] = []
     try:
-        lp_dir = Path(c["config"].get("learning_paths", {}).get("dir", "~/coach/learning_paths")).expanduser()
+        lp_dir = Path(
+            c["config"].get("learning_paths", {}).get("dir", "~/coach/learning_paths")
+        ).expanduser()
         if lp_dir.exists():
             learning_paths = LearningPathStorage(lp_dir).list_paths(status="active")
     except Exception:
@@ -67,7 +69,9 @@ def today():
         console.print("[yellow]Nothing for today.[/]")
         return
 
-    table = Table(title=f"Today's Focus ({brief.used_minutes}/{brief.budget_minutes} min)", show_header=True)
+    table = Table(
+        title=f"Today's Focus ({brief.used_minutes}/{brief.budget_minutes} min)", show_header=True
+    )
     table.add_column("#", style="bold", width=3)
     table.add_column("Type", style="cyan", width=14)
     table.add_column("Title")

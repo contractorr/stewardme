@@ -389,7 +389,10 @@ class IntelScheduler:
                     self._health.record_success(source)
                     try:
                         from web.user_store import log_event
-                        log_event("scraper_run", metadata={"source": source, "items_added": new_count})
+
+                        log_event(
+                            "scraper_run", metadata={"source": source, "items_added": new_count}
+                        )
                     except ImportError:
                         pass
                     metrics.counter("scraper_success")
@@ -783,9 +786,7 @@ class IntelScheduler:
                 for p in stats["page_views"]:
                     lines.append(f"  {p['path']}: {p['count']}")
 
-            log_dir = Path(
-                os.environ.get("COACH_HOME", Path.home() / "coach")
-            ) / "logs"
+            log_dir = Path(os.environ.get("COACH_HOME", Path.home() / "coach")) / "logs"
             log_dir.mkdir(parents=True, exist_ok=True)
             (log_dir / "weekly_summary.txt").write_text("\n".join(lines))
             logger.info("weekly_summary.written", path=str(log_dir / "weekly_summary.txt"))

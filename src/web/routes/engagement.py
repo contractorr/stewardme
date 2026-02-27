@@ -32,10 +32,14 @@ async def post_engagement(
         metadata=body.metadata,
     )
     if body.event_type in ("feedback_useful", "feedback_irrelevant"):
-        log_event("recommendation_feedback", user["id"], {
-            "category": (body.metadata or {}).get("category", ""),
-            "score": 1 if body.event_type == "feedback_useful" else -1,
-        })
+        log_event(
+            "recommendation_feedback",
+            user["id"],
+            {
+                "category": (body.metadata or {}).get("category", ""),
+                "score": 1 if body.event_type == "feedback_useful" else -1,
+            },
+        )
     return {"ok": True}
 
 

@@ -159,7 +159,9 @@ async def get_briefing(
     except Exception as e:
         logger.warning("briefing.goal_intel_matches_error", error=str(e))
 
-    has_data = bool(signals or patterns or recommendations or stale_goals or all_goals or goal_intel_matches)
+    has_data = bool(
+        signals or patterns or recommendations or stale_goals or all_goals or goal_intel_matches
+    )
 
     # Adaptation count — how many feedback events the user has given
     adaptation_count = 0
