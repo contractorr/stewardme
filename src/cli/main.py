@@ -18,10 +18,10 @@ from cli.commands import (
     goals,
     heartbeat,
     init,
-    memory,
     intel_export,
     journal,
     learn,
+    memory,
     opportunities,
     profile,
     projects,
@@ -31,6 +31,7 @@ from cli.commands import (
     review,
     scrape,
     sources,
+    threads,
     today,
     trends,
 )
@@ -61,6 +62,7 @@ cli.add_command(projects)
 cli.add_command(capabilities)
 cli.add_command(heartbeat)
 cli.add_command(memory)
+cli.add_command(threads)
 
 # Register standalone commands
 cli.add_command(ask)

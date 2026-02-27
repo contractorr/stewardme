@@ -33,6 +33,7 @@ def _load_tools() -> tuple[list[Tool], dict]:
         reflect,
         research,
         signals,
+        threads,
     )
 
     modules = [
@@ -49,6 +50,7 @@ def _load_tools() -> tuple[list[Tool], dict]:
         brief,
         heartbeat,
         memory,
+        threads,
     ]
     tools = []
     handlers = {}

@@ -29,6 +29,7 @@ class RAGRetriever:
         cache=None,
         fact_store=None,
         memory_config: Optional[dict] = None,
+        thread_store=None,
     ):
         self.journal = journal_search
         self.intel_db_path = Path(intel_db_path).expanduser() if intel_db_path else None
@@ -41,6 +42,7 @@ class RAGRetriever:
         self.cache = cache
         self._fact_store = fact_store
         self._memory_config = memory_config or {}
+        self._thread_store = thread_store
 
     def get_profile_context(self, structured: bool = False) -> str:
         """Load user profile summary for LLM context injection.
@@ -166,6 +168,68 @@ class RAGRetriever:
 
         lines.append("</user_memory>")
         return "\n".join(lines)
+
+    def get_recurring_thoughts_context(self, max_threads: int = 3) -> str:
+        """Get active recurring thought threads for system prompt injection.
+
+        Returns <recurring_thoughts> XML block, or empty string if no threads.
+        """
+        if not self._thread_store:
+            return ""
+
+        try:
+            import asyncio
+            from datetime import datetime, timedelta
+
+            loop = asyncio.get_event_loop()
+            threads = loop.run_until_complete(self._thread_store.get_active_threads(min_entries=2))
+
+            if not threads:
+                return ""
+
+            now = datetime.now()
+            thirty_days_ago = now - timedelta(days=30)
+
+            # Compute entries_last_30_days for sorting
+            scored = []
+            for t in threads:
+                entries = loop.run_until_complete(self._thread_store.get_thread_entries(t.id))
+                recent_count = sum(1 for e in entries if e.entry_date >= thirty_days_ago)
+                first_date = min(e.entry_date for e in entries) if entries else t.created_at
+                last_date = max(e.entry_date for e in entries) if entries else t.updated_at
+                weeks_span = max(1, (last_date - first_date).days // 7)
+                days_since_last = (now - last_date).days
+
+                scored.append(
+                    {
+                        "thread": t,
+                        "recent_count": recent_count,
+                        "weeks_span": weeks_span,
+                        "days_since_last": days_since_last,
+                    }
+                )
+
+            # Sort by recent activity
+            scored.sort(key=lambda x: x["recent_count"], reverse=True)
+            top = scored[:max_threads]
+
+            if not any(s["recent_count"] > 0 for s in top):
+                return ""
+
+            lines = ["<recurring_thoughts>", "The user has persistent recurring thoughts:"]
+            for i, s in enumerate(top, 1):
+                t = s["thread"]
+                ago = s["days_since_last"]
+                ago_str = "today" if ago == 0 else f"{ago} days ago"
+                lines.append(
+                    f'{i}. "{t.label}" — {t.entry_count} entries over '
+                    f"{s['weeks_span']} weeks, last {ago_str}"
+                )
+            lines.append("</recurring_thoughts>")
+            return "\n".join(lines)
+        except Exception as e:
+            logger.debug("recurring_thoughts_failed", error=str(e))
+            return ""
 
     def get_journal_context(
         self,

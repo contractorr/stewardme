@@ -351,6 +351,31 @@ class MemoryStats(BaseModel):
     by_category: dict = {}
 
 
+# --- Threads ---
+
+
+class ThreadSummary(BaseModel):
+    id: str = ""
+    label: str = ""
+    entry_count: int = 0
+    first_date: str = ""
+    last_date: str = ""
+    status: str = "active"
+
+
+class ThreadEntryItem(BaseModel):
+    entry_id: str = ""
+    entry_date: str = ""
+    similarity: float = 0.0
+
+
+class ThreadDetail(BaseModel):
+    id: str = ""
+    label: str = ""
+    entry_count: int = 0
+    entries: list[ThreadEntryItem] = []
+
+
 # --- Heartbeat ---
 
 

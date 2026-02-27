@@ -223,9 +223,12 @@ class AdvisorEngine:
                         f"- {g['title']} (last check: {g.get('days_since_check', '?')} days ago)\n"
                     )
 
+        # Recurring thought threads
+        recurring_ctx = self.rag.get_recurring_thoughts_context()
+
         profile_ctx = self.rag.get_profile_context()
         prompt = PromptTemplates.WEEKLY_REVIEW.format(
-            journal_context=profile_ctx + journal_ctx + stale_goals_ctx,
+            journal_context=profile_ctx + journal_ctx + stale_goals_ctx + recurring_ctx,
             intel_context=intel_ctx,
         )
 

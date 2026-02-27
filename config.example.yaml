@@ -121,6 +121,13 @@ memory:
   max_context_facts: 25
   high_confidence_threshold: 0.9
 
+# --- Threads: journal recurrence detection ---
+threads:
+  enabled: true
+  similarity_threshold: 0.78
+  min_entries_for_thread: 2
+  candidate_count: 10
+
 # --- Heartbeat: proactive intel-to-goal matching ---
 heartbeat:
   enabled: false

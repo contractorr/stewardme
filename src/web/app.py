@@ -24,6 +24,7 @@ from web.routes import (
     recommendations,
     research,
     settings,
+    threads,
     user,
 )
 from web.user_store import init_db
@@ -91,6 +92,7 @@ app.include_router(learning.router)
 app.include_router(admin.router)
 app.include_router(heartbeat.router)
 app.include_router(memory.router)
+app.include_router(threads.router)
 
 
 @app.get("/api/health")

@@ -1,9 +1,14 @@
 """Journal MCP tools — CRUD, search, RAG context retrieval, proactive coaching."""
 
+import asyncio
 from datetime import datetime, timedelta
 from pathlib import Path
 
+import structlog
+
 from coach_mcp.bootstrap import get_components
+
+logger = structlog.get_logger()
 
 
 def _get_context(args: dict) -> dict:
@@ -160,12 +165,83 @@ def _create(args: dict) -> dict:
         metadata=dict(post.metadata),
     )
 
-    return {
+    result = {
         "path": str(filepath),
         "filename": filepath.name,
         "title": post.get("title", ""),
         "type": entry_type,
     }
+
+    # Thread detection
+    thread_info = _detect_thread(c, str(filepath))
+    if thread_info:
+        result["thread"] = thread_info
+
+    return result
+
+
+def _detect_thread(c: dict, entry_id: str) -> dict | None:
+    """Post-write thread detection for MCP journal creates."""
+    try:
+        config_model = c.get("config_model")
+        if not config_model or not config_model.threads.enabled:
+            return None
+
+        emb_result = c["embeddings"].collection.get(ids=[entry_id], include=["embeddings"])
+        if not emb_result["embeddings"] or not emb_result["embeddings"][0]:
+            return None
+        embedding = emb_result["embeddings"][0]
+
+        entry_date = datetime.now()
+        try:
+            entry = c["storage"].read(Path(entry_id))
+            created = entry.get("created", "")
+            if created:
+                entry_date = datetime.fromisoformat(str(created).replace("Z", "+00:00")).replace(
+                    tzinfo=None
+                )
+        except Exception:
+            pass
+
+        from journal.thread_store import ThreadStore
+        from journal.threads import ThreadDetector
+
+        paths = c.get("paths", {})
+        intel_db = Path(paths.get("intel_db", "~/coach/intel.db")).expanduser()
+        db_path = intel_db.parent / "threads.db"
+        store = ThreadStore(db_path)
+        threads_cfg = config_model.threads
+        detector = ThreadDetector(
+            c["embeddings"],
+            store,
+            {
+                "similarity_threshold": threads_cfg.similarity_threshold,
+                "candidate_count": threads_cfg.candidate_count,
+                "min_entries_for_thread": threads_cfg.min_entries_for_thread,
+            },
+        )
+
+        loop = asyncio.get_event_loop()
+        match = loop.run_until_complete(detector.detect(entry_id, embedding, entry_date))
+
+        if match.match_type == "unthreaded":
+            return None
+
+        thread = loop.run_until_complete(store.get_thread(match.thread_id))
+        entries = loop.run_until_complete(store.get_thread_entries(match.thread_id))
+        dates = sorted(
+            set(te.entry_date.strftime("%Y-%m-%d") for te in entries if te.entry_id != entry_id)
+        )
+
+        return {
+            "thread_id": match.thread_id,
+            "match_type": match.match_type,
+            "entry_count": thread.entry_count if thread else 0,
+            "related_dates": dates[:10],
+        }
+    except Exception as e:
+        logger.debug("mcp_thread_detection_failed", error=str(e))
+        return None
 
 
 def _list(args: dict) -> dict:

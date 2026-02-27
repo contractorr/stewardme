@@ -1,9 +1,12 @@
 """Journal CLI commands."""
 
+import asyncio
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 import click
+import structlog
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.table import Table
@@ -11,6 +14,7 @@ from rich.table import Table
 from cli.utils import get_components
 
 console = Console()
+logger = structlog.get_logger()
 
 
 def resolve_journal_path(journal_dir: Path, filename: str) -> Optional[Path]:
@@ -31,6 +35,79 @@ def resolve_journal_path(journal_dir: Path, filename: str) -> Optional[Path]:
         m for m in journal_dir.glob(f"*{filename}*") if m.resolve().is_relative_to(journal_dir)
     ]
     return matches[0] if matches else None
+
+
+def _run_thread_detection(c: dict, entry_id: str) -> None:
+    """Post-write hook: run thread detection and print result."""
+    try:
+        threads_cfg = c["config_model"].threads
+        if not threads_cfg.enabled:
+            return
+
+        # Get embedding for the entry
+        result = c["embeddings"].collection.get(ids=[entry_id], include=["embeddings"])
+        if not result["embeddings"] or not result["embeddings"][0]:
+            return
+        embedding = result["embeddings"][0]
+
+        # Parse entry date from filename or use now
+        entry_date = datetime.now()
+        try:
+            entry = c["storage"].read(Path(entry_id))
+            created = entry.get("created", "")
+            if created:
+                entry_date = datetime.fromisoformat(str(created).replace("Z", "+00:00")).replace(
+                    tzinfo=None
+                )
+        except Exception:
+            pass
+
+        from journal.thread_store import ThreadStore
+        from journal.threads import ThreadDetector
+
+        db_path = c["paths"]["intel_db"].parent / "threads.db"
+        store = ThreadStore(db_path)
+        detector = ThreadDetector(
+            c["embeddings"],
+            store,
+            {
+                "similarity_threshold": threads_cfg.similarity_threshold,
+                "candidate_count": threads_cfg.candidate_count,
+                "min_entries_for_thread": threads_cfg.min_entries_for_thread,
+            },
+        )
+
+        match = asyncio.get_event_loop().run_until_complete(
+            detector.detect(entry_id, embedding, entry_date)
+        )
+
+        if match.match_type == "joined_existing":
+            thread = asyncio.get_event_loop().run_until_complete(store.get_thread(match.thread_id))
+            entries = asyncio.get_event_loop().run_until_complete(
+                store.get_thread_entries(match.thread_id)
+            )
+            dates = sorted(
+                set(te.entry_date.strftime("%b %-d") for te in entries if te.entry_id != entry_id)
+            )
+            first_date = entries[0].entry_date if entries else entry_date
+            console.print(
+                f"[dim]🔄 You've written about this {thread.entry_count} times since "
+                f"{first_date.strftime('%b %-d')} — thread includes entries from {', '.join(dates[:5])}[/]"
+            )
+        elif match.match_type == "created_new":
+            thread = asyncio.get_event_loop().run_until_complete(store.get_thread(match.thread_id))
+            entries = asyncio.get_event_loop().run_until_complete(
+                store.get_thread_entries(match.thread_id)
+            )
+            other_dates = sorted(
+                set(te.entry_date.strftime("%b %-d") for te in entries if te.entry_id != entry_id)
+            )
+            console.print(
+                f"[dim]🔄 New pattern detected — this connects with "
+                f"{len(other_dates)} earlier entries ({', '.join(other_dates[:5])})[/]"
+            )
+    except Exception as e:
+        logger.debug("thread_detection_failed", error=str(e))
 
 
 @click.group()
@@ -94,6 +171,9 @@ def journal_add(entry_type: str, title: str, tags: str, template_name: str, cont
     )
 
     console.print(f"[green]Created:[/] {filepath.name}")
+
+    # Thread detection
+    _run_thread_detection(c, str(filepath))
 
 
 @journal.command("list")

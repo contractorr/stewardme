@@ -254,6 +254,15 @@ class MemoryConfig(BaseModel):
     backfill_batch_size: int = 10
 
 
+class ThreadsConfig(BaseModel):
+    """Journal recurrence detection configuration."""
+
+    enabled: bool = True
+    similarity_threshold: float = 0.78
+    min_entries_for_thread: int = 2
+    candidate_count: int = 10
+
+
 class CoachConfig(BaseModel):
     """Main configuration model."""
 
@@ -270,6 +279,7 @@ class CoachConfig(BaseModel):
     rate_limits: RateLimitsConfig = Field(default_factory=RateLimitsConfig)
     heartbeat: HeartbeatConfig = Field(default_factory=HeartbeatConfig)
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
+    threads: ThreadsConfig = Field(default_factory=ThreadsConfig)
 
     @model_validator(mode="after")
     def expand_env_vars(self):

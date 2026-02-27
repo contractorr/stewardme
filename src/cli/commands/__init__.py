@@ -9,13 +9,14 @@ from .heartbeat import heartbeat
 from .init import init
 from .intelligence import brief, intel_export, scrape, sources
 from .journal import journal
-from .memory import memory
 from .learn import learn
+from .memory import memory
 from .profile import profile
 from .projects import projects
 from .recommend import recommend
 from .reflect import reflect
 from .research import research
+from .threads import threads
 from .trends import trends
 
 __all__ = [
@@ -43,4 +44,5 @@ __all__ = [
     "today",
     "heartbeat",
     "memory",
+    "threads",
 ]
