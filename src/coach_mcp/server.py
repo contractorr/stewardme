@@ -20,6 +20,7 @@ _handlers: dict | None = None
 def _load_tools() -> tuple[list[Tool], dict]:
     """Load tool definitions and handlers from all tool modules."""
     from coach_mcp.tools import (
+        brief,
         goals,
         intelligence,
         journal,
@@ -43,6 +44,7 @@ def _load_tools() -> tuple[list[Tool], dict]:
         learning,
         projects,
         signals,
+        brief,
     ]
     tools = []
     handlers = {}

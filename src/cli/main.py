@@ -29,6 +29,7 @@ from cli.commands import (
     review,
     scrape,
     sources,
+    today,
     trends,
 )
 from cli.config import load_config, setup_logging
@@ -69,6 +70,7 @@ cli.add_command(intel_export)
 cli.add_command(init)
 cli.add_command(trends)
 cli.add_command(reflect)
+cli.add_command(today)
 
 
 if __name__ == "__main__":

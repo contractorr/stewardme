@@ -51,6 +51,35 @@ export interface BriefingGoal {
   days_since_check: number;
 }
 
+export interface DailyBriefItem {
+  kind: "stale_goal" | "recommendation" | "learning" | "nudge" | "intel_match";
+  title: string;
+  description: string;
+  time_minutes: number;
+  action: string;
+  priority: number;
+}
+
+export interface DailyBrief {
+  items: DailyBriefItem[];
+  budget_minutes: number;
+  used_minutes: number;
+  generated_at: string;
+}
+
+export interface GoalIntelMatch {
+  id: number;
+  goal_path: string;
+  goal_title: string;
+  url: string;
+  title: string;
+  summary: string;
+  score: number;
+  urgency: "high" | "medium" | "low";
+  match_reasons: string[];
+  created_at: string;
+}
+
 export interface BriefingResponse {
   signals: BriefingSignal[];
   patterns: BriefingPattern[];
@@ -59,4 +88,6 @@ export interface BriefingResponse {
   goals: BriefingGoal[];
   has_data: boolean;
   adaptation_count: number;
+  daily_brief?: DailyBrief | null;
+  goal_intel_matches: GoalIntelMatch[];
 }

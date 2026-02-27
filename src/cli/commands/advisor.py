@@ -13,6 +13,80 @@ console = Console()
 
 
 @click.command()
+def today():
+    """Show today's prioritized action plan (no LLM needed)."""
+    from pathlib import Path
+
+    from rich.table import Table
+
+    from advisor.daily_brief import DailyBriefBuilder
+    from advisor.goals import GoalTracker
+    from advisor.learning_paths import LearningPathStorage
+    from advisor.recommendation_storage import RecommendationStorage
+    from cli.utils import get_profile_storage, get_rec_db_path
+
+    c = get_components(skip_advisor=True)
+
+    tracker = GoalTracker(c["storage"])
+    stale_goals = tracker.get_stale_goals(days_threshold=7)
+    all_goals = tracker.get_goals(include_inactive=False)
+
+    recs = []
+    try:
+        rec_dir = get_rec_db_path(c["config"])
+        if rec_dir.exists():
+            recs = RecommendationStorage(rec_dir).get_top_by_score(limit=5)
+    except Exception:
+        pass
+
+    learning_paths: list[dict] = []
+    try:
+        lp_dir = Path(c["config"].get("learning_paths", {}).get("dir", "~/coach/learning_paths")).expanduser()
+        if lp_dir.exists():
+            learning_paths = LearningPathStorage(lp_dir).list_paths(status="active")
+    except Exception:
+        pass
+
+    weekly_hours = 5
+    try:
+        prof = get_profile_storage(c["config"]).load()
+        if prof and hasattr(prof, "weekly_hours_available"):
+            weekly_hours = prof.weekly_hours_available or 5
+    except Exception:
+        pass
+
+    brief = DailyBriefBuilder().build(
+        stale_goals=stale_goals,
+        recommendations=recs,
+        learning_paths=learning_paths,
+        all_goals=all_goals,
+        weekly_hours=weekly_hours,
+    )
+
+    if not brief.items:
+        console.print("[yellow]Nothing for today.[/]")
+        return
+
+    table = Table(title=f"Today's Focus ({brief.used_minutes}/{brief.budget_minutes} min)", show_header=True)
+    table.add_column("#", style="bold", width=3)
+    table.add_column("Type", style="cyan", width=14)
+    table.add_column("Title")
+    table.add_column("Time", justify="right", width=6)
+
+    for item in brief.items:
+        table.add_row(
+            str(item.priority),
+            item.kind,
+            item.title,
+            f"{item.time_minutes}m",
+        )
+
+    console.print(table)
+    if brief.used_minutes > brief.budget_minutes:
+        console.print("[yellow]Over budget — consider trimming.[/]")
+
+
+@click.command()
 @click.argument("question")
 @click.option(
     "--type",

@@ -5,19 +5,21 @@ import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import {
   AlertTriangle,
+  ArrowRight,
   Brain,
   Check,
   ChevronDown,
   ChevronUp,
+  Clock,
   Lightbulb,
   PenLine,
   Plus,
+  Rss,
   Send,
   Sparkles,
   Target,
   ThumbsDown,
   ThumbsUp,
-  ArrowRight,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -70,6 +72,13 @@ function getGreeting(): string {
 
 function buildSuggestionChips(briefing: BriefingResponse | null): string[] {
   if (!briefing) return STATIC_CHIPS;
+
+  // Prefer daily brief actions as chips
+  if (briefing.daily_brief?.items?.length) {
+    const chips = briefing.daily_brief.items.slice(0, 4).map((item) => item.action);
+    return chips;
+  }
+
   const chips: string[] = [];
   for (const g of briefing.stale_goals) {
     if (chips.length >= 4) break;
@@ -100,6 +109,9 @@ interface TopPriority {
 }
 
 function getTopPriority(briefing: BriefingResponse): TopPriority | null {
+  // Daily brief card replaces the top priority callout
+  if (briefing.daily_brief?.items?.length) return null;
+
   if (briefing.recommendations.length > 0) {
     const top = [...briefing.recommendations].sort((a, b) => b.score - a.score)[0];
     return { kind: "recommendation", title: top.title, description: top.description, action: `Tell me more about: ${top.title}` };
@@ -235,6 +247,38 @@ function BriefingPanel({ briefing, onChipClick, token, userName }: { briefing: B
         <p className="text-base font-medium">{greeting}</p>
         <p className="text-sm text-muted-foreground">Here&apos;s your situation.</p>
       </div>
+
+      {briefing.daily_brief?.items && briefing.daily_brief.items.length > 0 && (
+        <div className="rounded-lg border bg-card">
+          <div className="flex items-center gap-2 px-3 pt-3 pb-1">
+            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-xs font-medium text-muted-foreground">Today&apos;s focus</span>
+            <span className={`ml-auto text-[10px] ${briefing.daily_brief.used_minutes > briefing.daily_brief.budget_minutes ? "text-amber-500" : "text-muted-foreground"}`}>
+              {briefing.daily_brief.used_minutes} of {briefing.daily_brief.budget_minutes} min
+            </span>
+          </div>
+          <div className="divide-y">
+            {briefing.daily_brief.items.map((item) => (
+              <button
+                key={`${item.kind}-${item.priority}`}
+                onClick={() => onChipClick(item.action)}
+                className="flex w-full items-start gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent"
+              >
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+                  {item.priority}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">{item.title}</p>
+                  <p className="text-xs text-muted-foreground truncate">{item.description}</p>
+                </div>
+                <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                  {item.time_minutes}m
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {topPriority && (
         <div className="rounded-lg border-l-4 border-primary bg-primary/5 p-3">
@@ -475,6 +519,44 @@ function BriefingPanel({ briefing, onChipClick, token, userName }: { briefing: B
           ))}
         </div>
       )}
+
+      {briefing.goal_intel_matches?.length > 0 && (() => {
+        const grouped = briefing.goal_intel_matches.reduce<Record<string, typeof briefing.goal_intel_matches>>((acc, m) => {
+          const key = m.goal_title || "Other";
+          if (!acc[key]) acc[key] = [];
+          if (acc[key].length < 3) acc[key].push(m);
+          return acc;
+        }, {});
+        return (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 px-1 text-xs font-medium text-muted-foreground">
+              <Rss className="h-3.5 w-3.5" />
+              Intel for your goals
+            </div>
+            {Object.entries(grouped).map(([goalTitle, matches]) => (
+              <div key={goalTitle} className="rounded-lg border bg-card">
+                <p className="px-3 pt-2 text-xs font-medium text-muted-foreground">{goalTitle}</p>
+                <div className="divide-y">
+                  {matches.map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => onChipClick(`Tell me about this and how it relates to my goal: ${m.title}`)}
+                      className="flex w-full items-start gap-2 px-3 py-2 text-left transition-colors hover:bg-accent"
+                    >
+                      <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${m.urgency === "high" ? "bg-amber-500" : m.urgency === "medium" ? "bg-blue-400" : "bg-gray-300"}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{m.title}</p>
+                        {m.summary && <p className="text-xs text-muted-foreground truncate">{m.summary}</p>}
+                      </div>
+                      <ArrowRight className="mt-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {hasPatterns && (
         <div className="space-y-2">

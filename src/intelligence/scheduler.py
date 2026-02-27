@@ -699,6 +699,15 @@ class IntelScheduler:
             )
             logger.info("Autonomous actions job scheduled")
 
+        # Goal-intel matching — always enabled (zero-cost keyword scoring)
+        self.scheduler.add_job(
+            self.run_goal_intel_matching,
+            trigger=_parse_cron("0 */4 * * *"),
+            id="goal_intel_matching",
+            replace_existing=True,
+        )
+        logger.info("Goal-intel matching job scheduled: every 4h")
+
         # Weekly usage summary — always enabled
         self.scheduler.add_job(
             self.run_weekly_summary,
@@ -710,6 +719,29 @@ class IntelScheduler:
 
         self.scheduler.add_listener(self._default_error_handler, EVENT_JOB_ERROR)
         self.scheduler.start()
+
+    def run_goal_intel_matching(self):
+        """Match active goals against recent intel (keyword scoring, zero LLM)."""
+        if not self.journal_storage:
+            return
+        try:
+            from advisor.goals import GoalTracker
+
+            from .goal_intel_match import GoalIntelMatcher, GoalIntelMatchStore
+
+            tracker = GoalTracker(self.journal_storage)
+            goals = tracker.get_goals(include_inactive=False)
+            if not goals:
+                return
+
+            matcher = GoalIntelMatcher(self.storage)
+            matches = matcher.match_all_goals(goals)
+
+            store = GoalIntelMatchStore(self.storage.db_path)
+            store.save_matches(matches)
+            store.cleanup_old(30)
+        except Exception as e:
+            logger.error("goal_intel_matching_failed", error=str(e))
 
     def run_weekly_summary(self):
         """Generate and write a weekly usage summary to logs dir."""

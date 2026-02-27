@@ -1,6 +1,6 @@
 """CLI command modules."""
 
-from .advisor import ask, goals, opportunities, review
+from .advisor import ask, goals, opportunities, review, today
 from .capabilities import capabilities
 from .daemon import daemon
 from .database import db
@@ -38,4 +38,5 @@ __all__ = [
     "learn",
     "projects",
     "capabilities",
+    "today",
 ]

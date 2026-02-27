@@ -19,6 +19,13 @@ from web.models import (
     BriefingRecommendation,
     BriefingResponse,
     BriefingSignal,
+    GoalIntelMatch,
+)
+from web.models import (
+    DailyBrief as DailyBriefModel,
+)
+from web.models import (
+    DailyBriefItem as DailyBriefItemModel,
 )
 from web.user_store import get_feedback_count
 
@@ -140,7 +147,19 @@ async def get_briefing(
     except Exception as e:
         logger.warning("briefing.goals_error", error=str(e))
 
-    has_data = bool(signals or patterns or recommendations or stale_goals or all_goals)
+    # Goal-intel matches
+    goal_intel_matches: list[dict] = []
+    try:
+        from intelligence.goal_intel_match import GoalIntelMatchStore
+
+        match_store = GoalIntelMatchStore(db_path)
+        goal_paths = [g["path"] for g in all_goals]
+        if goal_paths:
+            goal_intel_matches = match_store.get_matches(goal_paths=goal_paths, limit=20)
+    except Exception as e:
+        logger.warning("briefing.goal_intel_matches_error", error=str(e))
+
+    has_data = bool(signals or patterns or recommendations or stale_goals or all_goals or goal_intel_matches)
 
     # Adaptation count — how many feedback events the user has given
     adaptation_count = 0
@@ -148,6 +167,55 @@ async def get_briefing(
         adaptation_count = get_feedback_count(user["id"])
     except Exception:
         pass
+
+    # Daily brief
+    daily_brief = None
+    try:
+        from profile.storage import ProfileStorage
+
+        from advisor.daily_brief import DailyBriefBuilder
+        from advisor.learning_paths import LearningPathStorage
+
+        weekly_hours = 5
+        profile_path = paths.get("profile")
+        if profile_path and Path(profile_path).exists():
+            prof = ProfileStorage(profile_path).load()
+            if prof and hasattr(prof, "weekly_hours_available"):
+                weekly_hours = prof.weekly_hours_available or 5
+
+        learning_paths_list: list[dict] = []
+        lp_dir = paths.get("learning_paths_dir")
+        if lp_dir and Path(lp_dir).exists():
+            learning_paths_list = LearningPathStorage(lp_dir).list_paths(status="active")
+
+        rec_list = recommendations  # already gathered above
+
+        brief_data = DailyBriefBuilder().build(
+            stale_goals=stale_goals,
+            recommendations=rec_list,
+            learning_paths=learning_paths_list,
+            all_goals=all_goals,
+            weekly_hours=weekly_hours,
+            intel_matches=goal_intel_matches,
+        )
+        daily_brief = DailyBriefModel(
+            items=[
+                DailyBriefItemModel(
+                    kind=item.kind,
+                    title=item.title,
+                    description=item.description,
+                    time_minutes=item.time_minutes,
+                    action=item.action,
+                    priority=item.priority,
+                )
+                for item in brief_data.items
+            ],
+            budget_minutes=brief_data.budget_minutes,
+            used_minutes=brief_data.used_minutes,
+            generated_at=brief_data.generated_at,
+        )
+    except Exception as e:
+        logger.warning("briefing.daily_brief_error", error=str(e))
 
     return BriefingResponse(
         signals=[BriefingSignal(**s) for s in signals],
@@ -157,6 +225,8 @@ async def get_briefing(
         goals=[BriefingGoal(**g) for g in all_goals],
         has_data=has_data,
         adaptation_count=adaptation_count,
+        daily_brief=daily_brief,
+        goal_intel_matches=[GoalIntelMatch(**m) for m in goal_intel_matches],
     )
 
 

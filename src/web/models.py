@@ -226,6 +226,35 @@ class BriefingGoal(BaseModel):
     days_since_check: int = 0
 
 
+class DailyBriefItem(BaseModel):
+    kind: str = ""
+    title: str = ""
+    description: str = ""
+    time_minutes: int = 0
+    action: str = ""
+    priority: int = 0
+
+
+class DailyBrief(BaseModel):
+    items: list[DailyBriefItem] = []
+    budget_minutes: int = 0
+    used_minutes: int = 0
+    generated_at: str = ""
+
+
+class GoalIntelMatch(BaseModel):
+    id: int = 0
+    goal_path: str = ""
+    goal_title: str = ""
+    url: str = ""
+    title: str = ""
+    summary: str = ""
+    score: float = 0.0
+    urgency: str = ""
+    match_reasons: list[str] = []
+    created_at: str = ""
+
+
 class BriefingResponse(BaseModel):
     signals: list[BriefingSignal] = []
     patterns: list[BriefingPattern] = []
@@ -234,6 +263,8 @@ class BriefingResponse(BaseModel):
     goals: list[BriefingGoal] = []
     has_data: bool = False
     adaptation_count: int = 0
+    daily_brief: Optional[DailyBrief] = None
+    goal_intel_matches: list[GoalIntelMatch] = []
 
 
 # --- Trends ---
