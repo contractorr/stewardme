@@ -36,8 +36,8 @@ def test_load_tools_returns_20(mock_components):
     from coach_mcp.server import _load_tools
 
     tools, handlers = _load_tools()
-    assert len(tools) == 37
-    assert len(handlers) == 37
+    assert len(tools) == 41
+    assert len(handlers) == 41
 
 
 def test_load_tools_names(mock_components):
@@ -85,6 +85,10 @@ def test_load_tools_names(mock_components):
         "get_daily_brief",
         "heartbeat_notifications",
         "heartbeat_dismiss",
+        "memory_list_facts",
+        "memory_search_facts",
+        "memory_delete_fact",
+        "memory_get_stats",
     }
     assert names == expected
 
@@ -132,4 +136,4 @@ async def test_list_tools_async(mock_components):
     from coach_mcp.server import list_tools
 
     tools = await list_tools()
-    assert len(tools) == 37
+    assert len(tools) == 41

@@ -114,6 +114,13 @@ projects:
     # token: ${GITHUB_TOKEN}  # optional, increases rate limit
     labels: [good-first-issue, help-wanted]
 
+# --- Memory: distilled fact store from journal entries ---
+memory:
+  enabled: true
+  max_facts_per_entry: 5
+  max_context_facts: 25
+  high_confidence_threshold: 0.9
+
 # --- Heartbeat: proactive intel-to-goal matching ---
 heartbeat:
   enabled: false

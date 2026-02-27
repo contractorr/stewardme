@@ -241,6 +241,19 @@ class HeartbeatConfig(BaseModel):
     weights: HeartbeatWeightsConfig = Field(default_factory=HeartbeatWeightsConfig)
 
 
+class MemoryConfig(BaseModel):
+    """Distilled memory configuration."""
+
+    enabled: bool = True
+    model_override: Optional[str] = None
+    max_facts_per_entry: int = 5
+    similarity_threshold: float = 0.7
+    auto_noop_threshold: float = 0.95
+    max_context_facts: int = 25
+    high_confidence_threshold: float = 0.9
+    backfill_batch_size: int = 10
+
+
 class CoachConfig(BaseModel):
     """Main configuration model."""
 
@@ -256,6 +269,7 @@ class CoachConfig(BaseModel):
     search: SearchConfig = Field(default_factory=SearchConfig)
     rate_limits: RateLimitsConfig = Field(default_factory=RateLimitsConfig)
     heartbeat: HeartbeatConfig = Field(default_factory=HeartbeatConfig)
+    memory: MemoryConfig = Field(default_factory=MemoryConfig)
 
     @model_validator(mode="after")
     def expand_env_vars(self):

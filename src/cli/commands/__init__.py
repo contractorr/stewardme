@@ -9,6 +9,7 @@ from .heartbeat import heartbeat
 from .init import init
 from .intelligence import brief, intel_export, scrape, sources
 from .journal import journal
+from .memory import memory
 from .learn import learn
 from .profile import profile
 from .projects import projects
@@ -41,4 +42,5 @@ __all__ = [
     "capabilities",
     "today",
     "heartbeat",
+    "memory",
 ]

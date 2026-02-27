@@ -17,6 +17,7 @@ from web.routes import (
     intel,
     journal,
     learning,
+    memory,
     onboarding,
     pageview,
     profile,
@@ -89,6 +90,7 @@ app.include_router(pageview.router)
 app.include_router(learning.router)
 app.include_router(admin.router)
 app.include_router(heartbeat.router)
+app.include_router(memory.router)
 
 
 @app.get("/api/health")

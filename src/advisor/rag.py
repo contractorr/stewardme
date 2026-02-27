@@ -27,6 +27,8 @@ class RAGRetriever:
         users_db_path: Optional[Path] = None,
         user_id: Optional[str] = None,
         cache=None,
+        fact_store=None,
+        memory_config: Optional[dict] = None,
     ):
         self.journal = journal_search
         self.intel_db_path = Path(intel_db_path).expanduser() if intel_db_path else None
@@ -37,6 +39,8 @@ class RAGRetriever:
         self._users_db_path = users_db_path
         self._user_id = user_id
         self.cache = cache
+        self._fact_store = fact_store
+        self._memory_config = memory_config or {}
 
     def get_profile_context(self, structured: bool = False) -> str:
         """Load user profile summary for LLM context injection.
@@ -82,6 +86,86 @@ class RAGRetriever:
             return [k.lower().strip() for k in keywords if k.strip()]
         except Exception:
             return []
+
+    def get_memory_context(self, query: str = "") -> str:
+        """Get distilled memory block for system prompt injection.
+
+        Returns formatted fact block grouped by category, or empty string
+        if memory is disabled or no facts exist.
+        """
+        if not self._fact_store:
+            return ""
+
+        try:
+            max_facts = self._memory_config.get("max_context_facts", 25)
+            high_conf = self._memory_config.get("high_confidence_threshold", 0.9)
+
+            # Semantic search for query-relevant facts
+            relevant = []
+            if query:
+                relevant = self._fact_store.search(query, limit=max_facts)
+
+            # Always include high-confidence facts
+            all_active = self._fact_store.get_all_active()
+            high_conf_facts = [f for f in all_active if f.confidence >= high_conf]
+
+            # Merge, dedup by ID, cap at max
+            seen = set()
+            merged = []
+            for f in high_conf_facts + relevant:
+                if f.id not in seen:
+                    seen.add(f.id)
+                    merged.append(f)
+                if len(merged) >= max_facts:
+                    break
+
+            if not merged:
+                return ""
+
+            return self._format_memory_block(merged)
+        except Exception as e:
+            logger.debug("memory_context_failed", error=str(e))
+            return ""
+
+    def _format_memory_block(self, facts: list) -> str:
+        """Format facts into grouped system prompt block."""
+        from memory.models import FactCategory
+
+        category_labels = {
+            FactCategory.PREFERENCE: "Preferences",
+            FactCategory.SKILL: "Skills",
+            FactCategory.CONSTRAINT: "Constraints",
+            FactCategory.PATTERN: "Patterns",
+            FactCategory.CONTEXT: "Current Context",
+            FactCategory.GOAL_CONTEXT: "Goal Context",
+        }
+
+        # Group by category
+        grouped: dict[str, list] = {}
+        for f in facts:
+            label = category_labels.get(f.category, str(f.category))
+            grouped.setdefault(label, []).append(f)
+
+        lines = ["<user_memory>"]
+        display_order = [
+            "Current Context",
+            "Goal Context",
+            "Preferences",
+            "Skills",
+            "Constraints",
+            "Patterns",
+        ]
+        for section in display_order:
+            if section not in grouped:
+                continue
+            lines.append(f"## {section}")
+            # Sort by confidence desc within section
+            for f in sorted(grouped[section], key=lambda x: x.confidence, reverse=True):
+                lines.append(f"- {f.text}")
+            lines.append("")
+
+        lines.append("</user_memory>")
+        return "\n".join(lines)
 
     def get_journal_context(
         self,

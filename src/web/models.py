@@ -331,6 +331,26 @@ class MatchingIssue(BaseModel):
     match_score: int = 0
 
 
+# --- Memory ---
+
+
+class MemoryFact(BaseModel):
+    id: str = ""
+    text: str = ""
+    category: str = ""
+    source_type: str = ""
+    source_id: str = ""
+    confidence: float = 0.0
+    created_at: str = ""
+    updated_at: str = ""
+
+
+class MemoryStats(BaseModel):
+    total_active: int = 0
+    total_superseded: int = 0
+    by_category: dict = {}
+
+
 # --- Heartbeat ---
 
 
