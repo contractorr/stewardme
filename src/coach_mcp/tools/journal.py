@@ -140,6 +140,17 @@ def _create(args: dict) -> dict:
     title = args.get("title")
     tags = args.get("tags")
 
+    # Auto-generate title if not provided
+    if not title:
+        try:
+            from journal.titler import generate_title
+            from llm import create_cheap_provider
+
+            llm = create_cheap_provider()
+            title = generate_title(content, llm)
+        except Exception:
+            pass
+
     # Import goal defaults if creating a goal
     metadata = None
     if entry_type == "goal":

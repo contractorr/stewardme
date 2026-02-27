@@ -16,6 +16,23 @@ logger = structlog.get_logger()
 router = APIRouter(prefix="/api/journal", tags=["journal"])
 
 
+def _generate_title(content: str, user_id: str) -> str | None:
+    """Try to generate an LLM title; returns None on failure."""
+    try:
+        from journal.titler import generate_title
+        from llm import create_cheap_provider
+        from web.deps import get_api_key_for_user
+
+        api_key = get_api_key_for_user(user_id)
+        if not api_key:
+            return None
+        llm = create_cheap_provider(api_key=api_key)
+        return generate_title(content, llm)
+    except Exception:
+        logger.debug("title_generation_skipped", user_id=user_id)
+        return None
+
+
 def _get_storage(user_id: str) -> JournalStorage:
     paths = get_user_paths(user_id)
     return JournalStorage(paths["journal_dir"])
@@ -60,11 +77,16 @@ async def create_entry(
     user: dict = Depends(get_current_user),
 ):
     storage = _get_storage(user["id"])
+
+    title = body.title
+    if not title:
+        title = _generate_title(body.content, user["id"])
+
     try:
         filepath = storage.create(
             content=body.content,
             entry_type=body.entry_type,
-            title=body.title,
+            title=title,
             tags=body.tags,
         )
     except ValueError as e:
@@ -91,7 +113,9 @@ async def quick_capture(
     """Minimal journal entry — auto-title from content, type=quick, embed in ChromaDB."""
     storage = _get_storage(user["id"])
     text = body.content.strip()
-    title = text[:50].rstrip() + ("..." if len(text) > 50 else "")
+    title = _generate_title(text, user["id"])
+    if not title:
+        title = text[:50].rstrip() + ("..." if len(text) > 50 else "")
 
     try:
         filepath = storage.create(
