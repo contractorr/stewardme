@@ -1,4 +1,4 @@
-"""Tests for GoalIntelMatcher and GoalIntelMatchStore."""
+"""Tests for GoalIntelMatcher, GoalIntelMatchStore, and GoalIntelLLMEvaluator."""
 
 import sqlite3
 import tempfile
@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from intelligence.goal_intel_match import (
+    GoalIntelLLMEvaluator,
     GoalIntelMatcher,
     GoalIntelMatchStore,
     _URGENCY_HIGH,
@@ -299,3 +300,100 @@ class TestInactiveGoalsSkipped:
         # All matches should be for active goal only
         for m in result:
             assert m["goal_path"] == "g/active.md"
+
+
+# --- GoalIntelLLMEvaluator tests ---
+
+
+class TestGoalIntelLLMEvaluator:
+    @patch.dict("os.environ", {}, clear=True)
+    def test_is_available_false_no_keys(self):
+        assert GoalIntelLLMEvaluator.is_available() is False
+
+    @patch.dict("os.environ", {"ANTHROPIC_API_KEY": "sk-ant-test"})
+    def test_is_available_true_with_key(self):
+        assert GoalIntelLLMEvaluator.is_available() is True
+
+    def test_evaluate_drops_false_positive(self):
+        provider = MagicMock()
+        provider.generate.return_value = (
+            "ITEM_1_RELEVANT: no\n"
+            "ITEM_1_URGENCY: drop\n"
+            "ITEM_2_RELEVANT: yes\n"
+            "ITEM_2_URGENCY: high\n"
+        )
+        evaluator = GoalIntelLLMEvaluator(provider=provider)
+        matches = [
+            _match(url="https://ex.com/1", title="False positive"),
+            _match(url="https://ex.com/2", title="Real match"),
+        ]
+        result = evaluator.evaluate(matches)
+        assert len(result) == 1
+        assert result[0]["title"] == "Real match"
+
+    def test_evaluate_overrides_urgency(self):
+        provider = MagicMock()
+        provider.generate.return_value = (
+            "ITEM_1_RELEVANT: yes\n"
+            "ITEM_1_URGENCY: high\n"
+        )
+        evaluator = GoalIntelLLMEvaluator(provider=provider)
+        matches = [_match(urgency="medium")]
+        result = evaluator.evaluate(matches)
+        assert len(result) == 1
+        assert result[0]["urgency"] == "high"
+
+    def test_evaluate_fallback_on_failure(self):
+        provider = MagicMock()
+        provider.generate.side_effect = Exception("API error")
+        evaluator = GoalIntelLLMEvaluator(provider=provider)
+        matches = [_match(), _match(url="https://ex.com/2")]
+        result = evaluator.evaluate(matches)
+        # All original matches returned unchanged
+        assert len(result) == 2
+
+    def test_batch_size_respected(self):
+        provider = MagicMock()
+        provider.generate.return_value = "\n".join(
+            f"ITEM_{i+1}_RELEVANT: yes\nITEM_{i+1}_URGENCY: medium"
+            for i in range(20)
+        )
+        evaluator = GoalIntelLLMEvaluator(provider=provider)
+        matches = [_match(url=f"https://ex.com/{i}") for i in range(45)]
+        evaluator.evaluate(matches)
+        assert provider.generate.call_count == 3  # 20 + 20 + 5
+
+    def test_llm_evaluated_flag_set(self):
+        provider = MagicMock()
+        provider.generate.return_value = (
+            "ITEM_1_RELEVANT: yes\n"
+            "ITEM_1_URGENCY: medium\n"
+        )
+        evaluator = GoalIntelLLMEvaluator(provider=provider)
+        matches = [_match()]
+        result = evaluator.evaluate(matches)
+        assert len(result) == 1
+        assert result[0]["llm_evaluated"] == 1
+
+    def test_llm_evaluated_flag_absent_on_fallback(self):
+        provider = MagicMock()
+        provider.generate.side_effect = Exception("fail")
+        evaluator = GoalIntelLLMEvaluator(provider=provider)
+        matches = [_match()]
+        result = evaluator.evaluate(matches)
+        assert result[0].get("llm_evaluated", 0) == 0
+
+    def test_store_llm_evaluated_roundtrip(self, store):
+        m = _match()
+        m["llm_evaluated"] = 1
+        store.save_matches([m])
+        results = store.get_matches()
+        assert results[0]["llm_evaluated"] == 1
+
+    def test_schema_migration_idempotent(self, tmp_db):
+        """Double-init should not crash."""
+        s1 = GoalIntelMatchStore(tmp_db)
+        s2 = GoalIntelMatchStore(tmp_db)
+        # Both should work fine
+        s2.save_matches([_match()])
+        assert len(s2.get_matches()) == 1

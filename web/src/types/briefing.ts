@@ -78,6 +78,7 @@ export interface GoalIntelMatch {
   urgency: "high" | "medium" | "low";
   match_reasons: string[];
   created_at: string;
+  llm_evaluated: boolean;
 }
 
 export interface BriefingResponse {

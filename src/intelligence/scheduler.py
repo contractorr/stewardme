@@ -721,13 +721,17 @@ class IntelScheduler:
         self.scheduler.start()
 
     def run_goal_intel_matching(self):
-        """Match active goals against recent intel (keyword scoring, zero LLM)."""
+        """Match active goals against recent intel. Keyword scoring + optional LLM eval."""
         if not self.journal_storage:
             return
         try:
             from advisor.goals import GoalTracker
 
-            from .goal_intel_match import GoalIntelMatcher, GoalIntelMatchStore
+            from .goal_intel_match import (
+                GoalIntelLLMEvaluator,
+                GoalIntelMatcher,
+                GoalIntelMatchStore,
+            )
 
             tracker = GoalTracker(self.journal_storage)
             goals = tracker.get_goals(include_inactive=False)
@@ -736,6 +740,14 @@ class IntelScheduler:
 
             matcher = GoalIntelMatcher(self.storage)
             matches = matcher.match_all_goals(goals)
+
+            # Optional LLM refinement — drops false positives, adjusts urgency
+            if matches and GoalIntelLLMEvaluator.is_available():
+                try:
+                    evaluator = GoalIntelLLMEvaluator()
+                    matches = evaluator.evaluate(matches)
+                except Exception as e:
+                    logger.warning("goal_intel_llm_eval.failed", error=str(e))
 
             store = GoalIntelMatchStore(self.storage.db_path)
             store.save_matches(matches)

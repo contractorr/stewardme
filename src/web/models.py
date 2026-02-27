@@ -253,6 +253,7 @@ class GoalIntelMatch(BaseModel):
     urgency: str = ""
     match_reasons: list[str] = []
     created_at: str = ""
+    llm_evaluated: bool = False
 
 
 class BriefingResponse(BaseModel):

@@ -1,6 +1,7 @@
-"""Goal-Intel matching — keyword scoring that connects recent intel to active goals."""
+"""Goal-Intel matching — keyword scoring + optional LLM eval for active goals."""
 
 import json
+import os
 import re
 import sqlite3
 from pathlib import Path
@@ -61,6 +62,13 @@ class GoalIntelMatchStore:
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_gim_created ON goal_intel_matches(created_at)"
             )
+            # Phase 3: add llm_evaluated column (idempotent migration)
+            try:
+                conn.execute(
+                    "ALTER TABLE goal_intel_matches ADD COLUMN llm_evaluated INTEGER NOT NULL DEFAULT 0"
+                )
+            except sqlite3.OperationalError:
+                pass  # column already exists
 
     def save_matches(self, matches: list[dict]) -> int:
         """Save matches with 7-day dedup on (goal_path, url). Returns count inserted."""
@@ -80,8 +88,8 @@ class GoalIntelMatchStore:
                     continue
                 conn.execute(
                     """INSERT INTO goal_intel_matches
-                       (goal_path, goal_title, url, title, summary, score, urgency, match_reasons)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                       (goal_path, goal_title, url, title, summary, score, urgency, match_reasons, llm_evaluated)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
                         m["goal_path"],
                         m["goal_title"],
@@ -91,6 +99,7 @@ class GoalIntelMatchStore:
                         m["score"],
                         m["urgency"],
                         json.dumps(m["match_reasons"]),
+                        int(m.get("llm_evaluated", 0)),
                     ),
                 )
                 inserted += 1
@@ -263,3 +272,125 @@ class GoalIntelMatcher:
             matches=len(all_matches[:limit]),
         )
         return all_matches[:limit]
+
+
+class GoalIntelLLMEvaluator:
+    """LLM-based refinement of keyword matches — drops false positives, adjusts urgency."""
+
+    BATCH_SIZE = 20
+
+    _SYSTEM_PROMPT = (
+        "You evaluate whether news items are genuinely relevant to user goals. "
+        "Be strict — keyword matches often produce false positives. "
+        "For each item, judge relevance and urgency."
+    )
+
+    def __init__(self, provider=None):
+        self._provider = provider  # inject for tests
+
+    @staticmethod
+    def is_available() -> bool:
+        """Check if any LLM API key is configured."""
+        from llm.factory import _PROVIDER_ENV_KEYS
+
+        return any(os.getenv(v) for v in _PROVIDER_ENV_KEYS.values())
+
+    def _get_provider(self):
+        if self._provider:
+            return self._provider
+        from llm.factory import create_cheap_provider
+
+        return create_cheap_provider()
+
+    def _build_prompt(self, batch: list[dict]) -> str:
+        """Build numbered evaluation prompt grouped by goal."""
+        # Group by goal_title for context
+        by_goal: dict[str, list[tuple[int, dict]]] = {}
+        for idx, m in enumerate(batch):
+            gt = m.get("goal_title", "Unknown")
+            by_goal.setdefault(gt, []).append((idx, m))
+
+        lines: list[str] = []
+        for goal_title, items in by_goal.items():
+            lines.append(f'GOAL: "{goal_title}"')
+            for idx, m in items:
+                lines.append(
+                    f'{idx + 1}. [Title] "{m.get("title", "")}" '
+                    f'| [Summary] "{(m.get("summary") or "")[:200]}"'
+                )
+            lines.append("")
+
+        lines.append("For each item respond EXACTLY:")
+        for idx in range(len(batch)):
+            lines.append(f"ITEM_{idx + 1}_RELEVANT: yes|no")
+            lines.append(f"ITEM_{idx + 1}_URGENCY: high|medium|low|drop")
+        lines.append('"drop" means false positive — remove entirely.')
+        return "\n".join(lines)
+
+    def _parse_response(self, text: str, batch: list[dict]) -> list[dict]:
+        """Parse LLM response, return surviving matches with updated urgency."""
+        results: dict[int, dict] = {}  # 1-indexed
+        for line in text.strip().splitlines():
+            line = line.strip()
+            m = re.match(r"ITEM_(\d+)_(RELEVANT|URGENCY):\s*(\S+)", line, re.IGNORECASE)
+            if not m:
+                continue
+            idx = int(m.group(1))
+            field = m.group(2).upper()
+            value = m.group(3).lower()
+            results.setdefault(idx, {})[field] = value
+
+        surviving: list[dict] = []
+        for i, match in enumerate(batch):
+            item_data = results.get(i + 1, {})
+            relevant = item_data.get("RELEVANT", "yes")
+            urgency = item_data.get("URGENCY", match["urgency"])
+
+            if relevant == "no" or urgency == "drop":
+                continue
+
+            if urgency in ("high", "medium", "low"):
+                match["urgency"] = urgency
+            match["llm_evaluated"] = 1
+            surviving.append(match)
+
+        return surviving
+
+    def evaluate(self, matches: list[dict]) -> list[dict]:
+        """LLM-refine batches of matches. Fallback: return unchanged on error."""
+        if not matches:
+            return matches
+
+        provider = self._get_provider()
+        all_surviving: list[dict] = []
+
+        for start in range(0, len(matches), self.BATCH_SIZE):
+            batch = matches[start : start + self.BATCH_SIZE]
+            try:
+                user_prompt = self._build_prompt(batch)
+                response = provider.generate(
+                    messages=[
+                        {"role": "system", "content": self._SYSTEM_PROMPT},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    max_tokens=1000,
+                )
+                surviving = self._parse_response(response, batch)
+                all_surviving.extend(surviving)
+            except Exception as e:
+                logger.warning(
+                    "goal_intel_llm_eval.batch_failed",
+                    error=str(e),
+                    batch_start=start,
+                    batch_size=len(batch),
+                )
+                # Fallback: keep batch unchanged (no llm_evaluated flag)
+                all_surviving.extend(batch)
+
+        logger.info(
+            "goal_intel_llm_eval.complete",
+            input=len(matches),
+            output=len(all_surviving),
+            dropped=len(matches) - len(all_surviving),
+        )
+        return all_surviving
