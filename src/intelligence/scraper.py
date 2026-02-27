@@ -189,6 +189,18 @@ class IntelStorage:
             )
             return [self._row_to_dict(row) for row in cursor.fetchall()]
 
+    def get_items_since(self, since: datetime, limit: int = 200) -> list[dict]:
+        """Get intel items scraped since a given timestamp."""
+        with wal_connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(
+                """SELECT * FROM intel_items
+                   WHERE scraped_at >= ?
+                   ORDER BY scraped_at DESC LIMIT ?""",
+                (since.isoformat(), limit),
+            )
+            return [self._row_to_dict(row) for row in cursor.fetchall()]
+
     def search(self, query: str, limit: int = 20) -> list[dict]:
         """Simple text search in titles and summaries."""
         with wal_connect(self.db_path) as conn:

@@ -331,6 +331,27 @@ class MatchingIssue(BaseModel):
     match_score: int = 0
 
 
+# --- Heartbeat ---
+
+
+class HeartbeatNotification(BaseModel):
+    id: int = 0
+    intel_url: str = ""
+    intel_title: str = ""
+    intel_summary: str = ""
+    relevance: float = 0.0
+    urgency: str = ""
+    suggested_action: str = ""
+    reasoning: str = ""
+    related_goal_id: Optional[str] = None
+    created_at: str = ""
+
+
+class HeartbeatStatus(BaseModel):
+    last_run_at: Optional[str] = None
+    active_count: int = 0
+
+
 # --- Engagement ---
 
 

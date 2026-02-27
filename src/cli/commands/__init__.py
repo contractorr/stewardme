@@ -5,6 +5,7 @@ from .capabilities import capabilities
 from .daemon import daemon
 from .database import db
 from .export import export
+from .heartbeat import heartbeat
 from .init import init
 from .intelligence import brief, intel_export, scrape, sources
 from .journal import journal
@@ -39,4 +40,5 @@ __all__ = [
     "projects",
     "capabilities",
     "today",
+    "heartbeat",
 ]

@@ -114,6 +114,14 @@ projects:
     # token: ${GITHUB_TOKEN}  # optional, increases rate limit
     labels: [good-first-issue, help-wanted]
 
+# --- Heartbeat: proactive intel-to-goal matching ---
+heartbeat:
+  enabled: false
+  interval_minutes: 30
+  heuristic_threshold: 0.3
+  llm_budget_per_cycle: 5
+  notification_cooldown_hours: 4
+
 # --- FEATURE FREEZE: core loop stabilization in progress, do not add new features ---
 
 # --- Agentic Coaching ---

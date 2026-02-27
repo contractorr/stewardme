@@ -22,6 +22,7 @@ def _load_tools() -> tuple[list[Tool], dict]:
     from coach_mcp.tools import (
         brief,
         goals,
+        heartbeat,
         intelligence,
         journal,
         learning,
@@ -45,6 +46,7 @@ def _load_tools() -> tuple[list[Tool], dict]:
         projects,
         signals,
         brief,
+        heartbeat,
     ]
     tools = []
     handlers = {}

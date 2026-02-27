@@ -13,6 +13,7 @@ from web.routes import (
     briefing,
     engagement,
     goals,
+    heartbeat,
     intel,
     journal,
     learning,
@@ -87,6 +88,7 @@ app.include_router(user.router)
 app.include_router(pageview.router)
 app.include_router(learning.router)
 app.include_router(admin.router)
+app.include_router(heartbeat.router)
 
 
 @app.get("/api/health")

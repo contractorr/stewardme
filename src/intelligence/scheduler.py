@@ -702,6 +702,24 @@ class IntelScheduler:
             )
             logger.info("Autonomous actions job scheduled")
 
+        # Heartbeat — proactive intel-to-goal matching
+        hb_config = self.full_config.get("heartbeat", {})
+        if hb_config.get("enabled", False):
+            from apscheduler.triggers.interval import IntervalTrigger
+
+            self.scheduler.add_job(
+                self.run_heartbeat,
+                trigger=IntervalTrigger(minutes=hb_config.get("interval_minutes", 30)),
+                id="heartbeat",
+                replace_existing=True,
+                coalesce=True,
+                max_instances=1,
+            )
+            logger.info(
+                "heartbeat.scheduled",
+                interval_minutes=hb_config.get("interval_minutes", 30),
+            )
+
         # Goal-intel matching — always enabled (zero-cost keyword scoring)
         self.scheduler.add_job(
             self.run_goal_intel_matching,
@@ -757,6 +775,32 @@ class IntelScheduler:
             store.cleanup_old(30)
         except Exception as e:
             logger.error("goal_intel_matching_failed", error=str(e))
+
+    def run_heartbeat(self):
+        """Run heartbeat cycle: filter recent intel -> evaluate -> notify."""
+        if not self.journal_storage:
+            return
+        try:
+            from advisor.goals import GoalTracker
+
+            from .heartbeat import HeartbeatPipeline
+
+            tracker = GoalTracker(self.journal_storage)
+            goals = tracker.get_goals(include_inactive=False)
+            if not goals:
+                return
+
+            hb_config = self.full_config.get("heartbeat", {})
+            pipeline = HeartbeatPipeline(
+                intel_storage=self.storage,
+                goals=goals,
+                db_path=self.storage.db_path,
+                config=hb_config,
+            )
+            result = pipeline.run()
+            logger.info("heartbeat.complete", **result)
+        except Exception as e:
+            logger.error("heartbeat.failed", error=str(e))
 
     def run_weekly_summary(self):
         """Generate and write a weekly usage summary to logs dir."""

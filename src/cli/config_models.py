@@ -220,6 +220,27 @@ class LoggingConfig(BaseModel):
         return v_upper
 
 
+class HeartbeatWeightsConfig(BaseModel):
+    """Weights for heartbeat composite scoring."""
+
+    keyword_overlap: float = 0.35
+    recency: float = 0.35
+    source_affinity: float = 0.3
+
+
+class HeartbeatConfig(BaseModel):
+    """Heartbeat proactive intel-to-goal matching."""
+
+    enabled: bool = False
+    interval_minutes: int = 30
+    heuristic_threshold: float = 0.3
+    llm_budget_per_cycle: int = 5
+    notification_cooldown_hours: int = 4
+    lookback_hours: int = 2
+    preferred_sources: list[str] = Field(default_factory=list)
+    weights: HeartbeatWeightsConfig = Field(default_factory=HeartbeatWeightsConfig)
+
+
 class CoachConfig(BaseModel):
     """Main configuration model."""
 
@@ -234,6 +255,7 @@ class CoachConfig(BaseModel):
     rag: RAGConfig = Field(default_factory=RAGConfig)
     search: SearchConfig = Field(default_factory=SearchConfig)
     rate_limits: RateLimitsConfig = Field(default_factory=RateLimitsConfig)
+    heartbeat: HeartbeatConfig = Field(default_factory=HeartbeatConfig)
 
     @model_validator(mode="after")
     def expand_env_vars(self):
