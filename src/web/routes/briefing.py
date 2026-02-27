@@ -112,8 +112,9 @@ async def get_briefing(
     except Exception as e:
         logger.warning("briefing.recommendations_error", error=str(e))
 
-    # Stale goals
+    # Goals
     stale_goals: list[dict] = []
+    all_goals: list[dict] = []
     try:
         tracker = GoalTracker(storage)
         raw_stale = tracker.get_stale_goals()
@@ -126,10 +127,20 @@ async def get_briefing(
             }
             for g in raw_stale
         ]
+        raw_all = tracker.get_goals(include_inactive=False)
+        all_goals = [
+            {
+                "path": str(g["path"]),
+                "title": g["title"],
+                "status": g["status"],
+                "days_since_check": g.get("days_since_check") or 0,
+            }
+            for g in raw_all
+        ]
     except Exception as e:
-        logger.warning("briefing.stale_goals_error", error=str(e))
+        logger.warning("briefing.goals_error", error=str(e))
 
-    has_data = bool(signals or patterns or recommendations or stale_goals)
+    has_data = bool(signals or patterns or recommendations or stale_goals or all_goals)
 
     # Adaptation count — how many feedback events the user has given
     adaptation_count = 0
@@ -143,6 +154,7 @@ async def get_briefing(
         patterns=[BriefingPattern(**p) for p in patterns],
         recommendations=[BriefingRecommendation(**r) for r in recommendations],
         stale_goals=[BriefingGoal(**g) for g in stale_goals],
+        goals=[BriefingGoal(**g) for g in all_goals],
         has_data=has_data,
         adaptation_count=adaptation_count,
     )

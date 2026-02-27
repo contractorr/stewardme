@@ -75,6 +75,12 @@ function buildSuggestionChips(briefing: BriefingResponse | null): string[] {
     if (chips.length >= 4) break;
     chips.push(`Check in on: ${g.title}`);
   }
+  if (chips.length === 0 && briefing.goals?.length > 0) {
+    for (const g of briefing.goals) {
+      if (chips.length >= 3) break;
+      chips.push(`Help me think through: ${g.title}`);
+    }
+  }
   if (chips.length < 4 && briefing.recommendations.length > 0) {
     chips.push(`Tell me more about: ${briefing.recommendations[0].title}`);
   }
@@ -105,6 +111,10 @@ function getTopPriority(briefing: BriefingResponse): TopPriority | null {
   if (briefing.signals.length > 0) {
     const s = briefing.signals[0];
     return { kind: "signal", title: s.title, description: s.detail, action: `Tell me more about: ${s.title}` };
+  }
+  if (briefing.goals?.length > 0) {
+    const g = briefing.goals[0];
+    return { kind: "goal", title: g.title, description: "Newly set \u2014 start building momentum", action: `Help me think through my goal: ${g.title}` };
   }
   return null;
 }
@@ -207,6 +217,11 @@ function BriefingPanel({ briefing, onChipClick, token, userName }: { briefing: B
     ? briefing.signals.filter((s) => s.title !== topPriority.title)
     : briefing.signals;
 
+  // Fresh goals: dedup against stale_goals by path
+  const stalePaths = new Set(briefing.stale_goals.map((g) => g.path));
+  const freshGoals = (briefing.goals || []).filter((g) => !stalePaths.has(g.path));
+  const onlyGoals = !briefing.signals.length && !briefing.recommendations.length && !briefing.patterns.length && freshGoals.length > 0;
+
   const hasSignals = filteredSignals.length > 0;
   const hasRecommendations = filteredRecommendations.length > 0;
   const hasStaleGoals = filteredStaleGoals.length > 0;
@@ -275,6 +290,34 @@ function BriefingPanel({ briefing, onChipClick, token, userName }: { briefing: B
               <p className="mt-0.5 text-xs text-muted-foreground">
                 Last check-in {g.days_since_check} days ago
               </p>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {onlyGoals && (
+        <div className="rounded-lg border bg-card p-3">
+          <p className="text-sm font-medium">Your steward is getting to know you</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Write journal entries to build context &mdash; the more you reflect, the better the guidance.
+          </p>
+        </div>
+      )}
+
+      {freshGoals.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 px-1 text-xs font-medium text-muted-foreground">
+            <Target className="h-3.5 w-3.5" />
+            Your goals
+          </div>
+          {freshGoals.map((g) => (
+            <button
+              key={g.path}
+              onClick={() => onChipClick(`Help me think through my goal: ${g.title}`)}
+              className="w-full rounded-lg border bg-card p-3 text-left transition-colors hover:bg-accent"
+            >
+              <p className="text-sm font-medium">{g.title}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground capitalize">{g.status}</p>
             </button>
           ))}
         </div>

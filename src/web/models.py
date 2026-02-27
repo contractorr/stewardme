@@ -231,6 +231,7 @@ class BriefingResponse(BaseModel):
     patterns: list[BriefingPattern] = []
     recommendations: list[BriefingRecommendation] = []
     stale_goals: list[BriefingGoal] = []
+    goals: list[BriefingGoal] = []
     has_data: bool = False
     adaptation_count: int = 0
 
