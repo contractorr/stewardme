@@ -7,7 +7,7 @@ from .database import db
 from .export import export
 from .heartbeat import heartbeat
 from .init import init
-from .intelligence import brief, intel_export, scrape, sources
+from .intelligence import brief, intel_export, radar, scrape, sources
 from .journal import journal
 from .learn import learn
 from .memory import memory
@@ -29,6 +29,7 @@ __all__ = [
     "brief",
     "sources",
     "intel_export",
+    "radar",
     "daemon",
     "db",
     "research",

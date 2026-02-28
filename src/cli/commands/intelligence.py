@@ -78,6 +78,50 @@ def sources():
         console.print(f"  {url}")
 
 
+@click.command()
+@click.option("-n", "--days", default=7, help="Lookback window in days")
+@click.option("--min-sources", default=2, help="Min distinct sources per topic")
+@click.option("--limit", default=15, help="Max topics to show")
+@click.option("--refresh", is_flag=True, help="Force recompute (ignore cache)")
+def radar(days: int, min_sources: int, limit: int, refresh: bool):
+    """Show cross-source trending topics."""
+    c = get_components(skip_advisor=True)
+
+    from intelligence.trending_radar import TrendingRadar
+
+    tr = TrendingRadar(c["intel_storage"].db_path)
+
+    with console.status("Computing trending topics..."):
+        if refresh:
+            snapshot = tr.refresh(days=days, min_sources=min_sources, max_topics=limit)
+        else:
+            snapshot = tr.get_or_compute(days=days, min_sources=min_sources, max_topics=limit)
+
+    topics = snapshot.get("topics", [])
+    if not topics:
+        console.print("[yellow]No cross-source trending topics found. Run 'coach scrape' first.[/]")
+        return
+
+    console.print(
+        f"[dim]{snapshot['total_items_scanned']} items scanned "
+        f"({snapshot['days']}d window)[/]\n"
+    )
+
+    for i, t in enumerate(topics, 1):
+        score_bar = "█" * int(t["score"] * 20)
+        console.print(
+            f"[bold]{i:>2}. {t['topic']}[/]  "
+            f"[green]{score_bar}[/] {t['score']:.2f}  "
+            f"[dim]{t['item_count']} items, {t['source_count']} sources[/]"
+        )
+        console.print(f"    [cyan]{', '.join(t['sources'])}[/]")
+        if t.get("items"):
+            top = t["items"][0]
+            console.print(f"    [blue]{top['title'][:70]}[/]")
+            console.print(f"    [dim]{top['url']}[/]")
+        console.print()
+
+
 @click.command("intel-export")
 @click.option("-o", "--output", required=True, type=click.Path(), help="Output file path")
 @click.option(

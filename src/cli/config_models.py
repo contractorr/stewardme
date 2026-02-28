@@ -53,6 +53,9 @@ class SourcesConfig(BaseModel):
     rss_feeds: list[str] = Field(default_factory=lambda: ["https://news.ycombinator.com/rss"])
     enabled: list[str] = Field(default_factory=lambda: ["hn_top", "rss_feeds"])
     github_trending: dict = Field(default_factory=dict)
+    indeed_hiring_lab: dict = Field(default_factory=dict)
+    google_trends: dict = Field(default_factory=dict)
+    crunchbase: dict = Field(default_factory=dict)
 
 
 def validate_cron(expr: str) -> str:
@@ -263,6 +266,16 @@ class ThreadsConfig(BaseModel):
     candidate_count: int = 10
 
 
+class TrendingRadarConfig(BaseModel):
+    """Cross-source topic convergence configuration."""
+
+    enabled: bool = True
+    min_sources: int = 2
+    days: int = 7
+    max_topics: int = 15
+    interval_hours: int = 6
+
+
 class CoachConfig(BaseModel):
     """Main configuration model."""
 
@@ -280,6 +293,7 @@ class CoachConfig(BaseModel):
     heartbeat: HeartbeatConfig = Field(default_factory=HeartbeatConfig)
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
     threads: ThreadsConfig = Field(default_factory=ThreadsConfig)
+    trending_radar: TrendingRadarConfig = Field(default_factory=TrendingRadarConfig)
 
     @model_validator(mode="after")
     def expand_env_vars(self):
@@ -294,6 +308,9 @@ class CoachConfig(BaseModel):
             if key.startswith("${") and key.endswith("}"):
                 env_var = key[2:-1]
                 self.research.tavily_api_key = os.getenv(env_var, "")
+        cb_key = self.sources.crunchbase.get("api_key", "")
+        if isinstance(cb_key, str) and cb_key.startswith("${") and cb_key.endswith("}"):
+            self.sources.crunchbase["api_key"] = os.getenv(cb_key[2:-1], "")
         return self
 
     @classmethod

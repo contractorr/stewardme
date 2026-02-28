@@ -102,6 +102,26 @@ async def delete_rss_feed(body: RSSFeedRemove, user: dict = Depends(get_current_
     return {"ok": True}
 
 
+@router.get("/trending")
+async def get_trending(user: dict = Depends(get_current_user)):
+    """Get cross-source trending topics."""
+    from intelligence.trending_radar import TrendingRadar
+
+    paths = get_coach_paths()
+    config = get_config()
+    tr_config = config.to_dict().get("trending_radar", {})
+
+    radar = TrendingRadar(paths["intel_db"])
+    snapshot = radar.load()
+    if not snapshot:
+        snapshot = radar.refresh(
+            days=tr_config.get("days", 7),
+            min_sources=tr_config.get("min_sources", 2),
+            max_topics=tr_config.get("max_topics", 15),
+        )
+    return snapshot
+
+
 @router.post("/scrape")
 async def scrape_now(user: dict = Depends(get_current_user)):
     """Trigger immediate scrape of all sources."""

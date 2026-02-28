@@ -118,6 +118,25 @@ def _events_upcoming(args: dict) -> dict:
     }
 
 
+def _trending_radar(args: dict) -> dict:
+    """Get cross-source trending topics."""
+    c = get_components()
+    from intelligence.trending_radar import TrendingRadar
+
+    radar = TrendingRadar(c["intel_storage"].db_path)
+    snapshot = radar.get_or_compute(
+        days=args.get("days", 7),
+        min_sources=args.get("min_sources", 2),
+        max_topics=args.get("max_topics", 15),
+    )
+
+    # Truncate to top-1 item per topic for MCP context budget
+    for topic in snapshot.get("topics", []):
+        topic["items"] = topic.get("items", [])[:1]
+
+    return snapshot
+
+
 TOOLS = [
     (
         "intel_search",
@@ -175,5 +194,27 @@ TOOLS = [
             "required": [],
         },
         _events_upcoming,
+    ),
+    (
+        "intel_trending_radar",
+        {
+            "description": "Get cross-source trending topics — surfaces terms appearing across multiple scraped sources regardless of user goals.",
+            "type": "object",
+            "properties": {
+                "days": {"type": "integer", "description": "Lookback window in days", "default": 7},
+                "min_sources": {
+                    "type": "integer",
+                    "description": "Minimum distinct sources for a topic to qualify",
+                    "default": 2,
+                },
+                "max_topics": {
+                    "type": "integer",
+                    "description": "Max trending topics to return",
+                    "default": 15,
+                },
+            },
+            "required": [],
+        },
+        _trending_radar,
     ),
 ]

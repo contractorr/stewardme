@@ -23,13 +23,16 @@ from .sources import (
     AIIndexScraper,
     ARCEvalsScraper,
     ArxivScraper,
+    CrunchbaseScraper,
     EpochAIScraper,
     EventScraper,
     FrontierEvalsGitHubScraper,
     GitHubIssuesScraper,
     GitHubTrendingScraper,
     GooglePatentsScraper,
+    GoogleTrendsScraper,
     HackerNewsScraper,
+    IndeedHiringLabScraper,
     METRScraper,
     ProductHuntScraper,
     RedditScraper,
@@ -381,6 +384,42 @@ class IntelScheduler:
             gh_token = self.full_config.get("projects", {}).get("github_issues", {}).get("token")
             self._scrapers.append(FrontierEvalsGitHubScraper(self.storage, token=gh_token))
 
+        # Indeed Hiring Lab
+        indeed_config = self.config.get("indeed_hiring_lab", {})
+        if "indeed_hiring_lab" in enabled or indeed_config.get("enabled", False):
+            self._scrapers.append(
+                IndeedHiringLabScraper(
+                    self.storage,
+                    change_threshold=indeed_config.get("change_threshold", 5.0),
+                    max_items=indeed_config.get("max_items", 8),
+                )
+            )
+
+        # Google Trends
+        trends_config = self.config.get("google_trends", {})
+        if "google_trends" in enabled or trends_config.get("enabled", False):
+            self._scrapers.append(
+                GoogleTrendsScraper(
+                    self.storage,
+                    keywords=trends_config.get("keywords"),
+                    spike_threshold=trends_config.get("spike_threshold", 20.0),
+                    timeframe=trends_config.get("timeframe", "today 1-m"),
+                )
+            )
+
+        # Crunchbase
+        cb_config = self.config.get("crunchbase", {})
+        if "crunchbase" in enabled or cb_config.get("enabled", False):
+            self._scrapers.append(
+                CrunchbaseScraper(
+                    self.storage,
+                    api_key=cb_config.get("api_key"),
+                    categories=cb_config.get("categories"),
+                    days_back=cb_config.get("days_back", 7),
+                    max_items=cb_config.get("max_items", 20),
+                )
+            )
+
     async def _run_async(self) -> dict:
         """Run all scrapers concurrently."""
         # Generate correlation ID and bind to structlog
@@ -717,6 +756,24 @@ class IntelScheduler:
             )
             logger.info("Autonomous actions job scheduled")
 
+        # Trending Radar — cross-source topic convergence
+        tr_config = self.full_config.get("trending_radar", {})
+        if tr_config.get("enabled", True):
+            from apscheduler.triggers.interval import IntervalTrigger as _ITrigger
+
+            self.scheduler.add_job(
+                self.run_trending_radar,
+                trigger=_ITrigger(hours=tr_config.get("interval_hours", 6)),
+                id="trending_radar",
+                replace_existing=True,
+                coalesce=True,
+                max_instances=1,
+            )
+            logger.info(
+                "trending_radar.scheduled",
+                interval_hours=tr_config.get("interval_hours", 6),
+            )
+
         # Heartbeat — proactive intel-to-goal matching
         hb_config = self.full_config.get("heartbeat", {})
         if hb_config.get("enabled", False):
@@ -851,6 +908,25 @@ class IntelScheduler:
             logger.info("weekly_summary.written", path=str(log_dir / "weekly_summary.txt"))
         except Exception as e:
             logger.error("weekly_summary.failed", error=str(e))
+
+    def run_trending_radar(self):
+        """Refresh cross-source trending topics snapshot."""
+        try:
+            from intelligence.trending_radar import TrendingRadar
+
+            tr_config = self.full_config.get("trending_radar", {})
+            radar = TrendingRadar(self.storage.db_path)
+            snapshot = radar.refresh(
+                days=tr_config.get("days", 7),
+                min_sources=tr_config.get("min_sources", 2),
+                max_topics=tr_config.get("max_topics", 15),
+            )
+            logger.info(
+                "trending_radar.complete",
+                topics=len(snapshot.get("topics", [])),
+            )
+        except Exception as e:
+            logger.error("trending_radar.failed", error=str(e))
 
     def _add_recommendations_job(self, cron_expr: str):
         """Add weekly recommendations/action brief job."""

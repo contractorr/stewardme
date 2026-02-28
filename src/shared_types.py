@@ -43,6 +43,9 @@ class IntelSource(StrEnum):
     AI_INDEX = "ai_index"
     ARC_EVALS = "arc_evals"
     FRONTIER_EVALS_GITHUB = "frontier_evals_github"
+    INDEED_HIRING_LAB = "indeed_hiring_lab"
+    GOOGLE_TRENDS = "google_trends"
+    CRUNCHBASE = "crunchbase"
 
 
 class EntryType(StrEnum):

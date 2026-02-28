@@ -9,11 +9,14 @@ from .ai_capabilities import (
     METRScraper,
 )
 from .arxiv import ArxivScraper
+from .crunchbase import CrunchbaseScraper
 from .events import EventScraper
 from .github import GitHubTrendingScraper
 from .github_issues import GitHubIssuesScraper
 from .google_patents import GooglePatentsScraper
+from .google_trends import GoogleTrendsScraper
 from .hn import HackerNewsScraper
+from .indeed_hiring_lab import IndeedHiringLabScraper
 from .producthunt import ProductHuntScraper
 from .reddit import RedditScraper
 from .rss import RSSFeedScraper
@@ -36,4 +39,7 @@ __all__ = [
     "ProductHuntScraper",
     "YCJobsScraper",
     "GooglePatentsScraper",
+    "IndeedHiringLabScraper",
+    "GoogleTrendsScraper",
+    "CrunchbaseScraper",
 ]

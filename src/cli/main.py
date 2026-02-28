@@ -25,6 +25,7 @@ from cli.commands import (
     opportunities,
     profile,
     projects,
+    radar,
     recommend,
     reflect,
     research,
@@ -77,6 +78,7 @@ cli.add_command(init)
 cli.add_command(trends)
 cli.add_command(reflect)
 cli.add_command(today)
+cli.add_command(radar)
 
 
 if __name__ == "__main__":

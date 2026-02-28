@@ -11,6 +11,7 @@ import {
   Newspaper,
   RefreshCw,
   Search,
+  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiFetch } from "@/lib/api";
 
 interface IntelItem {
@@ -31,6 +33,23 @@ interface IntelItem {
   summary: string;
   published?: string;
   tags?: string[];
+}
+
+interface TrendingTopic {
+  topic: string;
+  score: number;
+  item_count: number;
+  source_count: number;
+  sources: string[];
+  avg_recency: number;
+  items: { id: number; title: string; url: string; source: string; summary: string }[];
+}
+
+interface TrendingSnapshot {
+  computed_at: string;
+  days: number;
+  total_items_scanned: number;
+  topics: TrendingTopic[];
 }
 
 interface ScraperHealth {
@@ -145,6 +164,97 @@ function HealthDashboard({ token }: { token: string }) {
   );
 }
 
+function TrendingTab({ token }: { token: string }) {
+  const [snapshot, setSnapshot] = useState<TrendingSnapshot | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiFetch<TrendingSnapshot>("/api/intel/trending", {}, token)
+      .then(setSnapshot)
+      .catch((e) => toast.error(e.message))
+      .finally(() => setLoading(false));
+  }, [token]);
+
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-24 animate-pulse rounded-lg bg-muted" />
+        ))}
+      </div>
+    );
+  }
+
+  if (!snapshot || snapshot.topics.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+          <TrendingUp className="h-7 w-7 text-muted-foreground" />
+        </div>
+        <h3 className="text-lg font-medium">No trending topics yet</h3>
+        <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+          Topics appear here when the same term shows up across multiple sources.
+          Run a scan first to populate the feed.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">
+        {snapshot.total_items_scanned} items scanned &middot; {snapshot.days}d window
+      </p>
+      {snapshot.topics.map((t) => (
+        <Card key={t.topic}>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">{t.topic}</CardTitle>
+              <span className="text-sm font-medium tabular-nums">
+                {(t.score * 100).toFixed(0)}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-1.5 flex-1 rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-foreground/70"
+                  style={{ width: `${Math.round(t.score * 100)}%` }}
+                />
+              </div>
+            </div>
+            <CardDescription className="flex flex-wrap gap-1">
+              {t.sources.map((s) => (
+                <Badge key={s} variant="outline" className="text-xs">
+                  {s}
+                </Badge>
+              ))}
+              <span className="text-xs text-muted-foreground">
+                {t.item_count} items
+              </span>
+            </CardDescription>
+          </CardHeader>
+          {t.items.length > 0 && (
+            <CardContent className="space-y-1.5">
+              {t.items.slice(0, 2).map((item) => (
+                <a
+                  key={item.id}
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block text-sm hover:underline"
+                >
+                  {item.title}
+                  <ExternalLink className="ml-1 inline h-3 w-3 text-muted-foreground" />
+                </a>
+              ))}
+            </CardContent>
+          )}
+        </Card>
+      ))}
+    </div>
+  );
+}
+
 function IntelSkeleton() {
   return (
     <Card>
@@ -236,96 +346,115 @@ export default function IntelPage() {
       {/* Scraper Health */}
       {token && <HealthDashboard token={token} />}
 
-      {/* Search */}
-      <div className="flex gap-2">
-        <Input
-          placeholder="Search your radar..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-          className="max-w-md"
-        />
-        <Button variant="outline" onClick={handleSearch}>
-          <Search className="h-4 w-4" />
-        </Button>
-      </div>
+      <Tabs defaultValue="trending">
+        <TabsList>
+          <TabsTrigger value="trending">
+            <TrendingUp className="mr-1 h-4 w-4" />
+            Trending
+          </TabsTrigger>
+          <TabsTrigger value="feed">
+            <Newspaper className="mr-1 h-4 w-4" />
+            Feed
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Loading */}
-      {loading && (
-        <div className="space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <IntelSkeleton key={i} />
-          ))}
-        </div>
-      )}
+        <TabsContent value="trending">
+          {token && <TrendingTab token={token} />}
+        </TabsContent>
 
-      {/* Empty state */}
-      {!loading && items.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
-            <Newspaper className="h-7 w-7 text-muted-foreground" />
+        <TabsContent value="feed">
+          {/* Search */}
+          <div className="flex gap-2 mb-4">
+            <Input
+              placeholder="Search your radar..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              className="max-w-md"
+            />
+            <Button variant="outline" onClick={handleSearch}>
+              <Search className="h-4 w-4" />
+            </Button>
           </div>
-          <h3 className="text-lg font-medium">Your radar is quiet</h3>
-          <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-            I haven&apos;t scanned anything yet. Run a scan to pull in signals from
-            Hacker News, GitHub, arXiv, and RSS feeds.
-          </p>
-          <Button
-            variant="outline"
-            className="mt-4"
-            onClick={handleScrape}
-            disabled={scraping}
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${scraping ? "animate-spin" : ""}`} />
-            {scraping ? "Scanning..." : "Run First Scan"}
-          </Button>
-        </div>
-      )}
 
-      {/* Items */}
-      {!loading && items.length > 0 && (
-        <div className="space-y-3">
-          {items.map((item, i) => (
-            <Card key={i}>
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-base">
-                      <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:underline"
-                      >
-                        {item.title}
-                        <ExternalLink className="ml-1 inline h-3 w-3" />
-                      </a>
-                    </CardTitle>
-                    <CardDescription className="flex items-center gap-2">
-                      <Badge variant="outline">{item.source}</Badge>
-                      {item.published && (
-                        <span>{new Date(item.published).toLocaleDateString()}</span>
-                      )}
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">{item.summary}</p>
-                {item.tags && item.tags.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {item.tags.map((t) => (
-                      <Badge key={t} variant="secondary" className="text-xs">
-                        {t}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+          {/* Loading */}
+          {loading && (
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <IntelSkeleton key={i} />
+              ))}
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!loading && items.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+                <Newspaper className="h-7 w-7 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-medium">Your radar is quiet</h3>
+              <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                I haven&apos;t scanned anything yet. Run a scan to pull in signals from
+                Hacker News, GitHub, arXiv, and RSS feeds.
+              </p>
+              <Button
+                variant="outline"
+                className="mt-4"
+                onClick={handleScrape}
+                disabled={scraping}
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${scraping ? "animate-spin" : ""}`} />
+                {scraping ? "Scanning..." : "Run First Scan"}
+              </Button>
+            </div>
+          )}
+
+          {/* Items */}
+          {!loading && items.length > 0 && (
+            <div className="space-y-3">
+              {items.map((item, i) => (
+                <Card key={i}>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <CardTitle className="text-base">
+                          <a
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:underline"
+                          >
+                            {item.title}
+                            <ExternalLink className="ml-1 inline h-3 w-3" />
+                          </a>
+                        </CardTitle>
+                        <CardDescription className="flex items-center gap-2">
+                          <Badge variant="outline">{item.source}</Badge>
+                          {item.published && (
+                            <span>{new Date(item.published).toLocaleDateString()}</span>
+                          )}
+                        </CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">{item.summary}</p>
+                    {item.tags && item.tags.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {item.tags.map((t) => (
+                          <Badge key={t} variant="secondary" className="text-xs">
+                            {t}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

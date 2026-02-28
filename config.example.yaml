@@ -54,6 +54,21 @@ sources:
     enabled: false
     sources: [metr, chatbot_arena, helm]
     max_items_per_source: 10
+  indeed_hiring_lab:
+    enabled: false
+    change_threshold: 5.0
+    max_items: 8
+  google_trends:
+    enabled: false
+    keywords: [AI agents, LLM fine-tuning, rust programming]
+    spike_threshold: 20.0
+    timeframe: "today 1-m"
+  crunchbase:
+    enabled: false
+    # api_key: ${CRUNCHBASE_API_KEY}  # required — get free key at crunchbase.com/api
+    categories: [artificial-intelligence, developer-tools, saas]
+    days_back: 7
+    max_items: 20
   enabled:
     - hn_top
     - rss_feeds
@@ -65,6 +80,9 @@ sources:
     # - yc_jobs          # uncomment to enable
     # - google_patents   # uncomment to enable
     # - ai_capabilities  # METR evals, Chatbot Arena, HELM benchmarks
+    # - indeed_hiring_lab  # sector job posting trends
+    # - google_trends       # keyword interest spikes
+    # - crunchbase          # funding rounds (requires API key)
 
 schedule:
   weekly_review: "sunday 9am"
@@ -127,6 +145,14 @@ threads:
   similarity_threshold: 0.78
   min_entries_for_thread: 2
   candidate_count: 10
+
+# --- Trending Radar: cross-source topic convergence ---
+trending_radar:
+  enabled: true
+  min_sources: 2
+  days: 7
+  max_topics: 15
+  interval_hours: 6
 
 # --- Heartbeat: proactive intel-to-goal matching ---
 heartbeat:
