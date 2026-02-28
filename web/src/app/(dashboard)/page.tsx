@@ -1,10 +1,10 @@
 "use client";
 
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useToken } from "@/hooks/useToken";
 import { BriefingPanel } from "@/components/BriefingPanel";
-import { BriefInlineChat } from "@/components/BriefInlineChat";
+import { ChatSheet } from "@/components/ChatSheet";
 import { Brain, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,10 +25,7 @@ export default function HomePage() {
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [inlineChatQuestion, setInlineChatQuestion] = useState<string | null>(null);
-  const [chatKey, setChatKey] = useState(0);
   const [input, setInput] = useState("");
-  const chatRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const loadBriefing = useCallback(
     async (t: string) => {
@@ -79,10 +76,6 @@ export default function HomePage() {
 
   const handleAsk = useCallback((text: string) => {
     setInlineChatQuestion(text);
-    setChatKey((k) => k + 1);
-    setTimeout(() => {
-      chatRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 100);
   }, []);
 
   const handleSubmit = useCallback(() => {
@@ -90,10 +83,6 @@ export default function HomePage() {
     handleAsk(input.trim());
     setInput("");
   }, [input, handleAsk]);
-
-  const handleDismiss = useCallback(() => {
-    setInlineChatQuestion(null);
-  }, []);
 
   // Wait for settings check before rendering
   if (!token || needsOnboarding === null) return null;
@@ -140,7 +129,6 @@ export default function HomePage() {
       <div className="mx-auto max-w-2xl mt-4 mb-4">
         <div className="flex gap-2">
           <Textarea
-            ref={textareaRef}
             rows={1}
             placeholder="Ask anything..."
             value={input}
@@ -159,16 +147,16 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Inline chat — appears below brief when triggered */}
-      {inlineChatQuestion && token && (
-        <div ref={chatRef} className="pb-8">
-          <BriefInlineChat
-            key={chatKey}
-            token={token}
-            initialQuestion={inlineChatQuestion}
-            onDismiss={handleDismiss}
-          />
-        </div>
+      {/* Chat Sheet — slides in from right */}
+      {token && (
+        <ChatSheet
+          token={token}
+          open={!!inlineChatQuestion}
+          initialQuestion={inlineChatQuestion}
+          onOpenChange={(open) => {
+            if (!open) setInlineChatQuestion(null);
+          }}
+        />
       )}
     </div>
   );
