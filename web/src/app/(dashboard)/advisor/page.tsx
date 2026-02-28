@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { MessageRenderer } from "@/components/MessageRenderer";
 import { Brain, Send, Plus, MessageSquare, Trash2 } from "lucide-react";
@@ -21,18 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { apiFetch, apiFetchSSE } from "@/lib/api";
-
-const TOOL_LABELS: Record<string, string> = {
-  journal_search: "Searching journal",
-  journal_read: "Reading journal entry",
-  journal_list: "Listing journal entries",
-  goals_list: "Checking goals",
-  intel_search: "Searching intel",
-  intel_get_recent: "Fetching recent intel",
-  profile_get: "Loading profile",
-  get_context: "Gathering context",
-  recommendations_list: "Checking recommendations",
-};
+import { TOOL_LABELS } from "@/lib/constants";
 
 interface Message {
   role: "user" | "assistant";
@@ -51,6 +41,7 @@ const CONV_KEY = "advisor_conversation_id";
 
 export default function AdvisorPage() {
   const token = useToken();
+  const searchParams = useSearchParams();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [adviceType, setAdviceType] = useState("general");
@@ -98,14 +89,16 @@ export default function AdvisorPage() {
   );
 
   // On mount: load conversation list + restore current conversation
+  // ?conv= deep-link takes priority over localStorage
   useEffect(() => {
     if (!token) return;
     loadConversations();
-    const saved = localStorage.getItem(CONV_KEY);
+    const convParam = searchParams.get("conv");
+    const saved = convParam || localStorage.getItem(CONV_KEY);
     if (saved) {
       loadConversation(saved);
     }
-  }, [token, loadConversations, loadConversation]);
+  }, [token, searchParams, loadConversations, loadConversation]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({

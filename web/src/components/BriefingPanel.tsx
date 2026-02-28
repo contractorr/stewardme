@@ -1,8 +1,7 @@
 "use client";
 
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
-import { MessageRenderer } from "@/components/MessageRenderer";
 import {
   AlertTriangle,
   ArrowRight,
@@ -13,7 +12,6 @@ import {
   Clock,
   Lightbulb,
   PenLine,
-  Plus,
   Rss,
   Send,
   Sparkles,
@@ -23,39 +21,9 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { apiFetch, apiFetchSSE } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 import { logEngagement } from "@/lib/engagement";
 import type { BriefingResponse } from "@/types/briefing";
-
-const TOOL_LABELS: Record<string, string> = {
-  journal_search: "Searching journal",
-  journal_read: "Reading journal entry",
-  journal_list: "Listing journal entries",
-  goals_list: "Checking goals",
-  intel_search: "Searching intel",
-  intel_get_recent: "Fetching recent intel",
-  profile_get: "Loading profile",
-  get_context: "Gathering context",
-  recommendations_list: "Checking recommendations",
-};
-
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
-
-const CONV_KEY = "main_chat_conv_id";
 
 const STATIC_CHIPS = [
   "What should I focus on today?",
@@ -63,17 +31,16 @@ const STATIC_CHIPS = [
   "How are my goals progressing?",
 ];
 
-function getGreeting(): string {
+export function getGreeting(): string {
   const h = new Date().getHours();
   if (h < 12) return "Good morning";
   if (h < 17) return "Good afternoon";
   return "Good evening";
 }
 
-function buildSuggestionChips(briefing: BriefingResponse | null): string[] {
+export function buildSuggestionChips(briefing: BriefingResponse | null): string[] {
   if (!briefing) return STATIC_CHIPS;
 
-  // Prefer daily brief actions as chips
   if (briefing.daily_brief?.items?.length) {
     const chips = briefing.daily_brief.items.slice(0, 4).map((item) => item.action);
     return chips;
@@ -109,7 +76,6 @@ interface TopPriority {
 }
 
 function getTopPriority(briefing: BriefingResponse): TopPriority | null {
-  // Daily brief card replaces the top priority callout
   if (briefing.daily_brief?.items?.length) return null;
 
   if (briefing.recommendations.length > 0) {
@@ -190,7 +156,7 @@ function QuickCaptureInput({ token }: { token: string }) {
   );
 }
 
-function BriefingPanel({ briefing, onChipClick, token, userName }: { briefing: BriefingResponse; onChipClick: (text: string) => void; token: string; userName?: string | null }) {
+export function BriefingPanel({ briefing, onChipClick, token, userName }: { briefing: BriefingResponse; onChipClick: (text: string) => void; token: string; userName?: string | null }) {
   const [expandedRecs, setExpandedRecs] = useState<Set<string>>(new Set());
   const [expandedCritic, setExpandedCritic] = useState<Set<string>>(new Set());
   const [feedbackGiven, setFeedbackGiven] = useState<Record<string, "useful" | "irrelevant">>({});
@@ -218,7 +184,6 @@ function BriefingPanel({ briefing, onChipClick, token, userName }: { briefing: B
   const topPriority = getTopPriority(briefing);
   const chips = buildSuggestionChips(briefing);
 
-  // Dedup: skip top priority item from its section
   const filteredRecommendations = topPriority?.kind === "recommendation"
     ? briefing.recommendations.filter((r) => r.title !== topPriority.title)
     : briefing.recommendations;
@@ -229,7 +194,6 @@ function BriefingPanel({ briefing, onChipClick, token, userName }: { briefing: B
     ? briefing.signals.filter((s) => s.title !== topPriority.title)
     : briefing.signals;
 
-  // Fresh goals: dedup against stale_goals by path
   const stalePaths = new Set(briefing.stale_goals.map((g) => g.path));
   const freshGoals = (briefing.goals || []).filter((g) => !stalePaths.has(g.path));
   const onlyGoals = !briefing.signals.length && !briefing.recommendations.length && !briefing.patterns.length && freshGoals.length > 0;
@@ -599,431 +563,6 @@ function BriefingPanel({ briefing, onChipClick, token, userName }: { briefing: B
             {chip}
           </button>
         ))}
-      </div>
-    </div>
-  );
-}
-
-export function ChatInterface({
-  token,
-  briefing,
-  onRefresh,
-  onboardingMode,
-  userName,
-}: {
-  token: string;
-  briefing: BriefingResponse | null;
-  onRefresh: () => void;
-  onboardingMode?: boolean;
-  userName?: string | null;
-}) {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [toolStatus, setToolStatus] = useState<string | null>(null);
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [restoredConv, setRestoredConv] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // Onboarding state
-  const [onboardingPhase, setOnboardingPhase] = useState<"key" | "chat" | null>(
-    onboardingMode ? "key" : null
-  );
-  const [provider, setProvider] = useState("auto");
-  const [apiKey, setApiKey] = useState("");
-  const [savingKey, setSavingKey] = useState(false);
-  const [onboardingSending, setOnboardingSending] = useState(false);
-  const [onboardingDone, setOnboardingDone] = useState(false);
-
-  // Restore conversation on mount (skip in onboarding)
-  useEffect(() => {
-    if (onboardingMode) return;
-    const saved = localStorage.getItem(CONV_KEY);
-    if (!saved) {
-      setRestoredConv(false);
-      return;
-    }
-    (async () => {
-      try {
-        const conv = await apiFetch<{
-          id: string;
-          messages: Message[];
-        }>(`/api/advisor/conversations/${saved}`, {}, token);
-        setConversationId(saved);
-        setMessages(conv.messages);
-        setRestoredConv(true);
-      } catch {
-        localStorage.removeItem(CONV_KEY);
-        setRestoredConv(false);
-      }
-    })();
-  }, [token, onboardingMode]);
-
-  const showBriefing =
-    !onboardingMode && messages.length === 0 && !restoredConv && briefing?.has_data;
-
-  useEffect(() => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: "smooth",
-    });
-  }, [messages, loading, onboardingSending]);
-
-  const handleNewChat = () => {
-    setConversationId(null);
-    setMessages([]);
-    setRestoredConv(false);
-    localStorage.removeItem(CONV_KEY);
-  };
-
-  const handleChipClick = (text: string) => {
-    setInput(text);
-    setTimeout(() => textareaRef.current?.focus(), 100);
-  };
-
-  const handleSend = useCallback(async () => {
-    if (!input.trim() || loading) return;
-    const question = input.trim();
-    setInput("");
-    setMessages((prev) => [...prev, { role: "user", content: question }]);
-    setLoading(true);
-    setToolStatus(null);
-
-    try {
-      await apiFetchSSE(
-        "/api/advisor/ask/stream",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            question,
-            advice_type: "general",
-            conversation_id: conversationId,
-          }),
-        },
-        token,
-        (event) => {
-          const type = event.type as string;
-          if (type === "tool_start") {
-            setToolStatus(
-              TOOL_LABELS[event.tool as string] || `Running ${event.tool}`
-            );
-          } else if (type === "tool_done") {
-            setToolStatus(null);
-          } else if (type === "answer") {
-            const cid = event.conversation_id as string;
-            setConversationId(cid);
-            localStorage.setItem(CONV_KEY, cid);
-            setMessages((prev) => [
-              ...prev,
-              { role: "assistant", content: event.content as string },
-            ]);
-          } else if (type === "error") {
-            toast.error(event.detail as string);
-            setMessages((prev) => [
-              ...prev,
-              { role: "assistant", content: "Error: " + (event.detail as string) },
-            ]);
-          }
-        }
-      );
-    } catch (e) {
-      toast.error((e as Error).message);
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "Error: " + (e as Error).message },
-      ]);
-    } finally {
-      setLoading(false);
-      setToolStatus(null);
-    }
-  }, [input, loading, conversationId, token]);
-
-  // --- Onboarding handlers ---
-  const handleSaveKey = async () => {
-    if (!apiKey.trim()) {
-      toast.error("Please enter an API key");
-      return;
-    }
-    setSavingKey(true);
-    try {
-      const payload: Record<string, string> = { llm_api_key: apiKey };
-      if (provider !== "auto") payload.llm_provider = provider;
-      await apiFetch("/api/settings", { method: "PUT", body: JSON.stringify(payload) }, token);
-
-      // Start onboarding chat
-      setOnboardingPhase("chat");
-      setOnboardingSending(true);
-      const res = await apiFetch<{ message: string; done: boolean }>(
-        "/api/onboarding/start",
-        { method: "POST" },
-        token
-      );
-      setMessages([{ role: "assistant", content: res.message }]);
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setSavingKey(false);
-      setOnboardingSending(false);
-    }
-  };
-
-  const handleOnboardingSend = async () => {
-    if (!input.trim() || onboardingSending) return;
-    const text = input.trim();
-    setInput("");
-    setMessages((prev) => [...prev, { role: "user", content: text }]);
-    setOnboardingSending(true);
-
-    try {
-      const res = await apiFetch<{ message: string; done: boolean; goals_created: number }>(
-        "/api/onboarding/chat",
-        { method: "POST", body: JSON.stringify({ message: text }) },
-        token
-      );
-      setMessages((prev) => [...prev, { role: "assistant", content: res.message }]);
-      if (res.done) {
-        setOnboardingDone(true);
-        onRefresh();
-      }
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setOnboardingSending(false);
-    }
-  };
-
-  // --- Onboarding: API key phase ---
-  if (onboardingPhase === "key") {
-    return (
-      <div className="flex h-full flex-col items-center justify-center px-4">
-        <div className="w-full max-w-md space-y-6">
-          <div className="flex flex-col items-center text-center">
-            <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-              <Brain className="h-7 w-7 text-primary" />
-            </div>
-            <h2 className="text-xl font-semibold">Welcome to <span className="text-primary">StewardMe</span></h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Connect your LLM API key to activate your steward. Your key is
-              encrypted and stored only for your account.
-            </p>
-          </div>
-
-          <div className="space-y-4 rounded-lg border p-4">
-            <div className="space-y-1.5">
-              <Label>Provider</Label>
-              <Select value={provider} onValueChange={setProvider}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="auto">Auto-detect</SelectItem>
-                  <SelectItem value="claude">Claude</SelectItem>
-                  <SelectItem value="openai">OpenAI</SelectItem>
-                  <SelectItem value="gemini">Gemini</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>API Key</Label>
-              <Input
-                type="password"
-                placeholder="sk-... or your provider key"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSaveKey();
-                }}
-              />
-            </div>
-            <Button onClick={handleSaveKey} disabled={savingKey} className="w-full">
-              {savingKey ? "Setting up..." : "Get Started"}
-              {!savingKey && <ArrowRight className="ml-2 h-4 w-4" />}
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // --- Onboarding: chat phase ---
-  if (onboardingPhase === "chat") {
-    return (
-      <div className="flex h-full flex-col">
-        <div className="border-b px-4 py-2">
-          <p className="text-sm font-medium">Getting to know you</p>
-          <p className="text-xs text-muted-foreground">
-            A few quick questions so I can hit the ground running
-          </p>
-        </div>
-
-        <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
-          {messages.map((msg, i) => (
-            <Card
-              key={i}
-              className={msg.role === "user" ? "ml-12 bg-primary/5" : "mr-12"}
-            >
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xs text-muted-foreground">
-                  {msg.role === "user" ? "You" : "Steward"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {msg.role === "assistant" ? (
-                  <MessageRenderer content={msg.content} onAction={handleChipClick} />
-                ) : (
-                  <div className="text-sm">{msg.content}</div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-          {onboardingSending && (
-            <Card className="mr-12">
-              <CardContent className="py-4">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="flex gap-1">
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:0ms]" />
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:150ms]" />
-                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:300ms]" />
-                  </div>
-                  Thinking...
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        {onboardingDone ? (
-          <div className="border-t px-4 py-3 text-center">
-            <p className="text-sm text-muted-foreground">
-              All set. Taking you to your brief...
-            </p>
-          </div>
-        ) : (
-          <div className="border-t px-4 py-3">
-            <div className="mx-auto flex max-w-3xl gap-2">
-              <Textarea
-                ref={textareaRef}
-                rows={2}
-                placeholder="Type your answer..."
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleOnboardingSend();
-                  }
-                }}
-                disabled={onboardingSending}
-                className="flex-1"
-              />
-              <Button
-                onClick={handleOnboardingSend}
-                disabled={onboardingSending || !input.trim()}
-              >
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // --- Normal chat ---
-  return (
-    <div className="flex h-full flex-col">
-      {/* Chat messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
-        {showBriefing && briefing && (
-          <BriefingPanel briefing={briefing} onChipClick={handleChipClick} token={token} userName={userName} />
-        )}
-        {messages.length === 0 && !showBriefing && (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
-              <Brain className="h-7 w-7 text-muted-foreground" />
-            </div>
-            <h3 className="text-lg font-medium">What do you need to work through?</h3>
-            <p className="mt-1 max-w-md text-sm text-muted-foreground">
-              Ask me anything — a decision, a priority, a goal, or what to do next.
-              I&apos;ll draw on your journal and radar to give you a grounded answer.
-            </p>
-            <div className="mx-auto mt-5 w-full max-w-md">
-              <QuickCaptureInput token={token} />
-            </div>
-            <div className="mt-6 flex flex-wrap justify-center gap-2">
-              {buildSuggestionChips(briefing).map((chip) => (
-                <button
-                  key={chip}
-                  onClick={() => handleChipClick(chip)}
-                  className="rounded-full border px-3 py-1.5 text-sm hover:bg-accent transition-colors"
-                >
-                  {chip}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        <div className="mx-auto max-w-3xl space-y-3">
-          {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={
-                msg.role === "user"
-                  ? "ml-12 rounded-2xl rounded-br-sm bg-primary/10 px-4 py-2.5"
-                  : "mr-12 rounded-2xl rounded-bl-sm bg-card border px-4 py-2.5"
-              }
-            >
-              {msg.role === "assistant" ? (
-                <MessageRenderer content={msg.content} onAction={handleChipClick} />
-              ) : (
-                <p className="text-sm">{msg.content}</p>
-              )}
-            </div>
-          ))}
-          {loading && (
-            <div className="mr-12 rounded-2xl rounded-bl-sm border bg-card px-4 py-3">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <div className="flex gap-1">
-                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:0ms]" />
-                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:150ms]" />
-                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:300ms]" />
-                </div>
-                {toolStatus || "Thinking..."}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Input area */}
-      <div className="border-t px-4 py-3">
-        <div className="mx-auto flex max-w-3xl gap-2">
-          <Textarea
-            ref={textareaRef}
-            rows={1}
-            placeholder="Ask me anything..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
-            className="flex-1 resize-none"
-          />
-          <div className="flex items-end gap-1">
-            <Button onClick={handleSend} disabled={loading || !input.trim()}>
-              <Send className="h-4 w-4" />
-            </Button>
-            {messages.length > 0 && (
-              <Button variant="ghost" size="icon" onClick={handleNewChat} title="New chat">
-                <Plus className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        </div>
       </div>
     </div>
   );
