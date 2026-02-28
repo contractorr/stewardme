@@ -6,7 +6,27 @@ build-backend = "setuptools.build_meta"
 name = "stewardme"
 version = "0.1.0"
 description = "Open-source AI steward that monitors the world and tells you what to do next"
+readme = "README.md"
+license = {file = "LICENSE"}
 requires-python = ">=3.11"
+authors = [{name = "Raj Contractor"}]
+keywords = ["ai", "rag", "personal-assistant", "self-hosted", "llm", "journal", "intelligence"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Office/Business :: Scheduling",
+]
+
+[project.urls]
+Homepage = "https://github.com/contractorr/stewardme"
+Repository = "https://github.com/contractorr/stewardme"
+Issues = "https://github.com/contractorr/stewardme/issues"
 dependencies = [
     "click>=8.1.0",
     "chromadb>=0.4.0",

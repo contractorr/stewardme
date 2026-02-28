@@ -10,6 +10,17 @@ Your journal, goals, and 10 live intel sources feed a RAG pipeline that delivers
 
 ![Dashboard](dashboard-redesign.png)
 
+## Why StewardMe?
+
+| | ChatGPT / Copilot | Notion AI | StewardMe |
+|---|---|---|---|
+| **Your data stays local** | No | No | Yes — SQLite + markdown files |
+| **Scans live sources for you** | No | No | Yes — 10 async scrapers (HN, arXiv, GitHub, Reddit, RSS, ...) |
+| **Learns from your feedback** | No | No | Yes — per-category scoring adjusts over time |
+| **Self-hosted** | No | No | Yes — Docker one-liner or bare metal |
+| **Multi-provider LLM** | GPT only | GPT only | Claude, OpenAI, Gemini (auto-detect) |
+| **Open source** | No | No | AGPL-3.0 |
+
 ## What it does
 
 - **Journal + semantic search** — markdown entries with YAML frontmatter, embedded in ChromaDB, quick capture from the dashboard
