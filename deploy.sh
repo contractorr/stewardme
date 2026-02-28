@@ -48,8 +48,14 @@ if [ -z "$GH_ID" ] && [ -z "$GO_ID" ]; then
     echo "WARNING: No OAuth provider configured. Set GITHUB_CLIENT_ID or GOOGLE_CLIENT_ID in .env."
 fi
 
-# --- Create data dir ---
+# --- Create data dir + seed config ---
 mkdir -p ~/coach
+COACH_CONFIG="$HOME/coach/coach/config.yaml"
+if [ ! -f "$COACH_CONFIG" ]; then
+    mkdir -p "$(dirname "$COACH_CONFIG")"
+    cp config.example.yaml "$COACH_CONFIG"
+    echo "Seeded default config at $COACH_CONFIG"
+fi
 
 # --- Deploy ---
 echo "Building and starting containers..."
