@@ -171,7 +171,12 @@ async def ask_advisor_stream(
 
     queue: asyncio.Queue[dict | None] = asyncio.Queue()
 
+    answer_sent = False
+
     def _event_callback(event: dict):
+        nonlocal answer_sent
+        if event.get("type") == "answer":
+            answer_sent = True
         queue.put_nowait(event)
 
     async def _run_engine():
@@ -191,16 +196,16 @@ async def ask_advisor_stream(
             # Save assistant response
             add_message(conv_id, "assistant", answer)
             log_event("chat_query", user_id, {"latency_ms": int((time.monotonic() - start) * 1000)})
-            # Send final answer event (may already have been sent by callback for
-            # agentic mode, but for classic RAG mode the callback isn't invoked)
-            queue.put_nowait(
-                {
-                    "type": "answer",
-                    "content": answer,
-                    "conversation_id": conv_id,
-                    "advice_type": body.advice_type,
-                }
-            )
+            # Only emit answer if agentic callback didn't already send one
+            if not answer_sent:
+                queue.put_nowait(
+                    {
+                        "type": "answer",
+                        "content": answer,
+                        "conversation_id": conv_id,
+                        "advice_type": body.advice_type,
+                    }
+                )
         except Exception as exc:
             queue.put_nowait({"type": "error", "detail": str(exc)})
         finally:
