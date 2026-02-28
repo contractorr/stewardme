@@ -116,9 +116,7 @@ class AdvisorEngine:
                         pct = progress.get("percent", 0)
                         stale = " [STALE]" if g.get("is_stale") else ""
                         fname = Path(g["path"]).name
-                        lines.append(
-                            f"- {g['title']} ({status}, {pct}% done{stale}) — {fname}"
-                        )
+                        lines.append(f"- {g['title']} ({status}, {pct}% done{stale}) — {fname}")
                     if lines:
                         goals_summary = "\n".join(lines)
             except Exception:

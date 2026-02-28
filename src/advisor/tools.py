@@ -409,9 +409,7 @@ class ToolRegistry:
                     from intelligence.goal_intel_match import GoalIntelMatchStore
 
                     match_store = GoalIntelMatchStore(intel_storage.db_path)
-                    intel_matches = match_store.get_matches(
-                        goal_paths=[str(goal_path)], limit=5
-                    )
+                    intel_matches = match_store.get_matches(goal_paths=[str(goal_path)], limit=5)
             except Exception:
                 pass
 
