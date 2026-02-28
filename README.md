@@ -1,5 +1,11 @@
 # StewardMe
 
+[![CI](https://github.com/contractorr/stewardme/actions/workflows/test.yml/badge.svg)](https://github.com/contractorr/stewardme/actions/workflows/test.yml)
+[![Lint](https://github.com/contractorr/stewardme/actions/workflows/lint.yml/badge.svg)](https://github.com/contractorr/stewardme/actions/workflows/lint.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-green.svg)](LICENSE)
+[![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
 **An open-source AI steward that monitors the world and tells you what to do next.**
 
 Your journal, goals, and 10 live intel sources feed a RAG pipeline that delivers personalized, explainable guidance — entirely self-hosted.
