@@ -46,10 +46,10 @@ def mock_components(tmp_path):
 
 
 class TestToolRegistryInit:
-    def test_creates_14_tools(self, mock_components):
+    def test_creates_15_tools(self, mock_components):
         registry = ToolRegistry(mock_components)
         defs = registry.get_definitions()
-        assert len(defs) == 14
+        assert len(defs) == 15
 
     def test_tool_names(self, mock_components):
         registry = ToolRegistry(mock_components)
@@ -63,6 +63,7 @@ class TestToolRegistryInit:
             "goals_add",
             "goals_check_in",
             "goals_update_status",
+            "goal_next_steps",
             "intel_search",
             "intel_get_recent",
             "recommendations_list",
@@ -262,3 +263,42 @@ class TestToolResultTruncation:
 
         result = registry.execute("journal_list", {"limit": 50})
         assert len(result) <= 4100  # TOOL_RESULT_MAX_CHARS + truncation msg
+
+
+class TestGoalNextStepsTool:
+    def test_returns_enriched_context(self, mock_components):
+        registry = ToolRegistry(mock_components)
+
+        # Create a goal
+        create_result = json.loads(
+            registry.execute(
+                "goals_add",
+                {"title": "Learn Kubernetes", "description": "Master k8s for production deployments"},
+            )
+        )
+        goal_path = create_result["path"]
+
+        result = registry.execute("goal_next_steps", {"goal_path": goal_path})
+        parsed = json.loads(result)
+
+        assert parsed["title"] == "Learn Kubernetes"
+        assert parsed["status"] == "active"
+        assert "progress_percent" in parsed
+        assert "milestones" in parsed
+        assert "intel_matches" in parsed
+        assert "related_journal" in parsed
+        assert "content" in parsed
+
+    def test_invalid_path_returns_error(self, mock_components):
+        registry = ToolRegistry(mock_components)
+        result = registry.execute("goal_next_steps", {"goal_path": "/nonexistent/goal.md"})
+        parsed = json.loads(result)
+        assert "error" in parsed
+
+    def test_path_traversal_blocked(self, mock_components):
+        registry = ToolRegistry(mock_components)
+        result = registry.execute(
+            "goal_next_steps", {"goal_path": "../../etc/passwd"}
+        )
+        parsed = json.loads(result)
+        assert "error" in parsed

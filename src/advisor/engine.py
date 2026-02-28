@@ -101,10 +101,34 @@ class AdvisorEngine:
         self._orchestrator = None
         if use_tools and components:
             registry = ToolRegistry(components)
+
+            # Build coaching prompt with active goals summary
+            goals_summary = ""
+            try:
+                storage = components.get("storage")
+                if storage:
+                    tracker = GoalTracker(storage)
+                    goals = tracker.get_goals(include_inactive=False)
+                    lines = []
+                    for g in goals[:8]:
+                        status = g.get("status", "active")
+                        progress = tracker.get_progress(Path(g["path"]))
+                        pct = progress.get("percent", 0)
+                        stale = " [STALE]" if g.get("is_stale") else ""
+                        fname = Path(g["path"]).name
+                        lines.append(
+                            f"- {g['title']} ({status}, {pct}% done{stale}) — {fname}"
+                        )
+                    if lines:
+                        goals_summary = "\n".join(lines)
+            except Exception:
+                pass  # broken goals must not prevent startup
+
+            system_prompt = PromptTemplates.build_agentic_system(goals_summary)
             self._orchestrator = AgenticOrchestrator(
                 llm=self.llm,
                 registry=registry,
-                system_prompt=PromptTemplates.AGENTIC_SYSTEM,
+                system_prompt=system_prompt,
             )
 
     @_llm_retry

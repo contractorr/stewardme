@@ -66,7 +66,7 @@ class DailyBriefBuilder:
                     title=g.get("title", ""),
                     description=f"Last check-in {g.get('days_since_check', '?')} days ago",
                     time_minutes=t,
-                    action=f"Help me check in on my goal: {g.get('title', '')}",
+                    action=f"What concrete steps can I take this week to advance my goal: {g.get('title', '')}? Suggest specific events, projects, or resources.",
                     priority=0,
                 )
             )
@@ -152,7 +152,7 @@ class DailyBriefBuilder:
                         title=title,
                         description="Quick check-in to keep momentum",
                         time_minutes=_TIME["nudge"],
-                        action=f"Help me check in on my goal: {title}",
+                        action=f"What concrete steps can I take this week to advance my goal: {title}? Suggest specific events, projects, or resources.",
                         priority=1,
                     )
                 )

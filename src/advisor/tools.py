@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Callable
 
+import frontmatter
 import structlog
 
 from llm.base import ToolDefinition
@@ -372,6 +373,102 @@ class ToolRegistry:
                 "required": ["goal_path", "status"],
             },
             goals_update_status,
+        )
+
+        def goal_next_steps(args: dict) -> dict:
+            """Enriched goal context: progress, matching intel, related journal entries."""
+            goal_path_str = args["goal_path"]
+            goal_path = Path(goal_path_str)
+            journal_dir = Path(storage.journal_dir)
+
+            # Path traversal check
+            try:
+                goal_path.resolve().relative_to(journal_dir.resolve())
+            except ValueError:
+                return {"error": "Invalid path"}
+
+            if not goal_path.exists():
+                return {"error": f"Goal not found: {goal_path_str}"}
+
+            tracker = _get_tracker()
+
+            # Read full goal content
+            try:
+                post = frontmatter.load(goal_path)
+            except Exception as e:
+                return {"error": f"Failed to read goal: {e}"}
+
+            meta = dict(post.metadata)
+            progress = tracker.get_progress(goal_path)
+
+            # Matching intel items
+            intel_matches = []
+            try:
+                intel_storage = self.components.get("intel_storage")
+                if intel_storage:
+                    from intelligence.goal_intel_match import GoalIntelMatchStore
+
+                    match_store = GoalIntelMatchStore(intel_storage.db_path)
+                    intel_matches = match_store.get_matches(
+                        goal_paths=[str(goal_path)], limit=5
+                    )
+            except Exception:
+                pass
+
+            # Related journal entries (semantic search on goal title+content)
+            related_entries = []
+            try:
+                embeddings = self.components.get("embeddings")
+                if embeddings:
+                    query_text = f"{meta.get('title', '')} {(post.content or '')[:200]}"
+                    results = embeddings.query(query_text, n_results=5)
+                    for r in results:
+                        # Exclude the goal itself and other goal-type entries
+                        r_meta = r.get("metadata", {})
+                        if r_meta.get("type") == "goal":
+                            continue
+                        related_entries.append(
+                            {
+                                "id": r.get("id", ""),
+                                "content": (r.get("content") or "")[:200],
+                                "metadata": r_meta,
+                            }
+                        )
+            except Exception:
+                pass
+
+            return {
+                "title": meta.get("title", ""),
+                "status": meta.get("status", "active"),
+                "content": (post.content or "")[:1000],
+                "milestones": progress.get("milestones", []),
+                "progress_percent": progress.get("percent", 0),
+                "intel_matches": [
+                    {
+                        "title": m.get("title", ""),
+                        "summary": (m.get("summary") or "")[:200],
+                        "urgency": m.get("urgency", ""),
+                        "url": m.get("url", ""),
+                    }
+                    for m in intel_matches
+                ],
+                "related_journal": related_entries,
+            }
+
+        self._register(
+            "goal_next_steps",
+            "Get enriched context for a goal: full content, milestones, progress, matching intel items, and related journal entries. Use before coaching on a specific goal.",
+            {
+                "type": "object",
+                "properties": {
+                    "goal_path": {
+                        "type": "string",
+                        "description": "Full path to the goal file",
+                    },
+                },
+                "required": ["goal_path"],
+            },
+            goal_next_steps,
         )
 
     # --- Intel tools ---

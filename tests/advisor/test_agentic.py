@@ -344,3 +344,29 @@ class TestAgenticEngineIntegration:
         )
 
         assert engine._orchestrator is None
+
+    def test_dynamic_prompt_contains_goal_title(self, mock_components):
+        """System prompt includes active goal titles when goals exist."""
+        from advisor.engine import AdvisorEngine
+
+        # Create a goal
+        storage = mock_components["storage"]
+        storage.create(content="Learn it", entry_type="goal", title="Master Rust")
+
+        mock_client = MagicMock()
+        resp = MagicMock()
+        resp.content = [MagicMock(type="text", text="Coaching response")]
+        resp.stop_reason = "end_turn"
+        mock_client.messages.create.return_value = resp
+
+        engine = AdvisorEngine(
+            rag=mock_components["rag"],
+            provider="claude",
+            client=mock_client,
+            use_tools=True,
+            components=mock_components,
+        )
+
+        assert engine._orchestrator is not None
+        assert "Master Rust" in engine._orchestrator.system_prompt
+        assert "ACTIVE GOALS" in engine._orchestrator.system_prompt
