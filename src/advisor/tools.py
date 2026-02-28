@@ -63,6 +63,7 @@ class ToolRegistry:
         self._register_goal_tools()
         self._register_intel_tools()
         self._register_rss_tools()
+        self._register_web_search_tools()
         self._register_misc_tools()
 
     # --- Journal tools ---
@@ -557,6 +558,51 @@ class ToolRegistry:
                 "required": ["url"],
             },
             intel_add_rss_feed,
+        )
+
+    # --- Web search tools ---
+
+    def _register_web_search_tools(self):
+        from research.web_search import WebSearchClient
+
+        search_client = WebSearchClient()
+
+        def web_search(args: dict) -> dict:
+            query = args["query"]
+            max_results = args.get("max_results", 5)
+            search_client.max_results = max_results
+            results = search_client.search(query)
+            return {
+                "results": [
+                    {
+                        "title": r.title,
+                        "url": r.url,
+                        "content": r.content[:500],
+                    }
+                    for r in results
+                ],
+                "count": len(results),
+            }
+
+        self._register(
+            "web_search",
+            "Search the internet for current information. Use when the user's question requires up-to-date info beyond journal/intel, or when you need to research a topic, verify facts, or find resources.",
+            {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Search query",
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Max results to return",
+                        "default": 5,
+                    },
+                },
+                "required": ["query"],
+            },
+            web_search,
         )
 
     # --- Misc tools (recommendations, profile, context) ---

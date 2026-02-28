@@ -147,16 +147,16 @@ export function MessageRenderer({ content, onAction, compact }: MessageRendererP
         <>
           {remainder && <p>{remainder}</p>}
           {ctas.length > 0 && (
-            <div className="mt-3 rounded-lg border bg-muted/30 px-4 py-3 not-prose">
+            <div className="mt-3 rounded-lg border bg-muted/30 px-4 py-3 not-prose overflow-hidden">
               <p className="text-xs font-medium text-muted-foreground mb-2">What would you like to do next?</p>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-col gap-2">
                 {ctas.map((cta) => (
                   <Button
                     key={cta}
                     variant="outline"
                     size="sm"
                     onClick={() => onAction(cta)}
-                    className="text-xs h-auto py-1.5 px-3 bg-background"
+                    className="text-xs h-auto py-1.5 px-3 bg-background whitespace-normal text-left justify-start"
                   >
                     {cta}
                   </Button>

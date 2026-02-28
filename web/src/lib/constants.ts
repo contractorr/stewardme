@@ -8,4 +8,5 @@ export const TOOL_LABELS: Record<string, string> = {
   profile_get: "Loading profile",
   get_context: "Gathering context",
   recommendations_list: "Checking recommendations",
+  web_search: "Searching the web",
 };
