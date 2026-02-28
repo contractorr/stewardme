@@ -1,7 +1,9 @@
 """Cross-source topic convergence — surfaces topics appearing across multiple scraped sources."""
 
 import json
+import math
 import re
+from collections import Counter
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -13,6 +15,7 @@ logger = structlog.get_logger().bind(source="trending_radar")
 
 STOPWORDS = frozenset(
     {
+        # Articles, pronouns, prepositions, conjunctions
         "the",
         "and",
         "for",
@@ -20,9 +23,12 @@ STOPWORDS = frozenset(
         "but",
         "not",
         "you",
+        "your",
         "all",
         "can",
+        "is",
         "her",
+        "his",
         "was",
         "one",
         "our",
@@ -84,6 +90,19 @@ STOPWORDS = frozenset(
         "through",
         "before",
         "between",
+        "while",
+        "during",
+        "without",
+        "within",
+        "against",
+        "along",
+        "above",
+        "below",
+        "under",
+        "since",
+        "until",
+        "upon",
+        # Common verbs / verb forms
         "using",
         "show",
         "shows",
@@ -100,9 +119,6 @@ STOPWORDS = frozenset(
         "well",
         "back",
         "then",
-        "work",
-        "year",
-        "years",
         "really",
         "still",
         "need",
@@ -110,13 +126,67 @@ STOPWORDS = frozenset(
         "want",
         "look",
         "think",
-        "good",
         "much",
         "even",
         "same",
         "each",
         "many",
         "help",
+        "come",
+        "came",
+        "goes",
+        "gone",
+        "going",
+        "getting",
+        "making",
+        "trying",
+        "looking",
+        "working",
+        "building",
+        "become",
+        "becomes",
+        "start",
+        "starts",
+        "started",
+        "bring",
+        "brings",
+        "keep",
+        "keeps",
+        "turn",
+        "turns",
+        "move",
+        "moves",
+        "run",
+        "runs",
+        "running",
+        "says",
+        "said",
+        "told",
+        "tells",
+        "gives",
+        "given",
+        "finds",
+        "found",
+        "puts",
+        "read",
+        "reads",
+        "write",
+        "writes",
+        "learn",
+        "learned",
+        "used",
+        "needs",
+        "wants",
+        "built",
+        "create",
+        "created",
+        "creates",
+        "update",
+        "updated",
+        "adds",
+        "added",
+        "inside",
+        # Generic nouns too common in tech news to be meaningful
         "something",
         "anything",
         "everything",
@@ -127,28 +197,263 @@ STOPWORDS = frozenset(
         "best",
         "part",
         "long",
-        "going",
-        "getting",
-        "making",
-        "trying",
-        "looking",
-        "working",
-        "building",
+        "people",
+        "world",
+        "time",
+        "times",
+        "data",
+        "code",
+        "tool",
+        "tools",
+        "app",
+        "apps",
+        "system",
+        "systems",
+        "user",
+        "users",
+        "team",
+        "teams",
+        "company",
+        "companies",
+        "product",
+        "products",
+        "project",
+        "projects",
+        "platform",
+        "service",
+        "services",
+        "feature",
+        "features",
+        "issue",
+        "issues",
+        "release",
+        "releases",
+        "version",
+        "support",
+        "report",
+        "reports",
+        "list",
+        "guide",
+        # Generic adjectives / adverbs
+        "good",
+        "great",
+        "better",
+        "simple",
+        "easy",
+        "fast",
+        "free",
+        "full",
+        "high",
+        "large",
+        "small",
+        "open",
+        "real",
+        "right",
+        "top",
+        "big",
+        "next",
+        "last",
+        "own",
+        "early",
+        "late",
+        "hard",
+        "soft",
+        "available",
+        "popular",
+        "common",
+        "major",
+        "minor",
+        "latest",
+        "recent",
+        "possible",
+        # Filler / meta
+        "work",
+        "year",
+        "years",
         "why",
-        "what",
         "asks",
         "ask",
         "asked",
+        "yet",
+        "already",
+        "across",
+        "around",
+        "among",
+        "toward",
+        "towards",
+        "via",
+        "per",
+        "vs",
+        "etc",
+        "via",
+        "instead",
+        "day",
+        "days",
+        "week",
+        "weeks",
+        "month",
+        "months",
+        "hour",
+        "hours",
+        "way",
+        "ways",
+        "case",
+        "cases",
+        "point",
+        "points",
+        "level",
+        "number",
+        "line",
+        "lines",
+        "step",
+        "steps",
+        "change",
+        "changes",
+        "end",
+        "set",
+        "idea",
+        "ideas",
+        "result",
+        "results",
+        "career",
+        "job",
+        "jobs",
+        "site",
+        "blog",
+        "post",
     }
 )
 
-_TERM_RE = re.compile(r"[a-z][a-z0-9\-]{2,}")
+_TOKEN_RE = re.compile(r"[a-z][a-z0-9\-]{1,}")
 
 
 def _extract_title_terms(title: str) -> set[str]:
-    """Extract meaningful lowercase tokens from a title, filtered against stopwords."""
-    tokens = _TERM_RE.findall(title.lower())
-    return {t for t in tokens if t not in STOPWORDS and len(t) >= 3}
+    """Extract meaningful tokens and bigrams from a title.
+
+    Returns individual non-stopword tokens (min 3 chars) plus adjacent bigrams
+    formed from consecutive non-stopword tokens. Bigrams like 'machine learning'
+    or 'ai agents' emerge naturally; collocation detection later promotes
+    statistically significant ones and drops redundant unigrams.
+    """
+    tokens = _TOKEN_RE.findall(title.lower())
+    # Split into runs of non-stopword tokens
+    runs: list[list[str]] = []
+    current: list[str] = []
+    for tok in tokens:
+        if tok in STOPWORDS:
+            if current:
+                runs.append(current)
+                current = []
+        else:
+            current.append(tok)
+    if current:
+        runs.append(current)
+
+    terms: set[str] = set()
+    for run in runs:
+        # Add individual tokens (min 3 chars)
+        for tok in run:
+            if len(tok) >= 3:
+                terms.add(tok)
+        # Add bigrams from consecutive tokens in same run
+        for a, b in zip(run, run[1:]):
+            bigram = f"{a} {b}"
+            if len(bigram) >= 3:
+                terms.add(bigram)
+    return terms
+
+
+# ---------------------------------------------------------------------------
+# Dunning log-likelihood ratio for corpus-level bigram collocation detection
+# Adapted from amueller/word_cloud (MIT license)
+# ---------------------------------------------------------------------------
+
+
+def _ll(k: int, n: int, x: float) -> float:
+    """Log-likelihood helper."""
+    if x <= 0:
+        x = 1e-10
+    if x >= 1:
+        x = 1 - 1e-10
+    return math.log(x) * k + math.log(1 - x) * (n - k)
+
+
+def _dunning_score(c12: int, c1: int, c2: int, n: int) -> float:
+    """Dunning log-likelihood ratio. Higher = stronger collocation."""
+    if n <= c1 or n <= c2 or c1 == 0:
+        return 0.0
+    p = c2 / n
+    p1 = c12 / c1
+    p2 = (c2 - c12) / (n - c1) if n > c1 else 0
+    return -2 * (
+        _ll(c12, c1, p) + _ll(c2 - c12, n - c1, p) - _ll(c12, c1, p1) - _ll(c2 - c12, n - c1, p2)
+    )
+
+
+def _detect_collocations(titles: list[str], threshold: float = 15.0) -> dict[str, float]:
+    """Find statistically significant bigrams across a corpus of titles.
+
+    Returns {bigram_string: score} for bigrams above the threshold.
+    """
+    # Tokenize all titles, filter stopwords
+    tokenized = []
+    for t in titles:
+        toks = [w for w in _TOKEN_RE.findall(t.lower()) if w not in STOPWORDS and len(w) >= 2]
+        tokenized.append(toks)
+
+    all_words = [w for toks in tokenized for w in toks]
+    n = len(all_words)
+    if n < 4:
+        return {}
+
+    unigram_counts = Counter(all_words)
+    bigram_counts: Counter = Counter()
+    for toks in tokenized:
+        for a, b in zip(toks, toks[1:]):
+            bigram_counts[(a, b)] += 1
+
+    collocations = {}
+    for (a, b), c12 in bigram_counts.items():
+        if c12 < 2:
+            continue
+        score = _dunning_score(c12, unigram_counts[a], unigram_counts[b], n)
+        if score > threshold:
+            collocations[f"{a} {b}"] = score
+    return collocations
+
+
+# ---------------------------------------------------------------------------
+# Velocity scoring — two-window comparison
+# ---------------------------------------------------------------------------
+
+
+def _velocity_score(
+    items: list[dict], now: datetime, total_days: int = 7, hot_hours: int = 24
+) -> float:
+    """Compare recent mention rate vs baseline rate.
+
+    Returns >1.0 if accelerating, <1.0 if decelerating.
+    Brand-new topics (no baseline) get a 2x boost.
+    """
+    cutoff_recent = now - timedelta(hours=hot_hours)
+    recent, baseline = 0, 0
+    for item in items:
+        try:
+            t = datetime.fromisoformat(item["scraped_at"])
+        except (ValueError, TypeError):
+            continue
+        if t >= cutoff_recent:
+            recent += 1
+        else:
+            baseline += 1
+
+    baseline_days = total_days - hot_hours / 24
+    baseline_rate = baseline / baseline_days if baseline_days > 0 else 0
+    recent_rate = recent / (hot_hours / 24)
+
+    if baseline_rate == 0:
+        return min(recent_rate * 2.0, 5.0)  # cap brand-new boost
+    return min(recent_rate / baseline_rate, 5.0)
 
 
 class TrendingRadar:
@@ -181,10 +486,12 @@ class TrendingRadar:
     ) -> dict:
         """Compute trending topics from recent intel items.
 
-        Scoring: 0.4*norm_freq + 0.4*norm_diversity + 0.2*avg_recency
-        Gate: topic must appear in >= min_sources distinct sources.
+        Pipeline:
+        1. Extract phrases (RAKE-style stopword splitting) + detect collocations
+        2. Gate: topic must appear in >= min_sources distinct sources
+        3. Score: 0.35*sublinear_freq + 0.35*diversity + 0.3*velocity
         """
-        w = weights or {"freq": 0.4, "diversity": 0.4, "recency": 0.2}
+        w = weights or {"freq": 0.35, "diversity": 0.35, "velocity": 0.3}
         cutoff = (datetime.now() - timedelta(days=days)).isoformat()
         now = datetime.now()
 
@@ -209,7 +516,11 @@ class TrendingRadar:
                 "topics": [],
             }
 
-        # Build topic → items mapping
+        # Detect statistically significant bigram collocations across all titles
+        all_titles = [row[2] for row in rows]
+        collocations = _detect_collocations(all_titles, threshold=15.0)
+
+        # Build topic → items mapping using phrase extraction
         topic_items: dict[str, list[dict]] = {}
         all_sources: set[str] = set()
 
@@ -226,7 +537,7 @@ class TrendingRadar:
                 "scraped_at": scraped_at,
             }
 
-            # Collect terms from tags + title
+            # Collect phrases from tags + title
             terms: set[str] = set()
             if tags_str:
                 for tag in tags_str.split(","):
@@ -235,8 +546,26 @@ class TrendingRadar:
                         terms.add(tag)
             terms |= _extract_title_terms(title)
 
+            # Also add any detected collocations present in this title
+            title_lower = title.lower()
+            for bigram in collocations:
+                if bigram in title_lower:
+                    terms.add(bigram)
+
             for term in terms:
                 topic_items.setdefault(term, []).append(item)
+
+        # Deduplicate: if a statistically significant collocation (e.g. "machine learning")
+        # exists as a topic, remove its constituent unigrams to avoid double-counting.
+        # Only use Dunning-validated collocations, not arbitrary bigrams from titles.
+        significant_bigrams = {t for t in topic_items if t in collocations}
+        unigram_parts: set[str] = set()
+        for ct in significant_bigrams:
+            for part in ct.split():
+                unigram_parts.add(part)
+        for part in unigram_parts:
+            if part in topic_items:
+                del topic_items[part]
 
         total_active_sources = len(all_sources)
 
@@ -249,24 +578,23 @@ class TrendingRadar:
             if len(sources) < min_sources:
                 continue
 
-            norm_freq = len(items) / max_item_count if max_item_count else 0
+            # Sublinear TF: 1+log(count) dampens high-frequency generic terms
+            norm_freq = (
+                (1 + math.log(len(items))) / (1 + math.log(max_item_count))
+                if max_item_count > 0
+                else 0
+            )
             norm_diversity = len(sources) / total_active_sources if total_active_sources else 0
 
-            # Recency: linear decay over `days` window
-            recency_scores = []
-            for i in items:
-                try:
-                    scraped = datetime.fromisoformat(i["scraped_at"])
-                    hours_since = (now - scraped).total_seconds() / 3600
-                    recency_scores.append(max(0.0, 1.0 - hours_since / (days * 24)))
-                except (ValueError, TypeError):
-                    recency_scores.append(0.0)
-            avg_recency = sum(recency_scores) / len(recency_scores) if recency_scores else 0
+            # Velocity: compare recent mention rate vs baseline
+            velocity = _velocity_score(items, now, total_days=days)
+            # Normalize velocity to 0-1 range (cap at 5.0, already capped in _velocity_score)
+            norm_velocity = min(velocity / 5.0, 1.0)
 
             score = (
-                w.get("freq", 0.4) * norm_freq
-                + w.get("diversity", 0.4) * norm_diversity
-                + w.get("recency", 0.2) * avg_recency
+                w.get("freq", 0.35) * norm_freq
+                + w.get("diversity", 0.35) * norm_diversity
+                + w.get("velocity", 0.3) * norm_velocity
             )
 
             # Top-3 representative items (most recent, deduplicated by URL)
@@ -286,7 +614,7 @@ class TrendingRadar:
                     "item_count": len(items),
                     "source_count": len(sources),
                     "sources": sorted(sources),
-                    "avg_recency": round(avg_recency, 3),
+                    "velocity": round(velocity, 2),
                     "items": rep_items,
                 }
             )

@@ -42,7 +42,7 @@ interface TrendingTopic {
   item_count: number;
   source_count: number;
   sources: string[];
-  avg_recency: number;
+  velocity: number;
   items: { id: number; title: string; url: string; source: string; summary: string }[];
 }
 

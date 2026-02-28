@@ -6,7 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from intelligence.trending_radar import TrendingRadar, _extract_title_terms
+from intelligence.trending_radar import (
+    STOPWORDS,
+    TrendingRadar,
+    _detect_collocations,
+    _extract_title_terms,
+    _velocity_score,
+)
 
 
 @pytest.fixture
@@ -49,10 +55,18 @@ def _insert_item(
 
 
 class TestExtractTitleTerms:
-    def test_basic_extraction(self):
+    def test_phrase_extraction(self):
         terms = _extract_title_terms("Rust vs Go for WebAssembly")
+        # "vs" and "for" are stopwords, so we get two phrases
         assert "rust" in terms
         assert "webassembly" in terms
+
+    def test_multi_word_phrase(self):
+        terms = _extract_title_terms("Machine learning transforms healthcare")
+        assert "machine learning" in terms  # bigram from adjacent non-stopwords
+        assert "learning transforms" in terms
+        assert "transforms healthcare" in terms
+        assert "healthcare" in terms
 
     def test_stopword_filtering(self):
         terms = _extract_title_terms("The new way to use this tool")
@@ -60,22 +74,111 @@ class TestExtractTitleTerms:
         assert "new" not in terms
         assert "way" not in terms
         assert "use" not in terms
-        assert "tool" in terms
+        # "tool" is now a stopword
+        assert len(terms) == 0
+
+    def test_expanded_stopwords(self):
+        """Words that used to slip through are now filtered."""
+        terms = _extract_title_terms("Your code career data open free")
+        assert "your" not in terms
+        assert "code" not in terms
+        assert "career" not in terms
+        assert "data" not in terms
+        assert "open" not in terms
+        assert "free" not in terms
 
     def test_hyphenated_terms(self):
         terms = _extract_title_terms("RISC-V meets real-time computing")
         assert "risc-v" in terms
         assert "real-time" in terms
+        assert "computing" in terms
+        assert "real-time computing" in terms  # bigram
 
     def test_short_tokens_excluded(self):
         terms = _extract_title_terms("AI is OK for ML")
-        # "ai", "is", "ok", "ml" are all < 3 chars or stopwords
-        assert "ai" not in terms
-        assert "is" not in terms
+        # "ai", "ok", "ml" are all < 3 chars, "is"/"for" are stopwords
+        assert len(terms) == 0
+
+    def test_adjacent_non_stopwords_form_phrase(self):
+        terms = _extract_title_terms("Google DeepMind releases Gemini Pro")
+        assert "google deepmind" in terms or "gemini pro" in terms
+
+
+class TestStopwords:
+    def test_your_is_stopword(self):
+        assert "your" in STOPWORDS
+
+    def test_code_is_stopword(self):
+        assert "code" in STOPWORDS
+
+    def test_career_is_stopword(self):
+        assert "career" in STOPWORDS
+
+    def test_domain_terms_not_stopwords(self):
+        """Actual tech topics should not be in stopwords."""
+        for term in ["kubernetes", "rust", "python", "docker", "llm", "transformer"]:
+            assert term not in STOPWORDS
+
+
+class TestCollocations:
+    def test_detect_significant_bigrams(self):
+        # Repeat "machine learning" across many titles to make it statistically significant
+        titles = [
+            "Machine learning for healthcare",
+            "Machine learning in production",
+            "Machine learning benchmarks",
+            "Machine learning infrastructure",
+            "Deep learning vs machine learning",
+            "Machine learning ops best practices",
+            "Advances in machine learning",
+            "Machine learning at scale",
+        ]
+        collocations = _detect_collocations(titles, threshold=10.0)
+        assert "machine learning" in collocations
+
+    def test_no_collocations_on_sparse_data(self):
+        titles = ["Rust release", "Go update", "Python news"]
+        collocations = _detect_collocations(titles, threshold=15.0)
+        assert len(collocations) == 0
+
+    def test_empty_titles(self):
+        assert _detect_collocations([], threshold=15.0) == {}
+
+
+class TestVelocityScore:
+    def test_all_recent_items(self):
+        now = datetime.now()
+        items = [{"scraped_at": (now - timedelta(hours=2)).isoformat()} for _ in range(5)]
+        score = _velocity_score(items, now, total_days=7, hot_hours=24)
+        # All items in recent window, no baseline → brand-new boost
+        assert score > 1.0
+
+    def test_all_old_items(self):
+        now = datetime.now()
+        items = [{"scraped_at": (now - timedelta(days=4)).isoformat()} for _ in range(5)]
+        score = _velocity_score(items, now, total_days=7, hot_hours=24)
+        # All items in baseline, none recent → velocity < 1
+        assert score == 0.0  # recent_rate is 0
+
+    def test_accelerating_topic(self):
+        now = datetime.now()
+        # 1 old mention, 5 recent mentions
+        items = [
+            {"scraped_at": (now - timedelta(days=3)).isoformat()},
+            *[{"scraped_at": (now - timedelta(hours=h)).isoformat()} for h in range(5)],
+        ]
+        score = _velocity_score(items, now, total_days=7, hot_hours=24)
+        assert score > 1.0  # accelerating
+
+    def test_capped_at_five(self):
+        now = datetime.now()
+        items = [{"scraped_at": (now - timedelta(minutes=10)).isoformat()} for _ in range(100)]
+        score = _velocity_score(items, now, total_days=7, hot_hours=24)
+        assert score <= 5.0
 
 
 class TestRecencyScore:
-    def test_fresh_item_score_near_one(self, db_path):
+    def test_fresh_item_scores_high(self, db_path):
         _insert_item(
             db_path, "hackernews", "Rust release", "https://a.com/1", "rust", hours_ago=0.1
         )
@@ -84,25 +187,17 @@ class TestRecencyScore:
         snapshot = radar.compute(days=7, min_sources=2)
         topics = {t["topic"]: t for t in snapshot["topics"]}
         assert "rust" in topics
-        assert topics["rust"]["avg_recency"] > 0.9
+        # Velocity should be high for items just added
+        assert topics["rust"]["velocity"] > 0
 
-    def test_old_item_score_near_zero(self, db_path):
+    def test_old_item_low_velocity(self, db_path):
         _insert_item(db_path, "hackernews", "Rust old", "https://a.com/2", "rust", hours_ago=167)
         _insert_item(db_path, "reddit", "Rust ancient", "https://b.com/2", "rust", hours_ago=167)
         radar = TrendingRadar(db_path)
         snapshot = radar.compute(days=7, min_sources=2)
         topics = {t["topic"]: t for t in snapshot["topics"]}
         if "rust" in topics:
-            assert topics["rust"]["avg_recency"] < 0.02
-
-    def test_midpoint_recency(self, db_path):
-        _insert_item(db_path, "hackernews", "Rust mid", "https://a.com/3", "rust", hours_ago=84)
-        _insert_item(db_path, "reddit", "Rust mid2", "https://b.com/3", "rust", hours_ago=84)
-        radar = TrendingRadar(db_path)
-        snapshot = radar.compute(days=7, min_sources=2)
-        topics = {t["topic"]: t for t in snapshot["topics"]}
-        assert "rust" in topics
-        assert 0.4 < topics["rust"]["avg_recency"] < 0.6
+            assert topics["rust"]["velocity"] == 0
 
 
 class TestCompute:
@@ -133,15 +228,18 @@ class TestCompute:
         assert snapshot["topics"] == []
         assert snapshot["total_items_scanned"] == 0
 
-    def test_title_term_matching(self, db_path):
-        """Topic discovered via title terms even without tags."""
-        _insert_item(db_path, "hackernews", "Mistral releases new model", "https://a.com/m1", "")
-        _insert_item(db_path, "reddit", "Mistral AI benchmarks", "https://b.com/m1", "")
-        _insert_item(db_path, "arxiv", "Mistral architecture analysis", "https://c.com/m1", "")
+    def test_title_phrase_matching(self, db_path):
+        """Multi-word phrases discovered from titles."""
+        _insert_item(db_path, "hackernews", "Mistral AI releases new model", "https://a.com/m1", "")
+        _insert_item(
+            db_path, "reddit", "Mistral AI benchmarks show promise", "https://b.com/m1", ""
+        )
+        _insert_item(db_path, "arxiv", "Mistral AI architecture analysis", "https://c.com/m1", "")
         radar = TrendingRadar(db_path)
         snapshot = radar.compute(days=7, min_sources=2)
-        topics = {t["topic"]: t for t in snapshot["topics"]}
-        assert "mistral" in topics
+        topic_names = [t["topic"] for t in snapshot["topics"]]
+        # Should surface "mistral" (possibly as part of a phrase)
+        assert any("mistral" in t for t in topic_names)
 
     def test_max_topics_limit(self, db_path):
         """Respects max_topics."""
@@ -163,6 +261,33 @@ class TestCompute:
         topics = {t["topic"]: t for t in snapshot["topics"]}
         assert "rust" in topics
         assert len(topics["rust"]["items"]) <= 3
+
+    def test_sublinear_tf_dampens_frequency(self, db_path):
+        """High-frequency topic doesn't completely dominate scoring."""
+        # Topic A: 20 items from 2 sources
+        for i in range(20):
+            src = "hackernews" if i % 2 == 0 else "reddit"
+            _insert_item(db_path, src, f"Alpha post {i}", f"https://{src}.com/alpha{i}", "alpha")
+        # Topic B: 5 items from 3 sources
+        for i, src in enumerate(["hackernews", "reddit", "arxiv", "hackernews", "reddit"]):
+            _insert_item(db_path, src, f"Beta post {i}", f"https://{src}.com/beta{i}", "beta")
+        radar = TrendingRadar(db_path)
+        snapshot = radar.compute(days=7, min_sources=2)
+        topics = {t["topic"]: t for t in snapshot["topics"]}
+        assert "alpha" in topics and "beta" in topics
+        # With sublinear TF, alpha shouldn't be 4x beta's score despite 4x the items
+        ratio = topics["alpha"]["score"] / topics["beta"]["score"]
+        assert ratio < 3.0  # sublinear dampening
+
+    def test_velocity_field_present(self, db_path):
+        """Topics include velocity field instead of avg_recency."""
+        _insert_item(db_path, "hackernews", "Rust news", "https://a.com/v1", "rust")
+        _insert_item(db_path, "reddit", "Rust update", "https://b.com/v1", "rust")
+        radar = TrendingRadar(db_path)
+        snapshot = radar.compute(days=7, min_sources=2)
+        for topic in snapshot["topics"]:
+            assert "velocity" in topic
+            assert "avg_recency" not in topic
 
 
 class TestPersistence:
