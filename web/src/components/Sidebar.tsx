@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   BookOpen,
   Brain,
@@ -11,6 +13,7 @@ import {
   Target,
   X,
   LogOut,
+  User,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
@@ -27,6 +30,39 @@ const discoverNav = [
   { href: "/intel", label: "Radar", icon: Newspaper },
 ];
 
+function NavItem({
+  href,
+  label,
+  icon: Icon,
+  active,
+  onClick,
+}: {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className={cn(
+        "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all",
+        active
+          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+          : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+      )}
+    >
+      {active && (
+        <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-sidebar-primary" />
+      )}
+      <Icon className={cn("h-[18px] w-[18px] shrink-0", active ? "text-sidebar-primary" : "text-sidebar-foreground/40 group-hover:text-sidebar-foreground/60")} />
+      {label}
+    </Link>
+  );
+}
+
 export function Sidebar({
   open,
   onOpenChange,
@@ -35,13 +71,15 @@ export function Sidebar({
   onOpenChange: (open: boolean) => void;
 }) {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const user = session?.user;
 
   return (
     <>
       {/* Overlay backdrop */}
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-black/50"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]"
           onClick={() => onOpenChange(false)}
         />
       )}
@@ -49,78 +87,95 @@ export function Sidebar({
       {/* Slide-out sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-56 flex-col border-r bg-sidebar px-3 py-4 pt-14 transition-transform",
+          "fixed inset-y-0 left-0 z-50 flex w-60 flex-col border-r border-sidebar-border bg-sidebar transition-transform duration-200 ease-out",
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="mb-4 flex items-center justify-between px-2">
-          <h1 className="text-sm font-semibold text-primary">StewardMe</h1>
-          <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
-            <X className="h-4 w-4" />
+        {/* Header */}
+        <div className="flex h-12 items-center justify-between border-b border-sidebar-border px-4">
+          <span className="text-sm font-bold tracking-tight text-sidebar-primary">StewardMe</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onOpenChange(false)}
+            className="h-7 w-7 text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+          >
+            <X className="h-3.5 w-3.5" />
           </Button>
         </div>
-        <nav className="flex flex-1 flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            {primaryNav.map(({ href, label, icon: Icon }) => (
-              <Link
-                key={href}
-                href={href}
+
+        {/* Navigation */}
+        <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-3 py-4">
+          <div className="flex flex-col gap-0.5">
+            {primaryNav.map((item) => (
+              <NavItem
+                key={item.href}
+                {...item}
+                active={pathname === item.href}
                 onClick={() => onOpenChange(false)}
-                className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent",
-                  pathname === href
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground"
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {label}
-              </Link>
+              />
             ))}
           </div>
-          <div className="flex flex-col gap-1">
-            <span className="px-3 text-xs font-medium text-muted-foreground/60">Explore</span>
-            {discoverNav.map(({ href, label, icon: Icon }) => (
-              <Link
-                key={href}
-                href={href}
+          <div className="flex flex-col gap-0.5">
+            <span className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/35">
+              Explore
+            </span>
+            {discoverNav.map((item) => (
+              <NavItem
+                key={item.href}
+                {...item}
+                active={pathname === item.href}
                 onClick={() => onOpenChange(false)}
-                className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent",
-                  pathname === href
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground"
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {label}
-              </Link>
+              />
             ))}
-          </div>
-          <div className="flex flex-col gap-1">
-            <Link
-              href="/settings"
-              onClick={() => onOpenChange(false)}
-              className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent",
-                pathname === "/settings"
-                  ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground"
-              )}
-            >
-              <Settings className="h-4 w-4" />
-              Settings
-            </Link>
           </div>
         </nav>
-        <div className="border-t pt-3">
-          <button
-            onClick={() => signOut({ callbackUrl: "/login" })}
-            className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent"
-          >
-            <LogOut className="h-4 w-4" />
-            Sign Out
-          </button>
+
+        {/* Footer */}
+        <div className="border-t border-sidebar-border p-3 space-y-1">
+          <NavItem
+            href="/settings"
+            label="Settings"
+            icon={Settings}
+            active={pathname === "/settings"}
+            onClick={() => onOpenChange(false)}
+          />
+
+          {/* User + sign out */}
+          <div className="mt-2 flex items-center gap-2.5 rounded-lg px-3 py-2">
+            {user?.image ? (
+              <Image
+                src={user.image}
+                alt=""
+                width={28}
+                height={28}
+                className="rounded-full"
+              />
+            ) : (
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-sidebar-accent">
+                <User className="h-3.5 w-3.5 text-sidebar-foreground/50" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="truncate text-sm font-medium text-sidebar-foreground">
+                {user?.name || "User"}
+              </p>
+              {user?.email && (
+                <p className="truncate text-[11px] text-sidebar-foreground/40">
+                  {user.email}
+                </p>
+              )}
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              title="Sign out"
+              className="h-7 w-7 shrink-0 text-sidebar-foreground/30 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
       </aside>
     </>

@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useToken } from "@/hooks/useToken";
-import { BookOpen, Plus } from "lucide-react";
+import { BookOpen, Plus, Calendar, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -311,49 +313,70 @@ export default function JournalPage() {
         <Sheet open={!!selected} onOpenChange={() => { setSelected(null); setDeletingPath(null); }}>
           <SheetContent className="w-full sm:max-w-xl md:max-w-2xl overflow-y-auto">
             <SheetHeader>
-              <SheetTitle>{selected.title}</SheetTitle>
-              <SheetDescription>Entry detail</SheetDescription>
-            </SheetHeader>
-            <div className="mt-4 space-y-4">
-              <div className="flex gap-2">
-                <Badge>{selected.type}</Badge>
-                {selected.tags?.map((t) => (
-                  <Badge key={t} variant="secondary">
-                    {t}
-                  </Badge>
-                ))}
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className={(typeColors[selected.type] || typeColors.daily).badge}>
+                  {selected.type}
+                </Badge>
+                {selected.created && (
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Calendar className="h-3 w-3" />
+                    {new Date(selected.created).toLocaleDateString("en-US", {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </span>
+                )}
               </div>
-              <pre className="whitespace-pre-wrap text-sm">
-                {selected.content}
-              </pre>
-              {/* Delete with confirmation */}
-              {deletingPath === selected.path ? (
-                <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/5 p-3">
-                  <p className="flex-1 text-sm">Delete this entry? This can&apos;t be undone.</p>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => handleDelete(selected.path)}
-                  >
-                    Confirm
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setDeletingPath(null)}
-                  >
-                    Cancel
-                  </Button>
+              <SheetTitle className="text-lg">{selected.title}</SheetTitle>
+              {selected.tags?.length > 0 && (
+                <div className="flex items-center gap-1.5 pt-1">
+                  <Tag className="h-3 w-3 text-muted-foreground" />
+                  {selected.tags.map((t) => (
+                    <Badge key={t} variant="secondary" className="text-xs">
+                      {t}
+                    </Badge>
+                  ))}
                 </div>
-              ) : (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => setDeletingPath(selected.path)}
-                >
-                  Delete
-                </Button>
               )}
+            </SheetHeader>
+            <div className="mt-6 space-y-6 px-6 pb-6">
+              <div className="prose prose-sm max-w-none dark:prose-invert prose-p:leading-relaxed prose-headings:mt-4 prose-headings:mb-2">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {selected.content || ""}
+                </ReactMarkdown>
+              </div>
+              <div className="border-t pt-4">
+                {deletingPath === selected.path ? (
+                  <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/5 p-3">
+                    <p className="flex-1 text-sm">Delete this entry? This can&apos;t be undone.</p>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDelete(selected.path)}
+                    >
+                      Confirm
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDeletingPath(null)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => setDeletingPath(selected.path)}
+                  >
+                    Delete entry
+                  </Button>
+                )}
+              </div>
             </div>
           </SheetContent>
         </Sheet>
