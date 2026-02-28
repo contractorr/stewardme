@@ -147,7 +147,7 @@ export function MessageRenderer({ content, onAction, compact }: MessageRendererP
         <>
           {remainder && <p>{remainder}</p>}
           {ctas.length > 0 && (
-            <div className="mt-3 rounded-lg border bg-muted/30 px-4 py-3 not-prose overflow-hidden">
+            <div className="mt-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 not-prose overflow-hidden">
               <p className="text-xs font-medium text-muted-foreground mb-2">What would you like to do next?</p>
               <div className="flex flex-col gap-2">
                 {ctas.map((cta) => (
@@ -186,7 +186,7 @@ export function MessageRenderer({ content, onAction, compact }: MessageRendererP
       );
     },
     thead({ children }) {
-      return <thead className="bg-muted/60">{children}</thead>;
+      return <thead className="bg-muted/60 font-semibold">{children}</thead>;
     },
     th({ children }) {
       return (
@@ -194,6 +194,9 @@ export function MessageRenderer({ content, onAction, compact }: MessageRendererP
           {children}
         </th>
       );
+    },
+    tr({ children }) {
+      return <tr className="even:bg-muted/30">{children}</tr>;
     },
     td({ children }) {
       return <td className="border-t border-border/50 px-4 py-2.5 align-top">{children}</td>;
@@ -259,7 +262,7 @@ export function MessageRenderer({ content, onAction, compact }: MessageRendererP
   }), [actionItems, onAction]);
 
   return (
-    <div className={`prose prose-sm max-w-none dark:prose-invert ${compact ? "prose-compact" : ""}`}>
+    <div className={`prose prose-sm max-w-none dark:prose-invert prose-p:leading-relaxed prose-headings:mt-6 ${compact ? "prose-compact" : ""}`}>
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {content}
       </ReactMarkdown>

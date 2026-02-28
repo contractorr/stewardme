@@ -93,6 +93,12 @@ export default function GoalsPage() {
 
   useEffect(loadGoals, [token]);
 
+  // Load progress for all goals on mount
+  useEffect(() => {
+    if (!token || goals.length === 0) return;
+    goals.forEach((g) => loadProgress(g.path));
+  }, [token, goals.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const loadRecommendations = async (path: string, title: string) => {
     if (!token) return;
     try {
@@ -228,8 +234,14 @@ export default function GoalsPage() {
     abandoned: "destructive",
   };
 
+  const staleUrgency = (days: number) => {
+    if (days >= 14) return "text-destructive";
+    if (days >= 7) return "text-warning";
+    return "";
+  };
+
   return (
-    <div className="space-y-6 p-4 md:p-6">
+    <div className="mx-auto max-w-3xl space-y-6 p-4 md:p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Goals</h1>
         <Sheet>
@@ -326,9 +338,30 @@ export default function GoalsPage() {
                       </Badge>
                     </div>
                   </div>
-                  <CardDescription>
-                    Last check-in: {g.days_since_check}d ago
-                  </CardDescription>
+                  <div className="flex items-center gap-3">
+                    <CardDescription className={staleUrgency(g.days_since_check)}>
+                      Last check-in: {g.days_since_check}d ago
+                    </CardDescription>
+                    {progress && progress.total > 0 && (
+                      <span className="text-xs text-muted-foreground">{progress.completed}/{progress.total} milestones</span>
+                    )}
+                  </div>
+                  {progress && progress.total > 0 && (
+                    <div className="mt-1.5 h-1.5 w-full rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-primary transition-all"
+                        style={{ width: `${progress.percent}%` }}
+                      />
+                    </div>
+                  )}
+                  {progress?.milestones && (() => {
+                    const next = progress.milestones.find((m) => !m.completed);
+                    return next ? (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Next: {next.title}
+                      </p>
+                    ) : null;
+                  })()}
                 </CardHeader>
 
                 {selectedGoal === g.path && (
@@ -358,7 +391,7 @@ export default function GoalsPage() {
                             className="flex items-center gap-2 text-sm"
                           >
                             {m.completed ? (
-                              <CheckCircle2 className="h-4 w-4 text-green-500" />
+                              <CheckCircle2 className="h-4 w-4 text-success" />
                             ) : (
                               <button onClick={() => handleCompleteMilestone(g.path, i)}>
                                 <Circle className="h-4 w-4 text-muted-foreground hover:text-primary" />
@@ -444,7 +477,7 @@ export default function GoalsPage() {
                     {recommendationsMap[g.path]?.length > 0 && (
                       <div className="space-y-2">
                         <h4 className="flex items-center gap-1.5 text-sm font-medium">
-                          <Lightbulb className="h-4 w-4 text-yellow-500" />
+                          <Lightbulb className="h-4 w-4 text-warning" />
                           Suggested next moves
                         </h4>
                         {recommendationsMap[g.path].map((rec) => (
@@ -486,7 +519,7 @@ export default function GoalsPage() {
             {unanchored.map((rec) => (
               <div
                 key={rec.id}
-                className="rounded-lg border px-4 py-3 text-sm"
+                className="rounded-xl border px-4 py-3 text-sm"
               >
                 <div className="flex items-center gap-2">
                   <span className="font-medium">{rec.title}</span>

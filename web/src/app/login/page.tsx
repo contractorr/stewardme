@@ -48,7 +48,7 @@ const features = [
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-muted/40 px-4 py-12">
+    <div className="flex min-h-screen flex-col items-center bg-muted/40 px-4 pt-[12vh] pb-12">
       <Card className="w-full max-w-[400px]">
         <CardHeader className="text-center">
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
@@ -70,7 +70,6 @@ export default function LoginPage() {
             Continue with GitHub
           </Button>
           <Button
-            variant="outline"
             className="w-full"
             onClick={() => signIn("google", { callbackUrl: "/" })}
           >
@@ -97,9 +96,10 @@ export default function LoginPage() {
         </CardContent>
       </Card>
 
-      <div className="mt-8 grid w-full max-w-[700px] grid-cols-1 gap-4 sm:grid-cols-2">
+      <p className="mt-10 mb-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">What you get</p>
+      <div className="grid w-full max-w-[700px] grid-cols-1 gap-4 sm:grid-cols-2">
         {features.map(({ icon: Icon, title, description }) => (
-          <div key={title} className="flex gap-3 rounded-lg border bg-card p-4">
+          <div key={title} className="flex gap-3 rounded-xl border bg-card p-4">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10">
               <Icon className="h-4 w-4 text-primary" />
             </div>

@@ -144,10 +144,35 @@ export default function JournalPage() {
     }
   };
 
+  const typeColors: Record<string, { badge: string; border: string }> = {
+    daily: { badge: "bg-info/15 text-info border-info/25", border: "border-l-info" },
+    quick: { badge: "bg-info/15 text-info border-info/25", border: "border-l-info" },
+    project: { badge: "bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/25", border: "border-l-purple-500" },
+    goal: { badge: "bg-success/15 text-success border-success/25", border: "border-l-success" },
+    reflection: { badge: "bg-warning/15 text-warning border-warning/25", border: "border-l-warning" },
+  };
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return null;
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / 86400000);
+    if (diffDays === 0) return "Today";
+    if (diffDays === 1) return "Yesterday";
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+
   return (
-    <div className="space-y-6 p-4 md:p-6">
+    <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Journal</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-semibold">Journal</h1>
+          {!loading && entries.length > 0 && (
+            <span className="text-sm text-muted-foreground">{entries.length} entries</span>
+          )}
+        </div>
         <Sheet>
           <SheetTrigger asChild>
             <Button>
@@ -242,39 +267,42 @@ export default function JournalPage() {
       {/* Entry list */}
       {!loading && entries.length > 0 && (
         <div className="grid gap-4 md:grid-cols-2">
-          {entries.map((e) => (
-            <Card
-              key={e.path}
-              className="cursor-pointer transition-shadow hover:shadow-md"
-              onClick={() => viewEntry(e.path)}
-            >
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">{e.title}</CardTitle>
-                  <Badge variant="outline">{e.type}</Badge>
-                </div>
-                {e.created && (
-                  <CardDescription>
-                    {new Date(e.created).toLocaleDateString()}
-                  </CardDescription>
-                )}
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground line-clamp-3">
-                  {e.preview}
-                </p>
-                {e.tags.length > 0 && (
-                  <div className="mt-2 flex gap-1">
-                    {e.tags.map((t) => (
-                      <Badge key={t} variant="secondary" className="text-xs">
-                        {t}
-                      </Badge>
-                    ))}
+          {entries.map((e) => {
+            const tc = typeColors[e.type] || typeColors.daily;
+            return (
+              <Card
+                key={e.path}
+                className={`cursor-pointer border-l-2 ${tc.border}`}
+                onClick={() => viewEntry(e.path)}
+              >
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">{e.title}</CardTitle>
+                    <Badge variant="outline" className={tc.badge}>{e.type}</Badge>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                  {e.created && (
+                    <CardDescription>
+                      {formatDate(e.created)}
+                    </CardDescription>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground line-clamp-3">
+                    {e.preview}
+                  </p>
+                  {e.tags.length > 0 && (
+                    <div className="mt-2 flex gap-1">
+                      {e.tags.map((t) => (
+                        <Badge key={t} variant="secondary" className="text-xs">
+                          {t}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 

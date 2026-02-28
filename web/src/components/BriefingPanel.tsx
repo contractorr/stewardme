@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { apiFetch } from "@/lib/api";
 import { logEngagement } from "@/lib/engagement";
 import type { BriefingResponse } from "@/types/briefing";
@@ -123,9 +124,9 @@ function QuickCaptureInput({ token }: { token: string }) {
   };
 
   return (
-    <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2">
+    <div className="flex items-center gap-2 rounded-xl border bg-card px-3 py-2">
       <PenLine className="h-4 w-4 shrink-0 text-muted-foreground" />
-      <input
+      <Input
         type="text"
         placeholder="What's on your mind today?"
         value={text}
@@ -137,10 +138,10 @@ function QuickCaptureInput({ token }: { token: string }) {
           }
         }}
         disabled={saving}
-        className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+        className="flex-1 border-0 shadow-none h-auto p-0 focus-visible:ring-0 text-sm"
       />
       {saved ? (
-        <Check className="h-4 w-4 text-green-500" />
+        <Check className="h-4 w-4 text-success" />
       ) : (
         <Button
           variant="ghost"
@@ -213,9 +214,9 @@ export function BriefingPanel({ briefing, onChipClick, token, userName }: { brie
       </div>
 
       {briefing.daily_brief?.items && briefing.daily_brief.items.length > 0 && (
-        <div className="rounded-lg border bg-card">
+        <div className="rounded-xl border border-t-2 border-t-primary bg-card">
           <div className="flex items-center gap-2 px-3 pt-3 pb-1">
-            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+            <Clock className="h-3.5 w-3.5 text-primary" />
             <span className="text-xs font-medium text-muted-foreground">Today&apos;s focus</span>
             <span className={`ml-auto text-[10px] ${briefing.daily_brief.used_minutes > briefing.daily_brief.budget_minutes ? "text-amber-500" : "text-muted-foreground"}`}>
               {briefing.daily_brief.used_minutes} of {briefing.daily_brief.budget_minutes} min
@@ -245,16 +246,18 @@ export function BriefingPanel({ briefing, onChipClick, token, userName }: { brie
       )}
 
       {topPriority && (
-        <div className="rounded-lg border-l-4 border-primary bg-primary/5 p-3">
+        <div className="rounded-xl border-l-4 border-primary bg-primary/5 p-3">
           <p className="text-xs font-medium text-muted-foreground mb-1">Act on this today</p>
           <p className="text-sm font-medium">{topPriority.title}</p>
           <p className="mt-0.5 text-xs text-muted-foreground">{topPriority.description}</p>
-          <button
+          <Button
+            variant="link"
+            size="xs"
             onClick={() => onChipClick(topPriority.action)}
-            className="mt-2 text-xs font-medium text-primary hover:underline"
+            className="mt-2 px-0 h-auto"
           >
             Discuss this &rarr;
-          </button>
+          </Button>
         </div>
       )}
 
@@ -273,7 +276,7 @@ export function BriefingPanel({ briefing, onChipClick, token, userName }: { brie
                 logEngagement(token, "opened", "signal", String(s.id));
                 onChipClick(`Tell me more about: ${s.title}`);
               }}
-              className="w-full rounded-lg border bg-card p-3 text-left transition-colors hover:bg-accent"
+              className="w-full rounded-xl border bg-card p-3 text-left transition-colors hover:bg-accent"
             >
               <p className="text-sm font-medium">{s.title}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">{s.detail}</p>
@@ -292,7 +295,7 @@ export function BriefingPanel({ briefing, onChipClick, token, userName }: { brie
             <button
               key={g.path}
               onClick={() => onChipClick(`Help me with my goal: ${g.title}`)}
-              className="w-full rounded-lg border bg-card p-3 text-left transition-colors hover:bg-accent"
+              className="w-full rounded-xl border bg-card p-3 text-left transition-colors hover:bg-accent"
             >
               <p className="text-sm font-medium">{g.title}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
@@ -304,7 +307,7 @@ export function BriefingPanel({ briefing, onChipClick, token, userName }: { brie
       )}
 
       {onlyGoals && (
-        <div className="rounded-lg border bg-card p-3">
+        <div className="rounded-xl border bg-card p-3">
           <p className="text-sm font-medium">Your steward is getting to know you</p>
           <p className="mt-0.5 text-xs text-muted-foreground">
             Write journal entries to build context &mdash; the more you reflect, the better the guidance.
@@ -322,7 +325,7 @@ export function BriefingPanel({ briefing, onChipClick, token, userName }: { brie
             <button
               key={g.path}
               onClick={() => onChipClick(`Help me think through my goal: ${g.title}`)}
-              className="w-full rounded-lg border bg-card p-3 text-left transition-colors hover:bg-accent"
+              className="w-full rounded-xl border bg-card p-3 text-left transition-colors hover:bg-accent"
             >
               <p className="text-sm font-medium">{g.title}</p>
               <p className="mt-0.5 text-xs text-muted-foreground capitalize">{g.status}</p>
@@ -339,7 +342,7 @@ export function BriefingPanel({ briefing, onChipClick, token, userName }: { brie
             <span className="text-[10px] font-normal ml-1">— hypotheses, not certainties</span>
           </div>
           {filteredRecommendations.map((r) => (
-            <div key={r.id} className="rounded-lg border bg-card text-left">
+            <div key={r.id} className="rounded-xl border bg-card text-left">
               <button
                 onClick={() => {
                   logEngagement(token, "opened", "recommendation", String(r.id));
@@ -498,7 +501,7 @@ export function BriefingPanel({ briefing, onChipClick, token, userName }: { brie
               Intel for your goals
             </div>
             {Object.entries(grouped).map(([goalTitle, matches]) => (
-              <div key={goalTitle} className="rounded-lg border bg-card">
+              <div key={goalTitle} className="rounded-xl border bg-card">
                 <p className="px-3 pt-2 text-xs font-medium text-muted-foreground">{goalTitle}</p>
                 <div className="divide-y">
                   {matches.map((m) => (
@@ -507,7 +510,7 @@ export function BriefingPanel({ briefing, onChipClick, token, userName }: { brie
                       onClick={() => onChipClick(`Tell me about this and how it relates to my goal: ${m.title}`)}
                       className="flex w-full items-start gap-2 px-3 py-2 text-left transition-colors hover:bg-accent"
                     >
-                      <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${m.urgency === "high" ? "bg-amber-500" : m.urgency === "medium" ? "bg-blue-400" : "bg-gray-300"}`} />
+                      <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${m.urgency === "high" ? "bg-warning" : m.urgency === "medium" ? "bg-info" : "bg-muted-foreground/30"}`} />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{m.title}</p>
                         {m.summary && <p className="text-xs text-muted-foreground truncate">{m.summary}</p>}
@@ -525,7 +528,7 @@ export function BriefingPanel({ briefing, onChipClick, token, userName }: { brie
       {hasPatterns && (
         <div className="space-y-2">
           <div className="flex items-center gap-2 px-1 text-xs font-medium text-muted-foreground">
-            <Brain className="h-3.5 w-3.5" />
+            <Brain className="h-3.5 w-3.5 text-info" />
             Observations
           </div>
           {briefing.patterns.map((p, i) => (
@@ -535,7 +538,7 @@ export function BriefingPanel({ briefing, onChipClick, token, userName }: { brie
                 logEngagement(token, "opened", "pattern", String(i));
                 onChipClick(`Tell me more about: ${p.summary}`);
               }}
-              className="w-full rounded-lg border bg-card p-3 text-left transition-colors hover:bg-accent"
+              className="w-full rounded-xl border border-l-2 border-l-info bg-info/5 p-3 text-left transition-colors hover:bg-accent"
             >
               <p className="text-sm font-medium">{p.summary}</p>
               {p.evidence.length > 0 && (
@@ -553,16 +556,19 @@ export function BriefingPanel({ briefing, onChipClick, token, userName }: { brie
         </div>
       )}
 
-      <div className="flex flex-wrap justify-center gap-2 pt-2">
-        {chips.map((chip) => (
-          <button
-            key={chip}
-            onClick={() => onChipClick(chip)}
-            className="rounded-full border px-3 py-1.5 text-xs hover:bg-accent transition-colors"
-          >
-            {chip}
-          </button>
-        ))}
+      <div className="space-y-2 border-t pt-4">
+        <p className="text-center text-[11px] text-muted-foreground">Try asking...</p>
+        <div className="flex flex-wrap justify-center gap-2">
+          {chips.map((chip) => (
+            <button
+              key={chip}
+              onClick={() => onChipClick(chip)}
+              className="rounded-full border px-3 py-1.5 text-xs hover:bg-accent transition-colors"
+            >
+              {chip}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );

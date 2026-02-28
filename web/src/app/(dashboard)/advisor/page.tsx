@@ -208,7 +208,7 @@ export default function AdvisorPage() {
               onClick={() => loadConversation(conv.id)}
             >
               <MessageSquare className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              <span className="flex-1 truncate">{conv.title}</span>
+              <span className="flex-1 truncate" title={conv.title}>{conv.title}</span>
               <button
                 className="hidden shrink-0 text-muted-foreground hover:text-destructive group-hover:block"
                 onClick={(e) => {
@@ -302,7 +302,7 @@ export default function AdvisorPage() {
         </div>
 
         {/* Input */}
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 flex gap-2 border-t pt-4">
           <Textarea
             ref={textareaRef}
             rows={2}

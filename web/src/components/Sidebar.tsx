@@ -49,12 +49,12 @@ export function Sidebar({
       {/* Slide-out sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-56 flex-col border-r bg-background px-3 py-4 pt-14 transition-transform",
+          "fixed inset-y-0 left-0 z-50 flex w-56 flex-col border-r bg-sidebar px-3 py-4 pt-14 transition-transform",
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
         <div className="mb-4 flex items-center justify-between px-2">
-          <h1 className="text-lg font-semibold text-primary">StewardMe</h1>
+          <h1 className="text-sm font-semibold text-primary">StewardMe</h1>
           <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
             <X className="h-4 w-4" />
           </Button>

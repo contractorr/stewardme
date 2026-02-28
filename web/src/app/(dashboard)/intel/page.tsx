@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Search,
   TrendingUp,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -87,9 +88,9 @@ function healthColor(h: ScraperHealth): "green" | "yellow" | "red" {
 }
 
 const dotColors = {
-  green: "bg-green-500",
-  yellow: "bg-yellow-500",
-  red: "bg-red-500",
+  green: "bg-success",
+  yellow: "bg-warning",
+  red: "bg-destructive",
 };
 
 function HealthDashboard({ token }: { token: string }) {
@@ -137,7 +138,7 @@ function HealthDashboard({ token }: { token: string }) {
               return (
                 <div
                   key={h.source}
-                  className="rounded-lg border p-3 text-sm"
+                  className="rounded-xl border p-3 text-sm transition-shadow hover:shadow-md"
                 >
                   <div className="flex items-center gap-2">
                     <span className={`h-2.5 w-2.5 rounded-full ${dotColors[color]}`} />
@@ -149,7 +150,7 @@ function HealthDashboard({ token }: { token: string }) {
                       Runs: {h.total_runs} | Errors: {h.total_errors}
                     </p>
                     {h.last_error && (
-                      <p className="truncate text-red-500" title={h.last_error}>
+                      <p className="truncate text-destructive" title={h.last_error}>
                         {h.last_error.slice(0, 80)}
                       </p>
                     )}
@@ -224,7 +225,7 @@ function TrendingTab({ token }: { token: string }) {
             </div>
             <CardDescription className="flex flex-wrap gap-1">
               {t.sources.map((s) => (
-                <Badge key={s} variant="outline" className="text-xs">
+                <Badge key={s} variant="outline" className={`text-xs ${sourceBadgeClass(s)}`}>
                   {s}
                 </Badge>
               ))}
@@ -253,6 +254,20 @@ function TrendingTab({ token }: { token: string }) {
       ))}
     </div>
   );
+}
+
+const sourceColors: Record<string, string> = {
+  hackernews: "bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/25",
+  hn: "bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/25",
+  reddit: "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/25",
+  arxiv: "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/25",
+  github: "bg-gray-500/15 text-gray-600 dark:text-gray-400 border-gray-500/25",
+  rss: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/25",
+};
+
+function sourceBadgeClass(source: string): string {
+  const key = source.toLowerCase().replace(/[_\s-]/g, "");
+  return sourceColors[key] || "";
 }
 
 function IntelSkeleton() {
@@ -330,7 +345,7 @@ export default function IntelPage() {
   };
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
+    <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Radar</h1>
         <Button
@@ -365,13 +380,22 @@ export default function IntelPage() {
         <TabsContent value="feed">
           {/* Search */}
           <div className="flex gap-2 mb-4">
-            <Input
-              placeholder="Search your radar..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              className="max-w-md"
-            />
+            <div className="relative max-w-md flex-1">
+              <Input
+                placeholder="Search your radar..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              />
+              {query && (
+                <button
+                  onClick={() => { setQuery(""); loadRecent(); }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
             <Button variant="outline" onClick={handleSearch}>
               <Search className="h-4 w-4" />
             </Button>
@@ -429,7 +453,7 @@ export default function IntelPage() {
                           </a>
                         </CardTitle>
                         <CardDescription className="flex items-center gap-2">
-                          <Badge variant="outline">{item.source}</Badge>
+                          <Badge variant="outline" className={sourceBadgeClass(item.source)}>{item.source}</Badge>
                           {item.published && (
                             <span>{new Date(item.published).toLocaleDateString()}</span>
                           )}
