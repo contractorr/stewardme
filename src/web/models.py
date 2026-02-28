@@ -167,6 +167,23 @@ class OnboardingResponse(BaseModel):
     estimated_total: int = 8
 
 
+class FeedCategoryItem(BaseModel):
+    id: str
+    label: str
+    icon: str
+    feed_count: int
+    preselected: bool = False
+
+
+class OnboardingFeedsRequest(BaseModel):
+    selected_category_ids: list[str]
+
+
+class OnboardingFeedsResponse(BaseModel):
+    feeds_added: int
+    categories: list[str]
+
+
 # --- Briefing ---
 
 

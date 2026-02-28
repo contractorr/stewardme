@@ -15,6 +15,17 @@ import {
   FlaskConical,
   ArrowRight,
   ExternalLink,
+  Globe,
+  Server,
+  Shield,
+  Rocket,
+  BarChart3,
+  Cloud,
+  Smartphone,
+  GitBranch,
+  Link,
+  Rss,
+  type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,12 +42,34 @@ import { useToken } from "@/hooks/useToken";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
 
-type Phase = "intro" | "name" | "welcome" | "chat" | "guide" | "done";
+type Phase = "intro" | "name" | "welcome" | "chat" | "feeds" | "guide" | "done";
 
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
 }
+
+interface FeedCategoryItem {
+  id: string;
+  label: string;
+  icon: string;
+  feed_count: number;
+  preselected: boolean;
+}
+
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  ai_ml: Brain,
+  web_dev: Globe,
+  systems_infra: Server,
+  security: Shield,
+  startups_vc: Rocket,
+  data_science: BarChart3,
+  devops_cloud: Cloud,
+  mobile: Smartphone,
+  general_tech: Newspaper,
+  open_source: GitBranch,
+  blockchain_web3: Link,
+};
 
 const introSections = [
   {
@@ -108,6 +141,10 @@ export default function OnboardingPage() {
   const [turn, setTurn] = useState(0);
   const [hasApiKey, setHasApiKey] = useState<boolean | null>(null);
   const [name, setName] = useState("");
+  const [feedCategories, setFeedCategories] = useState<FeedCategoryItem[]>([]);
+  const [selectedFeeds, setSelectedFeeds] = useState<Set<string>>(new Set());
+  const [feedsAdded, setFeedsAdded] = useState(0);
+  const [savingFeeds, setSavingFeeds] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Check if user already has API key to skip welcome phase
@@ -238,12 +275,61 @@ export default function OnboardingPage() {
       setTurn(res.turn);
       if (res.done) {
         setGoalsCreated(res.goals_created);
-        setPhase("guide");
+        setPhase("feeds");
       }
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
       setSending(false);
+    }
+  };
+
+  // Load feed categories when entering feeds phase
+  useEffect(() => {
+    if (phase !== "feeds" || !token) return;
+    (async () => {
+      try {
+        const cats = await apiFetch<FeedCategoryItem[]>(
+          "/api/onboarding/feed-categories",
+          {},
+          token
+        );
+        setFeedCategories(cats);
+        setSelectedFeeds(new Set(cats.filter((c) => c.preselected).map((c) => c.id)));
+      } catch (e) {
+        toast.error((e as Error).message);
+        setPhase("guide"); // fallback if fetch fails
+      }
+    })();
+  }, [phase, token]);
+
+  const handleToggleFeed = (id: string) => {
+    setSelectedFeeds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSaveFeeds = async () => {
+    if (!token) return;
+    setSavingFeeds(true);
+    try {
+      const res = await apiFetch<{ feeds_added: number; categories: string[] }>(
+        "/api/onboarding/feeds",
+        {
+          method: "POST",
+          body: JSON.stringify({ selected_category_ids: [...selectedFeeds] }),
+        },
+        token
+      );
+      setFeedsAdded(res.feeds_added);
+      setPhase("guide");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setSavingFeeds(false);
     }
   };
 
@@ -486,6 +572,65 @@ export default function OnboardingPage() {
           </div>
         )}
 
+        {phase === "feeds" && (
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <div className="px-6 pt-6 pb-2 text-center">
+              <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                <Rss className="h-6 w-6 text-primary" />
+              </div>
+              <h2 className="text-lg font-semibold">Set up your radar</h2>
+              <p className="text-sm text-muted-foreground">
+                Pick topics to follow — we&apos;ll add curated RSS feeds for each.
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {feedCategories.map((cat) => {
+                  const Icon = CATEGORY_ICONS[cat.id] || Newspaper;
+                  const selected = selectedFeeds.has(cat.id);
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => handleToggleFeed(cat.id)}
+                      className={`flex flex-col items-center gap-1.5 rounded-lg border p-3 text-center transition-colors ${
+                        selected
+                          ? "border-primary bg-primary/10"
+                          : "border-muted hover:border-muted-foreground/30"
+                      }`}
+                    >
+                      <Icon className={`h-5 w-5 ${selected ? "text-primary" : "text-muted-foreground"}`} />
+                      <span className="text-sm font-medium">{cat.label}</span>
+                      <span className="text-xs text-muted-foreground">{cat.feed_count} feeds</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="border-t px-6 py-4">
+              <p className="mb-3 text-center text-xs text-muted-foreground">
+                {selectedFeeds.size} topic{selectedFeeds.size !== 1 ? "s" : ""} selected
+                {" "}&mdash; you can add more from Settings anytime.
+              </p>
+              <Button
+                onClick={handleSaveFeeds}
+                disabled={savingFeeds}
+                className="w-full"
+              >
+                {savingFeeds ? "Adding feeds..." : "Continue"}
+                {!savingFeeds && <ArrowRight className="ml-2 h-4 w-4" />}
+              </Button>
+              <button
+                onClick={() => setPhase("guide")}
+                className="mt-2 w-full text-center text-xs text-muted-foreground hover:text-foreground"
+              >
+                Skip for now
+              </button>
+            </div>
+          </div>
+        )}
+
         {phase === "guide" && (
           <div className="flex flex-1 flex-col overflow-hidden">
             <div className="px-6 pt-6 pb-2 text-center">
@@ -496,6 +641,9 @@ export default function OnboardingPage() {
                 Profile created
                 {goalsCreated > 0
                   ? ` + ${goalsCreated} goal${goalsCreated > 1 ? "s" : ""}`
+                  : ""}
+                {feedsAdded > 0
+                  ? ` + ${feedsAdded} feed${feedsAdded > 1 ? "s" : ""}`
                   : ""}
               </h2>
               <p className="text-sm text-muted-foreground">

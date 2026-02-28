@@ -13,8 +13,21 @@ from journal.storage import JournalStorage
 from llm import create_llm_provider
 from web.auth import get_current_user
 from web.deps import get_api_key_for_user, get_config, get_user_paths
-from web.models import OnboardingChat, OnboardingResponse, ProfileStatus
-from web.user_store import clear_onboarding_responses, log_event, save_onboarding_turn
+from web.feed_catalog import FEED_CATALOG, feeds_for_categories, match_categories_to_profile
+from web.models import (
+    FeedCategoryItem,
+    OnboardingChat,
+    OnboardingFeedsRequest,
+    OnboardingFeedsResponse,
+    OnboardingResponse,
+    ProfileStatus,
+)
+from web.user_store import (
+    add_user_rss_feed,
+    clear_onboarding_responses,
+    log_event,
+    save_onboarding_turn,
+)
 
 logger = structlog.get_logger()
 
@@ -344,6 +357,63 @@ Now output ONLY the JSON block with profile and goals based on everything discus
         )
 
     return OnboardingResponse(message=response, done=False, turn=turn)
+
+
+@router.get("/feed-categories", response_model=list[FeedCategoryItem])
+async def get_feed_categories(user: dict = Depends(get_current_user)):
+    """Return all feed categories with pre-selections based on user profile."""
+    user_id = user["id"]
+    paths = get_user_paths(user_id)
+
+    from profile.storage import ProfileStorage
+
+    storage = ProfileStorage(paths["profile"])
+    profile = storage.load()
+
+    if profile:
+        preselected = set(
+            match_categories_to_profile(
+                interests=profile.interests,
+                industries=profile.industries_watching,
+                technologies=profile.technologies_watching,
+                languages=profile.languages_frameworks,
+            )
+        )
+    else:
+        preselected = {"general_tech"}
+
+    return [
+        FeedCategoryItem(
+            id=cat.id,
+            label=cat.label,
+            icon=cat.icon,
+            feed_count=len(cat.feeds),
+            preselected=cat.id in preselected,
+        )
+        for cat in FEED_CATALOG
+    ]
+
+
+@router.post("/feeds", response_model=OnboardingFeedsResponse)
+async def set_onboarding_feeds(
+    body: OnboardingFeedsRequest,
+    user: dict = Depends(get_current_user),
+):
+    """Bulk-insert RSS feeds for selected categories. Idempotent via UPSERT."""
+    user_id = user["id"]
+    selected = body.selected_category_ids
+
+    feeds = feeds_for_categories(selected)
+    added = 0
+    for feed in feeds:
+        try:
+            add_user_rss_feed(user_id, feed["url"], feed["name"], added_by="onboarding")
+            added += 1
+        except Exception as e:
+            logger.warning("onboarding.feed_add_failed", url=feed["url"], error=str(e))
+
+    log_event("onboarding_feeds", user_id, {"feeds_added": added, "categories": selected})
+    return OnboardingFeedsResponse(feeds_added=added, categories=selected)
 
 
 @router.get("/profile-status", response_model=ProfileStatus)
