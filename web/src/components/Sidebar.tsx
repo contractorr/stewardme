@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   BookOpen,
   Brain,
+  HelpCircle,
   Home,
   Newspaper,
   Settings,
@@ -17,6 +19,12 @@ import {
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { guideCards } from "@/app/(dashboard)/onboarding/page";
 
 const primaryNav = [
   { href: "/", label: "Brief", icon: Home },
@@ -72,6 +80,7 @@ export function Sidebar({
   const pathname = usePathname();
   const { data: session } = useSession();
   const user = session?.user;
+  const [guideOpen, setGuideOpen] = useState(false);
 
   return (
     <>
@@ -139,6 +148,48 @@ export function Sidebar({
             active={pathname === "/settings"}
             onClick={() => onOpenChange(false)}
           />
+          <button
+            onClick={() => setGuideOpen(true)}
+            className="group relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-all"
+          >
+            <HelpCircle className="h-[18px] w-[18px] shrink-0 text-sidebar-foreground/40 group-hover:text-sidebar-foreground/60" />
+            How this works
+          </button>
+
+          <Sheet open={guideOpen} onOpenChange={setGuideOpen}>
+            <SheetContent side="left" showCloseButton={false} className="w-60 p-0 gap-0">
+              <div className="flex items-center justify-between border-b px-4 py-3">
+                <SheetTitle className="text-sm font-semibold">How this works</SheetTitle>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => setGuideOpen(false)}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <div className="space-y-4 overflow-y-auto px-4 py-4">
+                {guideCards.map(({ icon: Icon, title, description }) => (
+                  <div key={title} className="flex gap-3">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted">
+                      <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium">{title}</p>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        {description}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                <div className="rounded-lg border bg-muted/50 p-2.5 text-[11px] text-muted-foreground leading-relaxed">
+                  <span className="font-medium text-foreground">Tip:</span>{" "}
+                  The more you journal and set goals, the sharper your brief gets.
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
 
           {/* User + sign out */}
           <div className="mt-2 flex items-center gap-2.5 rounded-lg px-3 py-2">

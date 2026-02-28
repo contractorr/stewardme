@@ -6,6 +6,8 @@ import ReactMarkdown from "react-markdown";
 import {
   Brain,
   BookOpen,
+  Home,
+  MessageSquare,
   Newspaper,
   Target,
   Sparkles,
@@ -29,7 +31,7 @@ import { useToken } from "@/hooks/useToken";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
 
-type Phase = "intro" | "name" | "welcome" | "chat" | "done";
+type Phase = "intro" | "name" | "welcome" | "chat" | "guide" | "done";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -66,6 +68,29 @@ const introSections = [
     title: "Deep Research",
     description:
       "Deep dives into opportunities, technologies, or trends — driven by your goals and interests.",
+  },
+];
+
+export const guideCards = [
+  {
+    icon: Home,
+    title: "Check your brief",
+    description: "Your daily dashboard — prioritized tasks, goal updates, and signals. Start here each day.",
+  },
+  {
+    icon: BookOpen,
+    title: "Journal daily",
+    description: "Capture thoughts, decisions, observations. Every entry sharpens your steward's guidance.",
+  },
+  {
+    icon: MessageSquare,
+    title: "Ask anything",
+    description: "Decisions, priorities, strategy — tap any item or type a question to start a conversation.",
+  },
+  {
+    icon: Newspaper,
+    title: "Intel runs in background",
+    description: "Scrapers watch HN, GitHub, arXiv, Reddit & RSS. Relevant items surface automatically.",
   },
 ];
 
@@ -213,7 +238,7 @@ export default function OnboardingPage() {
       setTurn(res.turn);
       if (res.done) {
         setGoalsCreated(res.goals_created);
-        setPhase("done");
+        setPhase("guide");
       }
     } catch (e) {
       toast.error((e as Error).message);
@@ -457,6 +482,53 @@ export default function OnboardingPage() {
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {phase === "guide" && (
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <div className="px-6 pt-6 pb-2 text-center">
+              <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+                <Sparkles className="h-6 w-6 text-green-600 dark:text-green-400" />
+              </div>
+              <h2 className="text-lg font-semibold">
+                Profile created
+                {goalsCreated > 0
+                  ? ` + ${goalsCreated} goal${goalsCreated > 1 ? "s" : ""}`
+                  : ""}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Here&apos;s how to get the most out of your steward.
+              </p>
+            </div>
+
+            <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
+              {guideCards.map(({ icon: Icon, title, description }) => (
+                <div key={title} className="flex gap-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted">
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">{title}</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {description}
+                    </p>
+                  </div>
+                </div>
+              ))}
+              <div className="rounded-lg border bg-muted/50 p-3 text-xs text-muted-foreground leading-relaxed">
+                <span className="font-medium text-foreground">Tip:</span>{" "}
+                The more you journal and set goals, the sharper your brief gets.
+                You can always revisit this from the sidebar.
+              </div>
+            </div>
+
+            <div className="px-6 pb-6">
+              <Button onClick={handleDone} className="w-full">
+                Go to Dashboard
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
             </div>
           </div>
         )}

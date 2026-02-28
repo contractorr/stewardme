@@ -18,6 +18,7 @@ import {
   Target,
   ThumbsDown,
   ThumbsUp,
+  Zap,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -447,6 +448,13 @@ export function BriefingPanel({ briefing, onChipClick, token, userName }: { brie
                 );
               })}
             </div>
+            <button
+              onClick={() => onChipClick("What's new in my space that I should know about?")}
+              className="flex w-full items-center justify-center gap-1.5 border-t px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors rounded-b-xl"
+            >
+              <Zap className="h-3 w-3" />
+              Summarize what&apos;s new
+            </button>
           </div>
         </CollapsibleSection>
       )}
