@@ -462,8 +462,7 @@ class ToolRegistry:
             feeds = get_user_rss_feeds(user_id)
             return {
                 "feeds": [
-                    {"url": f["url"], "name": f["name"], "added_by": f["added_by"]}
-                    for f in feeds
+                    {"url": f["url"], "name": f["name"], "added_by": f["added_by"]} for f in feeds
                 ],
                 "count": len(feeds),
             }
@@ -502,7 +501,11 @@ class ToolRegistry:
                     resp = client.get(url, headers={"User-Agent": "CoachBot/1.0"})
                     resp.raise_for_status()
                     snippet = resp.text[:2048].lower()
-                    if "<rss" not in snippet and "<feed" not in snippet and "<channel" not in snippet:
+                    if (
+                        "<rss" not in snippet
+                        and "<feed" not in snippet
+                        and "<channel" not in snippet
+                    ):
                         return {"error": "URL does not appear to be a valid RSS/Atom feed"}
             except httpx.HTTPError as e:
                 return {"error": f"Failed to fetch feed: {e}"}
