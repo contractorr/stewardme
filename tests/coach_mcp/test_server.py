@@ -36,8 +36,8 @@ def test_load_tools_returns_20(mock_components):
     from coach_mcp.server import _load_tools
 
     tools, handlers = _load_tools()
-    assert len(tools) == 44
-    assert len(handlers) == 44
+    assert len(tools) == 45
+    assert len(handlers) == 45
 
 
 def test_load_tools_names(mock_components):
@@ -64,6 +64,7 @@ def test_load_tools_names(mock_components):
         "intel_get_recent",
         "intel_scrape_now",
         "events_upcoming",
+        "intel_trending_radar",
         "recommendations_list",
         "recommendations_update_status",
         "recommendations_rate",
@@ -139,4 +140,4 @@ async def test_list_tools_async(mock_components):
     from coach_mcp.server import list_tools
 
     tools = await list_tools()
-    assert len(tools) == 44
+    assert len(tools) == 45

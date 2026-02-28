@@ -103,8 +103,7 @@ def radar(days: int, min_sources: int, limit: int, refresh: bool):
         return
 
     console.print(
-        f"[dim]{snapshot['total_items_scanned']} items scanned "
-        f"({snapshot['days']}d window)[/]\n"
+        f"[dim]{snapshot['total_items_scanned']} items scanned ({snapshot['days']}d window)[/]\n"
     )
 
     for i, t in enumerate(topics, 1):
