@@ -46,10 +46,10 @@ def mock_components(tmp_path):
 
 
 class TestToolRegistryInit:
-    def test_creates_13_tools(self, mock_components):
+    def test_creates_14_tools(self, mock_components):
         registry = ToolRegistry(mock_components)
         defs = registry.get_definitions()
-        assert len(defs) == 13
+        assert len(defs) == 14
 
     def test_tool_names(self, mock_components):
         registry = ToolRegistry(mock_components)
@@ -68,6 +68,7 @@ class TestToolRegistryInit:
             "recommendations_list",
             "profile_get",
             "get_context",
+            "web_search",
         }
         assert names == expected
 
