@@ -98,9 +98,7 @@ class TestCrunchbaseScraper:
         mock_resp = MagicMock()
         mock_resp.status_code = 401
         mock_resp.raise_for_status = MagicMock(
-            side_effect=httpx.HTTPStatusError(
-                "401", request=MagicMock(), response=mock_resp
-            )
+            side_effect=httpx.HTTPStatusError("401", request=MagicMock(), response=mock_resp)
         )
 
         scraper.client = AsyncMock()

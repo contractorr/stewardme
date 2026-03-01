@@ -41,7 +41,12 @@ def matcher(mock_intel_storage):
     return GoalIntelMatcher(mock_intel_storage)
 
 
-def _intel_item(title="Some Python Framework Released", url="https://example.com/1", summary="A new python web framework", tags=None):
+def _intel_item(
+    title="Some Python Framework Released",
+    url="https://example.com/1",
+    summary="A new python web framework",
+    tags=None,
+):
     return {
         "title": title,
         "url": url,
@@ -60,7 +65,14 @@ def _goal(title="Learn Python web development", path="goals/python-web.md", tags
     }
 
 
-def _match(goal_path="goals/g1.md", goal_title="Goal 1", url="https://ex.com/1", title="Item 1", score=0.2, urgency="high"):
+def _match(
+    goal_path="goals/g1.md",
+    goal_title="Goal 1",
+    url="https://ex.com/1",
+    title="Item 1",
+    score=0.2,
+    urgency="high",
+):
     return {
         "goal_path": goal_path,
         "goal_title": goal_title,
@@ -147,7 +159,11 @@ class TestMatchGoal:
         goal = _goal(title="Python machine learning", tags=["python", "ml"])
         items = [
             _intel_item(title="Generic news", url="https://ex.com/1", summary="unrelated content"),
-            _intel_item(title="Python ML Framework", url="https://ex.com/2", summary="python machine learning library"),
+            _intel_item(
+                title="Python ML Framework",
+                url="https://ex.com/2",
+                summary="python machine learning library",
+            ),
         ]
         matches = matcher.match_goal(goal, items)
         if len(matches) > 1:
@@ -198,9 +214,7 @@ class TestAdaptiveRecencyWindow:
         store.save_matches([_match()])
         # Backdate match to 12 days ago
         with sqlite3.connect(str(tmp_db)) as conn:
-            conn.execute(
-                "UPDATE goal_intel_matches SET created_at = datetime('now', '-12 days')"
-            )
+            conn.execute("UPDATE goal_intel_matches SET created_at = datetime('now', '-12 days')")
         matcher = GoalIntelMatcher(mock_intel_storage, match_store=store)
         days = matcher._compute_days_window()
         assert 12 <= days <= 14  # 12 + 1, give or take rounding
@@ -215,9 +229,7 @@ class TestAdaptiveRecencyWindow:
         """Even if user was away 90 days, window caps at 30."""
         store.save_matches([_match()])
         with sqlite3.connect(str(tmp_db)) as conn:
-            conn.execute(
-                "UPDATE goal_intel_matches SET created_at = datetime('now', '-90 days')"
-            )
+            conn.execute("UPDATE goal_intel_matches SET created_at = datetime('now', '-90 days')")
         matcher = GoalIntelMatcher(mock_intel_storage, match_store=store)
         assert matcher._compute_days_window() == 30
 
@@ -258,10 +270,16 @@ class TestSemanticMatching:
         ]
         # Mock _get_item_by_id to return a fake item
         matcher = GoalIntelMatcher(mock_intel_storage, embedding_manager=mock_emb)
-        with patch.object(matcher, "_get_item_by_id", return_value={
-            "url": "https://ex.com/1", "title": "K8s Guide", "summary": "container orchestration",
-            "tags": []
-        }):
+        with patch.object(
+            matcher,
+            "_get_item_by_id",
+            return_value={
+                "url": "https://ex.com/1",
+                "title": "K8s Guide",
+                "summary": "container orchestration",
+                "tags": [],
+            },
+        ):
             results = matcher._semantic_match_goal(_goal(title="Learn Kubernetes"))
         assert len(results) == 1
         assert results[0]["semantic_score"] == pytest.approx(0.7, abs=0.01)
@@ -270,11 +288,25 @@ class TestSemanticMatching:
     def test_merge_blends_overlapping_urls(self, mock_intel_storage):
         matcher = GoalIntelMatcher(mock_intel_storage)
         kw_matches = [
-            {"url": "https://ex.com/1", "title": "T", "summary": "", "score": 0.2,
-             "urgency": "high", "match_reasons": ["skill:python"], "goal_path": "g/1.md", "goal_title": "G"}
+            {
+                "url": "https://ex.com/1",
+                "title": "T",
+                "summary": "",
+                "score": 0.2,
+                "urgency": "high",
+                "match_reasons": ["skill:python"],
+                "goal_path": "g/1.md",
+                "goal_title": "G",
+            }
         ]
         sem_items = [
-            {"url": "https://ex.com/1", "title": "T", "summary": "", "semantic_score": 0.8, "tags": []}
+            {
+                "url": "https://ex.com/1",
+                "title": "T",
+                "summary": "",
+                "semantic_score": 0.8,
+                "tags": [],
+            }
         ]
         goal = _goal()
         merged = matcher._merge_semantic_into_keyword(kw_matches, sem_items, goal)
@@ -287,8 +319,13 @@ class TestSemanticMatching:
         matcher = GoalIntelMatcher(mock_intel_storage)
         kw_matches = []
         sem_items = [
-            {"url": "https://ex.com/new", "title": "Container Orchestration", "summary": "k8s guide",
-             "semantic_score": 0.6, "tags": []}
+            {
+                "url": "https://ex.com/new",
+                "title": "Container Orchestration",
+                "summary": "k8s guide",
+                "semantic_score": 0.6,
+                "tags": [],
+            }
         ]
         goal = _goal()
         merged = matcher._merge_semantic_into_keyword(kw_matches, sem_items, goal)
@@ -299,7 +336,13 @@ class TestSemanticMatching:
     def test_merge_drops_low_semantic_score(self, mock_intel_storage):
         matcher = GoalIntelMatcher(mock_intel_storage)
         sem_items = [
-            {"url": "https://ex.com/weak", "title": "T", "summary": "", "semantic_score": 0.05, "tags": []}
+            {
+                "url": "https://ex.com/weak",
+                "title": "T",
+                "summary": "",
+                "semantic_score": 0.05,
+                "tags": [],
+            }
         ]
         merged = matcher._merge_semantic_into_keyword([], sem_items, _goal())
         assert len(merged) == 0  # Below 0.3 threshold
@@ -340,9 +383,7 @@ class TestStoreDedup:
 
         # Backdate the existing row to 8 days ago
         with sqlite3.connect(str(tmp_db)) as conn:
-            conn.execute(
-                "UPDATE goal_intel_matches SET created_at = datetime('now', '-8 days')"
-            )
+            conn.execute("UPDATE goal_intel_matches SET created_at = datetime('now', '-8 days')")
 
         inserted = store.save_matches([m])
         assert inserted == 1
@@ -360,30 +401,36 @@ class TestStoreDedup:
 
 class TestStoreGetMatchesFilters:
     def test_filters_by_goal_paths(self, store):
-        store.save_matches([
-            _match(goal_path="g/a.md", url="https://ex.com/1"),
-            _match(goal_path="g/b.md", url="https://ex.com/2"),
-            _match(goal_path="g/c.md", url="https://ex.com/3"),
-        ])
+        store.save_matches(
+            [
+                _match(goal_path="g/a.md", url="https://ex.com/1"),
+                _match(goal_path="g/b.md", url="https://ex.com/2"),
+                _match(goal_path="g/c.md", url="https://ex.com/3"),
+            ]
+        )
         results = store.get_matches(goal_paths=["g/a.md", "g/c.md"])
         paths = {r["goal_path"] for r in results}
         assert paths == {"g/a.md", "g/c.md"}
 
     def test_orders_by_urgency_then_score(self, store):
-        store.save_matches([
-            _match(url="https://ex.com/1", urgency="low", score=0.9),
-            _match(url="https://ex.com/2", urgency="high", score=0.2),
-            _match(url="https://ex.com/3", urgency="medium", score=0.5),
-        ])
+        store.save_matches(
+            [
+                _match(url="https://ex.com/1", urgency="low", score=0.9),
+                _match(url="https://ex.com/2", urgency="high", score=0.2),
+                _match(url="https://ex.com/3", urgency="medium", score=0.5),
+            ]
+        )
         results = store.get_matches()
         urgencies = [r["urgency"] for r in results]
         assert urgencies == ["high", "medium", "low"]
 
     def test_min_urgency_filter(self, store):
-        store.save_matches([
-            _match(url="https://ex.com/1", urgency="low", score=0.05),
-            _match(url="https://ex.com/2", urgency="high", score=0.2),
-        ])
+        store.save_matches(
+            [
+                _match(url="https://ex.com/1", urgency="low", score=0.05),
+                _match(url="https://ex.com/2", urgency="high", score=0.2),
+            ]
+        )
         results = store.get_matches(min_urgency="medium")
         assert all(r["urgency"] in ("high", "medium") for r in results)
 
@@ -394,9 +441,7 @@ class TestStoreCleanupOld:
 
         # Backdate to 31 days ago
         with sqlite3.connect(str(tmp_db)) as conn:
-            conn.execute(
-                "UPDATE goal_intel_matches SET created_at = datetime('now', '-31 days')"
-            )
+            conn.execute("UPDATE goal_intel_matches SET created_at = datetime('now', '-31 days')")
 
         deleted = store.cleanup_old(days=30)
         assert deleted == 1
@@ -456,10 +501,7 @@ class TestGoalIntelLLMEvaluator:
 
     def test_evaluate_overrides_urgency(self):
         provider = MagicMock()
-        provider.generate.return_value = (
-            "ITEM_1_RELEVANT: yes\n"
-            "ITEM_1_URGENCY: high\n"
-        )
+        provider.generate.return_value = "ITEM_1_RELEVANT: yes\nITEM_1_URGENCY: high\n"
         evaluator = GoalIntelLLMEvaluator(provider=provider)
         matches = [_match(urgency="medium")]
         result = evaluator.evaluate(matches)
@@ -478,8 +520,7 @@ class TestGoalIntelLLMEvaluator:
     def test_batch_size_respected(self):
         provider = MagicMock()
         provider.generate.return_value = "\n".join(
-            f"ITEM_{i+1}_RELEVANT: yes\nITEM_{i+1}_URGENCY: medium"
-            for i in range(20)
+            f"ITEM_{i + 1}_RELEVANT: yes\nITEM_{i + 1}_URGENCY: medium" for i in range(20)
         )
         evaluator = GoalIntelLLMEvaluator(provider=provider)
         matches = [_match(url=f"https://ex.com/{i}") for i in range(45)]
@@ -488,10 +529,7 @@ class TestGoalIntelLLMEvaluator:
 
     def test_llm_evaluated_flag_set(self):
         provider = MagicMock()
-        provider.generate.return_value = (
-            "ITEM_1_RELEVANT: yes\n"
-            "ITEM_1_URGENCY: medium\n"
-        )
+        provider.generate.return_value = "ITEM_1_RELEVANT: yes\nITEM_1_URGENCY: medium\n"
         evaluator = GoalIntelLLMEvaluator(provider=provider)
         matches = [_match()]
         result = evaluator.evaluate(matches)

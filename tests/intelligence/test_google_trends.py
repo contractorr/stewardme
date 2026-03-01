@@ -66,7 +66,9 @@ class TestGoogleTrendsScraper:
             if mod == "pytrends" or mod.startswith("pytrends."):
                 saved[mod] = sys.modules.pop(mod)
 
-        original_import = __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+        original_import = (
+            __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+        )
 
         def fail_pytrends(name, *args, **kwargs):
             if name == "pytrends" or name.startswith("pytrends."):

@@ -37,6 +37,7 @@ class ScraperHealthTracker:
         items_scraped: int = 0,
         items_new: int = 0,
         duration_s: float | None = None,
+        items_deduped: int = 0,
     ) -> None:
         """Record successful scrape: reset errors, clear backoff, store metrics."""
         now = datetime.utcnow().isoformat()
@@ -45,8 +46,8 @@ class ScraperHealthTracker:
                 """
                 INSERT INTO scraper_health (source, last_run_at, last_success_at,
                     consecutive_errors, total_runs, total_errors, last_error, backoff_until,
-                    last_items_scraped, last_items_new, last_duration_seconds)
-                VALUES (?, ?, ?, 0, 1, 0, NULL, NULL, ?, ?, ?)
+                    last_items_scraped, last_items_new, last_duration_seconds, last_items_deduped)
+                VALUES (?, ?, ?, 0, 1, 0, NULL, NULL, ?, ?, ?, ?)
                 ON CONFLICT(source) DO UPDATE SET
                     last_run_at = ?,
                     last_success_at = ?,
@@ -56,11 +57,12 @@ class ScraperHealthTracker:
                     backoff_until = NULL,
                     last_items_scraped = ?,
                     last_items_new = ?,
-                    last_duration_seconds = ?
+                    last_duration_seconds = ?,
+                    last_items_deduped = ?
                 """,
                 (
-                    source, now, now, items_scraped, items_new, duration_s,
-                    now, now, items_scraped, items_new, duration_s,
+                    source, now, now, items_scraped, items_new, duration_s, items_deduped,
+                    now, now, items_scraped, items_new, duration_s, items_deduped,
                 ),
             )
 

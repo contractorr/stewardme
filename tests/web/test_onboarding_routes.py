@@ -132,7 +132,9 @@ def test_get_feed_categories_with_profile(client, auth_headers, tmp_path):
     base.mkdir(parents=True, exist_ok=True)
     profile_path = base / "profile.yaml"
 
-    profile = UserProfile(interests=["machine learning", "AI"], technologies_watching=["kubernetes"])
+    profile = UserProfile(
+        interests=["machine learning", "AI"], technologies_watching=["kubernetes"]
+    )
     storage = ProfileStorage(profile_path)
     storage.save(profile)
 

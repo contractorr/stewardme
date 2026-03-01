@@ -24,7 +24,14 @@ class DailyBrief:
 
 
 # Fixed time estimates per kind
-_TIME = {"stale_goal": 10, "recommendation": 15, "learning": 45, "nudge": 5, "intel_match": 5, "prediction": 5}
+_TIME = {
+    "stale_goal": 10,
+    "recommendation": 15,
+    "learning": 45,
+    "nudge": 5,
+    "intel_match": 5,
+    "prediction": 5,
+}
 
 # Base urgency scores per kind — higher = more urgent by default
 _BASE_URGENCY = {
@@ -141,7 +148,7 @@ class DailyBriefBuilder:
                 )
             )
 
-        for p in (predictions_due or []):
+        for p in predictions_due or []:
             candidates.append(
                 DailyBriefItem(
                     kind="prediction",

@@ -31,8 +31,11 @@ class TestDailyBriefBuilder:
 
     def test_empty_with_goals_gives_nudge(self):
         brief = self.builder.build(
-            stale_goals=[], recommendations=[], learning_paths=[],
-            all_goals=[_goal("Ship MVP")], weekly_hours=5,
+            stale_goals=[],
+            recommendations=[],
+            learning_paths=[],
+            all_goals=[_goal("Ship MVP")],
+            weekly_hours=5,
         )
         assert len(brief.items) == 1
         assert brief.items[0].kind == "nudge"
@@ -40,8 +43,11 @@ class TestDailyBriefBuilder:
 
     def test_empty_no_goals_gives_reflection(self):
         brief = self.builder.build(
-            stale_goals=[], recommendations=[], learning_paths=[],
-            all_goals=[], weekly_hours=5,
+            stale_goals=[],
+            recommendations=[],
+            learning_paths=[],
+            all_goals=[],
+            weekly_hours=5,
         )
         assert len(brief.items) == 1
         assert brief.items[0].kind == "nudge"
@@ -53,7 +59,8 @@ class TestDailyBriefBuilder:
             stale_goals=[_goal("Goal A", days=20)],
             recommendations=[_rec("Rec 1")],
             learning_paths=[_lp("Rust")],
-            all_goals=[], weekly_hours=5,
+            all_goals=[],
+            weekly_hours=5,
         )
         assert brief.items[0].kind == "stale_goal"
         assert brief.items[0].priority == 1
@@ -73,8 +80,11 @@ class TestDailyBriefBuilder:
 
     def test_budget_calculation(self):
         brief = self.builder.build(
-            stale_goals=[], recommendations=[], learning_paths=[],
-            all_goals=[_goal("X")], weekly_hours=7,
+            stale_goals=[],
+            recommendations=[],
+            learning_paths=[],
+            all_goals=[_goal("X")],
+            weekly_hours=7,
         )
         assert brief.budget_minutes == 60  # 7*60/7
 
@@ -82,8 +92,10 @@ class TestDailyBriefBuilder:
         """<30 min budget caps at 2 items."""
         brief = self.builder.build(
             stale_goals=[_goal("A"), _goal("B"), _goal("C")],
-            recommendations=[], learning_paths=[],
-            all_goals=[], weekly_hours=3,  # ~26 min/day
+            recommendations=[],
+            learning_paths=[],
+            all_goals=[],
+            weekly_hours=3,  # ~26 min/day
         )
         assert len(brief.items) <= 2
 
@@ -91,8 +103,10 @@ class TestDailyBriefBuilder:
         """30-60 min budget caps at 3 items."""
         brief = self.builder.build(
             stale_goals=[_goal("A"), _goal("B"), _goal("C"), _goal("D")],
-            recommendations=[], learning_paths=[],
-            all_goals=[], weekly_hours=5,  # ~43 min/day
+            recommendations=[],
+            learning_paths=[],
+            all_goals=[],
+            weekly_hours=5,  # ~43 min/day
         )
         assert len(brief.items) <= 3
 
@@ -102,7 +116,8 @@ class TestDailyBriefBuilder:
             stale_goals=[_goal("A"), _goal("B"), _goal("C")],
             recommendations=[_rec("R1"), _rec("R2")],
             learning_paths=[_lp("Go")],
-            all_goals=[], weekly_hours=14,  # 120 min/day
+            all_goals=[],
+            weekly_hours=14,  # 120 min/day
         )
         assert len(brief.items) <= 5
 
@@ -112,7 +127,8 @@ class TestDailyBriefBuilder:
             stale_goals=[],
             recommendations=[],
             learning_paths=[_lp("Rust")],  # 45 min
-            all_goals=[], weekly_hours=1,  # ~9 min budget
+            all_goals=[],
+            weekly_hours=1,  # ~9 min budget
         )
         assert len(brief.items) == 1
         assert brief.items[0].kind == "learning"
@@ -124,32 +140,42 @@ class TestDailyBriefBuilder:
             stale_goals=[_goal("A")],  # 10 min
             recommendations=[_rec("R")],  # 15 min → 25 total
             learning_paths=[_lp("Rust")],  # 45 min → 70 total
-            all_goals=[], weekly_hours=5,  # ~43 min budget
+            all_goals=[],
+            weekly_hours=5,  # ~43 min budget
         )
         # learning path should NOT fit (25 + 45 > 43 and already have items)
         assert brief.used_minutes <= brief.budget_minutes + 44  # at most one overshoot
 
     def test_inactive_learning_paths_skipped(self):
         brief = self.builder.build(
-            stale_goals=[], recommendations=[],
-            learning_paths=[{"skill": "Go", "status": "completed", "completed_modules": 5, "total_modules": 5}],
-            all_goals=[_goal("X")], weekly_hours=5,
+            stale_goals=[],
+            recommendations=[],
+            learning_paths=[
+                {"skill": "Go", "status": "completed", "completed_modules": 5, "total_modules": 5}
+            ],
+            all_goals=[_goal("X")],
+            weekly_hours=5,
         )
         # Should fall through to nudge since only inactive LP
         assert brief.items[0].kind == "nudge"
 
     def test_generated_at_is_iso(self):
         brief = self.builder.build(
-            stale_goals=[], recommendations=[], learning_paths=[],
-            all_goals=[], weekly_hours=5,
+            stale_goals=[],
+            recommendations=[],
+            learning_paths=[],
+            all_goals=[],
+            weekly_hours=5,
         )
         assert "T" in brief.generated_at
 
     def test_used_minutes_accurate(self):
         brief = self.builder.build(
             stale_goals=[_goal("A"), _goal("B")],
-            recommendations=[], learning_paths=[],
-            all_goals=[], weekly_hours=5,
+            recommendations=[],
+            learning_paths=[],
+            all_goals=[],
+            weekly_hours=5,
         )
         expected = sum(i.time_minutes for i in brief.items)
         assert brief.used_minutes == expected
@@ -163,8 +189,11 @@ class TestDailyBriefBuilder:
                 self.description = d
 
         brief = self.builder.build(
-            stale_goals=[], recommendations=[FakeRec("Try X", "details")],
-            learning_paths=[], all_goals=[], weekly_hours=5,
+            stale_goals=[],
+            recommendations=[FakeRec("Try X", "details")],
+            learning_paths=[],
+            all_goals=[],
+            weekly_hours=5,
         )
         assert brief.items[0].kind == "recommendation"
         assert brief.items[0].title == "Try X"
@@ -172,8 +201,11 @@ class TestDailyBriefBuilder:
     def test_medium_intel_included(self):
         """Medium-urgency intel matches should be included as candidates."""
         brief = self.builder.build(
-            stale_goals=[], recommendations=[], learning_paths=[],
-            all_goals=[], weekly_hours=5,
+            stale_goals=[],
+            recommendations=[],
+            learning_paths=[],
+            all_goals=[],
+            weekly_hours=5,
             intel_matches=[_intel_match("Medium item", urgency="medium")],
         )
         assert brief.items[0].kind == "intel_match"
@@ -181,8 +213,11 @@ class TestDailyBriefBuilder:
     def test_low_intel_excluded(self):
         """Low-urgency intel matches should not appear."""
         brief = self.builder.build(
-            stale_goals=[], recommendations=[], learning_paths=[],
-            all_goals=[_goal("X")], weekly_hours=5,
+            stale_goals=[],
+            recommendations=[],
+            learning_paths=[],
+            all_goals=[_goal("X")],
+            weekly_hours=5,
             intel_matches=[_intel_match("Low item", urgency="low")],
         )
         assert brief.items[0].kind == "nudge"

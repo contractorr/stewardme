@@ -273,7 +273,10 @@ class TestGoalNextStepsTool:
         create_result = json.loads(
             registry.execute(
                 "goals_add",
-                {"title": "Learn Kubernetes", "description": "Master k8s for production deployments"},
+                {
+                    "title": "Learn Kubernetes",
+                    "description": "Master k8s for production deployments",
+                },
             )
         )
         goal_path = create_result["path"]
@@ -297,8 +300,6 @@ class TestGoalNextStepsTool:
 
     def test_path_traversal_blocked(self, mock_components):
         registry = ToolRegistry(mock_components)
-        result = registry.execute(
-            "goal_next_steps", {"goal_path": "../../etc/passwd"}
-        )
+        result = registry.execute("goal_next_steps", {"goal_path": "../../etc/passwd"})
         parsed = json.loads(result)
         assert "error" in parsed

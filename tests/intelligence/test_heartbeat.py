@@ -216,14 +216,16 @@ class TestActionBriefStore:
 
     def test_log_run_and_get_last_run_at(self, store):
         assert store.get_last_run_at() is None
-        store.log_run({
-            "started_at": datetime.now().isoformat(),
-            "finished_at": datetime.now().isoformat(),
-            "items_checked": 10,
-            "items_passed": 3,
-            "briefs_saved": 2,
-            "llm_used": 1,
-        })
+        store.log_run(
+            {
+                "started_at": datetime.now().isoformat(),
+                "finished_at": datetime.now().isoformat(),
+                "items_checked": 10,
+                "items_passed": 3,
+                "briefs_saved": 2,
+                "llm_used": 1,
+            }
+        )
         last = store.get_last_run_at()
         assert last is not None
 
