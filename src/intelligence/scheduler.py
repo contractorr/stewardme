@@ -464,6 +464,8 @@ class IntelScheduler:
             self._init_scrapers()
             results = {}
 
+            dedup_threshold = self.config.get("semantic_dedup_threshold", 0.92)
+
             async def run_scraper(scraper):
                 source = scraper.source_name
                 if self._health.should_skip(source):
@@ -475,7 +477,9 @@ class IntelScheduler:
                     t0 = _time.time()
                     with metrics.timer("scrape_duration"):
                         items = await asyncio.wait_for(scraper.scrape(), timeout=60.0)
-                        new_count = await scraper.save_items(items)
+                        new_count, deduped_count = await scraper.save_items(
+                            items, dedup_threshold=dedup_threshold
+                        )
                     elapsed = _time.time() - t0
 
                     self._health.record_success(
@@ -483,6 +487,7 @@ class IntelScheduler:
                         items_scraped=len(items),
                         items_new=new_count,
                         duration_s=round(elapsed, 2),
+                        items_deduped=deduped_count,
                     )
                     try:
                         from web.user_store import log_event
@@ -498,6 +503,7 @@ class IntelScheduler:
                     return source, {
                         "scraped": len(items),
                         "new": new_count,
+                        "deduped": deduped_count,
                     }
                 except asyncio.TimeoutError:
                     self._health.record_failure(source, "timeout")

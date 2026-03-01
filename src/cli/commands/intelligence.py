@@ -29,12 +29,15 @@ def scrape():
     table.add_column("Source")
     table.add_column("Scraped", justify="right")
     table.add_column("New", justify="right", style="green")
+    table.add_column("Deduped", justify="right", style="yellow")
 
     for source, data in results.items():
         if "error" in data:
-            table.add_row(source, "[red]error[/]", data["error"][:30])
+            table.add_row(source, "[red]error[/]", data["error"][:30], "")
         else:
-            table.add_row(source, str(data["scraped"]), str(data["new"]))
+            table.add_row(
+                source, str(data["scraped"]), str(data["new"]), str(data.get("deduped", 0))
+            )
 
     console.print(table)
 
@@ -140,6 +143,7 @@ def scraper_health():
     table.add_column("Last Success")
     table.add_column("Items", justify="right")
     table.add_column("New", justify="right")
+    table.add_column("Deduped", justify="right")
     table.add_column("Duration", justify="right")
     table.add_column("Errors", justify="right")
     table.add_column("Error Rate", justify="right")
@@ -159,6 +163,7 @@ def scraper_health():
             last_success,
             str(r.get("last_items_scraped", 0)),
             str(r.get("last_items_new", 0)),
+            str(r.get("last_items_deduped", 0)),
             duration,
             str(r.get("total_errors", 0)),
             f"{r.get('error_rate', 0):.1f}%",
@@ -199,3 +204,52 @@ def intel_export(output: str, fmt: str, days: int, source: str, limit: int):
             count = exporter.export_markdown(output_path, days=days, source=source, limit=limit)
 
     console.print(f"[green]Exported {count} items to {output_path}[/]")
+
+
+@click.command("dedup-backfill")
+@click.option("-d", "--days", default=30, help="Lookback window in days")
+@click.option("-t", "--threshold", default=0.92, help="Similarity threshold (0-1)")
+@click.option("--dry-run", is_flag=True, help="Show what would be deduped without writing")
+def dedup_backfill(days: int, threshold: float, dry_run: bool):
+    """Backfill semantic dedup: scan recent items and mark near-duplicates."""
+    from db import wal_connect
+    from intelligence.embeddings import IntelEmbeddingManager
+
+    c = get_components(skip_advisor=True)
+    storage = c["intel_storage"]
+    paths_config = c["config"].get("paths", {})
+    chroma_dir = Path(paths_config.get("chroma_dir", "~/coach/chroma")).expanduser()
+
+    em = IntelEmbeddingManager(chroma_dir)
+
+    with wal_connect(storage.db_path) as conn:
+        conn.row_factory = __import__("sqlite3").Row
+        rows = conn.execute(
+            """SELECT id, title, summary, source FROM intel_items
+               WHERE scraped_at >= datetime('now', ?) AND duplicate_of IS NULL
+               ORDER BY id""",
+            (f"-{days} days",),
+        ).fetchall()
+
+    total = len(rows)
+    deduped = 0
+
+    with console.status(f"Scanning {total} items (threshold={threshold})..."):
+        for row in rows:
+            content = f"{row['title']} {row['summary'] or ''}"
+            canonical_id = em.find_similar(content, threshold=threshold)
+            if canonical_id and canonical_id != str(row["id"]):
+                deduped += 1
+                if dry_run:
+                    console.print(
+                        f"[yellow]would dedup[/] #{row['id']} -> #{canonical_id}: "
+                        f"{row['title'][:60]}"
+                    )
+                else:
+                    storage.mark_duplicate(row["id"], int(canonical_id))
+            else:
+                # Index for subsequent comparisons
+                em.add_item(str(row["id"]), content, {"source": row["source"]})
+
+    action = "would mark" if dry_run else "marked"
+    console.print(f"[green]Done:[/] {action} {deduped}/{total} items as duplicates")

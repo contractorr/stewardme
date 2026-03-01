@@ -14,6 +14,7 @@ from cli.commands import (
     capabilities,
     daemon,
     db,
+    dedup_backfill,
     eval_cmd,
     export,
     goals,
@@ -85,6 +86,7 @@ cli.add_command(today)
 cli.add_command(radar)
 cli.add_command(scraper_health)
 cli.add_command(eval_cmd)
+cli.add_command(dedup_backfill)
 
 
 if __name__ == "__main__":

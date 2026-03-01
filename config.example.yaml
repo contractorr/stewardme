@@ -35,6 +35,7 @@ sources:
   # Semantic dedup: use vector similarity to skip near-duplicate articles across sources
   # Requires ChromaDB. Slightly slower scrapes but much cleaner feed.
   semantic_dedup: false
+  semantic_dedup_threshold: 0.92  # 0.90-0.95; higher = stricter
   github_trending:
     enabled: true
     languages: [python, rust, go]

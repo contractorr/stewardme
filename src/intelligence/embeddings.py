@@ -185,30 +185,34 @@ class IntelEmbeddingManager:
             metadata={"hnsw:space": "cosine", "embedding_model": DEFAULT_EMBEDDING_MODEL},
         )
 
-    def find_similar(self, text: str, threshold: float | None = None) -> bool:
+    def find_similar(
+        self, text: str, threshold: float | None = None, where: dict | None = None
+    ) -> str | None:
         """Check if similar content exists.
 
         Args:
             text: Content to check
             threshold: Similarity threshold (0-1, higher = more similar)
+            where: Optional Chroma metadata filter (e.g. time-window)
 
         Returns:
-            True if similar content found
+            Chroma doc ID of the canonical match, or None. Truthiness preserved.
         """
         threshold = threshold if threshold is not None else self.similarity_threshold
         if self.collection.count() == 0:
-            return False
+            return None
 
-        results = self.collection.query(
-            query_texts=[text],
-            n_results=1,
-            include=["distances"],
-        )
+        kwargs: dict = {"query_texts": [text], "n_results": 1, "include": ["distances"]}
+        if where is not None:
+            kwargs["where"] = where
+
+        results = self.collection.query(**kwargs)
 
         if results["distances"] and results["distances"][0]:
             # ChromaDB returns cosine distance, convert to similarity
             distance = results["distances"][0][0]
             similarity = 1 - distance
-            return similarity >= threshold
+            if similarity >= threshold and results["ids"] and results["ids"][0]:
+                return results["ids"][0][0]
 
-        return False
+        return None

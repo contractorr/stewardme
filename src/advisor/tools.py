@@ -617,7 +617,7 @@ class ToolRegistry:
                 intel_storage = self.components["intel_storage"]
                 scraper = RSSFeedScraper(intel_storage, url, name=name)
                 items = asyncio.get_event_loop().run_until_complete(scraper.scrape())
-                items_scraped = asyncio.get_event_loop().run_until_complete(
+                items_scraped, _ = asyncio.get_event_loop().run_until_complete(
                     scraper.save_items(items)
                 )
                 asyncio.get_event_loop().run_until_complete(scraper.close())

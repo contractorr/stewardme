@@ -1,9 +1,12 @@
 """Tests for intelligence scraper and storage."""
 
+import sqlite3
 from datetime import datetime
 from unittest.mock import MagicMock
 
 import pytest
+
+from db import wal_connect
 
 
 class TestIntelStorage:
@@ -18,7 +21,7 @@ class TestIntelStorage:
         assert temp_dirs["intel_db"].exists()
 
     def test_save_item(self, temp_dirs):
-        """Test saving an intel item."""
+        """Test saving an intel item returns row ID."""
         from intelligence.scraper import IntelItem, IntelStorage
 
         storage = IntelStorage(temp_dirs["intel_db"])
@@ -32,7 +35,8 @@ class TestIntelStorage:
 
         result = storage.save(item)
 
-        assert result is True
+        assert result is not None
+        assert isinstance(result, int)
 
     def test_save_duplicate_url_ignored(self, temp_dirs):
         """Test that duplicate URLs are ignored."""
@@ -50,8 +54,8 @@ class TestIntelStorage:
         first = storage.save(item)
         second = storage.save(item)  # Same URL
 
-        assert first is True
-        assert second is False
+        assert first is not None
+        assert second is None
 
     def test_get_recent(self, populated_intel):
         """Test getting recent items."""
@@ -136,7 +140,7 @@ class TestIntelItem:
 
 
 class TestSemanticDedup:
-    """Test semantic dedup threshold in save_items."""
+    """Test semantic dedup in save_items."""
 
     @pytest.mark.asyncio
     async def test_dedup_threshold_respected(self, temp_dirs):
@@ -145,7 +149,7 @@ class TestSemanticDedup:
 
         storage = IntelStorage(temp_dirs["intel_db"])
         mock_em = MagicMock()
-        mock_em.find_similar.return_value = False
+        mock_em.find_similar.return_value = None
 
         class DummyScraper(BaseScraper):
             @property
@@ -163,13 +167,13 @@ class TestSemanticDedup:
         mock_em.find_similar.assert_called_once_with("Item 1 s1", threshold=0.75)
 
     @pytest.mark.asyncio
-    async def test_dedup_skips_similar(self, temp_dirs):
-        """Items detected as similar are skipped."""
+    async def test_dedup_marks_canonical(self, temp_dirs):
+        """Items detected as similar are saved but marked as duplicates."""
         from intelligence.scraper import BaseScraper, IntelItem, IntelStorage
 
         storage = IntelStorage(temp_dirs["intel_db"])
         mock_em = MagicMock()
-        mock_em.find_similar.return_value = True  # everything is a duplicate
+        mock_em.find_similar.return_value = "42"  # canonical Chroma doc ID
 
         class DummyScraper(BaseScraper):
             @property
@@ -183,5 +187,86 @@ class TestSemanticDedup:
         items = [
             IntelItem(source="test", title="Dup", url="https://a.com/dup", summary="s"),
         ]
-        count = await scraper.save_items(items)
-        assert count == 0
+        new_count, deduped_count = await scraper.save_items(items)
+        assert new_count == 0
+        assert deduped_count == 1
+
+        # Verify duplicate_of is set in DB
+        with wal_connect(storage.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            row = conn.execute("SELECT duplicate_of FROM intel_items WHERE url = ?", ("https://a.com/dup",)).fetchone()
+            assert row is not None
+            assert row["duplicate_of"] == 42
+
+    @pytest.mark.asyncio
+    async def test_intra_batch_dedup(self, temp_dirs):
+        """Second item in batch detects first via Chroma add_item."""
+        from intelligence.scraper import BaseScraper, IntelItem, IntelStorage
+
+        storage = IntelStorage(temp_dirs["intel_db"])
+        mock_em = MagicMock()
+        # First call: no match. Second call: match found (first item's row ID).
+        mock_em.find_similar.side_effect = [None, "1"]
+
+        class DummyScraper(BaseScraper):
+            @property
+            def source_name(self):
+                return "test"
+
+            async def scrape(self):
+                return []
+
+        scraper = DummyScraper(storage, embedding_manager=mock_em)
+        items = [
+            IntelItem(source="test", title="Original", url="https://a.com/1", summary="story about AI"),
+            IntelItem(source="test", title="Duplicate", url="https://a.com/2", summary="story about AI"),
+        ]
+        new_count, deduped_count = await scraper.save_items(items)
+        assert new_count == 1
+        assert deduped_count == 1
+
+        # First item should have been indexed via add_item for intra-batch detection
+        mock_em.add_item.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_save_items_returns_tuple(self, temp_dirs):
+        """save_items returns (new, deduped) tuple."""
+        from intelligence.scraper import BaseScraper, IntelItem, IntelStorage
+
+        storage = IntelStorage(temp_dirs["intel_db"])
+
+        class DummyScraper(BaseScraper):
+            @property
+            def source_name(self):
+                return "test"
+
+            async def scrape(self):
+                return []
+
+        scraper = DummyScraper(storage)
+        items = [
+            IntelItem(source="test", title="A", url="https://a.com/a", summary="s"),
+        ]
+        result = await scraper.save_items(items, semantic_dedup=False)
+        assert isinstance(result, tuple)
+        assert result == (1, 0)
+
+    @pytest.mark.asyncio
+    async def test_get_recent_excludes_duplicates(self, temp_dirs):
+        """get_recent filters out items with duplicate_of set."""
+        from intelligence.scraper import IntelItem, IntelStorage
+
+        storage = IntelStorage(temp_dirs["intel_db"])
+        item1 = IntelItem(source="test", title="Original", url="https://a.com/1", summary="s")
+        item2 = IntelItem(source="test", title="Dup", url="https://a.com/2", summary="s2")
+
+        row1 = storage.save(item1)
+        row2 = storage.save(item2)
+        assert row1 and row2
+
+        storage.mark_duplicate(row2, row1)
+
+        recent = storage.get_recent(days=7)
+        urls = {r["url"] for r in recent}
+        assert "https://a.com/1" in urls
+        assert "https://a.com/2" not in urls

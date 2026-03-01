@@ -81,9 +81,9 @@ class TestGitHubTrendingScraper:
             )
         ]
 
-        count = await scraper.save_items(items)
+        new_count, deduped_count = await scraper.save_items(items)
 
-        assert count == 1
+        assert new_count == 1
         await scraper.close()
 
     async def test_context_manager(self, temp_dirs):

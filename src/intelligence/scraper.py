@@ -93,11 +93,15 @@ class IntelStorage:
             conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_intel_hash ON intel_items(content_hash)
             """)
-            # Add column if not exists (for existing DBs)
-            try:
-                conn.execute("ALTER TABLE intel_items ADD COLUMN content_hash TEXT")
-            except sqlite3.OperationalError:
-                pass  # Column already exists
+            # Add columns if not exists (for existing DBs)
+            for col, typedef in [
+                ("content_hash", "TEXT"),
+                ("duplicate_of", "INTEGER"),
+            ]:
+                try:
+                    conn.execute(f"ALTER TABLE intel_items ADD COLUMN {col} {typedef}")
+                except sqlite3.OperationalError:
+                    pass  # Column already exists
 
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS scraper_health (
@@ -116,6 +120,7 @@ class IntelStorage:
                 ("last_items_scraped", "INTEGER DEFAULT 0"),
                 ("last_items_new", "INTEGER DEFAULT 0"),
                 ("last_duration_seconds", "REAL"),
+                ("last_items_deduped", "INTEGER DEFAULT 0"),
             ]:
                 try:
                     conn.execute(f"ALTER TABLE scraper_health ADD COLUMN {col} {typedef}")
@@ -154,18 +159,23 @@ class IntelStorage:
                 WHERE id NOT IN (SELECT rowid FROM intel_fts)
             """)
 
-    def save(self, item: IntelItem) -> bool:
-        """Save intel item, skip if URL invalid/exists or content hash exists."""
+    def save(self, item: IntelItem) -> int | None:
+        """Save intel item, skip if URL invalid/exists or content hash exists.
+
+        Returns:
+            Row ID of the newly inserted row, or None on skip.
+            Truthiness preserved: ``if storage.save(item):`` still works.
+        """
         if not validate_url(item.url):
             logger.warning("Invalid URL rejected: %s", item.url[:100])
-            return False
+            return None
 
         content_hash = item.content_hash or item.compute_hash()
 
         # Check for hash-based duplicate
         if self.hash_exists(content_hash):
             logger.info("Duplicate content skipped (hash): %s", item.title[:50])
-            return False
+            return None
 
         try:
             with wal_connect(self.db_path) as conn:
@@ -186,13 +196,24 @@ class IntelStorage:
                         content_hash,
                     ),
                 )
-                return conn.total_changes > 0
+                if conn.total_changes > 0:
+                    row_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+                    return row_id
+                return None
         except sqlite3.IntegrityError:
             logger.debug("Duplicate URL skipped: %s", item.url)
-            return False
+            return None
         except sqlite3.Error as e:
             logger.error("DB error saving item %s: %s", item.url, e)
-            return False
+            return None
+
+    def mark_duplicate(self, row_id: int, canonical_id: int) -> None:
+        """Mark *row_id* as a semantic duplicate of *canonical_id*."""
+        with wal_connect(self.db_path) as conn:
+            conn.execute(
+                "UPDATE intel_items SET duplicate_of = ? WHERE id = ?",
+                (canonical_id, row_id),
+            )
 
     def hash_exists(self, content_hash: str, days: int = 7) -> bool:
         """Check if content hash exists in recent items."""
@@ -218,13 +239,14 @@ class IntelStorage:
         return item
 
     def get_recent(self, days: int = 7, limit: int = 50) -> list[dict]:
-        """Get recent intel items."""
+        """Get recent intel items (excludes semantic duplicates)."""
         with wal_connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.execute(
                 """
                 SELECT * FROM intel_items
                 WHERE scraped_at >= datetime('now', ?)
+                  AND duplicate_of IS NULL
                 ORDER BY scraped_at DESC
                 LIMIT ?
             """,
@@ -233,12 +255,12 @@ class IntelStorage:
             return [self._row_to_dict(row) for row in cursor.fetchall()]
 
     def get_items_since(self, since: datetime, limit: int = 200) -> list[dict]:
-        """Get intel items scraped since a given timestamp."""
+        """Get intel items scraped since a given timestamp (excludes semantic duplicates)."""
         with wal_connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.execute(
                 """SELECT * FROM intel_items
-                   WHERE scraped_at >= ?
+                   WHERE scraped_at >= ? AND duplicate_of IS NULL
                    ORDER BY scraped_at DESC LIMIT ?""",
                 (since.isoformat(), limit),
             )
@@ -332,9 +354,9 @@ class BaseScraper(ABC):
             return None
 
     async def save_items(
-        self, items: list[IntelItem], semantic_dedup: bool = True, dedup_threshold: float = 0.80
-    ) -> int:
-        """Save items and return count of new items.
+        self, items: list[IntelItem], semantic_dedup: bool = True, dedup_threshold: float = 0.92
+    ) -> tuple[int, int]:
+        """Save items with optional semantic dedup + canonical linking.
 
         Args:
             items: List of items to save
@@ -342,20 +364,34 @@ class BaseScraper(ABC):
             dedup_threshold: Similarity threshold for semantic dedup (0-1)
 
         Returns:
-            Count of new items saved
+            ``(new_count, deduped_count)`` tuple.
         """
         new_count = 0
+        deduped_count = 0
         for item in items:
+            canonical_id: str | None = None
+
             # Semantic dedup check if embedding manager available
             if semantic_dedup and self.embedding_manager:
                 content = f"{item.title} {item.summary}"
-                if self.embedding_manager.find_similar(content, threshold=dedup_threshold):
-                    logger.info("Semantic duplicate skipped: %s", item.title[:50])
-                    continue
+                canonical_id = self.embedding_manager.find_similar(content, threshold=dedup_threshold)
 
-            if self.storage.save(item):
+            row_id = self.storage.save(item)
+
+            if row_id and canonical_id:
+                # Saved but is a near-duplicate — link to canonical
+                self.storage.mark_duplicate(row_id, int(canonical_id))
+                deduped_count += 1
+            elif row_id and not canonical_id:
+                # Genuinely new — index for intra-batch dedup
                 new_count += 1
-        return new_count
+                if self.embedding_manager:
+                    content = f"{item.title} {item.summary}"
+                    meta = {"source": item.source}
+                    self.embedding_manager.add_item(str(row_id), content, meta)
+            # else: URL/hash dupe, skip
+
+        return new_count, deduped_count
 
     async def close(self):
         """Close the async client."""

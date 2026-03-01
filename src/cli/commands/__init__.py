@@ -8,7 +8,15 @@ from .eval_cmd import eval_cmd
 from .export import export
 from .heartbeat import heartbeat
 from .init import init
-from .intelligence import brief, intel_export, radar, scrape, scraper_health, sources
+from .intelligence import (
+    brief,
+    dedup_backfill,
+    intel_export,
+    radar,
+    scrape,
+    scraper_health,
+    sources,
+)
 from .journal import journal
 from .learn import learn
 from .memory import memory
@@ -51,4 +59,5 @@ __all__ = [
     "predictions",
     "threads",
     "eval_cmd",
+    "dedup_backfill",
 ]

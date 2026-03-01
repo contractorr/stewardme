@@ -115,12 +115,13 @@ class TestScraperHealthTracker:
     def test_record_success_with_metrics(self, temp_dirs):
         tracker = self._make_tracker(temp_dirs)
 
-        tracker.record_success("hn", items_scraped=25, items_new=10, duration_s=3.14)
+        tracker.record_success("hn", items_scraped=25, items_new=10, duration_s=3.14, items_deduped=3)
 
         health = tracker.get_source_health("hn")
         assert health["last_items_scraped"] == 25
         assert health["last_items_new"] == 10
         assert abs(health["last_duration_seconds"] - 3.14) < 0.01
+        assert health["last_items_deduped"] == 3
 
     def test_record_success_without_metrics(self, temp_dirs):
         """Backward compat: new cols default to 0/None when not passed."""
@@ -132,6 +133,7 @@ class TestScraperHealthTracker:
         assert health["last_items_scraped"] == 0
         assert health["last_items_new"] == 0
         assert health["last_duration_seconds"] is None
+        assert health["last_items_deduped"] == 0
 
     def test_get_health_summary_statuses(self, temp_dirs):
         tracker = self._make_tracker(temp_dirs)
