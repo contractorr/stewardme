@@ -111,3 +111,63 @@ class TestScraperHealthTracker:
 
         health = tracker.get_source_health("hn")
         assert len(health["last_error"]) == 500
+
+    def test_record_success_with_metrics(self, temp_dirs):
+        tracker = self._make_tracker(temp_dirs)
+
+        tracker.record_success("hn", items_scraped=25, items_new=10, duration_s=3.14)
+
+        health = tracker.get_source_health("hn")
+        assert health["last_items_scraped"] == 25
+        assert health["last_items_new"] == 10
+        assert abs(health["last_duration_seconds"] - 3.14) < 0.01
+
+    def test_record_success_without_metrics(self, temp_dirs):
+        """Backward compat: new cols default to 0/None when not passed."""
+        tracker = self._make_tracker(temp_dirs)
+
+        tracker.record_success("hn")
+
+        health = tracker.get_source_health("hn")
+        assert health["last_items_scraped"] == 0
+        assert health["last_items_new"] == 0
+        assert health["last_duration_seconds"] is None
+
+    def test_get_health_summary_statuses(self, temp_dirs):
+        tracker = self._make_tracker(temp_dirs)
+
+        # healthy: 0 consecutive errors
+        tracker.record_success("hn")
+        # 1 error with active backoff → backoff takes priority
+        tracker.record_failure("rss", "err")
+        # degraded: 2 errors, but backoff expired
+        tracker.record_failure("degraded_src", "err")
+        tracker.record_failure("degraded_src", "err")
+        # failing: 3+ consecutive errors
+        for _ in range(3):
+            tracker.record_failure("arxiv", "err")
+
+        summary = {r["source"]: r for r in tracker.get_health_summary()}
+        assert summary["hn"]["status"] == "healthy"
+        assert summary["rss"]["status"] == "backoff"  # active backoff
+        assert summary["arxiv"]["status"] in ("failing", "backoff")
+
+    def test_get_health_summary_error_rate(self, temp_dirs):
+        tracker = self._make_tracker(temp_dirs)
+
+        tracker.record_success("hn")
+        tracker.record_failure("hn", "err")
+        # 2 runs, 1 error → 50%
+        summary = {r["source"]: r for r in tracker.get_health_summary()}
+        assert summary["hn"]["error_rate"] == 50.0
+
+    def test_consecutive_failure_warning(self, temp_dirs, capsys):
+        tracker = self._make_tracker(temp_dirs)
+
+        tracker.record_failure("hn", "err")
+        tracker.record_failure("hn", "err")
+        # 3rd should trigger warning
+        tracker.record_failure("hn", "err")
+
+        captured = capsys.readouterr().out
+        assert "scraper_consecutive_failures" in captured

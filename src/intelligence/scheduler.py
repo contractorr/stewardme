@@ -470,11 +470,20 @@ class IntelScheduler:
                     logger.info("scraper_skipped_backoff", source=source)
                     return source, {"skipped": "backoff"}
                 try:
+                    import time as _time
+
+                    t0 = _time.time()
                     with metrics.timer("scrape_duration"):
                         items = await asyncio.wait_for(scraper.scrape(), timeout=60.0)
                         new_count = await scraper.save_items(items)
+                    elapsed = _time.time() - t0
 
-                    self._health.record_success(source)
+                    self._health.record_success(
+                        source,
+                        items_scraped=len(items),
+                        items_new=new_count,
+                        duration_s=round(elapsed, 2),
+                    )
                     try:
                         from web.user_store import log_event
 

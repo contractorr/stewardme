@@ -31,24 +31,37 @@ class ScraperHealthTracker:
     def __init__(self, db_path: str | Path):
         self.db_path = Path(db_path).expanduser()
 
-    def record_success(self, source: str) -> None:
-        """Record successful scrape: reset errors, clear backoff."""
+    def record_success(
+        self,
+        source: str,
+        items_scraped: int = 0,
+        items_new: int = 0,
+        duration_s: float | None = None,
+    ) -> None:
+        """Record successful scrape: reset errors, clear backoff, store metrics."""
         now = datetime.utcnow().isoformat()
         with wal_connect(self.db_path) as conn:
             conn.execute(
                 """
                 INSERT INTO scraper_health (source, last_run_at, last_success_at,
-                    consecutive_errors, total_runs, total_errors, last_error, backoff_until)
-                VALUES (?, ?, ?, 0, 1, 0, NULL, NULL)
+                    consecutive_errors, total_runs, total_errors, last_error, backoff_until,
+                    last_items_scraped, last_items_new, last_duration_seconds)
+                VALUES (?, ?, ?, 0, 1, 0, NULL, NULL, ?, ?, ?)
                 ON CONFLICT(source) DO UPDATE SET
                     last_run_at = ?,
                     last_success_at = ?,
                     consecutive_errors = 0,
                     total_runs = total_runs + 1,
                     last_error = NULL,
-                    backoff_until = NULL
+                    backoff_until = NULL,
+                    last_items_scraped = ?,
+                    last_items_new = ?,
+                    last_duration_seconds = ?
                 """,
-                (source, now, now, now, now),
+                (
+                    source, now, now, items_scraped, items_new, duration_s,
+                    now, now, items_scraped, items_new, duration_s,
+                ),
             )
 
     def record_failure(self, source: str, error: str) -> None:
@@ -91,6 +104,12 @@ class ScraperHealthTracker:
                     backoff_until,
                 ),
             )
+            if new_errors >= 3:
+                logger.warning(
+                    "scraper_consecutive_failures",
+                    source=source,
+                    count=new_errors,
+                )
             logger.info(
                 "scraper_backoff",
                 source=source,
@@ -126,6 +145,25 @@ class ScraperHealthTracker:
                 (source,),
             ).fetchone()
             return dict(row) if row else None
+
+    def get_health_summary(self) -> list[dict]:
+        """Return health with computed status and error_rate per source."""
+        now = datetime.utcnow().isoformat()
+        rows = self.get_all_health()
+        for r in rows:
+            errs = r.get("consecutive_errors", 0) or 0
+            if r.get("backoff_until") and r["backoff_until"] > now:
+                r["status"] = "backoff"
+            elif errs >= 3:
+                r["status"] = "failing"
+            elif errs >= 1:
+                r["status"] = "degraded"
+            else:
+                r["status"] = "healthy"
+            total = r.get("total_runs", 0) or 0
+            total_err = r.get("total_errors", 0) or 0
+            r["error_rate"] = round(total_err / total * 100, 1) if total else 0.0
+        return rows
 
 
 class RSSFeedHealthTracker:

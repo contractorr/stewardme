@@ -121,6 +121,53 @@ def radar(days: int, min_sources: int, limit: int, refresh: bool):
         console.print()
 
 
+@click.command("scraper-health")
+def scraper_health():
+    """Show per-source scraper health metrics."""
+    from intelligence.health import ScraperHealthTracker
+
+    c = get_components(skip_advisor=True)
+    tracker = ScraperHealthTracker(c["intel_storage"].db_path)
+    rows = tracker.get_health_summary()
+
+    if not rows:
+        console.print("[yellow]No scraper health data. Run 'coach scrape' first.[/]")
+        return
+
+    table = Table(show_header=True, title="Scraper Health")
+    table.add_column("Source")
+    table.add_column("Status")
+    table.add_column("Last Success")
+    table.add_column("Items", justify="right")
+    table.add_column("New", justify="right")
+    table.add_column("Duration", justify="right")
+    table.add_column("Errors", justify="right")
+    table.add_column("Error Rate", justify="right")
+    table.add_column("Last Error")
+
+    status_style = {"healthy": "green", "degraded": "yellow", "failing": "red", "backoff": "red"}
+
+    for r in rows:
+        status = r.get("status", "?")
+        style = status_style.get(status, "white")
+        last_success = (r.get("last_success_at") or "-")[:19]
+        duration = f"{r['last_duration_seconds']:.1f}s" if r.get("last_duration_seconds") else "-"
+        last_err = (r.get("last_error") or "-")[:40]
+        table.add_row(
+            r["source"],
+            f"[{style}]{status}[/{style}]",
+            last_success,
+            str(r.get("last_items_scraped", 0)),
+            str(r.get("last_items_new", 0)),
+            duration,
+            str(r.get("total_errors", 0)),
+            f"{r.get('error_rate', 0):.1f}%",
+            last_err,
+        )
+
+    console.print(table)
+
+
 @click.command("intel-export")
 @click.option("-o", "--output", required=True, type=click.Path(), help="Output file path")
 @click.option(

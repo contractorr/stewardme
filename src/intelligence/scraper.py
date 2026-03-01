@@ -111,6 +111,16 @@ class IntelStorage:
                     backoff_until TIMESTAMP
                 )
             """)
+            # Scraper health metrics columns (for existing DBs)
+            for col, typedef in [
+                ("last_items_scraped", "INTEGER DEFAULT 0"),
+                ("last_items_new", "INTEGER DEFAULT 0"),
+                ("last_duration_seconds", "REAL"),
+            ]:
+                try:
+                    conn.execute(f"ALTER TABLE scraper_health ADD COLUMN {col} {typedef}")
+                except sqlite3.OperationalError:
+                    pass
 
             # --- FTS5 full-text index ---
             conn.execute("""

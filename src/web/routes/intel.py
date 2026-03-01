@@ -59,7 +59,7 @@ async def get_health(user: dict = Depends(get_current_user)):
 
     paths = get_coach_paths()
     tracker = ScraperHealthTracker(paths["intel_db"])
-    return {"scrapers": tracker.get_all_health()}
+    return {"scrapers": tracker.get_health_summary()}
 
 
 @router.get("/rss-feeds")

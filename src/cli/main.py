@@ -24,6 +24,7 @@ from cli.commands import (
     learn,
     memory,
     opportunities,
+    predictions,
     profile,
     projects,
     radar,
@@ -32,6 +33,7 @@ from cli.commands import (
     research,
     review,
     scrape,
+    scraper_health,
     sources,
     threads,
     today,
@@ -64,6 +66,7 @@ cli.add_command(projects)
 cli.add_command(capabilities)
 cli.add_command(heartbeat)
 cli.add_command(memory)
+cli.add_command(predictions)
 cli.add_command(threads)
 
 # Register standalone commands
@@ -80,6 +83,7 @@ cli.add_command(trends)
 cli.add_command(reflect)
 cli.add_command(today)
 cli.add_command(radar)
+cli.add_command(scraper_health)
 cli.add_command(eval_cmd)
 
 
