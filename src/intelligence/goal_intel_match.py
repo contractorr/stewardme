@@ -1,10 +1,12 @@
-"""Goal-Intel matching — keyword scoring + optional LLM eval for active goals."""
+"""Goal-Intel matching — keyword + semantic scoring + optional LLM eval for active goals."""
 
 import json
 import os
 import re
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import frontmatter
 import structlog
@@ -13,6 +15,9 @@ from db import wal_connect
 
 from .scraper import IntelStorage
 from .search import ProfileTerms, score_profile_relevance
+
+if TYPE_CHECKING:
+    from .embeddings import IntelEmbeddingManager
 
 logger = structlog.get_logger()
 
@@ -149,6 +154,18 @@ class GoalIntelMatchStore:
             results.append(d)
         return results
 
+    def get_latest_match_ts(self) -> datetime | None:
+        """Return timestamp of most recent saved match, or None."""
+        with wal_connect(self.db_path) as conn:
+            row = conn.execute("SELECT MAX(created_at) as ts FROM goal_intel_matches").fetchone()
+            if row and row[0]:
+                # SQLite stores as ISO string
+                ts = datetime.fromisoformat(row[0])
+                if ts.tzinfo is None:
+                    ts = ts.replace(tzinfo=timezone.utc)
+                return ts
+        return None
+
     def cleanup_old(self, days: int = 30) -> int:
         """Delete matches older than given days. Returns count deleted."""
         with wal_connect(self.db_path) as conn:
@@ -163,10 +180,79 @@ class GoalIntelMatchStore:
 
 
 class GoalIntelMatcher:
-    """Keyword-based matching of intel items to user goals. Zero LLM cost."""
+    """Keyword + semantic matching of intel items to user goals."""
 
-    def __init__(self, intel_storage: IntelStorage):
+    # Semantic match scores are fused with keyword scores.
+    # Semantic weight in [0,1]; keyword weight = 1 - semantic_weight.
+    SEMANTIC_WEIGHT = 0.4
+
+    def __init__(
+        self,
+        intel_storage: IntelStorage,
+        match_store: "GoalIntelMatchStore | None" = None,
+        embedding_manager: "IntelEmbeddingManager | None" = None,
+    ):
         self.intel_storage = intel_storage
+        self.match_store = match_store
+        self.embeddings = embedding_manager
+
+    def _build_goal_query(self, goal: dict) -> str:
+        """Build a natural-language query string from goal for embedding search."""
+        parts = []
+        title = goal.get("title", "")
+        if title:
+            parts.append(title)
+        tags = goal.get("tags", [])
+        if tags:
+            parts.append(" ".join(tags))
+        return " ".join(parts)
+
+    def _semantic_match_goal(self, goal: dict, n_results: int = 30) -> list[dict]:
+        """Find intel items semantically similar to a goal via ChromaDB.
+
+        Returns list of dicts with url, title, summary, semantic_score.
+        """
+        if not self.embeddings or self.embeddings.count() == 0:
+            return []
+        query = self._build_goal_query(goal)
+        if not query:
+            return []
+        try:
+            results = self.embeddings.query(query, n_results=n_results)
+        except Exception as e:
+            logger.warning("semantic_match.query_failed", error=str(e))
+            return []
+
+        # Enrich from SQLite (ChromaDB only stores id + doc text)
+        enriched = []
+        for r in results:
+            try:
+                item_id = int(r["id"])
+                item = self._get_item_by_id(item_id)
+                if item:
+                    item["semantic_score"] = max(0.0, 1 - r["distance"])
+                    enriched.append(item)
+            except (ValueError, TypeError):
+                continue
+        return enriched
+
+    def _get_item_by_id(self, item_id: int) -> dict | None:
+        import sqlite3 as _sqlite3
+
+        try:
+            with wal_connect(self.intel_storage.db_path) as conn:
+                conn.row_factory = _sqlite3.Row
+                row = conn.execute("SELECT * FROM intel_items WHERE id = ?", (item_id,)).fetchone()
+                if row:
+                    d = dict(row)
+                    if d.get("tags") and isinstance(d["tags"], str):
+                        d["tags"] = [t.strip() for t in d["tags"].split(",")]
+                    else:
+                        d["tags"] = []
+                    return d
+        except Exception:
+            pass
+        return None
 
     def _extract_goal_keywords(self, goal: dict) -> list[str]:
         """Extract keywords from goal title, content, and tags."""
@@ -249,16 +335,100 @@ class GoalIntelMatcher:
         matches.sort(key=lambda m: m["score"], reverse=True)
         return matches
 
-    def match_all_goals(self, goals: list[dict], days: int = 7, limit: int = 100) -> list[dict]:
-        """Match all goals against recent intel. Single DB call for intel."""
+    def _compute_days_window(self, default: int = 7) -> int:
+        """Adaptive recency window: days since last match, clamped [7, 30].
+
+        If match_store is available, looks up the most recent match timestamp
+        so inactive users don't miss intel accumulated while away.
+        """
+        if not self.match_store:
+            return default
+        try:
+            last_ts = self.match_store.get_latest_match_ts()
+            if not last_ts:
+                return 30  # no prior matches — cast wide net
+            delta = (datetime.now(timezone.utc) - last_ts).days + 1  # +1 for overlap
+            return max(default, min(delta, 30))
+        except Exception:
+            return default
+
+    def _merge_semantic_into_keyword(
+        self, keyword_matches: list[dict], semantic_items: list[dict], goal: dict
+    ) -> list[dict]:
+        """Fuse semantic hits into keyword matches. Semantic-only items that
+        pass threshold get added; overlapping items get blended scores."""
+        kw_weight = 1.0 - self.SEMANTIC_WEIGHT
+        sem_weight = self.SEMANTIC_WEIGHT
+
+        # Index keyword matches by URL for fast lookup
+        by_url: dict[str, dict] = {m["url"]: m for m in keyword_matches}
+
+        goal_path = str(goal.get("path", ""))
+        goal_title = goal.get("title", "")
+
+        for item in semantic_items:
+            url = item.get("url", "")
+            sem_score = item.get("semantic_score", 0.0)
+            if not url or sem_score < 0.3:
+                continue
+
+            if url in by_url:
+                # Blend: weighted combination of keyword + semantic
+                existing = by_url[url]
+                blended = existing["score"] * kw_weight + sem_score * sem_weight
+                existing["score"] = round(blended, 4)
+                if "semantic" not in str(existing["match_reasons"]):
+                    existing["match_reasons"].append(f"semantic:{sem_score:.2f}")
+                existing["urgency"] = self._score_to_urgency(blended) or existing["urgency"]
+            else:
+                # Semantic-only hit — no keyword overlap
+                scaled = sem_score * sem_weight
+                urgency = self._score_to_urgency(scaled)
+                if not urgency:
+                    continue
+                by_url[url] = {
+                    "goal_path": goal_path,
+                    "goal_title": goal_title,
+                    "url": url,
+                    "title": item.get("title", ""),
+                    "summary": (item.get("summary") or "")[:300],
+                    "score": round(scaled, 4),
+                    "urgency": urgency,
+                    "match_reasons": [f"semantic:{sem_score:.2f}"],
+                }
+
+        merged = list(by_url.values())
+        merged.sort(key=lambda m: m["score"], reverse=True)
+        return merged
+
+    def match_all_goals(
+        self, goals: list[dict], days: int | None = None, limit: int = 100
+    ) -> list[dict]:
+        """Match all goals against recent intel via keyword + optional semantic scoring."""
+        if days is None:
+            days = self._compute_days_window()
         intel_items = self.intel_storage.get_recent(days=days, limit=500)
-        if not intel_items:
+
+        has_intel = bool(intel_items)
+        has_embeddings = bool(self.embeddings)
+
+        if not has_intel and not has_embeddings:
             logger.debug("goal_intel_match.no_intel", days=days)
             return []
 
         all_matches: list[dict] = []
         for goal in goals:
-            goal_matches = self.match_goal(goal, intel_items)
+            # Keyword matches (from recent intel)
+            kw_matches = self.match_goal(goal, intel_items) if has_intel else []
+
+            # Semantic matches (from ChromaDB — not date-bounded)
+            sem_items = self._semantic_match_goal(goal) if has_embeddings else []
+
+            if sem_items:
+                goal_matches = self._merge_semantic_into_keyword(kw_matches, sem_items, goal)
+            else:
+                goal_matches = kw_matches
+
             all_matches.extend(goal_matches)
 
         # Sort by score desc, cap at limit
@@ -266,7 +436,8 @@ class GoalIntelMatcher:
         logger.info(
             "goal_intel_match.complete",
             goals=len(goals),
-            intel_items=len(intel_items),
+            intel_items=len(intel_items) if has_intel else 0,
+            semantic=has_embeddings,
             matches=len(all_matches[:limit]),
         )
         return all_matches[:limit]

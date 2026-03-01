@@ -2,7 +2,7 @@
 
 import sqlite3
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -180,6 +180,131 @@ class TestMatchAllGoals:
         goals = [_goal()]
         result = matcher.match_all_goals(goals, limit=5)
         assert len(result) <= 5
+
+
+# --- Adaptive recency window tests (Phase 1) ---
+
+
+class TestAdaptiveRecencyWindow:
+    def test_default_7_without_store(self, mock_intel_storage):
+        matcher = GoalIntelMatcher(mock_intel_storage, match_store=None)
+        assert matcher._compute_days_window() == 7
+
+    def test_30_days_when_no_prior_matches(self, mock_intel_storage, store):
+        """First-ever run should look back 30 days."""
+        matcher = GoalIntelMatcher(mock_intel_storage, match_store=store)
+        assert matcher._compute_days_window() == 30
+
+    def test_adapts_to_last_match_ts(self, mock_intel_storage, store, tmp_db):
+        """Window should be days-since-last-match + 1, clamped to [7, 30]."""
+        store.save_matches([_match()])
+        # Backdate match to 12 days ago
+        with sqlite3.connect(str(tmp_db)) as conn:
+            conn.execute(
+                "UPDATE goal_intel_matches SET created_at = datetime('now', '-12 days')"
+            )
+        matcher = GoalIntelMatcher(mock_intel_storage, match_store=store)
+        days = matcher._compute_days_window()
+        assert 12 <= days <= 14  # 12 + 1, give or take rounding
+
+    def test_clamps_to_min_7(self, mock_intel_storage, store):
+        """Even if last match was yesterday, window stays >= 7."""
+        store.save_matches([_match()])
+        matcher = GoalIntelMatcher(mock_intel_storage, match_store=store)
+        assert matcher._compute_days_window() >= 7
+
+    def test_clamps_to_max_30(self, mock_intel_storage, store, tmp_db):
+        """Even if user was away 90 days, window caps at 30."""
+        store.save_matches([_match()])
+        with sqlite3.connect(str(tmp_db)) as conn:
+            conn.execute(
+                "UPDATE goal_intel_matches SET created_at = datetime('now', '-90 days')"
+            )
+        matcher = GoalIntelMatcher(mock_intel_storage, match_store=store)
+        assert matcher._compute_days_window() == 30
+
+    def test_match_all_goals_uses_adaptive_window(self, mock_intel_storage, store):
+        """match_all_goals without explicit days should use adaptive window."""
+        mock_intel_storage.get_recent.return_value = []
+        matcher = GoalIntelMatcher(mock_intel_storage, match_store=store)
+        matcher.match_all_goals([_goal()])
+        # No prior matches → 30 days
+        mock_intel_storage.get_recent.assert_called_once_with(days=30, limit=500)
+
+
+class TestGetLatestMatchTs:
+    def test_returns_none_empty(self, store):
+        assert store.get_latest_match_ts() is None
+
+    def test_returns_datetime(self, store):
+        store.save_matches([_match()])
+        ts = store.get_latest_match_ts()
+        assert isinstance(ts, datetime)
+        assert ts.tzinfo is not None
+
+
+# --- Semantic matching tests (Phase 2) ---
+
+
+class TestSemanticMatching:
+    def test_no_embeddings_returns_empty(self, mock_intel_storage):
+        matcher = GoalIntelMatcher(mock_intel_storage, embedding_manager=None)
+        result = matcher._semantic_match_goal(_goal())
+        assert result == []
+
+    def test_semantic_query_called(self, mock_intel_storage):
+        mock_emb = MagicMock()
+        mock_emb.count.return_value = 100
+        mock_emb.query.return_value = [
+            {"id": "1", "content": "test", "metadata": {}, "distance": 0.3}
+        ]
+        # Mock _get_item_by_id to return a fake item
+        matcher = GoalIntelMatcher(mock_intel_storage, embedding_manager=mock_emb)
+        with patch.object(matcher, "_get_item_by_id", return_value={
+            "url": "https://ex.com/1", "title": "K8s Guide", "summary": "container orchestration",
+            "tags": []
+        }):
+            results = matcher._semantic_match_goal(_goal(title="Learn Kubernetes"))
+        assert len(results) == 1
+        assert results[0]["semantic_score"] == pytest.approx(0.7, abs=0.01)
+        mock_emb.query.assert_called_once()
+
+    def test_merge_blends_overlapping_urls(self, mock_intel_storage):
+        matcher = GoalIntelMatcher(mock_intel_storage)
+        kw_matches = [
+            {"url": "https://ex.com/1", "title": "T", "summary": "", "score": 0.2,
+             "urgency": "high", "match_reasons": ["skill:python"], "goal_path": "g/1.md", "goal_title": "G"}
+        ]
+        sem_items = [
+            {"url": "https://ex.com/1", "title": "T", "summary": "", "semantic_score": 0.8, "tags": []}
+        ]
+        goal = _goal()
+        merged = matcher._merge_semantic_into_keyword(kw_matches, sem_items, goal)
+        assert len(merged) == 1
+        # Score should be blended: 0.2 * 0.6 + 0.8 * 0.4 = 0.44
+        assert merged[0]["score"] == pytest.approx(0.44, abs=0.01)
+        assert any("semantic" in r for r in merged[0]["match_reasons"])
+
+    def test_merge_adds_semantic_only_hits(self, mock_intel_storage):
+        matcher = GoalIntelMatcher(mock_intel_storage)
+        kw_matches = []
+        sem_items = [
+            {"url": "https://ex.com/new", "title": "Container Orchestration", "summary": "k8s guide",
+             "semantic_score": 0.6, "tags": []}
+        ]
+        goal = _goal()
+        merged = matcher._merge_semantic_into_keyword(kw_matches, sem_items, goal)
+        # 0.6 * 0.4 = 0.24 → above HIGH threshold (0.15)
+        assert len(merged) == 1
+        assert merged[0]["url"] == "https://ex.com/new"
+
+    def test_merge_drops_low_semantic_score(self, mock_intel_storage):
+        matcher = GoalIntelMatcher(mock_intel_storage)
+        sem_items = [
+            {"url": "https://ex.com/weak", "title": "T", "summary": "", "semantic_score": 0.05, "tags": []}
+        ]
+        merged = matcher._merge_semantic_into_keyword([], sem_items, _goal())
+        assert len(merged) == 0  # Below 0.3 threshold
 
 
 # --- GoalIntelMatchStore tests ---

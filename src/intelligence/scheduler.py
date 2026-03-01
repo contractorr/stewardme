@@ -448,7 +448,8 @@ class IntelScheduler:
                 )
             )
 
-        # Attach shared embedding manager for semantic dedup
+        # Store + attach shared embedding manager for semantic dedup + goal matching
+        self.intel_embedding_mgr = intel_embedding_mgr
         if intel_embedding_mgr:
             for scraper in self._scrapers:
                 scraper.embedding_manager = intel_embedding_mgr
@@ -864,7 +865,9 @@ class IntelScheduler:
             if not goals:
                 return
 
-            matcher = GoalIntelMatcher(self.storage)
+            store = GoalIntelMatchStore(self.storage.db_path)
+            emb = getattr(self, "intel_embedding_mgr", None)
+            matcher = GoalIntelMatcher(self.storage, match_store=store, embedding_manager=emb)
             matches = matcher.match_all_goals(goals)
 
             # Optional LLM refinement — drops false positives, adjusts urgency
@@ -874,8 +877,6 @@ class IntelScheduler:
                     matches = evaluator.evaluate(matches)
                 except Exception as e:
                     logger.warning("goal_intel_llm_eval.failed", error=str(e))
-
-            store = GoalIntelMatchStore(self.storage.db_path)
             store.save_matches(matches)
             store.cleanup_old(30)
         except Exception as e:

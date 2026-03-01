@@ -1,4 +1,4 @@
-"""Daily brief builder — zero-LLM, time-budgeted action plan."""
+"""Daily brief builder — zero-LLM, time-budgeted action plan with score-based ranking."""
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -12,6 +12,7 @@ class DailyBriefItem:
     time_minutes: int
     action: str  # chat pre-fill
     priority: int  # 1-based, assigned during fill
+    _rank_score: float = 0.0  # internal sorting score, not exposed in API
 
 
 @dataclass
@@ -25,6 +26,18 @@ class DailyBrief:
 # Fixed time estimates per kind
 _TIME = {"stale_goal": 10, "recommendation": 15, "learning": 45, "nudge": 5, "intel_match": 5}
 
+# Base urgency scores per kind — higher = more urgent by default
+_BASE_URGENCY = {
+    "stale_goal": 0.7,
+    "intel_match": 0.5,
+    "recommendation": 0.4,
+    "learning": 0.3,
+    "nudge": 0.1,
+}
+
+# Intel urgency tier multipliers
+_INTEL_URGENCY_MULT = {"high": 1.5, "medium": 1.0, "low": 0.6}
+
 
 def _max_items(budget: int) -> int:
     if budget < 30:
@@ -34,8 +47,41 @@ def _max_items(budget: int) -> int:
     return 5
 
 
+def _score_stale_goal(g: dict) -> float:
+    """Score a stale goal: more stale = higher urgency."""
+    days = g.get("days_since_check", 7)
+    # Normalize days to [0, 1] — 30+ days saturates at 1.0
+    recency_factor = min(1.0, days / 30)
+    return _BASE_URGENCY["stale_goal"] + 0.3 * recency_factor
+
+
+def _score_intel_match(m: dict) -> float:
+    """Score an intel match using its urgency tier and match score."""
+    urgency = m.get("urgency", "medium")
+    mult = _INTEL_URGENCY_MULT.get(urgency, 1.0)
+    match_score = m.get("score", 0.1)
+    return _BASE_URGENCY["intel_match"] * mult + 0.2 * min(1.0, match_score / 0.3)
+
+
+def _score_recommendation(idx: int) -> float:
+    """Score a recommendation — recs are pre-sorted, penalize later ones."""
+    return _BASE_URGENCY["recommendation"] * (1.0 - 0.1 * min(idx, 5))
+
+
+def _score_learning(lp: dict) -> float:
+    """Score a learning path — closer to completion = higher urgency."""
+    done = lp.get("completed_modules", 0)
+    total = lp.get("total_modules", 1)
+    progress = done / max(total, 1)
+    return _BASE_URGENCY["learning"] + 0.2 * progress
+
+
 class DailyBriefBuilder:
-    """Build a time-budgeted daily brief from pre-gathered data (no I/O)."""
+    """Build a time-budgeted daily brief from pre-gathered data (no I/O).
+
+    Candidates are scored by urgency × recency and sorted globally,
+    then filled within the user's time budget.
+    """
 
     def build(
         self,
@@ -51,41 +97,40 @@ class DailyBriefBuilder:
         cap = _max_items(budget)
 
         _matches = intel_matches or []
-        high_matches = [m for m in _matches if m.get("urgency") == "high"][:2]
-        medium_matches = [m for m in _matches if m.get("urgency") == "medium"][:1]
 
-        # Build candidate list in fixed priority order:
-        # 1. Stale goals  2. Critical intel  3. Recommendations  4. Learning  5. Notable intel
+        # Build all candidates with rank scores
         candidates: list[DailyBriefItem] = []
 
         for g in stale_goals:
-            t = _TIME["stale_goal"]
             candidates.append(
                 DailyBriefItem(
                     kind="stale_goal",
                     title=g.get("title", ""),
                     description=f"Last check-in {g.get('days_since_check', '?')} days ago",
-                    time_minutes=t,
+                    time_minutes=_TIME["stale_goal"],
                     action=f"What concrete steps can I take this week to advance my goal: {g.get('title', '')}? Suggest specific events, projects, or resources.",
                     priority=0,
+                    _rank_score=_score_stale_goal(g),
                 )
             )
 
-        for m in high_matches:
-            t = _TIME["intel_match"]
+        for m in _matches:
+            urgency = m.get("urgency", "low")
+            if urgency not in ("high", "medium"):
+                continue
             candidates.append(
                 DailyBriefItem(
                     kind="intel_match",
                     title=m.get("title", ""),
                     description=m.get("summary", "")[:200],
-                    time_minutes=t,
+                    time_minutes=_TIME["intel_match"],
                     action=f"Tell me about this and how it relates to my goal: {m.get('title', '')}",
                     priority=0,
+                    _rank_score=_score_intel_match(m),
                 )
             )
 
-        for r in recommendations:
-            t = _TIME["recommendation"]
+        for idx, r in enumerate(recommendations):
             title = r.title if hasattr(r, "title") else r.get("title", "")
             desc = r.description if hasattr(r, "description") else r.get("description", "")
             candidates.append(
@@ -93,40 +138,31 @@ class DailyBriefBuilder:
                     kind="recommendation",
                     title=title,
                     description=desc[:200] if desc else "",
-                    time_minutes=t,
+                    time_minutes=_TIME["recommendation"],
                     action=f"Tell me more about: {title}",
                     priority=0,
+                    _rank_score=_score_recommendation(idx),
                 )
             )
 
         for lp in learning_paths:
             if lp.get("status", "active") != "active":
                 continue
-            t = _TIME["learning"]
             skill = lp.get("skill", "")
             candidates.append(
                 DailyBriefItem(
                     kind="learning",
                     title=f"Learn: {skill}",
                     description=f"{lp.get('completed_modules', 0)}/{lp.get('total_modules', 0)} modules done",
-                    time_minutes=t,
+                    time_minutes=_TIME["learning"],
                     action=f"Help me make progress on learning {skill}",
                     priority=0,
+                    _rank_score=_score_learning(lp),
                 )
             )
 
-        for m in medium_matches:
-            t = _TIME["intel_match"]
-            candidates.append(
-                DailyBriefItem(
-                    kind="intel_match",
-                    title=m.get("title", ""),
-                    description=m.get("summary", "")[:200],
-                    time_minutes=t,
-                    action=f"Tell me about this and how it relates to my goal: {m.get('title', '')}",
-                    priority=0,
-                )
-            )
+        # Sort all candidates by rank score descending
+        candidates.sort(key=lambda c: c._rank_score, reverse=True)
 
         # Fill within budget
         items: list[DailyBriefItem] = []

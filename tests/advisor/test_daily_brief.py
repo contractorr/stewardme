@@ -1,6 +1,12 @@
 """Tests for DailyBriefBuilder."""
 
-from advisor.daily_brief import DailyBriefBuilder
+from advisor.daily_brief import (
+    DailyBriefBuilder,
+    _score_intel_match,
+    _score_learning,
+    _score_recommendation,
+    _score_stale_goal,
+)
 
 
 def _goal(title: str, days: int = 10) -> dict:
@@ -13,6 +19,10 @@ def _rec(title: str, desc: str = "desc") -> dict:
 
 def _lp(skill: str, done: int = 1, total: int = 5) -> dict:
     return {"skill": skill, "status": "active", "completed_modules": done, "total_modules": total}
+
+
+def _intel_match(title: str = "Intel", urgency: str = "high", score: float = 0.2) -> dict:
+    return {"title": title, "summary": "summary", "urgency": urgency, "score": score}
 
 
 class TestDailyBriefBuilder:
@@ -37,9 +47,10 @@ class TestDailyBriefBuilder:
         assert brief.items[0].kind == "nudge"
         assert "reflect" in brief.items[0].action.lower()
 
-    def test_stale_goals_come_first(self):
+    def test_stale_goals_ranked_high(self):
+        """Very stale goals should outrank recommendations."""
         brief = self.builder.build(
-            stale_goals=[_goal("Goal A"), _goal("Goal B")],
+            stale_goals=[_goal("Goal A", days=20)],
             recommendations=[_rec("Rec 1")],
             learning_paths=[_lp("Rust")],
             all_goals=[], weekly_hours=5,
@@ -47,15 +58,18 @@ class TestDailyBriefBuilder:
         assert brief.items[0].kind == "stale_goal"
         assert brief.items[0].priority == 1
 
-    def test_priority_order(self):
+    def test_high_urgency_intel_beats_recommendation(self):
+        """High-urgency intel with high score should outrank a recommendation."""
         brief = self.builder.build(
-            stale_goals=[_goal("Goal A")],
+            stale_goals=[],
             recommendations=[_rec("Rec 1")],
-            learning_paths=[_lp("Rust")],
-            all_goals=[], weekly_hours=10,
+            learning_paths=[],
+            all_goals=[],
+            weekly_hours=10,
+            intel_matches=[_intel_match("Breaking Intel", urgency="high", score=0.3)],
         )
         kinds = [i.kind for i in brief.items]
-        assert kinds == ["stale_goal", "recommendation", "learning"]
+        assert kinds.index("intel_match") < kinds.index("recommendation")
 
     def test_budget_calculation(self):
         brief = self.builder.build(
@@ -154,3 +168,62 @@ class TestDailyBriefBuilder:
         )
         assert brief.items[0].kind == "recommendation"
         assert brief.items[0].title == "Try X"
+
+    def test_medium_intel_included(self):
+        """Medium-urgency intel matches should be included as candidates."""
+        brief = self.builder.build(
+            stale_goals=[], recommendations=[], learning_paths=[],
+            all_goals=[], weekly_hours=5,
+            intel_matches=[_intel_match("Medium item", urgency="medium")],
+        )
+        assert brief.items[0].kind == "intel_match"
+
+    def test_low_intel_excluded(self):
+        """Low-urgency intel matches should not appear."""
+        brief = self.builder.build(
+            stale_goals=[], recommendations=[], learning_paths=[],
+            all_goals=[_goal("X")], weekly_hours=5,
+            intel_matches=[_intel_match("Low item", urgency="low")],
+        )
+        assert brief.items[0].kind == "nudge"
+
+
+# --- Score function unit tests (Phase 3) ---
+
+
+class TestScoreFunctions:
+    def test_stale_goal_increases_with_staleness(self):
+        low = _score_stale_goal({"days_since_check": 3})
+        high = _score_stale_goal({"days_since_check": 25})
+        assert high > low
+
+    def test_stale_goal_saturates_at_30(self):
+        s30 = _score_stale_goal({"days_since_check": 30})
+        s60 = _score_stale_goal({"days_since_check": 60})
+        assert s30 == s60  # both saturate at 1.0
+
+    def test_intel_high_beats_medium(self):
+        high = _score_intel_match({"urgency": "high", "score": 0.2})
+        medium = _score_intel_match({"urgency": "medium", "score": 0.2})
+        assert high > medium
+
+    def test_recommendation_first_beats_later(self):
+        first = _score_recommendation(0)
+        third = _score_recommendation(2)
+        assert first > third
+
+    def test_learning_progress_increases_score(self):
+        early = _score_learning({"completed_modules": 1, "total_modules": 10})
+        late = _score_learning({"completed_modules": 9, "total_modules": 10})
+        assert late > early
+
+    def test_very_stale_goal_beats_high_intel(self):
+        """A 30-day stale goal should outrank even high-urgency intel."""
+        goal_score = _score_stale_goal({"days_since_check": 30})
+        intel_score = _score_intel_match({"urgency": "high", "score": 0.3})
+        assert goal_score > intel_score
+
+    def test_high_intel_beats_recommendation(self):
+        intel_score = _score_intel_match({"urgency": "high", "score": 0.2})
+        rec_score = _score_recommendation(0)
+        assert intel_score > rec_score
