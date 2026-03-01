@@ -722,9 +722,168 @@ class TrendingRadar:
             "topics": topics,
         }
 
-    def refresh(self, **kwargs) -> dict:
-        """Compute and persist a snapshot. Prunes old rows beyond MAX_ROWS."""
-        snapshot = self.compute(**kwargs)
+    # ------------------------------------------------------------------
+    # LLM-based trending: send recent articles to LLM for summarisation
+    # ------------------------------------------------------------------
+
+    _LLM_SYSTEM = (
+        "You are a tech news analyst. You receive a batch of recent articles "
+        "scraped from multiple sources (Hacker News, Reddit, RSS blogs, GitHub Trending, etc). "
+        "Your job is to identify 5-10 specific, newsworthy developments that are getting "
+        "cross-source attention.\n\n"
+        "Rules:\n"
+        "- Focus on SPECIFIC events, releases, companies, or developments — not broad "
+        "categories like 'AI' or 'security' or 'programming'.\n"
+        "- Each trend must be backed by at least 2 articles from different sources.\n"
+        "- Rank by significance and cross-source convergence.\n"
+        "- Return ONLY valid JSON — no markdown, no commentary.\n\n"
+        "Return a JSON array of objects with these fields:\n"
+        '  "topic": short descriptive label (5-10 words, like a headline),\n'
+        '  "summary": one sentence explaining what happened and why it matters,\n'
+        '  "article_ids": list of article ID numbers that discuss this development\n'
+    )
+
+    def compute_llm(self, llm, days: int = 7, max_topics: int = 10) -> dict:
+        """Use an LLM to identify specific trending developments from recent intel.
+
+        Args:
+            llm: An LLMProvider instance (cheap tier recommended).
+            days: Look-back window.
+            max_topics: Max trends to return.
+
+        Returns:
+            Snapshot dict in the same format as compute(), with richer topic labels
+            and summaries. Falls back to NLP compute() on any LLM failure.
+        """
+        now = datetime.now()
+        cutoff = (now - timedelta(days=days)).isoformat()
+
+        with wal_connect(self.db_path) as conn:
+            rows = conn.execute(
+                """
+                SELECT id, source, title, url, summary, scraped_at, published
+                FROM intel_items
+                WHERE scraped_at >= ?
+                ORDER BY scraped_at DESC
+                LIMIT 500
+                """,
+                (cutoff,),
+            ).fetchall()
+
+        if not rows:
+            return {
+                "computed_at": now.isoformat(),
+                "days": days,
+                "total_items_scanned": 0,
+                "method": "llm",
+                "topics": [],
+            }
+
+        # Build article list for the prompt and an ID→item lookup
+        items_by_id: dict[int, dict] = {}
+        article_lines: list[str] = []
+        for row in rows:
+            item_id, source, title, url, summary, scraped_at, published = row
+            items_by_id[item_id] = {
+                "id": item_id,
+                "source": source,
+                "title": title,
+                "url": url,
+                "summary": (summary or "")[:200],
+                "scraped_at": scraped_at,
+                "published": published,
+            }
+            short_summary = (f" — {summary[:120]}" if summary else "")
+            article_lines.append(f"[{item_id}] ({source}) {title}{short_summary}")
+
+        prompt_body = (
+            f"Here are {len(rows)} articles from the last {days} days:\n\n"
+            + "\n".join(article_lines)
+        )
+
+        try:
+            raw = llm.generate(
+                messages=[{"role": "user", "content": prompt_body}],
+                system=self._LLM_SYSTEM,
+                max_tokens=2000,
+            )
+
+            # Strip markdown fences if present
+            text = raw.strip()
+            if text.startswith("```"):
+                text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+                if text.endswith("```"):
+                    text = text[:-3]
+                text = text.strip()
+
+            llm_topics = json.loads(text)
+            if not isinstance(llm_topics, list):
+                raise ValueError("Expected JSON array")
+
+        except Exception as e:
+            logger.warning("trending_radar.llm_failed", error=str(e))
+            return self.compute(days=days, max_topics=max_topics)
+
+        # Convert LLM output to snapshot format
+        topics: list[dict] = []
+        for entry in llm_topics[:max_topics]:
+            topic_label = entry.get("topic", "")
+            summary_text = entry.get("summary", "")
+            article_ids = entry.get("article_ids", [])
+
+            # Resolve article IDs to items
+            matched_items = [items_by_id[aid] for aid in article_ids if aid in items_by_id]
+            if len(matched_items) < 2:
+                continue
+
+            sources = sorted({i["source"] for i in matched_items})
+            families = sorted({_source_family(i["source"]) for i in matched_items})
+
+            # Build representative items (up to 3)
+            rep_items = []
+            seen_urls: set[str] = set()
+            for item in matched_items:
+                if item["url"] not in seen_urls:
+                    seen_urls.add(item["url"])
+                    rep_items.append({
+                        k: v for k, v in item.items() if k != "source_family"
+                    })
+                if len(rep_items) >= 3:
+                    break
+
+            topics.append({
+                "topic": topic_label,
+                "summary": summary_text,
+                "item_count": len(matched_items),
+                "source_count": len(sources),
+                "sources": sources,
+                "source_families": families,
+                "items": rep_items,
+            })
+
+        return {
+            "computed_at": now.isoformat(),
+            "days": days,
+            "total_items_scanned": len(rows),
+            "method": "llm",
+            "topics": topics,
+        }
+
+    def refresh(self, llm=None, **kwargs) -> dict:
+        """Compute and persist a snapshot. Prunes old rows beyond MAX_ROWS.
+
+        If an LLM provider is passed, uses LLM-based summarisation.
+        Otherwise falls back to NLP-based compute().
+        """
+        if llm:
+            snapshot = self.compute_llm(
+                llm,
+                days=kwargs.get("days", 7),
+                max_topics=kwargs.get("max_topics", 10),
+            )
+        else:
+            snapshot = self.compute(**kwargs)
+
         with wal_connect(self.db_path) as conn:
             conn.execute(
                 "INSERT INTO trending_radar (computed_at, snapshot_json) VALUES (?, ?)",
@@ -743,6 +902,7 @@ class TrendingRadar:
             "trending_radar.refreshed",
             topics=len(snapshot["topics"]),
             items_scanned=snapshot["total_items_scanned"],
+            method=snapshot.get("method", "nlp"),
         )
         return snapshot
 
@@ -759,9 +919,9 @@ class TrendingRadar:
         except (json.JSONDecodeError, TypeError):
             return None
 
-    def get_or_compute(self, **kwargs) -> dict:
+    def get_or_compute(self, llm=None, **kwargs) -> dict:
         """Return cached snapshot if available, otherwise compute fresh."""
         cached = self.load()
         if cached:
             return cached
-        return self.refresh(**kwargs)
+        return self.refresh(llm=llm, **kwargs)

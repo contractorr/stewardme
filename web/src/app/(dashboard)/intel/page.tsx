@@ -38,11 +38,12 @@ interface IntelItem {
 
 interface TrendingTopic {
   topic: string;
-  score: number;
+  summary?: string;
+  score?: number;
   item_count: number;
   source_count: number;
   sources: string[];
-  velocity: number;
+  velocity?: number;
   items: { id: number; title: string; url: string; source: string; summary: string }[];
 }
 
@@ -50,6 +51,7 @@ interface TrendingSnapshot {
   computed_at: string;
   days: number;
   total_items_scanned: number;
+  method?: string;
   topics: TrendingTopic[];
 }
 
@@ -206,23 +208,26 @@ function TrendingTab({ token }: { token: string }) {
       <p className="text-xs text-muted-foreground">
         {snapshot.total_items_scanned} items scanned &middot; {snapshot.days}d window
       </p>
-      {snapshot.topics.map((t) => (
-        <Card key={t.topic}>
+      {snapshot.topics.map((t, idx) => (
+        <Card key={t.topic + idx}>
           <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">{t.topic}</CardTitle>
-              <span className="text-sm font-medium tabular-nums">
-                {(t.score * 100).toFixed(0)}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="h-1.5 flex-1 rounded-full bg-muted">
-                <div
-                  className="h-full rounded-full bg-foreground/70"
-                  style={{ width: `${Math.round(t.score * 100)}%` }}
-                />
+            <CardTitle className="text-base">{t.topic}</CardTitle>
+            {t.summary && (
+              <p className="text-sm text-muted-foreground">{t.summary}</p>
+            )}
+            {!t.summary && t.score != null && (
+              <div className="flex items-center gap-2">
+                <div className="h-1.5 flex-1 rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-foreground/70"
+                    style={{ width: `${Math.round(t.score * 100)}%` }}
+                  />
+                </div>
+                <span className="text-sm font-medium tabular-nums">
+                  {(t.score * 100).toFixed(0)}
+                </span>
               </div>
-            </div>
+            )}
             <CardDescription className="flex flex-wrap gap-1">
               {t.sources.map((s) => (
                 <Badge key={s} variant="outline" className={`text-xs ${sourceBadgeClass(s)}`}>

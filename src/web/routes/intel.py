@@ -114,13 +114,34 @@ async def get_trending(user: dict = Depends(get_current_user)):
     radar = TrendingRadar(paths["intel_db"])
     snapshot = radar.load()
     if not snapshot:
+        # Try to create a cheap LLM provider for better trending analysis
+        llm = _get_cheap_llm(user["id"])
         snapshot = radar.refresh(
+            llm=llm,
             days=tr_config.get("days", 7),
             min_source_families=tr_config.get("min_source_families", tr_config.get("min_sources", 2)),
             min_items=tr_config.get("min_items", 4),
-            max_topics=tr_config.get("max_topics", 15),
+            max_topics=tr_config.get("max_topics", 10),
         )
     return snapshot
+
+
+def _get_cheap_llm(user_id: str):
+    """Try to create a cheap LLM provider from user's key or env. Returns None on failure."""
+    try:
+        from llm import create_cheap_provider
+        from web.deps import get_secret_key
+        from web.user_store import get_user_secret
+
+        fernet_key = get_secret_key()
+        api_key = get_user_secret(user_id, "llm_api_key", fernet_key)
+        provider_name = get_user_secret(user_id, "llm_provider", fernet_key) or "auto"
+        if api_key:
+            return create_cheap_provider(provider=provider_name, api_key=api_key)
+        # Fall back to env-based provider
+        return create_cheap_provider()
+    except Exception:
+        return None
 
 
 @router.post("/scrape")

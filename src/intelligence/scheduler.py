@@ -916,14 +916,26 @@ class IntelScheduler:
 
             tr_config = self.full_config.get("trending_radar", {})
             radar = TrendingRadar(self.storage.db_path)
+
+            # Try to create a cheap LLM for better summarisation
+            llm = None
+            try:
+                from llm import create_cheap_provider
+
+                llm = create_cheap_provider()
+            except Exception:
+                pass
+
             snapshot = radar.refresh(
+                llm=llm,
                 days=tr_config.get("days", 7),
                 min_sources=tr_config.get("min_sources", 2),
-                max_topics=tr_config.get("max_topics", 15),
+                max_topics=tr_config.get("max_topics", 10),
             )
             logger.info(
                 "trending_radar.complete",
                 topics=len(snapshot.get("topics", [])),
+                method=snapshot.get("method", "nlp"),
             )
         except Exception as e:
             logger.error("trending_radar.failed", error=str(e))

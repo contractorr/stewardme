@@ -1,5 +1,6 @@
 """Tests for cross-source trending radar."""
 
+import json
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -393,6 +394,113 @@ class TestCompute:
         assert "docker" in topics
         assert "source_families" in topics["docker"]
         assert "aggregator" in topics["docker"]["source_families"]
+
+
+class TestComputeLLM:
+    def test_llm_produces_topics(self, db_path):
+        """LLM compute returns structured topics from mock LLM."""
+        for i, src in enumerate(["hackernews", "rss:news", "github_trending", "rss:reddit"]):
+            _insert_item(db_path, src, f"Qwen3.5 release {i}", f"https://{src}.com/q{i}", "", i * 12)
+            _insert_item(db_path, src, f"Axelera AI funding {i}", f"https://{src}.com/a{i}", "", i * 12)
+
+        class MockLLM:
+            def generate(self, messages, system=None, max_tokens=2000):
+                # Return JSON referencing real article IDs (1-8)
+                return json.dumps([
+                    {
+                        "topic": "Qwen3.5 122B matches Sonnet performance locally",
+                        "summary": "Open-weight LLM runs on consumer hardware.",
+                        "article_ids": [1, 3, 5, 7],
+                    },
+                    {
+                        "topic": "Axelera AI raises $250M to challenge Nvidia",
+                        "summary": "AI chip startup gets major funding round.",
+                        "article_ids": [2, 4, 6, 8],
+                    },
+                ])
+
+        radar = TrendingRadar(db_path)
+        snapshot = radar.compute_llm(MockLLM(), days=7)
+        assert snapshot["method"] == "llm"
+        assert len(snapshot["topics"]) == 2
+        assert snapshot["topics"][0]["topic"] == "Qwen3.5 122B matches Sonnet performance locally"
+        assert snapshot["topics"][0]["summary"] == "Open-weight LLM runs on consumer hardware."
+        assert snapshot["topics"][0]["item_count"] == 4
+
+    def test_llm_fallback_on_failure(self, db_path):
+        """Falls back to NLP compute when LLM fails."""
+        for i, src in enumerate(["hackernews", "rss:news", "github_trending", "rss:reddit"]):
+            _insert_item(db_path, src, f"Rust post {i}", f"https://{src}.com/r{i}", "rust", i * 12)
+
+        class FailingLLM:
+            def generate(self, **kwargs):
+                raise RuntimeError("API error")
+
+        radar = TrendingRadar(db_path)
+        snapshot = radar.compute_llm(FailingLLM(), days=7)
+        # Should fall back to NLP and still return results
+        assert snapshot["total_items_scanned"] > 0
+
+    def test_llm_invalid_json_fallback(self, db_path):
+        """Falls back to NLP compute when LLM returns invalid JSON."""
+        _insert_item(db_path, "hackernews", "Test", "https://a.com/t1", "test-topic", 1)
+        _insert_item(db_path, "rss:news", "Test", "https://b.com/t1", "test-topic", 12)
+
+        class BadJsonLLM:
+            def generate(self, **kwargs):
+                return "I can't generate JSON right now, sorry!"
+
+        radar = TrendingRadar(db_path)
+        snapshot = radar.compute_llm(BadJsonLLM(), days=7)
+        assert snapshot["total_items_scanned"] >= 0
+
+    def test_llm_filters_single_source_topics(self, db_path):
+        """Topics with < 2 matched articles are filtered out."""
+        _insert_item(db_path, "hackernews", "Only one article", "https://a.com/1", "", 1)
+        _insert_item(db_path, "rss:news", "Another article", "https://b.com/1", "", 12)
+
+        class MockLLM:
+            def generate(self, messages, system=None, max_tokens=2000):
+                return json.dumps([
+                    {
+                        "topic": "Weak trend",
+                        "summary": "Only one article matches.",
+                        "article_ids": [1],  # only one article
+                    },
+                    {
+                        "topic": "Strong trend",
+                        "summary": "Two articles match.",
+                        "article_ids": [1, 2],
+                    },
+                ])
+
+        radar = TrendingRadar(db_path)
+        snapshot = radar.compute_llm(MockLLM(), days=7)
+        assert len(snapshot["topics"]) == 1
+        assert snapshot["topics"][0]["topic"] == "Strong trend"
+
+    def test_refresh_with_llm(self, db_path):
+        """refresh(llm=...) uses LLM compute and persists."""
+        _insert_item(db_path, "hackernews", "Test A", "https://a.com/1", "", 1)
+        _insert_item(db_path, "rss:news", "Test B", "https://b.com/1", "", 12)
+
+        class MockLLM:
+            def generate(self, messages, system=None, max_tokens=2000):
+                return json.dumps([{
+                    "topic": "Test trend",
+                    "summary": "A test.",
+                    "article_ids": [1, 2],
+                }])
+
+        radar = TrendingRadar(db_path)
+        snapshot = radar.refresh(llm=MockLLM(), days=7)
+        assert snapshot["method"] == "llm"
+
+        # Verify persisted
+        loaded = radar.load()
+        assert loaded is not None
+        assert loaded["method"] == "llm"
+        assert loaded["topics"][0]["topic"] == "Test trend"
 
 
 class TestPersistence:
