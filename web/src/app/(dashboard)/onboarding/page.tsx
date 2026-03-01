@@ -278,7 +278,16 @@ export default function OnboardingPage() {
         setPhase("feeds");
       }
     } catch (e) {
-      toast.error((e as Error).message);
+      const msg = (e as Error).message;
+      if (msg.includes("No active onboarding session")) {
+        // Session lost (server restart) — re-start and replay the message
+        toast.info("Session expired, restarting...");
+        setMessages([]);
+        setTurn(0);
+        setPhase("chat"); // triggers auto-start effect
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setSending(false);
     }
