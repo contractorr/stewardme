@@ -1,6 +1,7 @@
 """RAG retrieval combining journal and intelligence sources."""
 
 import sqlite3
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -11,6 +12,17 @@ from intelligence.search import IntelSearch
 from journal.search import JournalSearch
 
 logger = structlog.get_logger()
+
+
+@dataclass
+class AskContext:
+    """Consolidated context for ask() calls."""
+
+    journal: str
+    intel: str
+    profile: str
+    memory: str = ""
+    thoughts: str = ""
 
 
 class RAGRetriever:
@@ -64,6 +76,42 @@ class RAGRetriever:
         except Exception as e:
             logger.debug("profile_load_skipped", error=str(e))
         return ""
+
+    def build_context_for_ask(
+        self,
+        query: str,
+        rag_config: dict | None = None,
+    ) -> "AskContext":
+        """Build consolidated context for ask() calls.
+
+        Args:
+            query: User question
+            rag_config: Dict of RAG flags (structured_profile, inject_memory,
+                        inject_recurring_thoughts, xml_delimiters)
+
+        Returns:
+            AskContext with all context slots populated per flags
+        """
+        cfg = rag_config or {}
+
+        journal_ctx, intel_ctx = self.get_combined_context(query)
+        profile_ctx = self.get_profile_context(structured=cfg.get("structured_profile", False))
+
+        memory_ctx = ""
+        if cfg.get("inject_memory", False):
+            memory_ctx = self.get_memory_context(query)
+
+        thoughts_ctx = ""
+        if cfg.get("inject_recurring_thoughts", False):
+            thoughts_ctx = self.get_recurring_thoughts_context()
+
+        return AskContext(
+            journal=journal_ctx,
+            intel=intel_ctx,
+            profile=profile_ctx,
+            memory=memory_ctx,
+            thoughts=thoughts_ctx,
+        )
 
     def get_profile_keywords(self) -> list[str]:
         """Extract key terms from profile for intel query augmentation."""

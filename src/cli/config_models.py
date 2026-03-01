@@ -120,6 +120,10 @@ class RAGConfig(BaseModel):
 
     max_context_chars: int = 8000
     journal_weight: float = 0.7
+    structured_profile: bool = False
+    inject_memory: bool = False
+    inject_recurring_thoughts: bool = False
+    xml_delimiters: bool = False
 
     @field_validator("journal_weight")
     @classmethod

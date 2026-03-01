@@ -102,6 +102,127 @@ USER QUESTION: {question}
 
 Use the research context when relevant to provide more informed, thorough answers. Cite specific insights from research when applicable:"""
 
+    # --- Extended templates with separate profile/memory/thoughts slots ---
+
+    GENERAL_ASK_EXTENDED = """You are the user's personal AI coach. Answer their question using context from their profile, journal, and relevant external information.
+
+{profile_context}
+
+JOURNAL CONTEXT:
+{journal_context}
+
+EXTERNAL INTELLIGENCE:
+{intel_context}
+
+{memory_context}
+
+{thoughts_context}
+
+{research_context}
+
+USER QUESTION: {question}
+
+Provide a helpful, specific response:"""
+
+    GENERAL_ASK_EXTENDED_WITH_RESEARCH = """You are the user's personal AI coach. Answer their question using context from their profile, journal, external intelligence, and any relevant deep research.
+
+{profile_context}
+
+JOURNAL CONTEXT:
+{journal_context}
+
+EXTERNAL INTELLIGENCE:
+{intel_context}
+
+{memory_context}
+
+{thoughts_context}
+
+DEEP RESEARCH (auto-generated reports on topics you've shown interest in):
+{research_context}
+
+USER QUESTION: {question}
+
+Use the research context when relevant to provide more informed, thorough answers. Cite specific insights from research when applicable:"""
+
+    GENERAL_ASK_XML = """You are the user's personal AI coach. Answer their question using the structured context provided.
+
+<user_profile>
+{profile_context}
+</user_profile>
+
+<journal_context>
+{journal_context}
+</journal_context>
+
+<external_intelligence>
+{intel_context}
+</external_intelligence>
+
+{memory_context}
+
+{thoughts_context}
+
+{research_context}
+
+USER QUESTION: {question}
+
+Provide a helpful, specific response:"""
+
+    GENERAL_ASK_XML_WITH_RESEARCH = """You are the user's personal AI coach. Answer their question using the structured context provided.
+
+<user_profile>
+{profile_context}
+</user_profile>
+
+<journal_context>
+{journal_context}
+</journal_context>
+
+<external_intelligence>
+{intel_context}
+</external_intelligence>
+
+{memory_context}
+
+{thoughts_context}
+
+<deep_research>
+{research_context}
+</deep_research>
+
+USER QUESTION: {question}
+
+Use the research context when relevant to provide more informed, thorough answers. Cite specific insights from research when applicable:"""
+
+    @classmethod
+    def _build_user_prompt(
+        cls,
+        *,
+        template: str,
+        journal_context: str,
+        intel_context: str,
+        profile_context: str = "",
+        memory_context: str = "",
+        thoughts_context: str = "",
+        research_context: str = "",
+        question: str,
+    ) -> str:
+        """Assemble user prompt, omitting empty optional sections."""
+        raw = template.format(
+            journal_context=journal_context,
+            intel_context=intel_context,
+            profile_context=profile_context,
+            memory_context=memory_context,
+            thoughts_context=thoughts_context,
+            research_context=research_context,
+            question=question,
+        )
+        # Collapse runs of 3+ blank lines into 2
+        import re
+
+        return re.sub(r"\n{3,}", "\n\n", raw)
+
     # === Recommendation Prompts ===
 
     AI_CAPABILITIES_SECTION = """
@@ -574,12 +695,20 @@ Create a focused deep-dive that:
 Format as markdown starting with #### Deep Dive. Keep under 500 words."""
 
     @classmethod
-    def get_prompt(cls, prompt_type: str, with_research: bool = False) -> str:
+    def get_prompt(
+        cls,
+        prompt_type: str,
+        with_research: bool = False,
+        xml_delimiters: bool = False,
+        extended: bool = False,
+    ) -> str:
         """Get prompt template by type.
 
         Args:
             prompt_type: Type of prompt
             with_research: If True and general, use research-aware template
+            xml_delimiters: If True and general+extended, use XML-delimited template
+            extended: If True and general, use template with separate profile/memory/thoughts slots
         """
         prompts = {
             "career": cls.CAREER_ADVICE,
@@ -590,6 +719,16 @@ Format as markdown starting with #### Deep Dive. Keep under 500 words."""
             "general_with_research": cls.GENERAL_ASK_WITH_RESEARCH,
             "action_plan": cls.ACTION_PLAN,
         }
+
+        if prompt_type == "general" and extended:
+            if xml_delimiters:
+                if with_research:
+                    return cls.GENERAL_ASK_XML_WITH_RESEARCH
+                return cls.GENERAL_ASK_XML
+            if with_research:
+                return cls.GENERAL_ASK_EXTENDED_WITH_RESEARCH
+            return cls.GENERAL_ASK_EXTENDED
+
         if prompt_type == "general" and with_research:
             return prompts["general_with_research"]
         return prompts.get(prompt_type, cls.GENERAL_ASK)

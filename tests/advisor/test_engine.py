@@ -111,3 +111,60 @@ class TestAdvisorEngine:
 
     def test_provider_name_accessible(self, engine):
         assert engine.llm.provider_name == "claude"
+
+
+class TestContextAssemblyWiring:
+    """Test rag_config wiring in ask()."""
+
+    def _make_engine(self, mock_rag, mock_client, rag_config=None):
+        return AdvisorEngine(
+            rag=mock_rag, provider="claude", client=mock_client, rag_config=rag_config
+        )
+
+    def test_default_config_uses_legacy_path(self, mock_rag, mock_client):
+        """No rag_config flags → legacy get_combined_context + get_profile_context."""
+        engine = self._make_engine(mock_rag, mock_client)
+        engine.ask("test")
+        mock_rag.get_combined_context.assert_called_once()
+        mock_rag.get_profile_context.assert_called_once()
+
+    def test_inject_memory_calls_build_context(self, mock_rag, mock_client):
+        """inject_memory=True → build_context_for_ask used."""
+        from advisor.rag import AskContext
+
+        mock_rag.build_context_for_ask.return_value = AskContext(
+            journal="j", intel="i", profile="p", memory="<user_memory>\nfacts\n</user_memory>"
+        )
+        engine = self._make_engine(mock_rag, mock_client, rag_config={"inject_memory": True})
+        result = engine.ask("test")
+
+        mock_rag.build_context_for_ask.assert_called_once()
+        assert result == "Mocked LLM response"
+        # Verify memory appeared in the prompt sent to LLM
+        call_args = mock_client.messages.create.call_args
+        user_msg = [m for m in call_args.kwargs["messages"] if m["role"] == "user"][0]
+        assert "<user_memory>" in user_msg["content"]
+
+    def test_xml_delimiters_in_prompt(self, mock_rag, mock_client):
+        """xml_delimiters=True → XML tags in prompt."""
+        from advisor.rag import AskContext
+
+        mock_rag.build_context_for_ask.return_value = AskContext(
+            journal="j", intel="i", profile="p"
+        )
+        engine = self._make_engine(mock_rag, mock_client, rag_config={"xml_delimiters": True})
+        engine.ask("test")
+
+        call_args = mock_client.messages.create.call_args
+        user_msg = [m for m in call_args.kwargs["messages"] if m["role"] == "user"][0]
+        assert "<journal_context>" in user_msg["content"]
+        assert "<user_profile>" in user_msg["content"]
+
+    def test_no_memory_in_default_prompt(self, mock_rag, mock_client):
+        """Default config → no memory XML in prompt."""
+        engine = self._make_engine(mock_rag, mock_client)
+        engine.ask("test")
+
+        call_args = mock_client.messages.create.call_args
+        user_msg = [m for m in call_args.kwargs["messages"] if m["role"] == "user"][0]
+        assert "<user_memory>" not in user_msg["content"]

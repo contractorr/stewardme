@@ -69,10 +69,12 @@ class AdvisorEngine:
         client=None,  # Dependency injection for testing
         use_tools: bool = False,
         components: Optional[dict] = None,
+        rag_config: dict | None = None,
     ):
         self.rag = rag
         self.model = model
         self.use_tools = use_tools
+        self._rag_config = rag_config or {}
 
         # Attach context cache to RAG if not already set
         if not getattr(rag, "cache", None):
@@ -202,23 +204,50 @@ class AdvisorEngine:
             )
 
         # Classic RAG mode: single-shot retrieval + LLM call
-        journal_ctx, intel_ctx = self.rag.get_combined_context(question)
-        profile_ctx = self.rag.get_profile_context()
+        use_extended = any(
+            self._rag_config.get(k, False)
+            for k in (
+                "structured_profile",
+                "inject_memory",
+                "inject_recurring_thoughts",
+                "xml_delimiters",
+            )
+        )
 
         # Get research context if available
         research_ctx = ""
         if include_research and hasattr(self.rag, "get_research_context"):
             research_ctx = self.rag.get_research_context(question)
-
         has_research = bool(research_ctx.strip())
-        prompt_template = PromptTemplates.get_prompt(advice_type, with_research=has_research)
 
-        user_prompt = prompt_template.format(
-            journal_context=profile_ctx + journal_ctx,
-            intel_context=intel_ctx,
-            research_context=research_ctx if has_research else "",
-            question=question,
-        )
+        if use_extended:
+            ctx = self.rag.build_context_for_ask(question, self._rag_config)
+            prompt_template = PromptTemplates.get_prompt(
+                advice_type,
+                with_research=has_research,
+                xml_delimiters=self._rag_config.get("xml_delimiters", False),
+                extended=True,
+            )
+            user_prompt = PromptTemplates._build_user_prompt(
+                template=prompt_template,
+                journal_context=ctx.journal,
+                intel_context=ctx.intel,
+                profile_context=ctx.profile,
+                memory_context=ctx.memory,
+                thoughts_context=ctx.thoughts,
+                research_context=research_ctx if has_research else "",
+                question=question,
+            )
+        else:
+            journal_ctx, intel_ctx = self.rag.get_combined_context(question)
+            profile_ctx = self.rag.get_profile_context()
+            prompt_template = PromptTemplates.get_prompt(advice_type, with_research=has_research)
+            user_prompt = prompt_template.format(
+                journal_context=profile_ctx + journal_ctx,
+                intel_context=intel_ctx,
+                research_context=research_ctx if has_research else "",
+                question=question,
+            )
 
         return self._call_llm(
             PromptTemplates.SYSTEM, user_prompt, conversation_history=conversation_history

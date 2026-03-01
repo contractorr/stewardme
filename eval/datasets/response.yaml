@@ -94,3 +94,34 @@ cases:
     expected_traits: ["connects journal to intel", "identifies overlaps"]
     forbidden_traits: ["ignores journal data", "ignores intel data"]
     description: "Cross-source synthesis"
+
+  # Context assembly quality (memory/profile/thoughts injection)
+  - query: "What habits have I mentioned consistently?"
+    advice_type: "general"
+    expected_traits: ["references user memory facts", "identifies patterns"]
+    forbidden_traits: ["invents habits not in memory"]
+    description: "Memory injection grounding"
+
+  - query: "I keep coming back to the same topic"
+    advice_type: "general"
+    expected_traits: ["references recurring thought threads", "acknowledges persistence"]
+    forbidden_traits: ["ignores recurring thoughts context"]
+    description: "Recurring thoughts awareness"
+
+  - query: "What should I learn given my skill levels?"
+    advice_type: "general"
+    expected_traits: ["references specific skills from profile", "considers skill levels"]
+    forbidden_traits: ["generic learning advice ignoring profile"]
+    description: "Structured profile skill-aware advice"
+
+  - query: "What are my long-term career goals?"
+    advice_type: "general"
+    expected_traits: ["references full goal text from profile", "goal-specific advice"]
+    forbidden_traits: ["truncated or missing goal context"]
+    description: "Full goal text from structured profile"
+
+  - query: "Recommend something specific to my situation"
+    advice_type: "general"
+    expected_traits: ["personalized to profile", "references specific user details"]
+    forbidden_traits: ["generic advice that could apply to anyone"]
+    description: "Profile personalization depth"

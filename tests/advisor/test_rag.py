@@ -1,5 +1,73 @@
 """Tests for RAG retrieval."""
 
+from unittest.mock import MagicMock, patch
+
+
+class TestBuildContextForAsk:
+    """Test build_context_for_ask() context assembly."""
+
+    def _make_rag(self, fact_store=None, thread_store=None):
+        from advisor.rag import RAGRetriever
+        from journal.search import JournalSearch
+
+        journal_search = MagicMock(spec=JournalSearch)
+        journal_search.get_context_for_query.return_value = "journal text"
+        journal_search.storage = MagicMock()
+
+        rag = RAGRetriever(
+            journal_search=journal_search,
+            fact_store=fact_store,
+            thread_store=thread_store,
+        )
+        return rag
+
+    def test_default_flags_no_memory_no_thoughts(self):
+        rag = self._make_rag()
+        ctx = rag.build_context_for_ask("test question")
+        assert ctx.memory == ""
+        assert ctx.thoughts == ""
+        assert isinstance(ctx.journal, str)
+        assert isinstance(ctx.intel, str)
+
+    def test_inject_memory_flag(self):
+        rag = self._make_rag()
+        rag.get_memory_context = MagicMock(
+            return_value="<user_memory>\n## Skills\n- Python\n</user_memory>"
+        )
+        ctx = rag.build_context_for_ask("test", {"inject_memory": True})
+        assert "<user_memory>" in ctx.memory
+        rag.get_memory_context.assert_called_once_with("test")
+
+    def test_inject_memory_false_skips_call(self):
+        rag = self._make_rag()
+        rag.get_memory_context = MagicMock(return_value="should not appear")
+        ctx = rag.build_context_for_ask("test", {"inject_memory": False})
+        assert ctx.memory == ""
+        rag.get_memory_context.assert_not_called()
+
+    def test_inject_recurring_thoughts_flag(self):
+        rag = self._make_rag()
+        rag.get_recurring_thoughts_context = MagicMock(
+            return_value="<recurring_thoughts>\n1. topic\n</recurring_thoughts>"
+        )
+        ctx = rag.build_context_for_ask("test", {"inject_recurring_thoughts": True})
+        assert "<recurring_thoughts>" in ctx.thoughts
+        rag.get_recurring_thoughts_context.assert_called_once()
+
+    def test_structured_profile_flag(self):
+        rag = self._make_rag()
+        rag.get_profile_context = MagicMock(return_value="[GOALS & ASPIRATIONS]\nBe great")
+        ctx = rag.build_context_for_ask("test", {"structured_profile": True})
+        assert "[GOALS & ASPIRATIONS]" in ctx.profile
+        rag.get_profile_context.assert_called_once_with(structured=True)
+
+    def test_default_profile_compact(self):
+        rag = self._make_rag()
+        rag.get_profile_context = MagicMock(return_value="USER PROFILE: compact")
+        ctx = rag.build_context_for_ask("test")
+        assert "compact" in ctx.profile
+        rag.get_profile_context.assert_called_once_with(structured=False)
+
 
 class TestRAGRetriever:
     """Test RAGRetriever context retrieval."""
