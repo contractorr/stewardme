@@ -32,6 +32,9 @@ sources:
     - https://export.arxiv.org/rss/cs.LG
   # When rss_feeds covers HN/Reddit/arXiv, dedicated scrapers auto-disabled
   deduplicate_rss_sources: true
+  # Semantic dedup: use vector similarity to skip near-duplicate articles across sources
+  # Requires ChromaDB. Slightly slower scrapes but much cleaner feed.
+  semantic_dedup: false
   github_trending:
     enabled: true
     languages: [python, rust, go]

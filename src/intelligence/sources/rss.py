@@ -55,11 +55,13 @@ class RSSFeedScraper(BaseScraper):
         feed_url: str,
         name: Optional[str] = None,
         source_tag: Optional[str] = None,
+        feed_health_tracker=None,
     ):
         super().__init__(storage)
         self.feed_url = feed_url
         self._name = name or _extract_name(feed_url)
         self.source_tag = source_tag or _detect_source_tag(feed_url)
+        self._feed_health = feed_health_tracker
 
     @property
     def source_name(self) -> str:
@@ -75,6 +77,8 @@ class RSSFeedScraper(BaseScraper):
             content = response.text
         except (httpx.HTTPStatusError, httpx.RequestError) as e:
             logger.warning("Failed to fetch RSS %s: %s", self.feed_url, e)
+            if self._feed_health:
+                self._feed_health.record_failure(self.feed_url, str(e))
             return []
 
         # feedparser is sync but parsing is fast
@@ -113,5 +117,7 @@ class RSSFeedScraper(BaseScraper):
                 )
             )
 
+        if self._feed_health:
+            self._feed_health.record_success(self.feed_url)
         logger.info("Scraped %d items from %s", len(items), self._name)
         return items

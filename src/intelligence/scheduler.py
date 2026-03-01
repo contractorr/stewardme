@@ -16,7 +16,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from observability import metrics
 
-from .health import ScraperHealthTracker
+from .health import RSSFeedHealthTracker, ScraperHealthTracker
 from .scraper import IntelStorage
 from .sources import (
     AICapabilitiesScraper,
@@ -203,6 +203,22 @@ class IntelScheduler:
 
         enabled = self.config.get("enabled", ["hn_top", "rss_feeds"])
 
+        # Shared per-feed health tracker for all RSS scrapers
+        self._feed_health = RSSFeedHealthTracker(self.storage.db_path)
+
+        # Semantic dedup: create shared embedding manager if configured
+        intel_embedding_mgr = None
+        if self.config.get("semantic_dedup", False):
+            try:
+                from cli.config import get_paths
+                from intelligence.embeddings import IntelEmbeddingManager
+
+                paths = get_paths(self.full_config)
+                intel_embedding_mgr = IntelEmbeddingManager(paths["chroma_dir"])
+                logger.info("semantic_dedup.enabled")
+            except Exception as e:
+                logger.warning("semantic_dedup.init_failed", error=str(e))
+
         # Detect which sources are covered by RSS feeds for dedup
         rss_covered_sources = set()
         if self.config.get("deduplicate_rss_sources", True):
@@ -219,7 +235,9 @@ class IntelScheduler:
         config_rss_urls: set[str] = set()
         if "rss_feeds" in enabled:
             for url in self.config.get("rss_feeds", []):
-                self._scrapers.append(RSSFeedScraper(self.storage, url))
+                self._scrapers.append(
+                    RSSFeedScraper(self.storage, url, feed_health_tracker=self._feed_health)
+                )
                 config_rss_urls.add(url)
 
         # Merge user-added RSS feeds
@@ -229,7 +247,12 @@ class IntelScheduler:
             for feed in get_all_user_rss_feeds():
                 if feed["url"] not in config_rss_urls:
                     self._scrapers.append(
-                        RSSFeedScraper(self.storage, feed["url"], name=feed.get("name"))
+                        RSSFeedScraper(
+                            self.storage,
+                            feed["url"],
+                            name=feed.get("name"),
+                            feed_health_tracker=self._feed_health,
+                        )
                     )
                     config_rss_urls.add(feed["url"])
         except Exception:
@@ -237,7 +260,9 @@ class IntelScheduler:
 
         if "custom_blogs" in enabled:
             for url in self.config.get("custom_blogs", []):
-                self._scrapers.append(RSSFeedScraper(self.storage, url))
+                self._scrapers.append(
+                    RSSFeedScraper(self.storage, url, feed_health_tracker=self._feed_health)
+                )
 
         # GitHub trending
         gh_config = self.config.get("github_trending", {})
@@ -419,6 +444,11 @@ class IntelScheduler:
                     max_items=cb_config.get("max_items", 20),
                 )
             )
+
+        # Attach shared embedding manager for semantic dedup
+        if intel_embedding_mgr:
+            for scraper in self._scrapers:
+                scraper.embedding_manager = intel_embedding_mgr
 
     async def _run_async(self) -> dict:
         """Run all scrapers concurrently."""

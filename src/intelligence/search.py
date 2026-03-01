@@ -2,6 +2,7 @@
 
 import re
 import sqlite3
+from pathlib import Path
 from typing import Optional
 
 import structlog
@@ -58,6 +59,83 @@ def _normalize_terms(terms: list[str]) -> set[str]:
                 if len(w) > 2:  # skip tiny words like "of", "ai" handled by full term
                     result.add(w)
     return result
+
+
+def load_profile_terms(profile_path: str | Path) -> "ProfileTerms":
+    """Load user profile and build ProfileTerms for relevance scoring.
+
+    Standalone version of RAGRetriever._load_profile_terms.
+    """
+    _GOAL_STOPWORDS = {
+        "the",
+        "and",
+        "for",
+        "that",
+        "with",
+        "this",
+        "from",
+        "have",
+        "will",
+        "are",
+        "was",
+        "been",
+        "being",
+        "would",
+        "could",
+        "should",
+        "into",
+        "about",
+        "more",
+        "some",
+        "than",
+        "also",
+        "just",
+        "over",
+        "such",
+        "want",
+        "like",
+        "get",
+        "make",
+        "see",
+        "know",
+        "take",
+        "next",
+        "year",
+        "years",
+        "month",
+        "months",
+        "within",
+        "achieve",
+    }
+    try:
+        from profile.storage import ProfileStorage
+
+        ps = ProfileStorage(str(profile_path))
+        profile = ps.load()
+        if not profile:
+            return ProfileTerms()
+
+        goal_keywords: list[str] = []
+        for text in [profile.goals_short_term, profile.goals_long_term, profile.aspirations]:
+            if text:
+                words = re.findall(r"[a-z][a-z0-9\-]+", text.lower())
+                goal_keywords.extend(w for w in words if len(w) > 2 and w not in _GOAL_STOPWORDS)
+
+        project_keywords: list[str] = []
+        for p in profile.active_projects:
+            words = re.findall(r"[a-z][a-z0-9\-]+", p.lower())
+            project_keywords.extend(w for w in words if len(w) > 2)
+
+        return ProfileTerms(
+            skills=[s.name for s in profile.skills],
+            tech=profile.languages_frameworks + profile.technologies_watching,
+            interests=profile.interests + profile.industries_watching,
+            goal_keywords=goal_keywords[:20],
+            project_keywords=project_keywords[:10],
+        )
+    except Exception as e:
+        logger.debug("load_profile_terms_failed", error=str(e))
+        return ProfileTerms()
 
 
 def _extract_item_terms(item: dict) -> set[str]:

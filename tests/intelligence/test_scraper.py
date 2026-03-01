@@ -1,6 +1,9 @@
 """Tests for intelligence scraper and storage."""
 
 from datetime import datetime
+from unittest.mock import MagicMock
+
+import pytest
 
 
 class TestIntelStorage:
@@ -130,3 +133,55 @@ class TestIntelItem:
 
         assert item.content == "Full content body"
         assert len(item.tags) == 2
+
+
+class TestSemanticDedup:
+    """Test semantic dedup threshold in save_items."""
+
+    @pytest.mark.asyncio
+    async def test_dedup_threshold_respected(self, temp_dirs):
+        """save_items passes custom threshold to find_similar."""
+        from intelligence.scraper import BaseScraper, IntelItem, IntelStorage
+
+        storage = IntelStorage(temp_dirs["intel_db"])
+        mock_em = MagicMock()
+        mock_em.find_similar.return_value = False
+
+        class DummyScraper(BaseScraper):
+            @property
+            def source_name(self):
+                return "test"
+
+            async def scrape(self):
+                return []
+
+        scraper = DummyScraper(storage, embedding_manager=mock_em)
+        items = [
+            IntelItem(source="test", title="Item 1", url="https://a.com/1", summary="s1"),
+        ]
+        await scraper.save_items(items, dedup_threshold=0.75)
+        mock_em.find_similar.assert_called_once_with("Item 1 s1", threshold=0.75)
+
+    @pytest.mark.asyncio
+    async def test_dedup_skips_similar(self, temp_dirs):
+        """Items detected as similar are skipped."""
+        from intelligence.scraper import BaseScraper, IntelItem, IntelStorage
+
+        storage = IntelStorage(temp_dirs["intel_db"])
+        mock_em = MagicMock()
+        mock_em.find_similar.return_value = True  # everything is a duplicate
+
+        class DummyScraper(BaseScraper):
+            @property
+            def source_name(self):
+                return "test"
+
+            async def scrape(self):
+                return []
+
+        scraper = DummyScraper(storage, embedding_manager=mock_em)
+        items = [
+            IntelItem(source="test", title="Dup", url="https://a.com/dup", summary="s"),
+        ]
+        count = await scraper.save_items(items)
+        assert count == 0

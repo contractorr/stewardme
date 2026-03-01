@@ -64,8 +64,19 @@ async def get_health(user: dict = Depends(get_current_user)):
 
 @router.get("/rss-feeds")
 async def list_rss_feeds(user: dict = Depends(get_current_user)):
-    """List user's custom RSS feeds."""
-    return get_user_rss_feeds(user["id"])
+    """List user's custom RSS feeds with per-feed health."""
+    feeds = get_user_rss_feeds(user["id"])
+    try:
+        from intelligence.health import RSSFeedHealthTracker
+
+        paths = get_coach_paths()
+        fht = RSSFeedHealthTracker(paths["intel_db"])
+        health_map = {h["feed_url"]: h for h in fht.get_all_health()}
+        for feed in feeds:
+            feed["health"] = health_map.get(feed["url"])
+    except Exception:
+        pass
+    return feeds
 
 
 @router.post("/rss-feeds")
@@ -104,7 +115,7 @@ async def delete_rss_feed(body: RSSFeedRemove, user: dict = Depends(get_current_
 
 @router.get("/trending")
 async def get_trending(user: dict = Depends(get_current_user)):
-    """Get cross-source trending topics."""
+    """Get cross-source trending topics, personalized by user profile."""
     from intelligence.trending_radar import TrendingRadar
 
     paths = get_coach_paths()
@@ -114,15 +125,57 @@ async def get_trending(user: dict = Depends(get_current_user)):
     radar = TrendingRadar(paths["intel_db"])
     snapshot = radar.load()
     if not snapshot:
-        # Try to create a cheap LLM provider for better trending analysis
         llm = _get_cheap_llm(user["id"])
         snapshot = radar.refresh(
             llm=llm,
             days=tr_config.get("days", 7),
-            min_source_families=tr_config.get("min_source_families", tr_config.get("min_sources", 2)),
+            min_source_families=tr_config.get(
+                "min_source_families", tr_config.get("min_sources", 2)
+            ),
             min_items=tr_config.get("min_items", 4),
             max_topics=tr_config.get("max_topics", 10),
         )
+
+    # Personalize: score topics against user profile
+    snapshot = _personalize_trending(snapshot, user["id"])
+    return snapshot
+
+
+def _personalize_trending(snapshot: dict, user_id: str) -> dict:
+    """Re-rank trending topics by profile relevance."""
+    try:
+        from intelligence.search import load_profile_terms, score_profile_relevance
+        from web.deps import get_user_paths
+
+        profile_path = get_user_paths(user_id)["profile"]
+        terms = load_profile_terms(profile_path)
+        if terms.is_empty:
+            snapshot["personalized"] = False
+            return snapshot
+
+        for topic in snapshot.get("topics", []):
+            scores = []
+            all_matches: list[str] = []
+            for item in topic.get("items", []):
+                score, matches = score_profile_relevance(item, terms)
+                scores.append(score)
+                all_matches.extend(matches)
+            topic["relevance_score"] = round(sum(scores) / max(len(scores), 1), 3)
+            topic["relevance_matches"] = list(dict.fromkeys(all_matches))[:5]
+
+        # Re-sort: 0.6 * original score + 0.4 * relevance
+        for topic in snapshot.get("topics", []):
+            original = topic.get("score", 0) or 0
+            relevance = topic.get("relevance_score", 0)
+            topic["_combined"] = 0.6 * original + 0.4 * relevance
+
+        snapshot["topics"].sort(key=lambda t: t.get("_combined", 0), reverse=True)
+        for topic in snapshot.get("topics", []):
+            topic.pop("_combined", None)
+
+        snapshot["personalized"] = True
+    except Exception:
+        snapshot["personalized"] = False
     return snapshot
 
 

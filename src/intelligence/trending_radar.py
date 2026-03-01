@@ -356,16 +356,92 @@ STOPWORDS = frozenset(
 # Bigrams where either word is one of these are always junk
 _BIGRAM_STOPWORDS = frozenset(
     {
-        "the", "and", "for", "are", "but", "not", "you", "your", "all", "can",
-        "is", "was", "one", "our", "out", "has", "had", "how", "its", "may",
-        "new", "now", "old", "see", "who", "did", "get", "let", "say", "she",
-        "too", "use", "with", "this", "that", "have", "from", "they", "been",
-        "will", "more", "when", "what", "some", "than", "them", "into", "only",
-        "very", "just", "also", "about", "would", "there", "their", "which",
-        "could", "other", "after", "first", "never", "where", "those", "every",
-        "being", "these", "should", "because", "through", "before", "between",
-        "while", "during", "without", "within", "against", "along", "above",
-        "below", "under", "since", "until", "upon", "via", "per", "vs",
+        "the",
+        "and",
+        "for",
+        "are",
+        "but",
+        "not",
+        "you",
+        "your",
+        "all",
+        "can",
+        "is",
+        "was",
+        "one",
+        "our",
+        "out",
+        "has",
+        "had",
+        "how",
+        "its",
+        "may",
+        "new",
+        "now",
+        "old",
+        "see",
+        "who",
+        "did",
+        "get",
+        "let",
+        "say",
+        "she",
+        "too",
+        "use",
+        "with",
+        "this",
+        "that",
+        "have",
+        "from",
+        "they",
+        "been",
+        "will",
+        "more",
+        "when",
+        "what",
+        "some",
+        "than",
+        "them",
+        "into",
+        "only",
+        "very",
+        "just",
+        "also",
+        "about",
+        "would",
+        "there",
+        "their",
+        "which",
+        "could",
+        "other",
+        "after",
+        "first",
+        "never",
+        "where",
+        "those",
+        "every",
+        "being",
+        "these",
+        "should",
+        "because",
+        "through",
+        "before",
+        "between",
+        "while",
+        "during",
+        "without",
+        "within",
+        "against",
+        "along",
+        "above",
+        "below",
+        "under",
+        "since",
+        "until",
+        "upon",
+        "via",
+        "per",
+        "vs",
     }
 )
 
@@ -487,8 +563,11 @@ def _detect_collocations(titles: list[str], threshold: float = 15.0) -> dict[str
 
 
 # ---------------------------------------------------------------------------
-# Velocity scoring — two-window comparison
+# Velocity scoring — two-window comparison with batch normalization
 # ---------------------------------------------------------------------------
+
+_BATCH_WINDOW_MINUTES = 30
+_DEFAULT_SCRAPE_INTERVAL_HOURS = 24
 
 
 def _velocity_score(
@@ -496,40 +575,64 @@ def _velocity_score(
 ) -> float:
     """Compare recent mention rate vs baseline rate.
 
-    Uses published date when available (actual article date), falls back to
-    scraped_at. Returns >1.0 if accelerating, <1.0 if decelerating.
-    Returns 1.0 (neutral) when time spread is too small to be meaningful.
+    Items with real published dates are used as-is. Items with only
+    scraped_at timestamps are checked for batch patterns: if all fall
+    within a 30-min window they're likely from one scrape run and get
+    spread uniformly across the scrape interval to dilute artificial
+    velocity. Returns >1.0 if accelerating, <1.0 if decelerating.
+    Cap at 5.0.
     """
-    timestamps: list[datetime] = []
+    published_ts: list[datetime] = []
+    scraped_only_ts: list[datetime] = []
     cutoff_recent = now - timedelta(hours=hot_hours)
-    recent, baseline = 0, 0
 
     for item in items:
-        # Prefer published date over scraped_at
-        ts_str = item.get("published") or item.get("scraped_at")
-        try:
-            t = datetime.fromisoformat(ts_str)
-        except (ValueError, TypeError):
-            continue
-        timestamps.append(t)
-        if t >= cutoff_recent:
-            recent += 1
-        else:
-            baseline += 1
+        pub_str = item.get("published")
+        scrape_str = item.get("scraped_at")
+        if pub_str:
+            try:
+                published_ts.append(datetime.fromisoformat(pub_str))
+            except (ValueError, TypeError):
+                pass
+        elif scrape_str:
+            try:
+                scraped_only_ts.append(datetime.fromisoformat(scrape_str))
+            except (ValueError, TypeError):
+                pass
 
-    # If all items have timestamps within a narrow window (< 2 hours),
-    # velocity is meaningless — likely a batch scrape
-    if len(timestamps) >= 2:
-        spread = max(timestamps) - min(timestamps)
-        if spread < timedelta(hours=2):
-            return 1.0  # neutral
+    # Normalize batch-scraped items: if all scraped_at-only timestamps
+    # cluster within _BATCH_WINDOW_MINUTES, spread them uniformly
+    # across total_days so they contribute neutral velocity (~1.0)
+    effective_ts = list(published_ts)
+    if scraped_only_ts:
+        spread = (
+            max(scraped_only_ts) - min(scraped_only_ts)
+            if len(scraped_only_ts) >= 2
+            else timedelta(0)
+        )
+        if spread <= timedelta(minutes=_BATCH_WINDOW_MINUTES):
+            # Batch detected — spread uniformly across full look-back window
+            anchor = max(scraped_only_ts)
+            interval = timedelta(days=total_days)
+            n = len(scraped_only_ts)
+            for i in range(n):
+                synthetic = anchor - interval * (i / max(n - 1, 1))
+                effective_ts.append(synthetic)
+        else:
+            effective_ts.extend(scraped_only_ts)
+
+    if not effective_ts:
+        return 1.0
+
+    recent = sum(1 for t in effective_ts if t >= cutoff_recent)
+    baseline = len(effective_ts) - recent
 
     baseline_days = total_days - hot_hours / 24
     baseline_rate = baseline / baseline_days if baseline_days > 0 else 0
     recent_rate = recent / (hot_hours / 24)
 
     if baseline_rate == 0:
-        return min(recent_rate * 2.0, 5.0)  # cap brand-new boost
+        return min(recent_rate * 2.0, 5.0)
     return min(recent_rate / baseline_rate, 5.0)
 
 
@@ -690,9 +793,7 @@ class TrendingRadar:
             for i in sorted(items, key=lambda x: x["scraped_at"], reverse=True):
                 if i["url"] not in seen_urls:
                     seen_urls.add(i["url"])
-                    rep_items.append({
-                        k: v for k, v in i.items() if k != "source_family"
-                    })
+                    rep_items.append({k: v for k, v in i.items() if k != "source_family"})
                 if len(rep_items) >= 3:
                     break
 
@@ -793,12 +894,11 @@ class TrendingRadar:
                 "scraped_at": scraped_at,
                 "published": published,
             }
-            short_summary = (f" — {summary[:120]}" if summary else "")
+            short_summary = f" — {summary[:120]}" if summary else ""
             article_lines.append(f"[{item_id}] ({source}) {title}{short_summary}")
 
-        prompt_body = (
-            f"Here are {len(rows)} articles from the last {days} days:\n\n"
-            + "\n".join(article_lines)
+        prompt_body = f"Here are {len(rows)} articles from the last {days} days:\n\n" + "\n".join(
+            article_lines
         )
 
         try:
@@ -845,21 +945,21 @@ class TrendingRadar:
             for item in matched_items:
                 if item["url"] not in seen_urls:
                     seen_urls.add(item["url"])
-                    rep_items.append({
-                        k: v for k, v in item.items() if k != "source_family"
-                    })
+                    rep_items.append({k: v for k, v in item.items() if k != "source_family"})
                 if len(rep_items) >= 3:
                     break
 
-            topics.append({
-                "topic": topic_label,
-                "summary": summary_text,
-                "item_count": len(matched_items),
-                "source_count": len(sources),
-                "sources": sources,
-                "source_families": families,
-                "items": rep_items,
-            })
+            topics.append(
+                {
+                    "topic": topic_label,
+                    "summary": summary_text,
+                    "item_count": len(matched_items),
+                    "source_count": len(sources),
+                    "sources": sources,
+                    "source_families": families,
+                    "items": rep_items,
+                }
+            )
 
         return {
             "computed_at": now.isoformat(),

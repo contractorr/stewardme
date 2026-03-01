@@ -36,6 +36,16 @@ interface IntelItem {
   tags?: string[];
 }
 
+interface RSSFeedHealth {
+  feed_url: string;
+  last_attempt_at: string | null;
+  last_success_at: string | null;
+  consecutive_errors: number;
+  total_attempts: number;
+  total_errors: number;
+  last_error: string | null;
+}
+
 interface TrendingTopic {
   topic: string;
   summary?: string;
@@ -44,6 +54,8 @@ interface TrendingTopic {
   source_count: number;
   sources: string[];
   velocity?: number;
+  relevance_score?: number;
+  relevance_matches?: string[];
   items: { id: number; title: string; url: string; source: string; summary: string }[];
 }
 
@@ -52,6 +64,7 @@ interface TrendingSnapshot {
   days: number;
   total_items_scanned: number;
   method?: string;
+  personalized?: boolean;
   topics: TrendingTopic[];
 }
 
@@ -229,6 +242,9 @@ function TrendingTab({ token }: { token: string }) {
               </div>
             )}
             <CardDescription className="flex flex-wrap gap-1">
+              {t.relevance_score != null && t.relevance_score > 0.1 && (
+                <Badge variant="default" className="text-xs bg-primary/80">For you</Badge>
+              )}
               {t.sources.map((s) => (
                 <Badge key={s} variant="outline" className={`text-xs ${sourceBadgeClass(s)}`}>
                   {s}
@@ -237,6 +253,11 @@ function TrendingTab({ token }: { token: string }) {
               <span className="text-xs text-muted-foreground">
                 {t.item_count} items
               </span>
+              {t.relevance_matches && t.relevance_matches.length > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  &middot; matches: {t.relevance_matches.slice(0, 3).join(", ")}
+                </span>
+              )}
             </CardDescription>
           </CardHeader>
           {t.items.length > 0 && (

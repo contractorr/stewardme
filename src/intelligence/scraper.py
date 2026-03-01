@@ -253,12 +253,15 @@ class BaseScraper(ABC):
             logger.warning("Request error fetching %s: %s", url, e)
             return None
 
-    async def save_items(self, items: list[IntelItem], semantic_dedup: bool = True) -> int:
+    async def save_items(
+        self, items: list[IntelItem], semantic_dedup: bool = True, dedup_threshold: float = 0.80
+    ) -> int:
         """Save items and return count of new items.
 
         Args:
             items: List of items to save
             semantic_dedup: Check for semantic duplicates via embeddings
+            dedup_threshold: Similarity threshold for semantic dedup (0-1)
 
         Returns:
             Count of new items saved
@@ -268,7 +271,7 @@ class BaseScraper(ABC):
             # Semantic dedup check if embedding manager available
             if semantic_dedup and self.embedding_manager:
                 content = f"{item.title} {item.summary}"
-                if self.embedding_manager.find_similar(content, threshold=0.85):
+                if self.embedding_manager.find_similar(content, threshold=dedup_threshold):
                     logger.info("Semantic duplicate skipped: %s", item.title[:50])
                     continue
 

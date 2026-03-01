@@ -259,85 +259,9 @@ class RAGRetriever:
 
     def _load_profile_terms(self):
         """Load profile and build ProfileTerms for intel filtering."""
-        try:
-            from profile.storage import ProfileStorage
+        from intelligence.search import load_profile_terms
 
-            from intelligence.search import ProfileTerms
-
-            ps = ProfileStorage(self._profile_path)
-            profile = ps.load()
-            if not profile:
-                return ProfileTerms()
-
-            # Extract goal keywords from free-text goal fields
-            import re
-
-            goal_keywords = []
-            for text in [profile.goals_short_term, profile.goals_long_term, profile.aspirations]:
-                if text:
-                    # Extract meaningful words (3+ chars, skip stopwords)
-                    words = re.findall(r"[a-z][a-z0-9\-]+", text.lower())
-                    stopwords = {
-                        "the",
-                        "and",
-                        "for",
-                        "that",
-                        "with",
-                        "this",
-                        "from",
-                        "have",
-                        "will",
-                        "are",
-                        "was",
-                        "been",
-                        "being",
-                        "would",
-                        "could",
-                        "should",
-                        "into",
-                        "about",
-                        "more",
-                        "some",
-                        "than",
-                        "also",
-                        "just",
-                        "over",
-                        "such",
-                        "want",
-                        "like",
-                        "get",
-                        "make",
-                        "see",
-                        "know",
-                        "take",
-                        "next",
-                        "year",
-                        "years",
-                        "month",
-                        "months",
-                        "within",
-                        "achieve",
-                    }
-                    goal_keywords.extend(w for w in words if len(w) > 2 and w not in stopwords)
-
-            # Extract project keywords
-            project_keywords = []
-            for p in profile.active_projects:
-                words = re.findall(r"[a-z][a-z0-9\-]+", p.lower())
-                project_keywords.extend(w for w in words if len(w) > 2)
-
-            return ProfileTerms(
-                skills=[s.name for s in profile.skills],
-                tech=profile.languages_frameworks + profile.technologies_watching,
-                interests=profile.interests + profile.industries_watching,
-                goal_keywords=goal_keywords[:20],  # cap to avoid noise
-                project_keywords=project_keywords[:10],
-            )
-        except Exception as e:
-            logger.debug("profile_terms_load_failed", error=str(e))
-            from intelligence.search import ProfileTerms
-
-            return ProfileTerms()
+        return load_profile_terms(self._profile_path)
 
     def get_filtered_intel_context(
         self,
