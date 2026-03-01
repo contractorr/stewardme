@@ -16,6 +16,27 @@ logger = structlog.get_logger().bind(source="trending_radar")
 STOPWORDS = frozenset(
     {
         # Articles, pronouns, prepositions, conjunctions
+        "a",
+        "an",
+        "at",
+        "be",
+        "by",
+        "do",
+        "go",
+        "if",
+        "in",
+        "it",
+        "me",
+        "my",
+        "no",
+        "of",
+        "on",
+        "or",
+        "so",
+        "to",
+        "up",
+        "us",
+        "we",
         "the",
         "and",
         "for",
@@ -324,16 +345,49 @@ STOPWORDS = frozenset(
     }
 )
 
+# Bigrams where either word is one of these are always junk
+_BIGRAM_STOPWORDS = frozenset(
+    {
+        "the", "and", "for", "are", "but", "not", "you", "your", "all", "can",
+        "is", "was", "one", "our", "out", "has", "had", "how", "its", "may",
+        "new", "now", "old", "see", "who", "did", "get", "let", "say", "she",
+        "too", "use", "with", "this", "that", "have", "from", "they", "been",
+        "will", "more", "when", "what", "some", "than", "them", "into", "only",
+        "very", "just", "also", "about", "would", "there", "their", "which",
+        "could", "other", "after", "first", "never", "where", "those", "every",
+        "being", "these", "should", "because", "through", "before", "between",
+        "while", "during", "without", "within", "against", "along", "above",
+        "below", "under", "since", "until", "upon", "via", "per", "vs",
+    }
+)
+
 _TOKEN_RE = re.compile(r"[a-z][a-z0-9\-]{1,}")
+
+# Source family grouping — collapse granular source names for diversity scoring
+_SOURCE_FAMILIES = {
+    "hackernews": "aggregator",
+    "producthunt": "aggregator",
+    "github_trending": "github",
+}
+
+
+def _source_family(source: str) -> str:
+    """Map a raw source name to its family for diversity scoring."""
+    if source in _SOURCE_FAMILIES:
+        return _SOURCE_FAMILIES[source]
+    if source.startswith("rss:"):
+        return "rss"
+    return source
 
 
 def _extract_title_terms(title: str) -> set[str]:
     """Extract meaningful tokens and bigrams from a title.
 
-    Returns individual non-stopword tokens (min 3 chars) plus adjacent bigrams
-    formed from consecutive non-stopword tokens. Bigrams like 'machine learning'
-    or 'ai agents' emerge naturally; collocation detection later promotes
-    statistically significant ones and drops redundant unigrams.
+    Returns individual non-stopword tokens (min 4 chars) plus adjacent bigrams
+    formed from consecutive non-stopword tokens where neither word is a
+    preposition/article. Bigrams like 'machine learning' or 'ai agents' emerge
+    naturally; collocation detection later promotes statistically significant
+    ones and drops redundant unigrams.
     """
     tokens = _TOKEN_RE.findall(title.lower())
     # Split into runs of non-stopword tokens
@@ -351,15 +405,17 @@ def _extract_title_terms(title: str) -> set[str]:
 
     terms: set[str] = set()
     for run in runs:
-        # Add individual tokens (min 3 chars)
+        # Add individual tokens (min 4 chars to drop "won", "stop", "life", etc.)
         for tok in run:
-            if len(tok) >= 3:
+            if len(tok) >= 4:
                 terms.add(tok)
-        # Add bigrams from consecutive tokens in same run
+        # Add bigrams — both components must be non-trivial
         for a, b in zip(run, run[1:]):
-            bigram = f"{a} {b}"
-            if len(bigram) >= 3:
-                terms.add(bigram)
+            if a in _BIGRAM_STOPWORDS or b in _BIGRAM_STOPWORDS:
+                continue
+            if len(a) < 2 or len(b) < 2:
+                continue
+            terms.add(f"{a} {b}")
     return terms
 
 
@@ -432,20 +488,33 @@ def _velocity_score(
 ) -> float:
     """Compare recent mention rate vs baseline rate.
 
-    Returns >1.0 if accelerating, <1.0 if decelerating.
-    Brand-new topics (no baseline) get a 2x boost.
+    Uses published date when available (actual article date), falls back to
+    scraped_at. Returns >1.0 if accelerating, <1.0 if decelerating.
+    Returns 1.0 (neutral) when time spread is too small to be meaningful.
     """
+    timestamps: list[datetime] = []
     cutoff_recent = now - timedelta(hours=hot_hours)
     recent, baseline = 0, 0
+
     for item in items:
+        # Prefer published date over scraped_at
+        ts_str = item.get("published") or item.get("scraped_at")
         try:
-            t = datetime.fromisoformat(item["scraped_at"])
+            t = datetime.fromisoformat(ts_str)
         except (ValueError, TypeError):
             continue
+        timestamps.append(t)
         if t >= cutoff_recent:
             recent += 1
         else:
             baseline += 1
+
+    # If all items have timestamps within a narrow window (< 2 hours),
+    # velocity is meaningless — likely a batch scrape
+    if len(timestamps) >= 2:
+        spread = max(timestamps) - min(timestamps)
+        if spread < timedelta(hours=2):
+            return 1.0  # neutral
 
     baseline_days = total_days - hot_hours / 24
     baseline_rate = baseline / baseline_days if baseline_days > 0 else 0
@@ -480,16 +549,22 @@ class TrendingRadar:
     def compute(
         self,
         days: int = 7,
-        min_sources: int = 2,
+        min_source_families: int = 2,
+        min_items: int = 4,
         max_topics: int = 15,
         weights: dict | None = None,
+        # Legacy compat — ignored, use min_source_families
+        min_sources: int | None = None,
     ) -> dict:
         """Compute trending topics from recent intel items.
 
         Pipeline:
         1. Extract phrases (RAKE-style stopword splitting) + detect collocations
-        2. Gate: topic must appear in >= min_sources distinct sources
+        2. Gate: topic must appear in >= min_source_families distinct source
+           families AND have >= min_items total mentions
         3. Score: 0.35*sublinear_freq + 0.35*diversity + 0.3*velocity
+           Diversity uses source families (all rss:* = one family) so
+           cross-ecosystem convergence is valued over blog-to-blog overlap.
         """
         w = weights or {"freq": 0.35, "diversity": 0.35, "velocity": 0.3}
         cutoff = (datetime.now() - timedelta(days=days)).isoformat()
@@ -498,7 +573,7 @@ class TrendingRadar:
         with wal_connect(self.db_path) as conn:
             rows = conn.execute(
                 """
-                SELECT id, source, title, url, summary, scraped_at, tags
+                SELECT id, source, title, url, summary, scraped_at, tags, published
                 FROM intel_items
                 WHERE scraped_at >= ?
                 ORDER BY scraped_at DESC
@@ -511,7 +586,8 @@ class TrendingRadar:
             return {
                 "computed_at": now.isoformat(),
                 "days": days,
-                "min_sources": min_sources,
+                "min_source_families": min_source_families,
+                "min_items": min_items,
                 "total_items_scanned": 0,
                 "topics": [],
             }
@@ -522,19 +598,22 @@ class TrendingRadar:
 
         # Build topic → items mapping using phrase extraction
         topic_items: dict[str, list[dict]] = {}
-        all_sources: set[str] = set()
+        all_families: set[str] = set()
 
         for row in rows:
-            item_id, source, title, url, summary, scraped_at, tags_str = row
-            all_sources.add(source)
+            item_id, source, title, url, summary, scraped_at, tags_str, published = row
+            family = _source_family(source)
+            all_families.add(family)
 
             item = {
                 "id": item_id,
                 "source": source,
+                "source_family": family,
                 "title": title,
                 "url": url,
                 "summary": (summary or "")[:200],
                 "scraped_at": scraped_at,
+                "published": published,
             }
 
             # Collect phrases from tags + title
@@ -542,7 +621,7 @@ class TrendingRadar:
             if tags_str:
                 for tag in tags_str.split(","):
                     tag = tag.strip().lower()
-                    if tag and tag not in STOPWORDS and len(tag) >= 3:
+                    if tag and tag not in STOPWORDS and len(tag) >= 4:
                         terms.add(tag)
             terms |= _extract_title_terms(title)
 
@@ -557,7 +636,6 @@ class TrendingRadar:
 
         # Deduplicate: if a statistically significant collocation (e.g. "machine learning")
         # exists as a topic, remove its constituent unigrams to avoid double-counting.
-        # Only use Dunning-validated collocations, not arbitrary bigrams from titles.
         significant_bigrams = {t for t in topic_items if t in collocations}
         unigram_parts: set[str] = set()
         for ct in significant_bigrams:
@@ -567,15 +645,17 @@ class TrendingRadar:
             if part in topic_items:
                 del topic_items[part]
 
-        total_active_sources = len(all_sources)
+        total_active_families = len(all_families)
 
-        # Score each topic
+        # Score each topic — gate on source families AND min item count
         max_item_count = max((len(items) for items in topic_items.values()), default=1)
         scored: list[dict] = []
 
         for topic, items in topic_items.items():
-            sources = {i["source"] for i in items}
-            if len(sources) < min_sources:
+            if len(items) < min_items:
+                continue
+            families = {i["source_family"] for i in items}
+            if len(families) < min_source_families:
                 continue
 
             # Sublinear TF: 1+log(count) dampens high-frequency generic terms
@@ -584,11 +664,10 @@ class TrendingRadar:
                 if max_item_count > 0
                 else 0
             )
-            norm_diversity = len(sources) / total_active_sources if total_active_sources else 0
+            norm_diversity = len(families) / total_active_families if total_active_families else 0
 
             # Velocity: compare recent mention rate vs baseline
             velocity = _velocity_score(items, now, total_days=days)
-            # Normalize velocity to 0-1 range (cap at 5.0, already capped in _velocity_score)
             norm_velocity = min(velocity / 5.0, 1.0)
 
             score = (
@@ -603,17 +682,21 @@ class TrendingRadar:
             for i in sorted(items, key=lambda x: x["scraped_at"], reverse=True):
                 if i["url"] not in seen_urls:
                     seen_urls.add(i["url"])
-                    rep_items.append(i)
+                    rep_items.append({
+                        k: v for k, v in i.items() if k != "source_family"
+                    })
                 if len(rep_items) >= 3:
                     break
 
+            raw_sources = sorted({i["source"] for i in items})
             scored.append(
                 {
                     "topic": topic,
                     "score": round(score, 3),
                     "item_count": len(items),
-                    "source_count": len(sources),
-                    "sources": sorted(sources),
+                    "source_count": len(raw_sources),
+                    "sources": raw_sources,
+                    "source_families": sorted(families),
                     "velocity": round(velocity, 2),
                     "items": rep_items,
                 }
@@ -625,7 +708,8 @@ class TrendingRadar:
         return {
             "computed_at": now.isoformat(),
             "days": days,
-            "min_sources": min_sources,
+            "min_source_families": min_source_families,
+            "min_items": min_items,
             "total_items_scanned": len(rows),
             "topics": topics,
         }

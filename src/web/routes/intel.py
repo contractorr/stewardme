@@ -116,7 +116,8 @@ async def get_trending(user: dict = Depends(get_current_user)):
     if not snapshot:
         snapshot = radar.refresh(
             days=tr_config.get("days", 7),
-            min_sources=tr_config.get("min_sources", 2),
+            min_source_families=tr_config.get("min_source_families", tr_config.get("min_sources", 2)),
+            min_items=tr_config.get("min_items", 4),
             max_topics=tr_config.get("max_topics", 15),
         )
     return snapshot
