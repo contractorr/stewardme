@@ -20,6 +20,7 @@ from web.routes import (
     memory,
     onboarding,
     pageview,
+    predictions,
     profile,
     recommendations,
     research,
@@ -93,6 +94,7 @@ app.include_router(admin.router)
 app.include_router(heartbeat.router)
 app.include_router(memory.router)
 app.include_router(threads.router)
+app.include_router(predictions.router)
 
 
 @app.get("/api/health")

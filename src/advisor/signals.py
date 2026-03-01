@@ -25,6 +25,7 @@ class SignalType(str, Enum):
     LEARNING_STALLED = "learning_stalled"
     RESEARCH_TRIGGER = "research_trigger"
     RECURRING_BLOCKER = "recurring_blocker"
+    PREDICTION_REVIEW_DUE = "prediction_review_due"
 
 
 @dataclass
@@ -174,6 +175,7 @@ class SignalDetector:
             self._detect_learning_stalled,
             self._detect_research_triggers,
             self._detect_recurring_blockers,
+            self._detect_predictions_due,
         ]
         for detector in detectors:
             try:
@@ -475,6 +477,38 @@ class SignalDetector:
                     )
                 )
         return signals[:3]
+
+    def _detect_predictions_due(self) -> list[Signal]:
+        """Detect predictions past their evaluation_due date."""
+        try:
+            from predictions.store import PredictionStore
+
+            store = PredictionStore(self.db_path)
+            due = store.get_review_due(limit=5)
+        except Exception:
+            return []
+
+        signals = []
+        for pred in due:
+            try:
+                due_dt = datetime.fromisoformat(pred["evaluation_due"])
+                days_past = (datetime.now() - due_dt).days
+            except (ValueError, KeyError):
+                days_past = 0
+            signals.append(
+                Signal(
+                    type=SignalType.PREDICTION_REVIEW_DUE,
+                    severity=min(7, 3 + days_past),
+                    title=f"Prediction review due: {pred['claim_text'][:60]}",
+                    detail=f"Category: {pred['category']}, confidence: {pred['confidence_bucket']}, {days_past}d past due",
+                    suggested_actions=[
+                        "Review this prediction outcome",
+                        "Run: coach predictions review",
+                    ],
+                    expires_at=datetime.now() + timedelta(days=7),
+                )
+            )
+        return signals
 
     def _detect_recurring_blockers(self) -> list[Signal]:
         """Detect same negative keywords appearing in 3+ entries within 14 days."""

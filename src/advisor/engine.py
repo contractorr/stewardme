@@ -352,6 +352,7 @@ class AdvisorEngine:
             storage=storage,
             config=config,
             cheap_llm_caller=self._call_cheap_llm,
+            intel_db_path=getattr(self.rag, "intel_db_path", None),
         )
 
     def generate_recommendations(

@@ -56,6 +56,7 @@ TOOLS = [
                         "learning_stalled",
                         "research_trigger",
                         "recurring_blocker",
+                        "prediction_review_due",
                     ],
                 },
                 "min_severity": {

@@ -36,8 +36,8 @@ def test_load_tools_returns_20(mock_components):
     from coach_mcp.server import _load_tools
 
     tools, handlers = _load_tools()
-    assert len(tools) == 45
-    assert len(handlers) == 45
+    assert len(tools) == 48
+    assert len(handlers) == 48
 
 
 def test_load_tools_names(mock_components):
@@ -93,6 +93,9 @@ def test_load_tools_names(mock_components):
         "threads_list",
         "threads_get_entries",
         "threads_reindex",
+        "predictions_list",
+        "predictions_review",
+        "predictions_stats",
     }
     assert names == expected
 
@@ -140,4 +143,4 @@ async def test_list_tools_async(mock_components):
     from coach_mcp.server import list_tools
 
     tools = await list_tools()
-    assert len(tools) == 45
+    assert len(tools) == 48

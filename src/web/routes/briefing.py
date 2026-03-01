@@ -159,6 +159,16 @@ async def get_briefing(
     except Exception as e:
         logger.warning("briefing.goal_intel_matches_error", error=str(e))
 
+    # Predictions due for review
+    predictions_due: list[dict] = []
+    try:
+        from predictions.store import PredictionStore
+
+        pred_store = PredictionStore(db_path)
+        predictions_due = pred_store.get_review_due(limit=3)
+    except Exception as e:
+        logger.warning("briefing.predictions_error", error=str(e))
+
     has_data = bool(
         signals or patterns or recommendations or stale_goals or all_goals or goal_intel_matches
     )
@@ -199,6 +209,7 @@ async def get_briefing(
             all_goals=all_goals,
             weekly_hours=weekly_hours,
             intel_matches=goal_intel_matches,
+            predictions_due=predictions_due,
         )
         daily_brief = DailyBriefModel(
             items=[

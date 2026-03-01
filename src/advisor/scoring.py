@@ -15,6 +15,9 @@ logger = structlog.get_logger()
 MIN_EVENTS_FOR_BOOST = 10
 # Max score adjustment from engagement
 MAX_BOOST = 1.5
+# Outcome-based boost thresholds
+MIN_OUTCOMES_FOR_BOOST = 10
+MAX_OUTCOME_BOOST = 0.5
 
 
 class RecommendationScorer:
@@ -25,12 +28,15 @@ class RecommendationScorer:
         min_threshold: float = 6.0,
         users_db_path: Optional[Path] = None,
         user_id: Optional[str] = None,
+        intel_db_path: Optional[Path] = None,
         **_kwargs,
     ):
         self.min_threshold = min_threshold
         self._users_db_path = users_db_path
         self._user_id = user_id
+        self._intel_db_path = intel_db_path
         self._category_boosts: Optional[dict[str, float]] = None
+        self._outcome_boosts: Optional[dict[str, float]] = None
 
     def passes_threshold(self, score: float) -> bool:
         """Check if score meets minimum threshold."""
@@ -103,7 +109,54 @@ class RecommendationScorer:
 
         return self._category_boosts.get(category, 0.0)
 
+    def outcome_boost(self, category: str) -> float:
+        """Per-category score adjustment from prediction outcome accuracy.
+
+        Computes accuracy per category from resolved predictions (confirmed/rejected).
+        Returns boost in [-MAX_OUTCOME_BOOST, +MAX_OUTCOME_BOOST].
+        """
+        if self._outcome_boosts is not None:
+            return self._outcome_boosts.get(category, 0.0)
+
+        self._outcome_boosts = {}
+        if not self._intel_db_path:
+            return 0.0
+
+        try:
+            with wal_connect(self._intel_db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                rows = conn.execute(
+                    """
+                    SELECT category, outcome, COUNT(*) as cnt
+                    FROM predictions
+                    WHERE outcome IN ('confirmed', 'rejected')
+                    GROUP BY category, outcome
+                    """
+                ).fetchall()
+
+            cat_counts: dict[str, dict[str, int]] = {}
+            for r in rows:
+                cat = r["category"] or "unknown"
+                cat_counts.setdefault(cat, {"confirmed": 0, "rejected": 0})
+                cat_counts[cat][r["outcome"]] += r["cnt"]
+
+            for cat, counts in cat_counts.items():
+                total = counts["confirmed"] + counts["rejected"]
+                if total < MIN_OUTCOMES_FOR_BOOST:
+                    continue
+                accuracy = counts["confirmed"] / total
+                self._outcome_boosts[cat] = MAX_OUTCOME_BOOST * (2 * accuracy - 1)
+
+            logger.debug(
+                "outcome.category_boosts",
+                boosts=self._outcome_boosts,
+            )
+        except Exception as e:
+            logger.debug("outcome.boost_error", error=str(e))
+
+        return self._outcome_boosts.get(category, 0.0)
+
     def adjust_score(self, score: float, category: str) -> float:
-        """Apply engagement boost to a raw LLM score, clamped [0, 10]."""
-        boost = self.engagement_boost(category)
+        """Apply engagement + outcome boosts to a raw LLM score, clamped [0, 10]."""
+        boost = self.engagement_boost(category) + self.outcome_boost(category)
         return max(0.0, min(10.0, score + boost))

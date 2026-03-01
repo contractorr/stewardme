@@ -27,6 +27,7 @@ def _load_tools() -> tuple[list[Tool], dict]:
         journal,
         learning,
         memory,
+        predictions,
         profile,
         projects,
         recommendations,
@@ -51,6 +52,7 @@ def _load_tools() -> tuple[list[Tool], dict]:
         heartbeat,
         memory,
         threads,
+        predictions,
     ]
     tools = []
     handlers = {}
