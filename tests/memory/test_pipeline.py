@@ -5,8 +5,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from memory.models import FactCategory, FactSource
 from memory.extractor import FactExtractor
+from memory.models import FactCategory, FactSource
 from memory.pipeline import MemoryPipeline
 from memory.resolver import ConflictResolver
 from memory.store import FactStore

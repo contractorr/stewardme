@@ -1,22 +1,20 @@
 """Tests for GoalIntelMatcher, GoalIntelMatchStore, and GoalIntelLLMEvaluator."""
 
 import sqlite3
-import tempfile
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from intelligence.goal_intel_match import (
-    GoalIntelLLMEvaluator,
-    GoalIntelMatcher,
-    GoalIntelMatchStore,
     _URGENCY_HIGH,
     _URGENCY_LOW,
     _URGENCY_MEDIUM,
+    GoalIntelLLMEvaluator,
+    GoalIntelMatcher,
+    GoalIntelMatchStore,
 )
-
 
 # --- Fixtures ---
 
@@ -517,7 +515,7 @@ class TestGoalIntelLLMEvaluator:
 
     def test_schema_migration_idempotent(self, tmp_db):
         """Double-init should not crash."""
-        s1 = GoalIntelMatchStore(tmp_db)
+        GoalIntelMatchStore(tmp_db)
         s2 = GoalIntelMatchStore(tmp_db)
         # Both should work fine
         s2.save_matches([_match()])

@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from journal.thread_store import ThreadStore
-from journal.threads import ThreadDetector, ThreadMatch
+from journal.threads import ThreadDetector
 
 
 @pytest.fixture
@@ -212,6 +212,6 @@ class TestReindex:
         await store.add_entry(old.id, "e1", 0.95, datetime(2026, 1, 1))
         await store.add_entry(old.id, "e2", 0.95, datetime(2026, 1, 2))
 
-        stats = await detector.reindex_all()
+        await detector.reindex_all()
         active = await store.get_active_threads()
         assert len(active) == 0

@@ -1,7 +1,7 @@
 """Tests for Google Trends scraper."""
 
 import sys
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest

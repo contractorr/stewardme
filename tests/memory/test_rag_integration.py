@@ -82,7 +82,7 @@ class TestMemoryContext:
 
         ctx = rag.get_memory_context("test")
         # Count "- " lines (facts)
-        fact_lines = [l for l in ctx.split("\n") if l.startswith("- ")]
+        fact_lines = [line for line in ctx.split("\n") if line.startswith("- ")]
         assert len(fact_lines) <= 3
 
     def test_disabled_memory_returns_empty(self, rag_without_memory):

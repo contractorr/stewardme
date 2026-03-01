@@ -2,7 +2,6 @@
 
 import sqlite3
 from datetime import datetime, timedelta
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -15,7 +14,6 @@ from intelligence.heartbeat import (
     HeartbeatPipeline,
     ScoredItem,
 )
-
 
 # --- Fixtures ---
 
