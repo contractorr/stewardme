@@ -342,6 +342,14 @@ STOPWORDS = frozenset(
         "site",
         "blog",
         "post",
+        "source",
+        "problem",
+        "model",
+        "models",
+        "state",
+        "power",
+        "reading",
+        "review",
     }
 )
 
