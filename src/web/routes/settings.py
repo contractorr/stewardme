@@ -59,8 +59,8 @@ async def test_llm_connectivity(user: dict = Depends(get_current_user)):
         provider = create_llm_provider(provider=provider_name, api_key=api_key)
         response = await asyncio.to_thread(
             provider.generate,
+            messages=[{"role": "user", "content": "ping"}],
             system="Reply with exactly: ok",
-            prompt="ping",
             max_tokens=5,
         )
         return {"ok": True, "provider": provider.provider_name, "response": response.strip()}
