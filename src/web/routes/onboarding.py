@@ -12,7 +12,12 @@ from journal.embeddings import EmbeddingManager
 from journal.storage import JournalStorage
 from llm import create_llm_provider
 from web.auth import get_current_user
-from web.deps import get_api_key_for_user, get_config, get_user_paths
+from web.deps import (
+    SHARED_LLM_MODEL,
+    get_api_key_with_source,
+    get_config,
+    get_user_paths,
+)
 from web.feed_catalog import FEED_CATALOG, feeds_for_categories, match_categories_to_profile
 from web.models import (
     FeedCategoryItem,
@@ -22,6 +27,7 @@ from web.models import (
     OnboardingResponse,
     ProfileStatus,
 )
+from web.rate_limit import check_shared_key_rate_limit
 from web.user_store import (
     add_user_rss_feed,
     clear_onboarding_responses,
@@ -123,7 +129,7 @@ def _extract_completion_json(text: str) -> dict | None:
 def _make_llm_caller(user_id: str):
     """Build LLM caller for a user (same pattern as advisor route)."""
     config = get_config()
-    api_key = get_api_key_for_user(user_id, config.llm.provider)
+    api_key, source = get_api_key_with_source(user_id)
     if not api_key:
         raise HTTPException(status_code=400, detail="No LLM API key configured")
 
@@ -137,7 +143,7 @@ def _make_llm_caller(user_id: str):
         pass
 
     provider = secrets_provider or config.llm.provider
-    model = config.llm.model
+    model = SHARED_LLM_MODEL if source == "shared" else config.llm.model
     llm = create_llm_provider(provider=provider, api_key=api_key, model=model)
 
     def caller(system: str, prompt: str, max_tokens: int = 1500) -> str:
@@ -237,6 +243,11 @@ def _strip_json_block(text: str) -> str:
 async def start_onboarding(user: dict = Depends(get_current_user)):
     user_id = user["id"]
 
+    # Rate limit shared-key users
+    _key, _src = get_api_key_with_source(user_id)
+    if _src == "shared":
+        check_shared_key_rate_limit(user_id)
+
     # Clear previous onboarding responses for re-onboarding
     try:
         clear_onboarding_responses(user_id)
@@ -273,6 +284,12 @@ async def chat_onboarding(
     user: dict = Depends(get_current_user),
 ):
     user_id = user["id"]
+
+    # Rate limit shared-key users
+    _key, _src = get_api_key_with_source(user_id)
+    if _src == "shared":
+        check_shared_key_rate_limit(user_id)
+
     session = _sessions.get(user_id)
     if not session:
         raise HTTPException(
@@ -427,10 +444,12 @@ async def get_profile_status(user: dict = Depends(get_current_user)):
     storage = ProfileStorage(paths["profile"])
     profile = storage.load()
 
-    has_api_key = bool(get_api_key_for_user(user_id))
+    _key, source = get_api_key_with_source(user_id)
 
     return ProfileStatus(
         has_profile=profile is not None,
         is_stale=profile.is_stale() if profile else False,
-        has_api_key=has_api_key,
+        has_api_key=_key is not None,
+        has_own_key=source == "user",
+        using_shared_key=source == "shared",
     )

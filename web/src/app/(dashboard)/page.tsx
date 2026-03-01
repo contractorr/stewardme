@@ -16,6 +16,7 @@ interface ProfileStatus {
   has_profile: boolean;
   is_stale: boolean;
   has_api_key: boolean;
+  using_shared_key: boolean;
 }
 
 export default function HomePage() {
@@ -45,20 +46,20 @@ export default function HomePage() {
 
     Promise.allSettled([
       loadBriefing(token),
-      apiFetch<{ llm_api_key_set: boolean }>("/api/settings", {}, token),
+      apiFetch<{ llm_api_key_set: boolean; using_shared_key: boolean }>("/api/settings", {}, token),
       apiFetch<ProfileStatus>("/api/onboarding/profile-status", {}, token),
       apiFetch<{ name: string | null }>("/api/user/me", {}, token),
     ]).then(([, settingsRes, profileRes, userRes]) => {
       if (cancelled) return;
 
-      const noApiKey =
+      const hasAnyKey =
         settingsRes.status === "fulfilled" &&
-        !settingsRes.value.llm_api_key_set;
+        (settingsRes.value.llm_api_key_set || settingsRes.value.using_shared_key);
       const noProfile =
         profileRes.status === "fulfilled" &&
         !profileRes.value.has_profile;
 
-      if (noApiKey || noProfile) {
+      if (!hasAnyKey || noProfile) {
         router.replace("/onboarding");
         return;
       }

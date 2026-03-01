@@ -25,6 +25,8 @@ class SettingsResponse(BaseModel):
     llm_model: Optional[str] = None
     llm_api_key_set: bool = False
     llm_api_key_hint: Optional[str] = None
+    using_shared_key: bool = False
+    has_own_key: bool = False
     tavily_api_key_set: bool = False
     tavily_api_key_hint: Optional[str] = None
     github_token_set: bool = False
@@ -153,6 +155,8 @@ class ProfileStatus(BaseModel):
     has_profile: bool = False
     is_stale: bool = False
     has_api_key: bool = False
+    has_own_key: bool = False
+    using_shared_key: bool = False
 
 
 class OnboardingChat(BaseModel):

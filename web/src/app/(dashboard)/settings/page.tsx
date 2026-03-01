@@ -34,6 +34,8 @@ interface Settings {
   llm_model: string | null;
   llm_api_key_set: boolean;
   llm_api_key_hint: string | null;
+  using_shared_key: boolean;
+  has_own_key: boolean;
   tavily_api_key_set: boolean;
   tavily_api_key_hint: string | null;
   github_token_set: boolean;
@@ -552,6 +554,11 @@ export default function SettingsPage() {
               onChange={(e) => setForm({ ...form, llm_model: e.target.value })}
             />
           </div>
+          {settings.using_shared_key && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30 p-3 text-xs text-amber-800 dark:text-amber-200">
+              You&apos;re using lite mode (Haiku, 30 queries/day). Add your own key below for full-quality responses, deep research, and unlimited usage.
+            </div>
+          )}
           <ApiKeyInput
             label="LLM API Key"
             name="llm_api_key"
@@ -559,7 +566,7 @@ export default function SettingsPage() {
             onChange={(v) => setForm({ ...form, llm_api_key: v })}
             isSet={settings.llm_api_key_set}
             hint={settings.llm_api_key_hint}
-            description="Required. Powers your steward. Your key is encrypted and stored per-user."
+            description="Optional. Your key is encrypted and stored per-user. Without it, lite mode (Haiku, 30 queries/day) is used."
           />
         </CardContent>
       </Card>

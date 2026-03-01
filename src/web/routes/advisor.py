@@ -18,7 +18,13 @@ from web.conversation_store import (
     get_messages,
     list_conversations,
 )
-from web.deps import get_api_key_for_user, get_config, get_user_paths, safe_user_id
+from web.deps import (
+    SHARED_LLM_MODEL,
+    get_api_key_with_source,
+    get_config,
+    get_user_paths,
+    safe_user_id,
+)
 from web.models import (
     AdvisorAsk,
     AdvisorResponse,
@@ -26,6 +32,7 @@ from web.models import (
     ConversationListItem,
     ConversationMessage,
 )
+from web.rate_limit import check_shared_key_rate_limit
 from web.user_store import log_event
 
 router = APIRouter(prefix="/api/advisor", tags=["advisor"])
@@ -61,11 +68,16 @@ def _get_engine(user_id: str, use_tools: bool = False):
         user_id=user_id,
     )
 
-    api_key = get_api_key_for_user(user_id, config.llm.provider)
+    api_key, source = get_api_key_with_source(user_id)
+    is_shared = source == "shared"
+
+    # Shared key: force Haiku, disable agentic mode
+    model = SHARED_LLM_MODEL if is_shared else config.llm.model
+    effective_use_tools = False if is_shared else use_tools
 
     # Build per-user components dict for agentic mode
     components = None
-    if use_tools:
+    if effective_use_tools:
         components = {
             "storage": journal_storage,
             "embeddings": embeddings,
@@ -79,9 +91,9 @@ def _get_engine(user_id: str, use_tools: bool = False):
     return AdvisorEngine(
         rag=rag,
         api_key=api_key,
-        model=config.llm.model,
+        model=model,
         provider=config.llm.provider,
-        use_tools=use_tools,
+        use_tools=effective_use_tools,
         components=components,
     )
 
@@ -107,6 +119,12 @@ async def ask_advisor(
 ):
     try:
         user_id = user["id"]
+
+        # Rate limit shared-key users
+        _key, _src = get_api_key_with_source(user_id)
+        if _src == "shared":
+            check_shared_key_rate_limit(user_id)
+
         conv_id = body.conversation_id
 
         # Create or validate conversation
@@ -153,6 +171,12 @@ async def ask_advisor_stream(
 ):
     """SSE streaming version of /ask — emits tool_start/tool_done/answer events."""
     user_id = user["id"]
+
+    # Rate limit shared-key users
+    _key, _src = get_api_key_with_source(user_id)
+    if _src == "shared":
+        check_shared_key_rate_limit(user_id)
+
     conv_id = body.conversation_id
 
     # Create or validate conversation

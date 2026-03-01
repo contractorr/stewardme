@@ -76,26 +76,37 @@ def get_decrypted_secrets_for_user(user_id: str) -> dict:
     return get_user_secrets(user_id, get_secret_key())
 
 
-def get_api_key_for_user(user_id: str, provider: str | None = None) -> str | None:
-    """Get LLM API key for a user: user secrets first, then env vars, then config."""
+SHARED_LLM_MODEL = "claude-haiku-4-5"
+
+
+def get_api_key_with_source(user_id: str) -> tuple[str | None, str | None]:
+    """Get LLM API key + source for a user.
+
+    Returns (key, source) where source is "user" | "shared" | None.
+    """
     secrets = get_decrypted_secrets_for_user(user_id)
 
     # 1. User's encrypted secrets
     if secrets.get("llm_api_key"):
-        return secrets["llm_api_key"]
+        return secrets["llm_api_key"], "user"
 
-    # 2. Env vars (shared fallback)
+    # 2. Env vars / config = shared fallback
     for env_var in ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GOOGLE_API_KEY"]:
         val = os.getenv(env_var)
         if val:
-            return val
+            return val, "shared"
 
-    # 3. Config file
     config = get_config()
     if config.llm.api_key:
-        return config.llm.api_key
+        return config.llm.api_key, "shared"
 
-    return None
+    return None, None
+
+
+def get_api_key_for_user(user_id: str, provider: str | None = None) -> str | None:
+    """Get LLM API key for a user: user secrets first, then env vars, then config."""
+    key, _source = get_api_key_with_source(user_id)
+    return key
 
 
 def _hint(value: str | None) -> str | None:
@@ -110,11 +121,16 @@ def get_settings_mask_for_user(user_id: str) -> dict:
     secrets = get_decrypted_secrets_for_user(user_id)
     config = get_config()
 
+    _key, source = get_api_key_with_source(user_id)
+    has_own_key = bool(secrets.get("llm_api_key"))
+
     return {
         "llm_provider": secrets.get("llm_provider") or config.llm.provider,
         "llm_model": secrets.get("llm_model") or config.llm.model,
-        "llm_api_key_set": bool(secrets.get("llm_api_key")),
+        "llm_api_key_set": has_own_key,
         "llm_api_key_hint": _hint(secrets.get("llm_api_key")),
+        "using_shared_key": source == "shared",
+        "has_own_key": has_own_key,
         "tavily_api_key_set": bool(secrets.get("tavily_api_key")),
         "tavily_api_key_hint": _hint(secrets.get("tavily_api_key")),
         "github_token_set": bool(secrets.get("github_token")),

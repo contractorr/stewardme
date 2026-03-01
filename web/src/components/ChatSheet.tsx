@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/sheet";
 import { apiFetchSSE } from "@/lib/api";
 import { TOOL_LABELS } from "@/lib/constants";
+import { useLiteMode } from "@/hooks/useLiteMode";
 
 interface Message {
   role: "user" | "assistant";
@@ -39,6 +40,7 @@ export function ChatSheet({
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lastFiredQuestion = useRef<string | null>(null);
+  const liteMode = useLiteMode();
 
   const sendMessage = useCallback(
     async (question: string, convId: string | null) => {
@@ -138,8 +140,13 @@ export function ChatSheet({
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b px-3 py-2">
-          <SheetTitle className="text-xs font-medium text-muted-foreground">
+          <SheetTitle className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
             Conversation
+            {liteMode && (
+              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
+                lite
+              </span>
+            )}
           </SheetTitle>
           <div className="flex items-center gap-1">
             {conversationId && (

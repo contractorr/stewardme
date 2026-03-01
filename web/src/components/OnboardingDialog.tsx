@@ -357,10 +357,40 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
               </div>
             </div>
 
-            <SheetFooter>
+            <SheetFooter className="flex-col gap-2">
               <Button onClick={handleSaveKey} disabled={saving} className="w-full">
                 {saving ? "Setting up..." : "Get Started"}
               </Button>
+              <button
+                onClick={() => {
+                  // Skip key — start onboarding chat on shared key
+                  (async () => {
+                    setSending(true);
+                    try {
+                      const res = await apiFetch<{ message: string; done: boolean; turn: number }>(
+                        "/api/onboarding/start",
+                        { method: "POST" },
+                        token
+                      );
+                      setMessages([{ role: "assistant", content: res.message }]);
+                      setTurn(res.turn);
+                      setPhase("chat");
+                    } catch (e) {
+                      toast.error((e as Error).message);
+                    } finally {
+                      setSending(false);
+                    }
+                  })();
+                }}
+                className="w-full text-center text-xs text-muted-foreground hover:text-foreground"
+              >
+                Skip &mdash; use lite mode
+              </button>
+              <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30 p-3 text-xs text-muted-foreground space-y-1">
+                <p className="font-medium text-foreground">Lite mode</p>
+                <p>Haiku model &middot; 30 queries/day &middot; No deep research</p>
+                <p>Add your own key anytime in Settings for the full experience.</p>
+              </div>
             </SheetFooter>
           </>
         )}

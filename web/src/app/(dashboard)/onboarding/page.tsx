@@ -140,6 +140,7 @@ export default function OnboardingPage() {
   const [goalsCreated, setGoalsCreated] = useState(0);
   const [turn, setTurn] = useState(0);
   const [hasApiKey, setHasApiKey] = useState<boolean | null>(null);
+  const [usingSharedKey, setUsingSharedKey] = useState(false);
   const [name, setName] = useState("");
   const [feedCategories, setFeedCategories] = useState<FeedCategoryItem[]>([]);
   const [selectedFeeds, setSelectedFeeds] = useState<Set<string>>(new Set());
@@ -150,9 +151,10 @@ export default function OnboardingPage() {
   // Check if user already has API key to skip welcome phase
   useEffect(() => {
     if (!token) return;
-    apiFetch<{ llm_api_key_set: boolean }>("/api/settings", {}, token)
+    apiFetch<{ llm_api_key_set: boolean; using_shared_key: boolean }>("/api/settings", {}, token)
       .then((s) => {
         setHasApiKey(s.llm_api_key_set);
+        setUsingSharedKey(s.using_shared_key);
         if (s.llm_api_key_set) setPhase("chat");
       })
       .catch(() => setHasApiKey(false));
@@ -210,6 +212,11 @@ export default function OnboardingPage() {
       // non-blocking — name is optional
     }
     setPhase(hasApiKey ? "chat" : "welcome");
+  };
+
+  const handleSkipKey = () => {
+    setUsingSharedKey(true);
+    setPhase("chat");
   };
 
   const [testing, setTesting] = useState(false);
@@ -481,7 +488,7 @@ export default function OnboardingPage() {
               </div>
             </div>
 
-            <div className="px-6 pb-6">
+            <div className="px-6 pb-6 space-y-2">
               <Button
                 onClick={handleSaveKey}
                 disabled={saving || testing}
@@ -489,6 +496,17 @@ export default function OnboardingPage() {
               >
                 {testing ? "Testing connection..." : saving ? "Saving..." : "Get Started"}
               </Button>
+              <button
+                onClick={handleSkipKey}
+                className="w-full text-center text-xs text-muted-foreground hover:text-foreground"
+              >
+                Skip &mdash; use lite mode
+              </button>
+              <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30 p-3 text-xs text-muted-foreground space-y-1">
+                <p className="font-medium text-foreground">Lite mode</p>
+                <p>Haiku model &middot; 30 queries/day &middot; No deep research</p>
+                <p>Add your own key anytime in Settings for the full experience.</p>
+              </div>
             </div>
           </div>
         )}
@@ -679,6 +697,15 @@ export default function OnboardingPage() {
                 The more you journal and set goals, the sharper your brief gets.
                 You can always revisit this from the sidebar.
               </div>
+              {usingSharedKey && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30 p-3 text-xs text-muted-foreground space-y-1">
+                  <p className="font-medium text-foreground">Upgrade anytime</p>
+                  <p>
+                    You&apos;re on lite mode. Add your API key in Settings for
+                    fuller responses, deep research, and unlimited usage.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="px-6 pb-6">

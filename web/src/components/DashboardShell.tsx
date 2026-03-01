@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { X } from "lucide-react";
 import { useToken } from "@/hooks/useToken";
 import { usePageView } from "@/hooks/usePageView";
+import { useLiteMode } from "@/hooks/useLiteMode";
 import { AppHeader } from "@/components/AppHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { SettingsSheet } from "@/components/SettingsSheet";
@@ -10,8 +13,10 @@ import { SettingsSheet } from "@/components/SettingsSheet";
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const token = useToken();
   usePageView();
+  const liteMode = useLiteMode();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   return (
     <div className="h-screen">
@@ -27,7 +32,25 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           token={token}
         />
       )}
-      <main className="h-full overflow-y-auto pt-12">{children}</main>
+      {liteMode && !bannerDismissed && (
+        <div className="fixed top-12 left-0 right-0 z-30 border-b border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/80 px-4 py-1.5">
+          <div className="mx-auto flex max-w-4xl items-center justify-between text-xs text-amber-800 dark:text-amber-200">
+            <span>
+              Using lite mode (Haiku) &mdash; responses may be less detailed.{" "}
+              <Link href="/settings" className="underline hover:text-amber-900 dark:hover:text-amber-100">
+                Add your API key
+              </Link>{" "}
+              for the full experience.
+            </span>
+            <button onClick={() => setBannerDismissed(true)} className="ml-3 shrink-0 hover:text-amber-900 dark:hover:text-amber-100">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+      <main className={`h-full overflow-y-auto pt-12 ${liteMode && !bannerDismissed ? "mt-8" : ""}`}>
+        {children}
+      </main>
     </div>
   );
 }

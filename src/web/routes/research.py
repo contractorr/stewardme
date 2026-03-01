@@ -5,7 +5,7 @@ import asyncio
 from fastapi import APIRouter, Depends, HTTPException
 
 from web.auth import get_current_user
-from web.deps import get_config, get_user_paths, safe_user_id
+from web.deps import get_api_key_with_source, get_config, get_user_paths, safe_user_id
 
 router = APIRouter(prefix="/api/research", tags=["research"])
 
@@ -34,8 +34,19 @@ def _get_agent(user_id: str):
     )
 
 
+def _check_shared_key(user_id: str):
+    """Block deep research for shared-key users — quality too poor on Haiku."""
+    _key, source = get_api_key_with_source(user_id)
+    if source == "shared":
+        raise HTTPException(
+            status_code=403,
+            detail="Deep research requires your own API key. Add one in Settings to unlock.",
+        )
+
+
 @router.get("/topics")
 async def get_topics(user: dict = Depends(get_current_user)):
+    _check_shared_key(user["id"])
     try:
         agent = _get_agent(user["id"])
         return await asyncio.to_thread(agent.get_suggested_topics)
@@ -48,6 +59,7 @@ async def run_research(
     topic: str | None = None,
     user: dict = Depends(get_current_user),
 ):
+    _check_shared_key(user["id"])
     try:
         agent = _get_agent(user["id"])
         results = await asyncio.to_thread(agent.run, specific_topic=topic)
