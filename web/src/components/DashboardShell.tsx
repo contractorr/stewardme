@@ -37,15 +37,15 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       )}
       {showBanner && (
         <div className="fixed top-12 left-0 right-0 z-30 border-b border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/80 px-4 py-1.5">
-          <div className="mx-auto flex max-w-4xl items-center justify-between text-xs text-amber-800 dark:text-amber-200">
-            <span>
+          <div className="relative flex items-center justify-center text-xs text-amber-800 dark:text-amber-200">
+            <span className="text-center">
               Using lite mode (Haiku) &mdash; responses may be less detailed.{" "}
               <Link href="/settings" className="underline hover:text-amber-900 dark:hover:text-amber-100">
                 Add your API key
               </Link>{" "}
               for the full experience.
             </span>
-            <button onClick={() => setBannerDismissed(true)} className="ml-3 shrink-0 hover:text-amber-900 dark:hover:text-amber-100">
+            <button onClick={() => setBannerDismissed(true)} className="absolute right-0 shrink-0 hover:text-amber-900 dark:hover:text-amber-100">
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
