@@ -14,6 +14,7 @@ from cli.commands import (
     capabilities,
     daemon,
     db,
+    eval_cmd,
     export,
     goals,
     heartbeat,
@@ -79,6 +80,7 @@ cli.add_command(trends)
 cli.add_command(reflect)
 cli.add_command(today)
 cli.add_command(radar)
+cli.add_command(eval_cmd)
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@ from .advisor import ask, goals, opportunities, review, today
 from .capabilities import capabilities
 from .daemon import daemon
 from .database import db
+from .eval_cmd import eval_cmd
 from .export import export
 from .heartbeat import heartbeat
 from .init import init
@@ -46,4 +47,5 @@ __all__ = [
     "heartbeat",
     "memory",
     "threads",
+    "eval_cmd",
 ]

@@ -1,0 +1,109 @@
+cases:
+  # Exact keyword — journal
+  - query: "What progress have I made on Rust?"
+    expected_doc_ids: ["learn-rust"]
+    description: "Should find Rust goal entry"
+
+  - query: "Weekly review reflections"
+    expected_doc_ids: ["weekly-review"]
+    description: "Should find weekly review entry"
+
+  - query: "Career strategy insights"
+    expected_doc_ids: ["career-strategy"]
+    description: "Should find career strategy insight"
+
+  - query: "AI coach project status"
+    expected_doc_ids: ["weekly-review"]
+    description: "Weekly review mentions AI coach project"
+
+  - query: "building in public"
+    expected_doc_ids: ["career-strategy"]
+    description: "Career strategy mentions building in public"
+
+  # Exact keyword — intel
+  - query: "AI code review tools"
+    expected_doc_ids: ["ai-reviewer"]
+    description: "Should find HN AI reviewer item"
+
+  - query: "Rust adoption enterprise"
+    expected_doc_ids: ["rust-enterprise"]
+    description: "Should find RSS Rust enterprise article"
+
+  - query: "langchain LLM framework"
+    expected_doc_ids: ["langchain"]
+    description: "Should find GitHub trending langchain"
+
+  # Semantic — journal
+  - query: "learning goals and progress"
+    expected_doc_ids: ["learn-rust"]
+    description: "Semantic match to Rust learning goal"
+
+  - query: "professional development strategy"
+    expected_doc_ids: ["career-strategy"]
+    description: "Semantic match to career strategy"
+
+  - query: "testing and quality"
+    expected_doc_ids: ["weekly-review"]
+    description: "Weekly review mentions need for testing"
+
+  - query: "ownership concepts in programming"
+    expected_doc_ids: ["learn-rust"]
+    description: "Rust goal mentions ownership concepts"
+
+  # Semantic — intel
+  - query: "trending open source projects"
+    expected_doc_ids: ["langchain"]
+    description: "GitHub trending items"
+
+  - query: "pull request automation"
+    expected_doc_ids: ["ai-reviewer"]
+    description: "AI reviewer relates to PR automation"
+
+  - query: "systems programming languages"
+    expected_doc_ids: ["rust-enterprise"]
+    description: "Rust enterprise article about systems programming"
+
+  # Cross-source — journal + intel
+  - query: "Rust programming"
+    expected_doc_ids: ["learn-rust", "rust-enterprise"]
+    description: "Should hit both journal Rust goal and intel Rust article"
+
+  - query: "AI and machine learning tools"
+    expected_doc_ids: ["ai-reviewer", "langchain", "weekly-review"]
+    description: "Should hit AI-related items across sources"
+
+  - query: "programming projects and tools"
+    expected_doc_ids: ["learn-rust", "langchain"]
+    description: "Cross-source programming content"
+
+  # Type-filtered
+  - query: "my goals"
+    expected_doc_ids: ["learn-rust"]
+    entry_type: "goal"
+    description: "Type filter should narrow to goal entries"
+
+  - query: "reflections on work"
+    expected_doc_ids: ["weekly-review"]
+    entry_type: "reflection"
+    description: "Type filter should narrow to reflections"
+
+  # FTS-advantage: partial/stemmed
+  - query: "reviewing code"
+    expected_doc_ids: ["ai-reviewer"]
+    description: "Stemmed form of reviewer"
+
+  - query: "accountability networking"
+    expected_doc_ids: ["career-strategy"]
+    description: "Keywords from career strategy entry"
+
+  - query: "composability applications"
+    expected_doc_ids: ["langchain"]
+    description: "Keywords from langchain summary"
+
+  - query: "quarter end deadline"
+    expected_doc_ids: ["learn-rust"]
+    description: "Rust goal mentions end of quarter"
+
+  - query: "Show HN projects"
+    expected_doc_ids: ["ai-reviewer"]
+    description: "HN source tag match"

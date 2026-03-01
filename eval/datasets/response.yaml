@@ -1,0 +1,96 @@
+cases:
+  # Basic quality
+  - query: "What should I focus on this week?"
+    advice_type: "general"
+    expected_traits: ["actionable advice", "references journal context"]
+    forbidden_traits: ["hallucinated URL"]
+    description: "General weekly planning advice"
+
+  - query: "How am I progressing on my goals?"
+    advice_type: "goals"
+    expected_traits: ["references specific goals", "suggests next steps"]
+    forbidden_traits: ["claims user said something not in context"]
+    description: "Goal progress review"
+
+  - query: "What career moves should I consider?"
+    advice_type: "career"
+    expected_traits: ["considers user background", "actionable suggestions"]
+    forbidden_traits: ["generic advice ignoring profile"]
+    description: "Career-specific advice"
+
+  # Opportunities
+  - query: "Are there any interesting opportunities in AI?"
+    advice_type: "opportunities"
+    expected_traits: ["references intel items", "relevant to user interests"]
+    forbidden_traits: ["hallucinated company names"]
+    description: "Opportunity matching from intel"
+
+  - query: "What trending projects align with my skills?"
+    advice_type: "opportunities"
+    expected_traits: ["references trending items", "connects to user skills"]
+    forbidden_traits: ["fabricated project names"]
+    description: "Skill-matched opportunities"
+
+  # Context integration
+  - query: "Summarize what I've been working on recently"
+    advice_type: "general"
+    expected_traits: ["references journal entries", "accurate summary"]
+    forbidden_traits: ["invents activities not in journal"]
+    description: "Should ground in actual journal content"
+
+  - query: "What have I learned about Rust so far?"
+    advice_type: "general"
+    expected_traits: ["references Rust goal entry", "accurate to journal"]
+    forbidden_traits: ["claims Rust progress not in entries"]
+    description: "Topic-specific context retrieval"
+
+  # Edge cases
+  - query: "help"
+    advice_type: "general"
+    expected_traits: ["provides useful guidance", "not confused by vague query"]
+    forbidden_traits: ["error message exposed to user"]
+    description: "Vague single-word query"
+
+  - query: "I want to learn Rust AND find AI jobs AND review my goals"
+    advice_type: "general"
+    expected_traits: ["addresses multiple topics", "structured response"]
+    forbidden_traits: ["ignores one of the topics"]
+    description: "Multi-topic query"
+
+  - query: "What do you think about the mass layoffs at TechCorp?"
+    advice_type: "general"
+    expected_traits: ["acknowledges lack of specific info"]
+    forbidden_traits: ["fabricates details about TechCorp", "hallucinated URL"]
+    description: "Query about unknown entity"
+
+  # Response format
+  - query: "Give me a plan to improve my coding skills"
+    advice_type: "general"
+    expected_traits: ["structured plan", "actionable steps"]
+    forbidden_traits: ["hallucinated URL", "claims user said something not in context"]
+    description: "Should produce structured actionable plan"
+
+  - query: "What Hacker News stories are relevant to me?"
+    advice_type: "opportunities"
+    expected_traits: ["references HN items from intel", "explains relevance"]
+    forbidden_traits: ["fabricated HN post titles"]
+    description: "Intel-grounded recommendations"
+
+  # Advice quality
+  - query: "Should I switch from Python to Rust full-time?"
+    advice_type: "career"
+    expected_traits: ["balanced perspective", "considers tradeoffs"]
+    forbidden_traits: ["absolute recommendation without nuance"]
+    description: "Nuanced career decision advice"
+
+  - query: "I'm feeling stuck on my projects"
+    advice_type: "general"
+    expected_traits: ["empathetic tone", "practical suggestions"]
+    forbidden_traits: ["dismissive response"]
+    description: "Emotionally aware response"
+
+  - query: "Compare my journal themes to current tech trends"
+    advice_type: "general"
+    expected_traits: ["connects journal to intel", "identifies overlaps"]
+    forbidden_traits: ["ignores journal data", "ignores intel data"]
+    description: "Cross-source synthesis"
