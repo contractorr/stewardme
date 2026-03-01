@@ -194,7 +194,9 @@ class TestSemanticDedup:
         # Verify duplicate_of is set in DB
         with wal_connect(storage.db_path) as conn:
             conn.row_factory = sqlite3.Row
-            row = conn.execute("SELECT duplicate_of FROM intel_items WHERE url = ?", ("https://a.com/dup",)).fetchone()
+            row = conn.execute(
+                "SELECT duplicate_of FROM intel_items WHERE url = ?", ("https://a.com/dup",)
+            ).fetchone()
             assert row is not None
             assert row["duplicate_of"] == 42
 
@@ -218,8 +220,12 @@ class TestSemanticDedup:
 
         scraper = DummyScraper(storage, embedding_manager=mock_em)
         items = [
-            IntelItem(source="test", title="Original", url="https://a.com/1", summary="story about AI"),
-            IntelItem(source="test", title="Duplicate", url="https://a.com/2", summary="story about AI"),
+            IntelItem(
+                source="test", title="Original", url="https://a.com/1", summary="story about AI"
+            ),
+            IntelItem(
+                source="test", title="Duplicate", url="https://a.com/2", summary="story about AI"
+            ),
         ]
         new_count, deduped_count = await scraper.save_items(items)
         assert new_count == 1

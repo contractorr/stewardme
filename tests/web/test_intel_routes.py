@@ -102,6 +102,55 @@ def test_trending_returns_personalized_flag(client, auth_headers):
     assert "personalized" in data
 
 
+def test_scrape_injects_user_github_token(client, auth_headers, secret_key):
+    """User's stored github_token flows into scheduler full_config."""
+    captured = {}
+    real_init_called = False
+
+    class FakeScheduler:
+        def __init__(self, **kwargs):
+            nonlocal real_init_called
+            real_init_called = True
+            captured.update(kwargs)
+            self._scrapers = []
+
+        async def _run_async(self):
+            return {"sources": 0}
+
+    with (
+        patch("web.routes.intel._get_storage", return_value=MagicMock()),
+        patch("intelligence.scheduler.IntelScheduler", FakeScheduler),
+        patch("journal.storage.JournalStorage"),
+        patch("journal.embeddings.EmbeddingManager"),
+        patch(
+            "web.user_store.get_user_secret",
+            return_value="ghp_test_token_123",
+        ),
+        patch("web.deps.get_secret_key", return_value=secret_key),
+    ):
+        res = client.post("/api/intel/scrape", headers=auth_headers)
+    assert res.status_code == 200
+    assert real_init_called
+    token = captured["full_config"]["projects"]["github_issues"]["token"]
+    assert token == "ghp_test_token_123"
+
+
+def test_scrape_works_without_github_token(client, auth_headers):
+    """Scrape still works when user has no stored github_token."""
+    mock_scheduler = MagicMock()
+    mock_scheduler._run_async = AsyncMock(return_value={"sources": 0})
+    with (
+        patch("web.routes.intel._get_storage", return_value=MagicMock()),
+        patch("intelligence.scheduler.IntelScheduler", return_value=mock_scheduler),
+        patch("journal.storage.JournalStorage"),
+        patch("journal.embeddings.EmbeddingManager"),
+        patch("web.user_store.get_user_secret", return_value=None),
+        patch("web.deps.get_secret_key", return_value="fake-key"),
+    ):
+        res = client.post("/api/intel/scrape", headers=auth_headers)
+    assert res.status_code == 200
+
+
 def test_rss_feeds_includes_health(client, auth_headers):
     """RSS feeds endpoint attaches per-feed health data."""
     mock_feeds = [{"url": "https://a.com/rss", "name": "A"}]

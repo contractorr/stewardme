@@ -213,12 +213,25 @@ async def scrape_now(user: dict = Depends(get_current_user)):
         journal_storage = JournalStorage(paths["journal_dir"])
         embeddings = EmbeddingManager(paths["chroma_dir"])
 
+        full = config.to_dict()
+
+        # Overlay user's github_token if stored
+        from web.deps import get_secret_key
+        from web.user_store import get_user_secret
+
+        try:
+            gh_token = get_user_secret(user["id"], "github_token", get_secret_key())
+            if gh_token:
+                full.setdefault("projects", {}).setdefault("github_issues", {})["token"] = gh_token
+        except Exception:
+            pass
+
         scheduler = IntelScheduler(
             storage=storage,
-            config=config.to_dict().get("sources", {}),
+            config=full.get("sources", {}),
             journal_storage=journal_storage,
             embeddings=embeddings,
-            full_config=config.to_dict(),
+            full_config=full,
         )
 
         # Merge user-added RSS feeds

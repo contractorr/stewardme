@@ -115,7 +115,9 @@ class TestScraperHealthTracker:
     def test_record_success_with_metrics(self, temp_dirs):
         tracker = self._make_tracker(temp_dirs)
 
-        tracker.record_success("hn", items_scraped=25, items_new=10, duration_s=3.14, items_deduped=3)
+        tracker.record_success(
+            "hn", items_scraped=25, items_new=10, duration_s=3.14, items_deduped=3
+        )
 
         health = tracker.get_source_health("hn")
         assert health["last_items_scraped"] == 25

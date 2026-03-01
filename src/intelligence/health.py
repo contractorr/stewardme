@@ -61,8 +61,19 @@ class ScraperHealthTracker:
                     last_items_deduped = ?
                 """,
                 (
-                    source, now, now, items_scraped, items_new, duration_s, items_deduped,
-                    now, now, items_scraped, items_new, duration_s, items_deduped,
+                    source,
+                    now,
+                    now,
+                    items_scraped,
+                    items_new,
+                    duration_s,
+                    items_deduped,
+                    now,
+                    now,
+                    items_scraped,
+                    items_new,
+                    duration_s,
+                    items_deduped,
                 ),
             )
 

@@ -26,11 +26,24 @@ def _get_agent(user_id: str):
     )
     intel_storage = IntelStorage(paths["intel_db"])  # shared
 
+    cfg = config.to_dict()
+
+    # Overlay user's tavily_api_key if stored
+    from web.deps import get_secret_key
+    from web.user_store import get_user_secret
+
+    try:
+        tavily_key = get_user_secret(user_id, "tavily_api_key", get_secret_key())
+        if tavily_key:
+            cfg.setdefault("research", {})["api_key"] = tavily_key
+    except Exception:
+        pass
+
     return DeepResearchAgent(
         journal_storage=journal_storage,
         intel_storage=intel_storage,
         embeddings=embeddings,
-        config=config.to_dict(),
+        config=cfg,
     )
 
 

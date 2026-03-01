@@ -374,7 +374,9 @@ class BaseScraper(ABC):
             # Semantic dedup check if embedding manager available
             if semantic_dedup and self.embedding_manager:
                 content = f"{item.title} {item.summary}"
-                canonical_id = self.embedding_manager.find_similar(content, threshold=dedup_threshold)
+                canonical_id = self.embedding_manager.find_similar(
+                    content, threshold=dedup_threshold
+                )
 
             row_id = self.storage.save(item)
 
