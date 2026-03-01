@@ -20,9 +20,21 @@ FEED_CATALOG: list[FeedCategory] = [
         label="AI / ML",
         icon="brain",
         match_keywords=[
-            "ai", "ml", "machine learning", "deep learning", "artificial intelligence",
-            "nlp", "natural language", "computer vision", "llm", "large language model",
-            "neural network", "transformer", "gpt", "diffusion", "generative ai",
+            "ai",
+            "ml",
+            "machine learning",
+            "deep learning",
+            "artificial intelligence",
+            "nlp",
+            "natural language",
+            "computer vision",
+            "llm",
+            "large language model",
+            "neural network",
+            "transformer",
+            "gpt",
+            "diffusion",
+            "generative ai",
         ],
         feeds=[
             {"url": "https://www.reddit.com/r/MachineLearning/.rss", "name": "r/MachineLearning"},
@@ -36,10 +48,29 @@ FEED_CATALOG: list[FeedCategory] = [
         label="Web Dev",
         icon="globe",
         match_keywords=[
-            "web", "frontend", "backend", "fullstack", "full-stack", "javascript",
-            "typescript", "react", "vue", "angular", "next.js", "nextjs", "svelte",
-            "node", "nodejs", "css", "html", "django", "flask", "rails", "php",
-            "fastapi", "express",
+            "web",
+            "frontend",
+            "backend",
+            "fullstack",
+            "full-stack",
+            "javascript",
+            "typescript",
+            "react",
+            "vue",
+            "angular",
+            "next.js",
+            "nextjs",
+            "svelte",
+            "node",
+            "nodejs",
+            "css",
+            "html",
+            "django",
+            "flask",
+            "rails",
+            "php",
+            "fastapi",
+            "express",
         ],
         feeds=[
             {"url": "https://www.reddit.com/r/webdev/.rss", "name": "r/webdev"},
@@ -52,9 +83,25 @@ FEED_CATALOG: list[FeedCategory] = [
         label="Systems / Infra",
         icon="server",
         match_keywords=[
-            "systems", "infrastructure", "distributed", "kernel", "linux", "os",
-            "networking", "database", "postgres", "redis", "kafka", "c", "c++",
-            "rust", "go", "golang", "performance", "low-level", "embedded",
+            "systems",
+            "infrastructure",
+            "distributed",
+            "kernel",
+            "linux",
+            "os",
+            "networking",
+            "database",
+            "postgres",
+            "redis",
+            "kafka",
+            "c",
+            "c++",
+            "rust",
+            "go",
+            "golang",
+            "performance",
+            "low-level",
+            "embedded",
         ],
         feeds=[
             {"url": "https://www.reddit.com/r/programming/.rss", "name": "r/programming"},
@@ -67,9 +114,20 @@ FEED_CATALOG: list[FeedCategory] = [
         label="Security",
         icon="shield",
         match_keywords=[
-            "security", "cybersecurity", "infosec", "pentest", "penetration testing",
-            "vulnerability", "crypto", "cryptography", "privacy", "zero-day",
-            "malware", "threat", "appsec", "devsecops",
+            "security",
+            "cybersecurity",
+            "infosec",
+            "pentest",
+            "penetration testing",
+            "vulnerability",
+            "crypto",
+            "cryptography",
+            "privacy",
+            "zero-day",
+            "malware",
+            "threat",
+            "appsec",
+            "devsecops",
         ],
         feeds=[
             {"url": "https://www.reddit.com/r/netsec/.rss", "name": "r/netsec"},
@@ -82,9 +140,22 @@ FEED_CATALOG: list[FeedCategory] = [
         label="Startups / VC",
         icon="rocket",
         match_keywords=[
-            "startup", "startups", "vc", "venture capital", "fundraising", "saas",
-            "founder", "entrepreneurship", "yc", "y combinator", "seed", "series a",
-            "product-market fit", "growth", "indie hacker", "bootstrapping",
+            "startup",
+            "startups",
+            "vc",
+            "venture capital",
+            "fundraising",
+            "saas",
+            "founder",
+            "entrepreneurship",
+            "yc",
+            "y combinator",
+            "seed",
+            "series a",
+            "product-market fit",
+            "growth",
+            "indie hacker",
+            "bootstrapping",
         ],
         feeds=[
             {"url": "https://www.reddit.com/r/startups/.rss", "name": "r/startups"},
@@ -97,9 +168,21 @@ FEED_CATALOG: list[FeedCategory] = [
         label="Data Science",
         icon="bar-chart",
         match_keywords=[
-            "data science", "data engineering", "analytics", "statistics",
-            "pandas", "spark", "etl", "data pipeline", "visualization",
-            "tableau", "jupyter", "notebook", "sql", "bigquery", "snowflake",
+            "data science",
+            "data engineering",
+            "analytics",
+            "statistics",
+            "pandas",
+            "spark",
+            "etl",
+            "data pipeline",
+            "visualization",
+            "tableau",
+            "jupyter",
+            "notebook",
+            "sql",
+            "bigquery",
+            "snowflake",
         ],
         feeds=[
             {"url": "https://www.reddit.com/r/datascience/.rss", "name": "r/datascience"},
@@ -112,9 +195,23 @@ FEED_CATALOG: list[FeedCategory] = [
         label="DevOps / Cloud",
         icon="cloud",
         match_keywords=[
-            "devops", "cloud", "aws", "gcp", "azure", "kubernetes", "k8s",
-            "docker", "terraform", "ci/cd", "ci cd", "sre", "site reliability",
-            "monitoring", "observability", "infrastructure as code", "serverless",
+            "devops",
+            "cloud",
+            "aws",
+            "gcp",
+            "azure",
+            "kubernetes",
+            "k8s",
+            "docker",
+            "terraform",
+            "ci/cd",
+            "ci cd",
+            "sre",
+            "site reliability",
+            "monitoring",
+            "observability",
+            "infrastructure as code",
+            "serverless",
         ],
         feeds=[
             {"url": "https://www.reddit.com/r/devops/.rss", "name": "r/devops"},
@@ -127,8 +224,16 @@ FEED_CATALOG: list[FeedCategory] = [
         label="Mobile",
         icon="smartphone",
         match_keywords=[
-            "mobile", "ios", "android", "swift", "kotlin", "react native",
-            "flutter", "xamarin", "app development", "mobile dev",
+            "mobile",
+            "ios",
+            "android",
+            "swift",
+            "kotlin",
+            "react native",
+            "flutter",
+            "xamarin",
+            "app development",
+            "mobile dev",
         ],
         feeds=[
             {"url": "https://www.reddit.com/r/iOSProgramming/.rss", "name": "r/iOSProgramming"},
@@ -153,8 +258,14 @@ FEED_CATALOG: list[FeedCategory] = [
         label="Open Source",
         icon="git-branch",
         match_keywords=[
-            "open source", "oss", "foss", "github", "contributing",
-            "open-source", "linux", "free software",
+            "open source",
+            "oss",
+            "foss",
+            "github",
+            "contributing",
+            "open-source",
+            "linux",
+            "free software",
         ],
         feeds=[
             {"url": "https://www.reddit.com/r/opensource/.rss", "name": "r/opensource"},
@@ -167,8 +278,17 @@ FEED_CATALOG: list[FeedCategory] = [
         label="Blockchain / Web3",
         icon="link",
         match_keywords=[
-            "blockchain", "web3", "crypto", "cryptocurrency", "ethereum", "solidity",
-            "defi", "nft", "smart contract", "bitcoin", "decentralized",
+            "blockchain",
+            "web3",
+            "crypto",
+            "cryptocurrency",
+            "ethereum",
+            "solidity",
+            "defi",
+            "nft",
+            "smart contract",
+            "bitcoin",
+            "decentralized",
         ],
         feeds=[
             {"url": "https://www.reddit.com/r/ethereum/.rss", "name": "r/ethereum"},
@@ -235,11 +355,13 @@ def feeds_for_categories(category_ids: list[str]) -> list[dict]:
         for feed in cat.feeds:
             if feed["url"] not in seen_urls:
                 seen_urls.add(feed["url"])
-                result.append({
-                    "url": feed["url"],
-                    "name": feed["name"],
-                    "category_id": cid,
-                })
+                result.append(
+                    {
+                        "url": feed["url"],
+                        "name": feed["name"],
+                        "category_id": cid,
+                    }
+                )
 
     # Pad to MIN_FEEDS with general_tech if needed
     if len(result) < MIN_FEEDS:
@@ -248,11 +370,13 @@ def feeds_for_categories(category_ids: list[str]) -> list[dict]:
             for feed in gt.feeds:
                 if feed["url"] not in seen_urls:
                     seen_urls.add(feed["url"])
-                    result.append({
-                        "url": feed["url"],
-                        "name": feed["name"],
-                        "category_id": "general_tech",
-                    })
+                    result.append(
+                        {
+                            "url": feed["url"],
+                            "name": feed["name"],
+                            "category_id": "general_tech",
+                        }
+                    )
                     if len(result) >= MIN_FEEDS:
                         break
 
