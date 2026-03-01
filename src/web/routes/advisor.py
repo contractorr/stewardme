@@ -45,6 +45,7 @@ def _get_engine(user_id: str, use_tools: bool = False):
     from advisor.rag import RAGRetriever
     from intelligence.scraper import IntelStorage
     from journal.embeddings import EmbeddingManager
+    from journal.fts import JournalFTSIndex
     from journal.search import JournalSearch
     from journal.storage import JournalStorage
 
@@ -57,7 +58,8 @@ def _get_engine(user_id: str, use_tools: bool = False):
         collection_name=f"journal_{safe_user_id(user_id)}",
     )
     intel_storage = IntelStorage(paths["intel_db"])  # shared
-    journal_search = JournalSearch(journal_storage, embeddings)
+    fts_index = JournalFTSIndex(paths["journal_dir"])
+    journal_search = JournalSearch(journal_storage, embeddings, fts_index=fts_index)
 
     users_db = Path.home() / "coach" / "users.db"
     rag = RAGRetriever(

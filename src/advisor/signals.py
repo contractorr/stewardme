@@ -306,12 +306,15 @@ class SignalDetector:
             from pathlib import Path as P
 
             from journal import EmbeddingManager, JournalSearch
+            from journal.fts import JournalFTSIndex
             from journal.trends import TrendDetector
 
             paths_config = self.config.get("paths", {})
             chroma_dir = P(paths_config.get("chroma_dir", "~/coach/chroma")).expanduser()
+            journal_dir = P(paths_config.get("journal_dir", "~/coach/journal")).expanduser()
             embeddings = EmbeddingManager(chroma_dir)
-            search = JournalSearch(self.storage, embeddings)
+            fts_index = JournalFTSIndex(journal_dir)
+            search = JournalSearch(self.storage, embeddings, fts_index=fts_index)
             detector = TrendDetector(search)
             emerging = detector.get_emerging_topics(threshold=0.3)
         except Exception:

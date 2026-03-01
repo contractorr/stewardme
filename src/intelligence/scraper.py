@@ -1,6 +1,7 @@
 """Base scraper and intelligence storage."""
 
 import hashlib
+import re
 import sqlite3
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -111,6 +112,38 @@ class IntelStorage:
                 )
             """)
 
+            # --- FTS5 full-text index ---
+            conn.execute("""
+                CREATE VIRTUAL TABLE IF NOT EXISTS intel_fts USING fts5(
+                    title, summary, content, tags,
+                    tokenize='porter unicode61'
+                )
+            """)
+            # Triggers keep FTS in sync with intel_items
+            conn.executescript("""
+                CREATE TRIGGER IF NOT EXISTS intel_fts_ai AFTER INSERT ON intel_items BEGIN
+                    INSERT INTO intel_fts(rowid, title, summary, content, tags)
+                    VALUES (NEW.id, NEW.title, COALESCE(NEW.summary,''), COALESCE(NEW.content,''), COALESCE(NEW.tags,''));
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS intel_fts_ad AFTER DELETE ON intel_items BEGIN
+                    DELETE FROM intel_fts WHERE rowid = OLD.id;
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS intel_fts_au AFTER UPDATE ON intel_items BEGIN
+                    DELETE FROM intel_fts WHERE rowid = OLD.id;
+                    INSERT INTO intel_fts(rowid, title, summary, content, tags)
+                    VALUES (NEW.id, NEW.title, COALESCE(NEW.summary,''), COALESCE(NEW.content,''), COALESCE(NEW.tags,''));
+                END;
+            """)
+            # Backfill any rows not yet in FTS (e.g. existing DB upgraded)
+            conn.execute("""
+                INSERT OR IGNORE INTO intel_fts(rowid, title, summary, content, tags)
+                SELECT id, title, COALESCE(summary,''), COALESCE(content,''), COALESCE(tags,'')
+                FROM intel_items
+                WHERE id NOT IN (SELECT rowid FROM intel_fts)
+            """)
+
     def save(self, item: IntelItem) -> bool:
         """Save intel item, skip if URL invalid/exists or content hash exists."""
         if not validate_url(item.url):
@@ -215,6 +248,41 @@ class IntelStorage:
                 (f"%{query}%", f"%{query}%", limit),
             )
             return [self._row_to_dict(row) for row in cursor.fetchall()]
+
+    def fts_search(self, query: str, limit: int = 20) -> list[dict]:
+        """FTS5 full-text search with BM25 ranking.
+
+        Falls back to LIKE-based ``search()`` on OperationalError.
+        """
+        fts_query = self._to_fts5_query(query)
+        if not fts_query:
+            return []
+        try:
+            with wal_connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.execute(
+                    """
+                    SELECT i.*
+                    FROM intel_fts f
+                    JOIN intel_items i ON f.rowid = i.id
+                    WHERE intel_fts MATCH ?
+                    ORDER BY bm25(intel_fts)
+                    LIMIT ?
+                    """,
+                    (fts_query, limit),
+                )
+                return [self._row_to_dict(row) for row in cursor.fetchall()]
+        except sqlite3.OperationalError as e:
+            logger.warning("intel_fts_search_fallback", error=str(e))
+            return self.search(query, limit=limit)
+
+    @staticmethod
+    def _to_fts5_query(query: str) -> str:
+        """Convert user query to FTS5 MATCH expression (prefix + AND)."""
+        tokens = re.findall(r"[\w]+", query.lower())
+        if not tokens:
+            return ""
+        return " ".join(f"{t}*" for t in tokens)
 
 
 class BaseScraper(ABC):

@@ -29,6 +29,7 @@ def get_components(skip_advisor: bool = False):
     from intelligence.scraper import IntelStorage
     from intelligence.search import IntelSearch
     from journal import EmbeddingManager, JournalSearch, JournalStorage
+    from journal.fts import JournalFTSIndex
 
     config = load_config()
     config_model = load_config_model()
@@ -51,7 +52,8 @@ def get_components(skip_advisor: bool = False):
             sys.exit(1)
         raise
 
-    search = JournalSearch(storage, embeddings)
+    fts_index = JournalFTSIndex(paths["journal_dir"])
+    search = JournalSearch(storage, embeddings, fts_index=fts_index)
     intel_search = IntelSearch(intel_storage, intel_embeddings)
 
     # Pass intel_search to RAG for semantic intel retrieval

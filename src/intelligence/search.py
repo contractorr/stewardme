@@ -266,8 +266,11 @@ class IntelSearch:
         limit: int = 20,
         source_filter: Optional[str] = None,
     ) -> list[dict]:
-        """Simple keyword search in titles and summaries."""
-        return self.storage.search(query, limit=limit)
+        """Keyword search — uses FTS5 when available, else LIKE fallback."""
+        try:
+            return self.storage.fts_search(query, limit=limit)
+        except Exception:
+            return self.storage.search(query, limit=limit)
 
     def hybrid_search(
         self,

@@ -140,11 +140,14 @@ class RecommendationRunner:
             from advisor.engine import AdvisorEngine
             from advisor.rag import RAGRetriever
             from journal import EmbeddingManager, JournalSearch
+            from journal.fts import JournalFTSIndex
 
             paths_config = self.config.get("paths", {})
             chroma_dir = Path(paths_config.get("chroma_dir", "~/coach/chroma")).expanduser()
+            journal_dir = Path(paths_config.get("journal_dir", "~/coach/journal")).expanduser()
             embeddings = EmbeddingManager(chroma_dir)
-            search = JournalSearch(self.journal_storage, embeddings)
+            fts_index = JournalFTSIndex(journal_dir)
+            search = JournalSearch(self.journal_storage, embeddings, fts_index=fts_index)
             rag = RAGRetriever(search, self.storage.db_path)
 
             advisor = AdvisorEngine(rag)

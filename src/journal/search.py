@@ -6,15 +6,22 @@ from typing import Optional
 import frontmatter
 
 from .embeddings import EmbeddingManager
+from .fts import JournalFTSIndex
 from .storage import JournalStorage
 
 
 class JournalSearch:
     """Unified search interface combining semantic and keyword search."""
 
-    def __init__(self, storage: JournalStorage, embeddings: EmbeddingManager):
+    def __init__(
+        self,
+        storage: JournalStorage,
+        embeddings: EmbeddingManager,
+        fts_index: Optional[JournalFTSIndex] = None,
+    ):
         self.storage = storage
         self.embeddings = embeddings
+        self.fts = fts_index
 
     def semantic_search(
         self,
@@ -68,18 +75,57 @@ class JournalSearch:
         entry_type: Optional[str] = None,
         limit: int = 20,
     ) -> list[dict]:
-        """Keyword search in content, ranked by occurrence frequency."""
+        """Keyword search — delegates to FTS5 when available, else in-memory scan."""
+        if self.fts:
+            return self._keyword_search_fts(keyword, entry_type=entry_type, limit=limit)
+        return self._keyword_search_fallback(keyword, entry_type=entry_type, limit=limit)
+
+    def _keyword_search_fts(
+        self,
+        keyword: str,
+        entry_type: Optional[str] = None,
+        limit: int = 20,
+    ) -> list[dict]:
+        """FTS5-backed keyword search with BM25 ranking."""
+        rows = self.fts.search(keyword, limit=limit, entry_type=entry_type)
+        results = []
+        for row in rows:
+            try:
+                path = Path(row["path"])
+                if not path.exists():
+                    continue
+                post = frontmatter.load(path)
+                results.append(
+                    {
+                        "path": path,
+                        "title": post.get("title", path.stem),
+                        "type": post.get("type"),
+                        "created": post.get("created"),
+                        "tags": post.get("tags", []),
+                        "content": post.content,
+                        "relevance": -row["rank"],  # bm25() returns negative; negate for ranking
+                    }
+                )
+            except (OSError, ValueError):
+                continue
+        return results
+
+    def _keyword_search_fallback(
+        self,
+        keyword: str,
+        entry_type: Optional[str] = None,
+        limit: int = 20,
+    ) -> list[dict]:
+        """In-memory keyword scan (legacy fallback)."""
         entries = self.storage.list_entries(entry_type=entry_type, limit=limit * 2)
         matches = []
 
-        # Split multi-word query into individual terms
         terms = [t.lower() for t in keyword.lower().split() if t]
 
         for entry in entries:
             try:
                 post = frontmatter.load(entry["path"])
                 content_lower = post.content.lower()
-                # Count total occurrences of all terms
                 count = sum(content_lower.count(t) for t in terms)
                 if count > 0:
                     matches.append(
@@ -96,7 +142,6 @@ class JournalSearch:
             except (OSError, ValueError):
                 continue
 
-        # Sort by relevance (occurrence count) descending
         matches.sort(key=lambda m: m["relevance"], reverse=True)
         return matches[:limit]
 
@@ -175,6 +220,8 @@ Tags: {", ".join(r["tags"]) if r["tags"] else "none"}
         return "\n".join(context_parts)
 
     def sync_embeddings(self) -> tuple[int, int]:
-        """Sync all journal entries to embedding store."""
+        """Sync all journal entries to embedding store (and FTS index if present)."""
         entries = self.storage.get_all_content()
+        if self.fts:
+            self.fts.sync_from_storage(entries)
         return self.embeddings.sync_from_storage(entries)

@@ -23,9 +23,12 @@ def _get_db_components(collection: str):
     result = {}
 
     if collection in ("journal", "all"):
+        from journal.fts import JournalFTSIndex
+
         storage = JournalStorage(paths["journal_dir"])
         embeddings = EmbeddingManager(paths["chroma_dir"])
-        search = JournalSearch(storage, embeddings)
+        fts_index = JournalFTSIndex(paths["journal_dir"])
+        search = JournalSearch(storage, embeddings, fts_index=fts_index)
         result["journal"] = {
             "storage": storage,
             "embeddings": embeddings,

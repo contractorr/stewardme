@@ -73,6 +73,7 @@ async def generate_ideas(
         from advisor.projects import ProjectIdeaGenerator
         from advisor.rag import RAGRetriever
         from journal.embeddings import EmbeddingManager
+        from journal.fts import JournalFTSIndex
         from journal.search import JournalSearch
         from journal.storage import JournalStorage
         from llm.factory import create_llm_provider
@@ -83,7 +84,8 @@ async def generate_ideas(
             paths["chroma_dir"],
             collection_name=f"journal_{safe_user_id(user_id)}",
         )
-        journal_search = JournalSearch(journal_storage, embeddings)
+        fts_index = JournalFTSIndex(paths["journal_dir"])
+        journal_search = JournalSearch(journal_storage, embeddings, fts_index=fts_index)
 
         rag = RAGRetriever(
             journal_search=journal_search,
