@@ -36,16 +36,6 @@ interface IntelItem {
   tags?: string[];
 }
 
-interface RSSFeedHealth {
-  feed_url: string;
-  last_attempt_at: string | null;
-  last_success_at: string | null;
-  consecutive_errors: number;
-  total_attempts: number;
-  total_errors: number;
-  last_error: string | null;
-}
-
 interface TrendingTopic {
   topic: string;
   summary?: string;

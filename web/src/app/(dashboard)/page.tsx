@@ -18,36 +18,22 @@ export default function HomePage() {
   const [inlineChatQuestion, setInlineChatQuestion] = useState<string | null>(null);
   const [input, setInput] = useState("");
 
-  const loadBriefing = useCallback(
-    async (t: string) => {
-      try {
-        const data = await apiFetch<BriefingResponse>("/api/briefing", {}, t);
-        setBriefing(data);
-      } catch {
-        // silent
-      }
-    },
-    []
-  );
-
   useEffect(() => {
     if (!token) return;
     let cancelled = false;
 
-    Promise.allSettled([
-      loadBriefing(token),
-      apiFetch<{ name: string | null }>("/api/user/me", {}, token),
-    ]).then(([, userRes]) => {
-      if (cancelled) return;
-      if (userRes.status === "fulfilled" && userRes.value.name) {
-        setUserName(userRes.value.name);
-      }
-    });
+    apiFetch<BriefingResponse>("/api/briefing", {}, token).then((data) => {
+      if (!cancelled) setBriefing(data);
+    }).catch(() => {});
+
+    apiFetch<{ name: string | null }>("/api/user/me", {}, token).then((user) => {
+      if (!cancelled && user.name) setUserName(user.name);
+    }).catch(() => {});
 
     return () => {
       cancelled = true;
     };
-  }, [token, loadBriefing]);
+  }, [token]);
 
   const handleAsk = useCallback((text: string) => {
     setInlineChatQuestion(text);

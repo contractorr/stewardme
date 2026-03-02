@@ -35,11 +35,15 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       apiFetch<{ has_profile: boolean }>("/api/onboarding/profile-status", {}, token),
     ]).then(([settingsRes, profileRes]) => {
       if (cancelled) return;
+      // If either call failed (401, network error, etc.), don't redirect —
+      // a stale token after deployment shouldn't send users to onboarding.
+      if (settingsRes.status === "rejected" || profileRes.status === "rejected") {
+        setGateChecked(true);
+        return;
+      }
       const hasAnyKey =
-        settingsRes.status === "fulfilled" &&
-        (settingsRes.value.llm_api_key_set || settingsRes.value.using_shared_key);
-      const noProfile =
-        profileRes.status === "fulfilled" && !profileRes.value.has_profile;
+        settingsRes.value.llm_api_key_set || settingsRes.value.using_shared_key;
+      const noProfile = !profileRes.value.has_profile;
       if (!hasAnyKey || noProfile) {
         router.replace("/onboarding");
       } else {
