@@ -81,6 +81,21 @@ Next.js 16 + React 19 + TypeScript + Tailwind v4 + shadcn/ui. NextAuth v5 beta (
 - **Security:** Path traversal protection, URL scheme validation, API key redaction, content length limits, Fernet encryption for user secrets in web mode
 - **Observability:** `observability.py` counters/timers, structlog correlation IDs
 
+## Specs
+
+Two-tier system under `specs/`. See [`specs/README.md`](specs/README.md) for full index.
+
+- **`specs/functional/`** — PM-authored, user-facing: problem, desired behavior, acceptance criteria, edge cases. No code.
+- **`specs/technical/`** — Implementation reference: component signatures, invariants, error paths, config.
+
+**Workflow for new features / changes:**
+
+1. Write or update a functional spec in `specs/functional/`
+2. Claude reads functional spec + relevant technical specs + codebase → produces technical spec + implementation plan
+3. Review → implement
+
+When modifying existing behavior, check the relevant functional spec for acceptance criteria and edge cases before changing code.
+
 ## Feature Freeze
 
 Core loop stabilization in progress. Do NOT add new features.
