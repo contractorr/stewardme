@@ -14,6 +14,7 @@ import type { BriefingResponse } from "@/types/briefing";
 export default function HomePage() {
   const token = useToken();
   const [briefing, setBriefing] = useState<BriefingResponse | null>(null);
+  const [briefingLoaded, setBriefingLoaded] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
   const [inlineChatQuestion, setInlineChatQuestion] = useState<string | null>(null);
   const [input, setInput] = useState("");
@@ -24,7 +25,9 @@ export default function HomePage() {
 
     apiFetch<BriefingResponse>("/api/briefing", {}, token).then((data) => {
       if (!cancelled) setBriefing(data);
-    }).catch(() => {});
+    }).catch(() => {}).finally(() => {
+      if (!cancelled) setBriefingLoaded(true);
+    });
 
     apiFetch<{ name: string | null }>("/api/user/me", {}, token).then((user) => {
       if (!cancelled && user.name) setUserName(user.name);
@@ -45,7 +48,7 @@ export default function HomePage() {
     setInput("");
   }, [input, handleAsk]);
 
-  if (!token) return null;
+  if (!token || !briefingLoaded) return null;
 
   const showBriefing = briefing?.has_data;
 
