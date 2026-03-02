@@ -148,3 +148,14 @@ def test_delete_nonexistent_user(tmp_path):
     db = tmp_path / "users.db"
     init_db(db)
     assert delete_user("ghost", db) is False
+
+
+def test_last_login_set_on_create_and_updated_on_upsert(tmp_path):
+    db = tmp_path / "users.db"
+    init_db(db)
+    user = get_or_create_user("u1", email="a@b.com", name="Alice", db_path=db)
+    assert user["last_login"] is not None
+    first_login = user["last_login"]
+
+    user2 = get_or_create_user("u1", email="a@b.com", db_path=db)
+    assert user2["last_login"] >= first_login

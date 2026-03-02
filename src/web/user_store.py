@@ -34,7 +34,8 @@ def init_db(db_path: Path | None = None) -> None:
                 id TEXT PRIMARY KEY,
                 email TEXT,
                 name TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_login TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS user_secrets (
                 user_id TEXT NOT NULL REFERENCES users(id),
@@ -105,6 +106,12 @@ def init_db(db_path: Path | None = None) -> None:
             CREATE INDEX IF NOT EXISTS idx_rss_user ON user_rss_feeds(user_id);
         """)
         conn.commit()
+        # Migration: add last_login to existing DBs
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN last_login TIMESTAMP")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass  # column already exists
     finally:
         conn.close()
 
@@ -154,13 +161,13 @@ def get_or_create_user(
     try:
         row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
         if row:
-            # Update email/name if changed
-            if email or name:
-                conn.execute(
-                    "UPDATE users SET email = COALESCE(?, email), name = COALESCE(?, name) WHERE id = ?",
-                    (email, name, user_id),
-                )
-                conn.commit()
+            now = datetime.now(timezone.utc).isoformat()
+            # Update email/name if changed + always bump last_login
+            conn.execute(
+                "UPDATE users SET email = COALESCE(?, email), name = COALESCE(?, name), last_login = ? WHERE id = ?",
+                (email, name, now, user_id),
+            )
+            conn.commit()
             # Migrate secrets from old duplicate user IDs (same email)
             if email:
                 _migrate_secrets(conn, user_id, email)
@@ -169,14 +176,14 @@ def get_or_create_user(
         else:
             now = datetime.now(timezone.utc).isoformat()
             conn.execute(
-                "INSERT INTO users (id, email, name, created_at) VALUES (?, ?, ?, ?)",
-                (user_id, email, name, now),
+                "INSERT INTO users (id, email, name, created_at, last_login) VALUES (?, ?, ?, ?, ?)",
+                (user_id, email, name, now, now),
             )
             conn.commit()
             # Migrate secrets from old duplicate user IDs (same email)
             if email:
                 _migrate_secrets(conn, user_id, email)
-            return {"id": user_id, "email": email, "name": name, "created_at": now}
+            return {"id": user_id, "email": email, "name": name, "created_at": now, "last_login": now}
     finally:
         conn.close()
 
