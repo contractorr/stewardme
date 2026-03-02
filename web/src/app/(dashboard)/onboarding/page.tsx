@@ -25,6 +25,7 @@ import {
   GitBranch,
   Link,
   Rss,
+  Check,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -620,12 +621,17 @@ export default function OnboardingPage() {
                     <button
                       key={cat.id}
                       onClick={() => handleToggleFeed(cat.id)}
-                      className={`flex flex-col items-center gap-1.5 rounded-lg border p-3 text-center transition-colors ${
+                      className={`relative flex flex-col items-center gap-1.5 rounded-lg border p-3 text-center transition-colors ${
                         selected
-                          ? "border-primary bg-primary/10"
+                          ? "border-primary bg-primary/10 ring-1 ring-primary/30"
                           : "border-muted hover:border-muted-foreground/30"
                       }`}
                     >
+                      {selected && (
+                        <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
+                          <Check className="h-2.5 w-2.5 text-primary-foreground" />
+                        </span>
+                      )}
                       <Icon className={`h-5 w-5 ${selected ? "text-primary" : "text-muted-foreground"}`} />
                       <span className="text-sm font-medium">{cat.label}</span>
                       <span className="text-xs text-muted-foreground">{cat.feed_count} feeds</span>

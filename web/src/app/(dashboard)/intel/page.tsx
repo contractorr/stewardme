@@ -316,12 +316,15 @@ function IntelSkeleton() {
   );
 }
 
+const FEED_PAGE_SIZE = 15;
+
 export default function IntelPage() {
   const token = useToken();
   const [items, setItems] = useState<IntelItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [scraping, setScraping] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(FEED_PAGE_SIZE);
 
   const loadRecent = () => {
     if (!token) {
@@ -329,7 +332,7 @@ export default function IntelPage() {
       return;
     }
     apiFetch<IntelItem[]>("/api/intel/recent?limit=50", {}, token)
-      .then(setItems)
+      .then((data) => { setItems(data); setVisibleCount(FEED_PAGE_SIZE); })
       .catch((e) => toast.error(e.message))
       .finally(() => setLoading(false));
   };
@@ -349,6 +352,7 @@ export default function IntelPage() {
         token
       );
       setItems(results);
+      setVisibleCount(FEED_PAGE_SIZE);
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -387,7 +391,7 @@ export default function IntelPage() {
       {/* Scraper Health */}
       {token && <HealthDashboard token={token} />}
 
-      <Tabs defaultValue="trending">
+      <Tabs defaultValue="trending" id="radar-tabs">
         <TabsList>
           <TabsTrigger value="trending">
             <TrendingUp className="mr-1 h-4 w-4" />
@@ -463,7 +467,7 @@ export default function IntelPage() {
           {/* Items */}
           {!loading && items.length > 0 && (
             <div className="space-y-3">
-              {items.map((item, i) => (
+              {items.slice(0, visibleCount).map((item, i) => (
                 <Card key={i}>
                   <CardHeader className="pb-2">
                     <div className="flex items-start justify-between">
@@ -502,6 +506,16 @@ export default function IntelPage() {
                   </CardContent>
                 </Card>
               ))}
+              {visibleCount < items.length && (
+                <div className="flex justify-center pt-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setVisibleCount((v) => v + FEED_PAGE_SIZE)}
+                  >
+                    Load more ({items.length - visibleCount} remaining)
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </TabsContent>

@@ -35,6 +35,19 @@ import {
 } from "@/components/ui/sheet";
 import { apiFetch } from "@/lib/api";
 
+/** Strip markdown syntax for plain-text card previews. */
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/^#{1,6}\s+/gm, "")   // headings
+    .replace(/\*\*(.+?)\*\*/g, "$1") // bold
+    .replace(/\*(.+?)\*/g, "$1")     // italic
+    .replace(/`(.+?)`/g, "$1")       // inline code
+    .replace(/^\s*[-*+]\s+/gm, "")   // list markers
+    .replace(/\[(.+?)\]\(.+?\)/g, "$1") // links
+    .replace(/!\[.*?\]\(.+?\)/g, "")  // images
+    .trim();
+}
+
 interface JournalEntry {
   path: string;
   title: string;
@@ -71,6 +84,7 @@ export default function JournalPage() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<JournalEntry | null>(null);
   const [creating, setCreating] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [deletingPath, setDeletingPath] = useState<string | null>(null);
   const [form, setForm] = useState({
     title: "",
@@ -110,6 +124,7 @@ export default function JournalPage() {
         token
       );
       setForm({ title: "", content: "", entry_type: "daily", tags: "" });
+      setSheetOpen(false);
       toast.success("Entry created");
       loadEntries();
     } catch (e) {
@@ -172,10 +187,10 @@ export default function JournalPage() {
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold">Journal</h1>
           {!loading && entries.length > 0 && (
-            <span className="text-sm text-muted-foreground">{entries.length} entries</span>
+            <span className="text-sm text-muted-foreground">{entries.length} {entries.length === 1 ? "entry" : "entries"}</span>
           )}
         </div>
-        <Sheet>
+        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
           <SheetTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" /> New Entry
@@ -290,7 +305,7 @@ export default function JournalPage() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground line-clamp-3">
-                    {e.preview}
+                    {stripMarkdown(e.preview)}
                   </p>
                   {e.tags.length > 0 && (
                     <div className="mt-2 flex gap-1">
