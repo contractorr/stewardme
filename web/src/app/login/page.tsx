@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 import {
@@ -18,6 +19,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+const ENABLE_TEST_AUTH =
+  process.env.NEXT_PUBLIC_ENABLE_TEST_AUTH === "true";
+const TEST_USERS = ["junior_dev", "founder", "switcher"] as const;
 
 const features = [
   {
@@ -47,6 +54,9 @@ const features = [
 ];
 
 export default function LoginPage() {
+  const [testUser, setTestUser] = useState<string>("junior_dev");
+  const [testPass, setTestPass] = useState("");
+
   return (
     <div className="flex min-h-screen flex-col items-center bg-muted/40 px-4 pt-[12vh] pb-12">
       <Card className="w-full max-w-[400px]">
@@ -93,6 +103,53 @@ export default function LoginPage() {
             </svg>
             Continue with Google
           </Button>
+          {ENABLE_TEST_AUTH && (
+            <>
+              <div className="relative my-1">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs text-muted-foreground">
+                  <span className="bg-card px-2">dev only</span>
+                </div>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="test-username">Test account</Label>
+                <select
+                  id="test-username"
+                  value={testUser}
+                  onChange={(e) => setTestUser(e.target.value)}
+                  className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                >
+                  {TEST_USERS.map((u) => (
+                    <option key={u} value={u}>
+                      {u}
+                    </option>
+                  ))}
+                </select>
+                <Input
+                  id="test-password"
+                  type="password"
+                  placeholder='password: "test"'
+                  value={testPass}
+                  onChange={(e) => setTestPass(e.target.value)}
+                />
+                <Button
+                  variant="secondary"
+                  className="w-full"
+                  onClick={() =>
+                    signIn("credentials", {
+                      username: testUser,
+                      password: testPass,
+                      callbackUrl: "/",
+                    })
+                  }
+                >
+                  Sign in as {testUser}
+                </Button>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 

@@ -1,7 +1,5 @@
 """Profile view/edit API routes."""
 
-from profile.storage import ProfileStorage, Skill
-
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -37,6 +35,8 @@ def _embed_profile(user_id: str, profile) -> None:
 
 @router.get("", response_model=ProfileResponse)
 async def get_profile(user: dict = Depends(get_current_user)):
+    from profile.storage import ProfileStorage
+
     paths = get_user_paths(user["id"])
     storage = ProfileStorage(paths["profile"])
     profile = storage.load()
@@ -56,6 +56,8 @@ async def update_profile(
     body: ProfileUpdate,
     user: dict = Depends(get_current_user),
 ):
+    from profile.storage import ProfileStorage, Skill
+
     paths = get_user_paths(user["id"])
     storage = ProfileStorage(paths["profile"])
     profile = storage.get_or_empty()

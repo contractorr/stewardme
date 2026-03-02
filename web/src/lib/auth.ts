@@ -1,22 +1,52 @@
 import NextAuth from "next-auth";
+import type { Provider } from "next-auth/providers";
 import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
+import Credentials from "next-auth/providers/credentials";
 import { SignJWT } from "jose";
 
 const jwtSecret = new TextEncoder().encode(process.env.NEXTAUTH_SECRET);
 
+const TEST_ACCOUNTS: Record<string, { name: string; email: string }> = {
+  junior_dev: { name: "Junior Dev", email: "junior_dev@test.local" },
+  founder: { name: "Founder", email: "founder@test.local" },
+  switcher: { name: "Switcher", email: "switcher@test.local" },
+};
+
+const providers: Provider[] = [
+  GitHub({
+    clientId: process.env.GITHUB_CLIENT_ID!,
+    clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+  }),
+  Google({
+    clientId: process.env.GOOGLE_CLIENT_ID!,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+  }),
+];
+
+if (process.env.ENABLE_TEST_AUTH === "true") {
+  providers.push(
+    Credentials({
+      name: "Test Account",
+      credentials: {
+        username: { label: "Username", type: "text" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        const username = credentials?.username as string;
+        const password = credentials?.password as string;
+        if (password !== "test") return null;
+        const account = TEST_ACCOUNTS[username];
+        if (!account) return null;
+        return { id: username, name: account.name, email: account.email };
+      },
+    }),
+  );
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
-  providers: [
-    GitHub({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-    }),
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
-  ],
+  providers,
   session: { strategy: "jwt" },
   callbacks: {
     authorized({ auth }) {

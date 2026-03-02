@@ -29,5 +29,8 @@ web/.env.local
 # Audit screenshots
 audit-*.png
 
+# Test harness state (session logs, screenshots, run output)
+test-harness/state/
+
 # OS
 .DS_Store
