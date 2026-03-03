@@ -98,17 +98,19 @@ const dotColors = {
   red: "bg-destructive",
 };
 
-function HealthDashboard({ token }: { token: string }) {
+function HealthDashboard({ token, refreshKey }: { token: string; refreshKey: number }) {
   const [health, setHealth] = useState<ScraperHealth[]>([]);
   const [expanded, setExpanded] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
-  useEffect(() => {
+  const loadHealth = () => {
     apiFetch<{ scrapers: ScraperHealth[] }>("/api/intel/health", {}, token)
       .then((d) => setHealth(d.scrapers))
       .catch(() => {})
       .finally(() => setLoaded(true));
-  }, [token]);
+  };
+
+  useEffect(loadHealth, [token, refreshKey]);
 
   if (!loaded || health.length === 0) return null;
 
@@ -384,7 +386,7 @@ export default function IntelPage() {
       </div>
 
       {/* Scraper Health */}
-      {token && <HealthDashboard token={token} />}
+      {token && <HealthDashboard token={token} refreshKey={trendingKey} />}
 
       <Tabs defaultValue="trending" id="radar-tabs">
         <TabsList>
