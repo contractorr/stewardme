@@ -170,16 +170,19 @@ function HealthDashboard({ token }: { token: string }) {
   );
 }
 
-function TrendingTab({ token }: { token: string }) {
+function TrendingTab({ token, refreshKey }: { token: string; refreshKey: number }) {
   const [snapshot, setSnapshot] = useState<TrendingSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadTrending = () => {
+    setLoading(true);
     apiFetch<TrendingSnapshot>("/api/intel/trending", {}, token)
       .then(setSnapshot)
       .catch((e) => toast.error(e.message))
       .finally(() => setLoading(false));
-  }, [token]);
+  };
+
+  useEffect(loadTrending, [token, refreshKey]);
 
   if (loading) {
     return (
@@ -314,6 +317,7 @@ export default function IntelPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [scraping, setScraping] = useState(false);
+  const [trendingKey, setTrendingKey] = useState(0);
   const [visibleCount, setVisibleCount] = useState(FEED_PAGE_SIZE);
 
   const loadRecent = () => {
@@ -357,6 +361,7 @@ export default function IntelPage() {
       await apiFetch("/api/intel/scrape", { method: "POST" }, token);
       toast.success("Scrape completed");
       loadRecent();
+      setTrendingKey((k) => k + 1);
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -394,7 +399,7 @@ export default function IntelPage() {
         </TabsList>
 
         <TabsContent value="trending">
-          {token && <TrendingTab token={token} />}
+          {token && <TrendingTab token={token} refreshKey={trendingKey} />}
         </TabsContent>
 
         <TabsContent value="feed">
