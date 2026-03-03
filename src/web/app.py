@@ -50,12 +50,43 @@ def _verify_secret_key() -> None:
     logger.info("crypto.canary_ok")
 
 
+def _start_intel_scheduler():
+    """Start background intel scheduler (daily 6am scrape)."""
+    try:
+        from intelligence.scheduler import IntelScheduler
+        from web.deps import get_coach_paths, get_config
+
+        config = get_config()
+        full = config.to_dict()
+        paths = get_coach_paths()
+
+        from intelligence.scraper import IntelStorage
+
+        storage = IntelStorage(paths["intel_db"])
+
+        scheduler = IntelScheduler(
+            storage=storage,
+            config=full.get("sources", {}),
+            full_config=full,
+        )
+        cron = full.get("schedule", {}).get("intelligence_gather", "0 6 * * *")
+        scheduler.start(cron_expr=cron)
+        logger.info("intel_scheduler.started", cron=cron)
+        return scheduler
+    except Exception as e:
+        logger.error("intel_scheduler.start_failed", error=str(e))
+        return None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     _verify_secret_key()
+    scheduler = _start_intel_scheduler()
     logger.info("web.startup")
     yield
+    if scheduler:
+        scheduler.stop()
     logger.info("web.shutdown")
 
 
