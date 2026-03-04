@@ -38,13 +38,17 @@ import { apiFetch } from "@/lib/api";
 /** Strip markdown syntax for plain-text card previews. */
 function stripMarkdown(text: string): string {
   return text
-    .replace(/^#{1,6}\s+/gm, "")   // headings
-    .replace(/\*\*(.+?)\*\*/g, "$1") // bold
-    .replace(/\*(.+?)\*/g, "$1")     // italic
-    .replace(/`(.+?)`/g, "$1")       // inline code
-    .replace(/^\s*[-*+]\s+/gm, "")   // list markers
-    .replace(/\[(.+?)\]\(.+?\)/g, "$1") // links
-    .replace(/!\[.*?\]\(.+?\)/g, "")  // images
+    .replace(/^#{1,6}\s*/gm, "")          // headings (with or without space)
+    .replace(/^[-*=]{3,}\s*$/gm, "")      // horizontal rules / setext underlines
+    .replace(/^\s*>\s?/gm, "")            // blockquotes
+    .replace(/\*\*(.+?)\*\*/g, "$1")      // bold
+    .replace(/\*(.+?)\*/g, "$1")          // italic
+    .replace(/`(.+?)`/g, "$1")            // inline code
+    .replace(/^\s*[-*+]\s+/gm, "")        // unordered list markers
+    .replace(/^\s*\d+\.\s+/gm, "")        // ordered list markers
+    .replace(/\[(.+?)\]\(.+?\)/g, "$1")   // links
+    .replace(/!\[.*?\]\(.+?\)/g, "")       // images
+    .replace(/\n{2,}/g, " ")              // collapse blank lines
     .trim();
 }
 

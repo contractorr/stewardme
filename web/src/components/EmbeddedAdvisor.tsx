@@ -72,11 +72,28 @@ export function EmbeddedAdvisor({
     }
   }, [prefillQuestion, onQuestionConsumed]);
 
+  const prevMsgCount = useRef(messages.length);
+
   useEffect(() => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: "smooth",
-    });
+    const prev = prevMsgCount.current;
+    prevMsgCount.current = messages.length;
+
+    if (!scrollRef.current) return;
+
+    if (loading || messages.length === 0) {
+      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+      return;
+    }
+    if (messages.length > prev) {
+      const last = messages[messages.length - 1];
+      if (last?.role === "assistant") {
+        const cards = scrollRef.current.querySelectorAll("[data-msg]");
+        const lastCard = cards[cards.length - 1] as HTMLElement | undefined;
+        lastCard?.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+    }
+    scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, loading]);
 
   const handleSend = useCallback(async () => {
@@ -166,6 +183,7 @@ export function EmbeddedAdvisor({
           {messages.map((msg, i) => (
             <div
               key={i}
+              data-msg
               className={`rounded-md p-2 text-sm ${
                 msg.role === "user"
                   ? "ml-8 bg-primary/5"

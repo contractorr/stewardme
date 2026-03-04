@@ -34,6 +34,8 @@ interface IntelItem {
   summary: string;
   published?: string;
   tags?: string[];
+  relevance_score?: number;
+  match_reasons?: string[];
 }
 
 interface TrendingTopic {
@@ -480,10 +482,18 @@ export default function IntelPage() {
                             <ExternalLink className="ml-1 inline h-3 w-3" />
                           </a>
                         </CardTitle>
-                        <CardDescription className="flex items-center gap-2">
+                        <CardDescription className="flex flex-wrap items-center gap-2">
                           <Badge variant="outline" className={sourceBadgeClass(item.source)}>{item.source}</Badge>
+                          {item.relevance_score != null && item.relevance_score > 0.1 && (
+                            <Badge variant="default" className="text-xs bg-primary/80">For you</Badge>
+                          )}
                           {item.published && (
                             <span>{new Date(item.published).toLocaleDateString()}</span>
+                          )}
+                          {item.match_reasons && item.match_reasons.length > 0 && (
+                            <span className="text-xs text-muted-foreground">
+                              &middot; {item.match_reasons.slice(0, 3).join(", ")}
+                            </span>
                           )}
                         </CardDescription>
                       </div>

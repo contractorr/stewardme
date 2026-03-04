@@ -45,6 +45,22 @@ async def get_recent(
     # "Your radar is quiet" when data exists but is slightly older.
     if not items and days < 30:
         items = storage.get_recent(days=30, limit=limit, include_duplicates=True)
+
+    # Personalize: score items against user profile (mirrors _personalize_trending)
+    try:
+        from intelligence.search import load_profile_terms, score_profile_relevance
+        from web.deps import get_user_paths
+
+        profile_path = get_user_paths(user["id"])["profile"]
+        terms = load_profile_terms(profile_path)
+        if not terms.is_empty:
+            for item in items:
+                score, matches = score_profile_relevance(item, terms)
+                item["relevance_score"] = round(score, 3)
+                item["match_reasons"] = matches[:5]
+    except Exception:
+        pass
+
     return items
 
 
