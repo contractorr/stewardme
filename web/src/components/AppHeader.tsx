@@ -12,9 +12,9 @@ export function AppHeader({
   onToggleSidebar: () => void;
 }) {
   return (
-    <header className="fixed inset-x-0 top-0 z-40 flex h-12 items-center justify-between border-b bg-background px-4">
+    <header className="fixed inset-x-0 top-0 z-40 flex h-12 items-center justify-between border-b bg-background px-4 lg:left-60">
       <div className="flex items-center gap-1.5">
-        <Button variant="ghost" size="icon" onClick={onToggleSidebar} className="-ml-2">
+        <Button variant="ghost" size="icon" onClick={onToggleSidebar} className="-ml-2 lg:hidden">
           <Menu className="h-4 w-4" />
         </Button>
         <span className="text-sm font-semibold text-primary">StewardMe</span>

@@ -21,9 +21,20 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [displayName, setDisplayName] = useState<string | null>(null);
   const skipGate = pathname === "/onboarding" || pathname === "/settings";
   const [gateChecked, setGateChecked] = useState(skipGate);
   const showBanner = liteMode && !bannerDismissed && pathname !== "/onboarding";
+
+  // Fetch display name from backend (prefers onboarding name over OAuth name)
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    apiFetch<{ name: string | null }>("/api/user/me", {}, token).then((user) => {
+      if (!cancelled && user.name) setDisplayName(user.name);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [token]);
 
   // Onboarding gate: redirect to /onboarding if user lacks API key or profile.
   // Runs once on mount for all dashboard pages (not just /).
@@ -59,7 +70,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         onOpenSettings={() => setSettingsOpen(true)}
         onToggleSidebar={() => setSidebarOpen((v) => !v)}
       />
-      <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} />
+      <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} displayName={displayName} />
       {token && (
         <SettingsSheet
           open={settingsOpen}
@@ -68,7 +79,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         />
       )}
       {showBanner && (
-        <div className="fixed top-12 left-0 right-0 z-30 border-b border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/80 px-4 py-1.5">
+        <div className="fixed top-12 left-0 right-0 z-30 border-b border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/80 px-4 py-1.5 lg:left-60">
           <div className="relative flex items-center justify-center text-xs text-amber-800 dark:text-amber-200">
             <span className="text-center">
               Using lite mode (Haiku) &mdash; responses may be less detailed.{" "}
@@ -83,7 +94,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       )}
-      <main className={`h-full overflow-y-auto pt-12 ${showBanner ? "mt-8" : ""}`}>
+      <main className={`h-full overflow-y-auto pt-12 lg:pl-60 ${showBanner ? "mt-8" : ""}`}>
         {gateChecked ? children : null}
       </main>
     </div>

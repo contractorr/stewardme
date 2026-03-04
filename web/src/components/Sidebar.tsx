@@ -73,9 +73,11 @@ function NavItem({
 export function Sidebar({
   open,
   onOpenChange,
+  displayName,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  displayName?: string | null;
 }) {
   const pathname = usePathname();
   const { data: session } = useSession();
@@ -84,18 +86,18 @@ export function Sidebar({
 
   return (
     <>
-      {/* Overlay backdrop */}
+      {/* Overlay backdrop (mobile only — sidebar is pinned on lg+) */}
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] lg:hidden"
           onClick={() => onOpenChange(false)}
         />
       )}
 
-      {/* Slide-out sidebar */}
+      {/* Slide-out sidebar — pinned open on lg+ */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-60 flex-col border-r border-sidebar-border bg-sidebar transition-transform duration-200 ease-out",
+          "fixed inset-y-0 left-0 z-50 flex w-60 flex-col border-r border-sidebar-border bg-sidebar transition-transform duration-200 ease-out lg:translate-x-0 lg:z-30",
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -106,7 +108,7 @@ export function Sidebar({
             variant="ghost"
             size="icon"
             onClick={() => onOpenChange(false)}
-            className="h-7 w-7 text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+            className="h-7 w-7 text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent lg:hidden"
           >
             <X className="h-3.5 w-3.5" />
           </Button>
@@ -198,7 +200,7 @@ export function Sidebar({
             </div>
             <div className="flex-1 min-w-0">
               <p className="truncate text-sm font-medium text-sidebar-foreground">
-                {user?.name || "User"}
+                {displayName || user?.name || "User"}
               </p>
               {user?.email && (
                 <p className="truncate text-[11px] text-sidebar-foreground/40">

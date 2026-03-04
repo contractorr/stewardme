@@ -238,15 +238,18 @@ class IntelStorage:
             item["tags"] = []
         return item
 
-    def get_recent(self, days: int = 7, limit: int = 50) -> list[dict]:
-        """Get recent intel items (excludes semantic duplicates)."""
+    def get_recent(
+        self, days: int = 7, limit: int = 50, include_duplicates: bool = False
+    ) -> list[dict]:
+        """Get recent intel items, optionally including semantic duplicates."""
         with wal_connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
+            dedup_clause = "" if include_duplicates else "AND duplicate_of IS NULL"
             cursor = conn.execute(
-                """
+                f"""
                 SELECT * FROM intel_items
                 WHERE scraped_at >= datetime('now', ?)
-                  AND duplicate_of IS NULL
+                  {dedup_clause}
                 ORDER BY scraped_at DESC
                 LIMIT ?
             """,

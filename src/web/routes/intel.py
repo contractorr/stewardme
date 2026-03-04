@@ -39,11 +39,12 @@ async def get_recent(
     user: dict = Depends(get_current_user),
 ):
     storage = _get_storage()
-    items = storage.get_recent(days=days, limit=limit)
+    # Include semantic duplicates so Feed shows all sources, not just canonicals
+    items = storage.get_recent(days=days, limit=limit, include_duplicates=True)
     # Fall back to broader window when narrow one returns empty — avoids
     # "Your radar is quiet" when data exists but is slightly older.
     if not items and days < 30:
-        items = storage.get_recent(days=30, limit=limit)
+        items = storage.get_recent(days=30, limit=limit, include_duplicates=True)
     return items
 
 

@@ -28,7 +28,7 @@ def test_get_recent_with_items(client, auth_headers):
     data = res.json()
     assert len(data) == 1
     assert data[0]["title"] == "AI Breakthrough"
-    mock_storage.get_recent.assert_called_once_with(days=3, limit=10)
+    mock_storage.get_recent.assert_called_once_with(days=3, limit=10, include_duplicates=True)
 
 
 def test_search(client, auth_headers):

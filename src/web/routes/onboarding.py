@@ -33,6 +33,7 @@ from web.user_store import (
     clear_onboarding_responses,
     log_event,
     save_onboarding_turn,
+    update_user_name,
 )
 
 logger = structlog.get_logger()
@@ -70,6 +71,7 @@ Aim for 5-8 exchanges. After gathering enough info, output EXACTLY this JSON blo
 
 ```json
 {"done": true, "profile": {
+  "name": "User's first/preferred name",
   "current_role": "...",
   "career_stage": "junior|mid|senior|lead|exec",
   "skills": [{"name": "...", "proficiency": 1-5}, ...],
@@ -198,10 +200,19 @@ def _save_results(user_id: str, data: dict) -> int:
     from profile.interview import _build_profile
     from profile.storage import ProfileStorage
 
-    profile = _build_profile(data.get("profile", {}))
+    profile_data = data.get("profile", {})
+    profile = _build_profile(profile_data)
     storage = ProfileStorage(paths["profile"])
     storage.save(profile)
     logger.info("onboarding.profile_saved", user_id=user_id, skills=len(profile.skills))
+
+    # Persist display name from interview into users DB
+    onboarding_name = profile_data.get("name", "").strip()
+    if onboarding_name:
+        try:
+            update_user_name(user_id, onboarding_name)
+        except Exception as e:
+            logger.warning("onboarding.name_save_failed", user_id=user_id, error=str(e))
 
     # Embed profile in ChromaDB
     _embed_profile(user_id, profile)
