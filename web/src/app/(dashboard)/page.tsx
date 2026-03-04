@@ -48,7 +48,25 @@ export default function HomePage() {
     setInput("");
   }, [input, handleAsk]);
 
-  if (!token || !briefingLoaded) return null;
+  if (!token || !briefingLoaded) {
+    return (
+      <div className="h-full overflow-y-auto px-4 py-4">
+        <div className="mx-auto max-w-2xl animate-pulse space-y-4">
+          <div className="h-4 w-32 rounded bg-muted" />
+          <div className="h-24 rounded bg-muted" />
+          <div className="space-y-2">
+            <div className="h-3 w-full rounded bg-muted" />
+            <div className="h-3 w-5/6 rounded bg-muted" />
+            <div className="h-3 w-2/3 rounded bg-muted" />
+          </div>
+          <div className="flex gap-2">
+            <div className="h-10 flex-1 rounded bg-muted" />
+            <div className="h-10 w-12 rounded bg-muted" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const showBriefing = briefing?.has_data;
 
