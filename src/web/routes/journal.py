@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from journal.storage import JournalStorage
 from web.auth import get_current_user
-from web.deps import get_config, get_user_paths
+from web.deps import get_config, get_user_paths, safe_user_id
 from web.models import JournalCreate, JournalEntry, JournalUpdate, QuickCapture
 from web.user_store import log_event
 
@@ -47,17 +47,35 @@ async def _run_post_create_hooks(
     paths = get_user_paths(user_id)
     entry_id = str(filepath)
 
-    # 1. ChromaDB embedding
+    # 1. ChromaDB embedding (per-user collection)
     try:
         from journal.embeddings import EmbeddingManager
 
         chroma_dir = paths.get("chroma_dir")
         if chroma_dir:
-            em = EmbeddingManager(chroma_dir)
+            em = EmbeddingManager(
+                chroma_dir, collection_name=f"journal_{safe_user_id(user_id)}"
+            )
             em.add_entry(entry_id, content, metadata)
     except Exception as exc:
         logger.warning("post_create.embed_failed", error=str(exc), user=user_id)
         return  # threads needs the embedding, skip if embed fails
+
+    # 1b. FTS index upsert
+    try:
+        from journal.fts import JournalFTSIndex
+
+        fts_index = JournalFTSIndex(paths["journal_dir"])
+        fts_index.upsert(
+            entry_id,
+            metadata.get("title", ""),
+            metadata.get("type", ""),
+            content,
+            ",".join(metadata.get("tags", [])),
+            filepath.stat().st_mtime,
+        )
+    except Exception as exc:
+        logger.warning("post_create.fts_failed", error=str(exc), user=user_id)
 
     # 2. Thread detection
     try:
@@ -80,8 +98,8 @@ async def _run_post_create_hooks(
                 from journal.thread_store import ThreadStore
                 from journal.threads import ThreadDetector
 
-                intel_db = paths.get("intel_db", Path.home() / "coach" / "intel.db")
-                db_path = Path(intel_db).parent / "threads.db"
+                user_base = paths.get("chroma_dir").parent  # ~/coach/users/{id}/
+                db_path = user_base / "threads.db"
                 store = ThreadStore(db_path)
                 detector = ThreadDetector(
                     em,
@@ -103,8 +121,8 @@ async def _run_post_create_hooks(
             from memory.pipeline import MemoryPipeline
             from memory.store import FactStore
 
-            intel_db = paths.get("intel_db", Path.home() / "coach" / "intel.db")
-            memory_db = Path(intel_db).parent / "memory.db"
+            user_base = paths.get("chroma_dir").parent  # ~/coach/users/{id}/
+            memory_db = user_base / "memory.db"
             fact_store = FactStore(memory_db)
             pipeline = MemoryPipeline(fact_store)
             pipeline.process_journal_entry(entry_id, content, metadata)
@@ -257,6 +275,12 @@ async def update_entry(
         raise HTTPException(status_code=400, detail=str(e))
 
     post = storage.read(resolved)
+
+    # Re-embed + re-index updated entry
+    asyncio.create_task(
+        _run_post_create_hooks(user["id"], resolved, post.content, dict(post.metadata))
+    )
+
     return JournalEntry(
         path=str(resolved),
         title=post.get("title", resolved.stem),

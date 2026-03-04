@@ -97,3 +97,4 @@ def _check_onboarding_limit(user_id: str, now: float) -> None:
 def reset_rate_limits() -> None:
     """Clear all rate limit state. Used in tests."""
     _request_log.clear()
+    _onboarding_log.clear()

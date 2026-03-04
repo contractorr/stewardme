@@ -61,6 +61,23 @@ def _get_engine(user_id: str, use_tools: bool = False):
     fts_index = JournalFTSIndex(paths["journal_dir"])
     journal_search = JournalSearch(journal_storage, embeddings, fts_index=fts_index)
 
+    # Per-user memory + thread stores for cross-conversation continuity
+    from journal.thread_store import ThreadStore
+    from memory.store import FactStore
+
+    user_base = paths["chroma_dir"].parent  # ~/coach/users/{safe_id}/
+    fact_store = None
+    thread_store = None
+    memory_config = None
+    if config.memory.enabled:
+        fact_store = FactStore(user_base / "memory.db")
+        memory_config = {
+            "max_context_facts": config.memory.max_context_facts,
+            "high_confidence_threshold": config.memory.high_confidence_threshold,
+        }
+    if config.threads.enabled:
+        thread_store = ThreadStore(user_base / "threads.db")
+
     users_db = Path.home() / "coach" / "users.db"
     rag = RAGRetriever(
         journal_search=journal_search,
@@ -68,6 +85,9 @@ def _get_engine(user_id: str, use_tools: bool = False):
         profile_path=str(paths["profile"]),
         users_db_path=users_db,
         user_id=user_id,
+        fact_store=fact_store,
+        memory_config=memory_config,
+        thread_store=thread_store,
     )
 
     api_key, source = get_api_key_with_source(user_id)
@@ -90,6 +110,12 @@ def _get_engine(user_id: str, use_tools: bool = False):
             "user_id": user_id,
         }
 
+    rag_config = {"structured_profile": True, "xml_delimiters": True}
+    if config.memory.enabled:
+        rag_config["inject_memory"] = True
+    if config.threads.enabled:
+        rag_config["inject_recurring_thoughts"] = True
+
     return AdvisorEngine(
         rag=rag,
         api_key=api_key,
@@ -97,6 +123,7 @@ def _get_engine(user_id: str, use_tools: bool = False):
         provider=config.llm.provider,
         use_tools=effective_use_tools,
         components=components,
+        rag_config=rag_config,
     )
 
 

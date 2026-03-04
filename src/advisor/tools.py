@@ -81,7 +81,7 @@ class ToolRegistry:
                 "results": [
                     {
                         "id": r.get("id", ""),
-                        "content": (r.get("content") or "")[:300],
+                        "content": (r.get("content") or "")[:1500],
                         "metadata": r.get("metadata", {}),
                         "distance": r.get("distance"),
                     }
