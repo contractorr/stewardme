@@ -1,0 +1,21 @@
+profiles:
+  - name: "ml_engineer"
+    skills: ["python", "pytorch", "tensorflow"]
+    interests: ["machine learning", "LLMs", "MLOps"]
+    tech: ["cuda", "transformers", "huggingface"]
+    goal_keywords: ["deploy", "fine-tune"]
+    project_keywords: ["model", "pipeline"]
+
+  - name: "frontend_dev"
+    skills: ["react", "typescript", "nextjs"]
+    interests: ["web performance", "design systems", "accessibility"]
+    tech: ["tailwind", "vite", "playwright"]
+    goal_keywords: ["ship", "component library"]
+    project_keywords: ["dashboard", "ui"]
+
+  - name: "devops_engineer"
+    skills: ["kubernetes", "terraform", "docker"]
+    interests: ["cloud infrastructure", "observability", "CI/CD"]
+    tech: ["prometheus", "grafana", "aws"]
+    goal_keywords: ["automate", "reliability"]
+    project_keywords: ["platform", "deploy"]

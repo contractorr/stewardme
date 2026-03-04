@@ -6,7 +6,8 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from eval.dataset import load_response_dataset, load_retrieval_dataset
+from eval.dataset import load_grounding_dataset, load_response_dataset, load_retrieval_dataset
+from eval.grounding import GroundingJudge
 from eval.response import ResponseJudge
 from eval.retrieval import score_retrieval_case
 
@@ -19,6 +20,7 @@ DATASETS_DIR = Path(__file__).parent / "datasets"
 class EvalReport:
     retrieval_results: list[dict] = field(default_factory=list)
     response_results: list[dict] = field(default_factory=list)
+    grounding_results: list[dict] = field(default_factory=list)
     summary: dict = field(default_factory=dict)
 
     def compute_summary(self):
@@ -35,6 +37,22 @@ class EvalReport:
             s["response_cases_scored"] = len(scored)
 
         s["response_cases_skipped"] = sum(1 for r in self.response_results if r.get("skipped"))
+
+        # Grounding summary
+        g_scored = [r for r in self.grounding_results if not r.get("skipped")]
+        if g_scored:
+            s["avg_grounding"] = round(
+                sum(r.get("grounding", 0) for r in g_scored) / len(g_scored), 2
+            )
+            s["avg_hallucination_risk"] = round(
+                sum(r.get("hallucination_risk", 0) for r in g_scored) / len(g_scored), 2
+            )
+            s["avg_context_coverage"] = round(
+                sum(r.get("context_coverage", 0) for r in g_scored) / len(g_scored), 2
+            )
+            s["grounding_cases_scored"] = len(g_scored)
+        s["grounding_cases_skipped"] = sum(1 for r in self.grounding_results if r.get("skipped"))
+
         self.summary = s
 
 
@@ -58,11 +76,15 @@ class EvalRunner:
         intel_search=None,
         advisor_engine=None,
         judge: ResponseJudge | None = None,
+        rag=None,
+        grounding_judge: GroundingJudge | None = None,
     ):
         self.journal_search = journal_search
         self.intel_search = intel_search
         self.advisor = advisor_engine
         self.judge = judge
+        self.rag = rag
+        self.grounding_judge = grounding_judge
 
     def run_retrieval(self, dataset_path: Path | None = None, k: int = 5) -> EvalReport:
         """Run retrieval eval: query search, score against expected docs."""
@@ -114,6 +136,45 @@ class EvalRunner:
 
             score = self.judge.score(case, response)
             report.response_results.append(score)
+
+        report.compute_summary()
+        return report
+
+    def run_grounding(self, dataset_path: Path | None = None) -> EvalReport:
+        """Run grounding eval: retrieve context, generate advice, judge grounding."""
+        path = dataset_path or DATASETS_DIR / "grounding.yaml"
+        cases = load_grounding_dataset(path)
+        report = EvalReport()
+
+        if not self.advisor or not self.rag or not self.grounding_judge:
+            for case in cases:
+                report.grounding_results.append(
+                    {"skipped": True, "reason": "no advisor, rag, or judge", "query": case.query}
+                )
+            report.compute_summary()
+            return report
+
+        for case in cases:
+            try:
+                journal_ctx, intel_ctx = self.rag.get_combined_context(case.query)
+            except Exception as e:
+                logger.warning("RAG failed for '%s': %s", case.query, e)
+                report.grounding_results.append(
+                    {"skipped": True, "reason": f"rag: {e}", "query": case.query}
+                )
+                continue
+
+            try:
+                response = self.advisor.ask(case.query)
+            except Exception as e:
+                logger.warning("Advisor failed for '%s': %s", case.query, e)
+                report.grounding_results.append(
+                    {"skipped": True, "reason": f"advisor: {e}", "query": case.query}
+                )
+                continue
+
+            score = self.grounding_judge.score(case, response, journal_ctx, intel_ctx)
+            report.grounding_results.append(score)
 
         report.compute_summary()
         return report

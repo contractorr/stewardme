@@ -1,0 +1,30 @@
+cases:
+  - query: "What should I focus on this week?"
+    description: "should reference journal entries and recent activity"
+
+  - query: "What trending tools match my background?"
+    description: "should reference intel items relevant to profile"
+
+  - query: "How am I progressing on my goals?"
+    description: "should reference goals and journal reflections"
+
+  - query: "What new developments should I pay attention to?"
+    description: "should reference recent intel items"
+
+  - query: "Summarize my recent journal entries"
+    description: "should reference specific journal content"
+
+  - query: "What skills should I develop next?"
+    description: "should ground in profile gaps and trending tech"
+
+  - query: "Are there any opportunities I should explore?"
+    description: "should reference intel items and match to profile"
+
+  - query: "What patterns do you see in my recent work?"
+    description: "should reference multiple journal entries"
+
+  - query: "Give me a weekly review"
+    description: "should synthesize journal + intel + goals"
+
+  - query: "What should I read next based on my interests?"
+    description: "should reference intel items matching profile interests"

@@ -38,6 +38,12 @@ def load_retrieval_dataset(path: Path) -> list[RetrievalEvalCase]:
     ]
 
 
+@dataclass
+class GroundingEvalCase:
+    query: str
+    description: str = ""
+
+
 def load_response_dataset(path: Path) -> list[ResponseEvalCase]:
     """Load response eval cases from YAML file."""
     data = yaml.safe_load(path.read_text())
@@ -48,6 +54,19 @@ def load_response_dataset(path: Path) -> list[ResponseEvalCase]:
             advice_type=c.get("advice_type", "general"),
             expected_traits=c.get("expected_traits", []),
             forbidden_traits=c.get("forbidden_traits", []),
+            description=c.get("description", ""),
+        )
+        for c in cases
+    ]
+
+
+def load_grounding_dataset(path: Path) -> list[GroundingEvalCase]:
+    """Load grounding eval cases from YAML file."""
+    data = yaml.safe_load(path.read_text())
+    cases = data.get("cases", [])
+    return [
+        GroundingEvalCase(
+            query=c["query"],
             description=c.get("description", ""),
         )
         for c in cases
