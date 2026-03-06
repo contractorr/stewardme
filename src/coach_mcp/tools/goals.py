@@ -54,16 +54,25 @@ def _add_goal(args: dict) -> dict:
     }
     result = _create(goal_args)
 
-    # Set check_in_days if non-default
-    check_days = args.get("check_days", 14)
-    if check_days != 14 and "path" in result:
+    if "path" in result:
         import frontmatter
 
         filepath = Path(result["path"])
         post = frontmatter.load(filepath)
-        post["check_in_days"] = check_days
-        with open(filepath, "w") as f:
-            f.write(frontmatter.dumps(post))
+
+        # Set goal type
+        goal_type = args.get("type", "general")
+        if goal_type != "general":
+            post["goal_type"] = goal_type
+
+        # Set check_in_days if non-default
+        check_days = args.get("check_days", 14)
+        if check_days != 14:
+            post["check_in_days"] = check_days
+
+        if goal_type != "general" or check_days != 14:
+            with open(filepath, "w") as f:
+                f.write(frontmatter.dumps(post))
 
     return result
 
@@ -135,6 +144,12 @@ TOOLS = [
             "properties": {
                 "title": {"type": "string", "description": "Goal title"},
                 "description": {"type": "string", "description": "Goal description/body"},
+                "type": {
+                    "type": "string",
+                    "description": "Goal type",
+                    "enum": ["career", "learning", "project", "general"],
+                    "default": "general",
+                },
                 "check_days": {
                     "type": "integer",
                     "description": "Days between expected check-ins",

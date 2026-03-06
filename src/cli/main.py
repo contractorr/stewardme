@@ -22,7 +22,6 @@ from cli.commands import (
     init,
     intel_export,
     journal,
-    learn,
     memory,
     opportunities,
     predictions,
@@ -62,7 +61,6 @@ cli.add_command(research)
 cli.add_command(recommend)
 cli.add_command(export)
 cli.add_command(profile)
-cli.add_command(learn)
 cli.add_command(projects)
 cli.add_command(capabilities)
 cli.add_command(heartbeat)

@@ -1,7 +1,5 @@
 """Daily brief MCP tool."""
 
-from pathlib import Path
-
 from coach_mcp.bootstrap import get_components
 
 
@@ -9,7 +7,6 @@ def _get_daily_brief(args: dict) -> dict:
     """Build time-budgeted daily action plan."""
     from advisor.daily_brief import DailyBriefBuilder
     from advisor.goals import GoalTracker
-    from advisor.learning_paths import LearningPathStorage
     from advisor.recommendation_storage import RecommendationStorage
     from cli.utils import get_profile_storage, get_rec_db_path
 
@@ -27,16 +24,6 @@ def _get_daily_brief(args: dict) -> dict:
     except Exception:
         pass
 
-    learning_paths: list[dict] = []
-    try:
-        lp_dir = Path(
-            c["config"].get("learning_paths", {}).get("dir", "~/coach/learning_paths")
-        ).expanduser()
-        if lp_dir.exists():
-            learning_paths = LearningPathStorage(lp_dir).list_paths(status="active")
-    except Exception:
-        pass
-
     weekly_hours = 5
     try:
         prof = get_profile_storage(c["config"]).load()
@@ -48,7 +35,7 @@ def _get_daily_brief(args: dict) -> dict:
     brief = DailyBriefBuilder().build(
         stale_goals=stale_goals,
         recommendations=recs,
-        learning_paths=learning_paths,
+        learning_paths=[],
         all_goals=all_goals,
         weekly_hours=weekly_hours,
     )

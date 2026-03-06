@@ -556,6 +556,7 @@ For each gap:
 - Importance (high/medium/low)
 - Why it matters for their aspirations"""
 
+    # DEPRECATED — kept for reference, replaced by goal milestones
     LEARNING_PATH_GENERATION = """Generate a structured learning path for the specified skill.
 
 USER PROFILE:
@@ -670,6 +671,25 @@ Guidelines:
 
         return base
 
+    MILESTONE_GENERATION = """Generate ordered milestones for this goal.
+
+GOAL TITLE: {goal_title}
+GOAL TYPE: {goal_type}
+GOAL CONTENT:
+{goal_content}
+
+USER CONTEXT:
+{profile_context}
+
+Generate 4-8 ordered milestones that break this goal into achievable steps.
+For "learning" type goals, milestones should correspond to learning steps calibrated to the user's learning style and available weekly hours.
+For other types, milestones should be concrete, measurable checkpoints.
+
+Output ONLY a numbered list (1. First milestone, 2. Second milestone, etc).
+Each milestone should be a concise, actionable title (under 80 chars).
+Do not include any other text."""
+
+    # DEPRECATED — kept for reference, replaced by goal milestones
     CHECK_IN_ANALYSIS = """Analyze this learning check-in and provide brief adaptive feedback.
 
 SKILL: {skill}
@@ -680,6 +700,7 @@ PROGRESS: {completed}/{total} modules
 
 Provide 2-3 sentences: acknowledge the action, suggest what to focus on next, and any encouragement or adjustment based on the pattern of check-ins."""
 
+    # DEPRECATED — kept for reference, replaced by goal milestones
     DEEP_DIVE_GENERATION = """Generate a deep-dive subsection for this learning module.
 
 SKILL: {skill}

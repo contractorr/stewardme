@@ -15,12 +15,11 @@ class NudgeEngine:
         self,
         journal_storage=None,
         profile_storage=None,
-        lp_storage=None,
         config: Optional[dict] = None,
+        **kwargs,
     ):
         self.journal_storage = journal_storage
         self.profile_storage = profile_storage
-        self.lp_storage = lp_storage
         self.config = config or {}
 
     def get_nudges(self, max_nudges: int = 3) -> list[str]:
@@ -29,7 +28,6 @@ class NudgeEngine:
 
         nudges.extend(self._check_profile_stale())
         nudges.extend(self._check_stale_goals())
-        nudges.extend(self._check_learning_stalled())
         nudges.extend(self._check_journal_streak())
 
         return nudges[:max_nudges]
@@ -65,26 +63,6 @@ class NudgeEngine:
                 return [
                     f'Haven\'t checked in on "{top["title"]}" in {top.get("days_since_check", "14+")} days.'
                 ]
-        except Exception:
-            pass
-        return []
-
-    def _check_learning_stalled(self) -> list[str]:
-        if not self.lp_storage:
-            return []
-        try:
-            active = self.lp_storage.list_paths(status="active")
-            for path in active:
-                updated = path.get("updated_at") or path.get("created_at", "")
-                if updated:
-                    try:
-                        updated_dt = datetime.fromisoformat(updated)
-                        if (datetime.now() - updated_dt).days > 14:
-                            return [
-                                f'Learning path "{path["skill"]}" hasn\'t progressed in 2+ weeks. Run `coach learn next`.'
-                            ]
-                    except ValueError:
-                        pass
         except Exception:
             pass
         return []
@@ -127,19 +105,9 @@ def get_nudges_for_cli(config: dict, components: dict, max_nudges: int = 2) -> l
     except Exception:
         pass
 
-    lp_storage = None
-    try:
-        from advisor.learning_paths import LearningPathStorage
-
-        lp_dir = config.get("learning_paths", {}).get("dir", "~/coach/learning_paths")
-        lp_storage = LearningPathStorage(lp_dir)
-    except Exception:
-        pass
-
     engine = NudgeEngine(
         journal_storage=components.get("storage"),
         profile_storage=profile_storage,
-        lp_storage=lp_storage,
         config=config,
     )
     return engine.get_nudges(max_nudges)

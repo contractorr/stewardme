@@ -76,13 +76,15 @@ def weekly_review(self, journal_storage=None) -> str
 def detect_opportunities(self) -> str
 def analyze_goals(self, specific_goal: Optional[str] = None) -> str
 def analyze_skill_gaps(self) -> str
-def generate_learning_path(
+def generate_milestones(
     self,
-    skill: str,
-    lp_dir: str | Path = "~/coach/learning_paths",
-    current_level: int = 1,
-    target_level: int = 4,
-) -> Path
+    goal_path: Path,
+    journal_storage: JournalStorage | None = None,
+) -> list[str]
+# Deprecated — will be removed in Phase 2:
+# def generate_learning_path(
+#     self, skill, lp_dir, current_level, target_level,
+# ) -> Path
 def generate_recommendations(
     self,
     category: str,           # learning, career, entrepreneurial, investment, all
@@ -486,14 +488,21 @@ def __init__(self, db_path, default_ttl: int = 86400)
 #### Inputs / Outputs
 
 ```python
-def get(self, cache_key: str) -> str | None
+def get(self, cache_key: str, ttl: int | None = None) -> str | None
 # Returns value if not expired; deletes and returns None if expired
+# ttl overrides default_ttl for this lookup if provided
 
 def set(self, cache_key: str, value: str)
 # UPSERT: ON CONFLICT DO UPDATE value + created_at
 
 def make_key(self, context_type: str, query: str, **params) -> str
 # SHA256 of JSON {"type": context_type, "query": query, **params} (sort_keys=True)
+
+def invalidate(self, cache_key: str)
+# Public alias for _delete()
+
+def invalidate_by_prefix(self, prefix: str)
+# DELETE FROM context_cache WHERE key LIKE '{prefix}%'
 
 def clear_expired(self)
 # DELETE WHERE created_at < time.time() - default_ttl
@@ -556,13 +565,14 @@ Pure class of string constants and factory methods. No state. All templates use 
 | `TOP_PICK_CONTRARIAN` | profile_context, title, description, rationale, critic_challenge, recent_intel | `RecommendationEngine` |
 | `AGENTIC_SYSTEM` | — | legacy/unused (superseded by `build_agentic_system()`) |
 | `AI_CAPABILITIES_SECTION` | ai_capabilities_context | injected into `UNIFIED_RECOMMENDATIONS_WITH_AI` |
-| `SKILL_GAP_ANALYSIS` | profile_context, journal_context | `SkillGapAnalyzer` |
-| `LEARNING_PATH_GENERATION` | profile_context, skill_name, current_level, target_level, learning_style, weekly_hours | `LearningPathGenerator` |
+| `SKILL_GAP_ANALYSIS` | profile_context, journal_context | `SkillGapAnalyzer` (also used as advisor prompt mode) |
+| `MILESTONE_GENERATION` | goal_title, goal_content, goal_type, profile_context | `AdvisorEngine.generate_milestones()` |
+| `LEARNING_PATH_GENERATION` | profile_context, skill_name, current_level, target_level, learning_style, weekly_hours | DEPRECATED — replaced by `MILESTONE_GENERATION` for `type="learning"` goals |
 | `PROJECT_RECOMMENDATIONS` | journal_context, intel_context | `RecommendationEngine` |
 | `SIDE_PROJECT_IDEAS` | profile_context, journal_context | `RecommendationEngine` |
 | `EVENT_RECOMMENDATIONS` | journal_context, intel_context | `RecommendationEngine` |
-| `CHECK_IN_ANALYSIS` | skill, module_number, module_title, action, check_in_history, completed, total | `LearningPathGenerator` |
-| `DEEP_DIVE_GENERATION` | skill, module_title, module_content | `LearningPathGenerator` |
+| `CHECK_IN_ANALYSIS` | skill, module_number, module_title, action, check_in_history, completed, total | DEPRECATED — `LearningPathGenerator` removed |
+| `DEEP_DIVE_GENERATION` | skill, module_title, module_content | DEPRECATED — `LearningPathGenerator` removed |
 
 #### Inputs / Outputs
 

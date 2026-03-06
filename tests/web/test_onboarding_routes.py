@@ -143,7 +143,6 @@ def test_get_feed_categories_with_profile(client, auth_headers, tmp_path):
             "journal_dir": base / "journal",
             "chroma_dir": base / "chroma",
             "recommendations_dir": base / "recommendations",
-            "learning_paths_dir": base / "learning_paths",
             "profile": profile_path,
             "intel_db": tmp_path / "intel.db",
         }

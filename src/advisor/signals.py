@@ -172,7 +172,6 @@ class SignalDetector:
             self._detect_journal_gap,
             self._detect_topic_emergence,
             self._detect_deadlines,
-            self._detect_learning_stalled,
             self._detect_research_triggers,
             self._detect_recurring_blockers,
             self._detect_predictions_due,
@@ -392,44 +391,6 @@ class SignalDetector:
                         )
                 except ValueError:
                     pass
-        return signals
-
-    def _detect_learning_stalled(self) -> list[Signal]:
-        """Detect learning paths with no progress in 14+ days."""
-        try:
-            from advisor.learning_paths import LearningPathStorage
-
-            lp_dir = self.config.get("learning_paths", {}).get("dir", "~/coach/learning_paths")
-            lp_storage = LearningPathStorage(lp_dir)
-            active = lp_storage.list_paths(status="active")
-        except Exception:
-            return []
-
-        signals = []
-        for path in active:
-            updated = path.get("updated_at") or path.get("created_at", "")
-            if not updated:
-                continue
-            try:
-                updated_dt = datetime.fromisoformat(updated)
-                days_stalled = (datetime.now() - updated_dt).days
-                if days_stalled > 14:
-                    signals.append(
-                        Signal(
-                            type=SignalType.LEARNING_STALLED,
-                            severity=min(6, 3 + days_stalled // 14),
-                            title=f"Learning stalled: {path.get('skill', 'Unknown')}",
-                            detail=f"No progress in {days_stalled} days on '{path.get('skill', 'Unknown')}'.",
-                            suggested_actions=[
-                                f"Resume learning '{path.get('skill', '')}'",
-                                "Adjust the learning path if it's too ambitious",
-                            ],
-                            evidence=[str(path.get("path", ""))],
-                            expires_at=datetime.now() + timedelta(days=7),
-                        )
-                    )
-            except ValueError:
-                continue
         return signals
 
     def _detect_research_triggers(self) -> list[Signal]:

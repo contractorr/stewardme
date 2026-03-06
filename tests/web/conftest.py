@@ -94,7 +94,6 @@ def client(jwt_secret, secret_key, tmp_path, users_db):
             "journal_dir": jdir,
             "chroma_dir": base / "chroma",
             "recommendations_dir": base / "recommendations",
-            "learning_paths_dir": base / "learning_paths",
             "profile": base / "profile.yaml",
             "intel_db": tmp_path / "intel.db",
         }

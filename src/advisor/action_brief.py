@@ -175,25 +175,8 @@ class ActionBriefGenerator:
             return ""
 
     def _get_learning_section(self) -> str:
-        """Get active learning path status for the brief."""
-        try:
-            from advisor.learning_paths import LearningPathStorage
-
-            lp_dir = self.config.get("learning_paths", {}).get("dir", "~/coach/learning_paths")
-            storage = LearningPathStorage(lp_dir)
-            active = storage.list_paths(status="active")
-            if not active:
-                return ""
-
-            lines = []
-            for p in active[:3]:
-                lines.append(
-                    f"- {p['skill']}: {p['completed_modules']}/{p['total_modules']} modules ({p['progress']}%)"
-                )
-            return "\n".join(lines)
-        except Exception as exc:
-            logger.debug("learning_section_skipped", error=str(exc))
-            return ""
+        """Get active learning path status — deprecated, returns empty."""
+        return ""
 
     def _get_projects_section(self) -> str:
         """Get new project opportunities for the brief."""

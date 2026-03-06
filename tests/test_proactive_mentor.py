@@ -321,74 +321,6 @@ class TestEventScraper:
         assert scraper._parse_confs_tech_event(event_uk, "python") is None
 
 
-# === Phase 3: Learning Paths ===
-
-
-class TestLearningPathStorage:
-    def test_save_and_list(self, tmp_path):
-        from advisor.learning_paths import LearningPathStorage
-
-        storage = LearningPathStorage(tmp_path / "lp")
-        path = storage.save(
-            "Python Advanced",
-            "### Module 1: Decorators\n### Module 2: Metaclasses\n### Module 3: Async",
-        )
-        assert path.exists()
-
-        paths = storage.list_paths()
-        assert len(paths) == 1
-        assert paths[0]["skill"] == "Python Advanced"
-        assert paths[0]["total_modules"] == 3
-        assert paths[0]["status"] == "active"
-
-    def test_update_progress(self, tmp_path):
-        from advisor.learning_paths import LearningPathStorage
-
-        storage = LearningPathStorage(tmp_path / "lp")
-        storage.save("Rust Basics", "### Module 1: Ownership\n### Module 2: Borrowing")
-
-        paths = storage.list_paths()
-        path_id = paths[0]["id"]
-
-        assert storage.update_progress(path_id, 1)
-        updated = storage.get(path_id)
-        assert updated["completed_modules"] == 1
-        assert updated["progress"] == 50
-
-    def test_complete_path(self, tmp_path):
-        from advisor.learning_paths import LearningPathStorage
-
-        storage = LearningPathStorage(tmp_path / "lp")
-        storage.save("Go Basics", "### Module 1: Goroutines\n### Module 2: Channels")
-
-        path_id = storage.list_paths()[0]["id"]
-        storage.update_progress(path_id, 2)
-        updated = storage.get(path_id)
-        assert updated["status"] == "completed"
-        assert updated["progress"] == 100
-
-    def test_get_nonexistent(self, tmp_path):
-        from advisor.learning_paths import LearningPathStorage
-
-        storage = LearningPathStorage(tmp_path / "lp")
-        assert storage.get("nonexistent") is None
-
-    def test_filter_by_status(self, tmp_path):
-        from advisor.learning_paths import LearningPathStorage
-
-        storage = LearningPathStorage(tmp_path / "lp")
-        storage.save("Skill A", "### Module 1: X")
-        storage.save("Skill B", "### Module 1: Y")
-
-        path_id = storage.list_paths()[0]["id"]
-        storage.update_progress(path_id, 1)  # completes it
-
-        active = storage.list_paths(status="active")
-        completed = storage.list_paths(status="completed")
-        assert len(active) == 1
-        assert len(completed) == 1
-
-
 class TestSkillGapAnalyzer:
     def test_analyze(self):
         from advisor.rag import RAGRetriever
@@ -505,24 +437,6 @@ class TestNudges:
         engine = NudgeEngine(profile_storage=ps)
         nudges = engine.get_nudges()
         assert any(">90" in n or "profile" in n.lower() for n in nudges)
-
-    def test_stalled_learning_nudge(self, tmp_path):
-        from advisor.learning_paths import LearningPathStorage
-        from advisor.nudges import NudgeEngine
-
-        lp = LearningPathStorage(tmp_path / "lp")
-        filepath = lp.save("Stale Skill", "### Module 1: X")
-
-        # Backdate the updated_at
-        import frontmatter
-
-        post = frontmatter.load(filepath)
-        post.metadata["updated_at"] = (datetime.now() - timedelta(days=20)).isoformat()
-        filepath.write_text(frontmatter.dumps(post))
-
-        engine = NudgeEngine(lp_storage=lp)
-        nudges = engine.get_nudges()
-        assert any("2+ weeks" in n or "Stale Skill" in n for n in nudges)
 
     def test_journal_streak(self, tmp_path):
         from advisor.nudges import NudgeEngine

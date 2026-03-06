@@ -186,7 +186,6 @@ async def get_briefing(
         from profile.storage import ProfileStorage
 
         from advisor.daily_brief import DailyBriefBuilder
-        from advisor.learning_paths import LearningPathStorage
 
         weekly_hours = 5
         profile_path = paths.get("profile")
@@ -195,17 +194,12 @@ async def get_briefing(
             if prof and hasattr(prof, "weekly_hours_available"):
                 weekly_hours = prof.weekly_hours_available or 5
 
-        learning_paths_list: list[dict] = []
-        lp_dir = paths.get("learning_paths_dir")
-        if lp_dir and Path(lp_dir).exists():
-            learning_paths_list = LearningPathStorage(lp_dir).list_paths(status="active")
-
         rec_list = recommendations  # already gathered above
 
         brief_data = DailyBriefBuilder().build(
             stale_goals=stale_goals,
             recommendations=rec_list,
-            learning_paths=learning_paths_list,
+            learning_paths=[],
             all_goals=all_goals,
             weekly_hours=weekly_hours,
             intel_matches=goal_intel_matches,

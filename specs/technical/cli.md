@@ -34,7 +34,7 @@ def cli(verbose: bool): ...
 2. If `--verbose`: overrides `config["logging"]` to `{"level": "DEBUG", "file_level": "DEBUG"}`.
 3. `setup_logging(config)`.
 
-**Registered command groups:** `journal`, `daemon`, `db`, `research`, `recommend`, `export`, `profile`, `learn`, `projects`, `capabilities`, `heartbeat`, `memory`, `predictions`, `threads`
+**Registered command groups:** `journal`, `daemon`, `db`, `research`, `recommend`, `export`, `profile`, `learn` (DEPRECATED — Phase 2), `projects`, `capabilities`, `heartbeat`, `memory`, `predictions`, `threads`
 
 **Registered standalone commands:** `ask`, `review`, `opportunities`, `goals`, `scrape`, `brief`, `sources`, `intel_export`, `init`, `trends`, `reflect`, `today`, `radar`, `scraper_health`, `eval_cmd`, `dedup_backfill`
 
@@ -439,7 +439,7 @@ def get_profile_path(config: dict) -> str
 | `memory.py` | `memory` (group: `list`, `search`, `delete`, `stats`, `backfill`) | Experimental |
 | `predictions.py` | `predictions` (group: `list`, `review`, `stats`) | Experimental |
 | `threads.py` | `threads` (group: `list`, `get`, `reindex`) | Experimental |
-| `learn.py` | `learn` (group: `paths`, `gaps`, `checkin`) | Experimental |
+| `learn.py` | `learn` (group: `paths`, `gaps`, `checkin`) | DEPRECATED — removed in Phase 2 (learning merged into goals) |
 | `projects.py` | `projects` (group: `discover`, `ideas`, `list`) | Experimental |
 | `reflect.py` | `reflect` | Experimental |
 | `trends.py` | `trends` | Experimental |

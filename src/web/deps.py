@@ -61,7 +61,6 @@ def get_user_paths(user_id: str) -> dict:
         "journal_dir": journal_dir,
         "chroma_dir": base / "chroma",
         "recommendations_dir": base / "recommendations",
-        "learning_paths_dir": base / "learning_paths",
         "profile": base / "profile.yaml",
         # Intel stays global
         "intel_db": Path.home() / "coach" / "intel.db",

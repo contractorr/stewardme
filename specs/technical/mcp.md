@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `coach_mcp` package exposes 48 tools across 15 modules via a stdio-transport MCP server named `"stewardme"`. Tools are loaded lazily on first use and dispatched synchronously. The server enforces a strict no-LLM-in-MCP-layer rule: all reasoning is delegated to the calling Claude Code instance; the MCP layer only retrieves data and returns raw context. The one exception is `research_run`, which transitively invokes an LLM inside the research module's synthesis step (not in the MCP layer itself). Bootstrap initializes shared components once as a singleton, skipping advisor/LLM setup entirely via `skip_advisor=True`.
+The `coach_mcp` package exposes 48 tools across 15 modules via a stdio-transport MCP server named `"stewardme"` (post Phase 2: 43 tools across 14 modules — 5 learning tools removed). Tools are loaded lazily on first use and dispatched synchronously. The server enforces a strict no-LLM-in-MCP-layer rule: all reasoning is delegated to the calling Claude Code instance; the MCP layer only retrieves data and returns raw context. The one exception is `research_run`, which transitively invokes an LLM inside the research module's synthesis step (not in the MCP layer itself). Bootstrap initializes shared components once as a singleton, skipping advisor/LLM setup entirely via `skip_advisor=True`.
 
 ## Dependencies
 
@@ -21,7 +21,7 @@ The `coach_mcp` package exposes 48 tools across 15 modules via a stdio-transport
 
 - Creates a single `Server("stewardme")` instance at module load time.
 - Two module-level cache globals: `_tool_defs: list[Tool] | None` and `_handlers: dict | None`, both `None` until first use.
-- `_load_tools()` imports all 15 tool modules in this order: `journal, goals, intelligence, recommendations, research, reflect, profile, learning, projects, signals, brief, heartbeat, memory, threads, predictions`. For each module it iterates `TOOLS` (a list of `(name, schema, handler)` tuples) and builds a `Tool(name=name, description=schema["description"], inputSchema=schema)` object plus a `handlers[name] = handler` entry.
+- `_load_tools()` imports all 15 tool modules in this order: `journal, goals, intelligence, recommendations, research, reflect, profile, learning, projects, signals, brief, heartbeat, memory, threads, predictions`. Post Phase 2: `learning` removed (14 modules). For each module it iterates `TOOLS` (a list of `(name, schema, handler)` tuples) and builds a `Tool(name=name, description=schema["description"], inputSchema=schema)` object plus a `handlers[name] = handler` entry.
 - `list_tools()` — async, `@app.list_tools()` decorated. Calls `_load_tools()` on first invocation; returns cached `_tool_defs` subsequently.
 - `call_tool(name, arguments)` — async, `@app.call_tool()` decorated. Triggers lazy load if `_handlers` is `None`. Dispatches to `handler(arguments)` synchronously. Serializes result with `json.dumps(result, default=str)`. Returns `list[TextContent]`.
 - `run()` — async. Opens stdio streams via `stdio_server()`, runs `app.run(read_stream, write_stream, app.create_initialization_options())`.
@@ -150,7 +150,7 @@ Note: `shared_types.EntryType` also defines `quick`, but it is intentionally exc
 | Tool | Required args | Optional args (defaults) | Description |
 |---|---|---|---|
 | `goals_list` | — | `include_inactive` (False) | Lists goals with staleness info, progress, milestones. Returns `{goals: [...], count}`. Each goal includes `path`, `filename`, `title`, `status`, `created`, `last_checked`, `check_in_days`, `days_since_check`, `is_stale`, `tags`, `progress`, `preview` |
-| `goals_add` | `title` | `description`, `check_days` (14), `tags` | Creates goal via `journal._create` with `entry_type="goal"`. Writes `check_in_days` to frontmatter only if `check_days != 14` |
+| `goals_add` | `title` | `description`, `check_days` (14), `tags`, `type` (`"general"`) | Creates goal via `journal._create` with `entry_type="goal"`. Writes `check_in_days` to frontmatter only if `check_days != 14`. `type` field: `career`, `learning`, `project`, `general` (Phase 2) |
 | `goals_check_in` | `goal_path` | `notes` | Records check-in timestamp. Returns `{success, goal_path}` |
 | `goals_update_status` | `goal_path`, `status` | — | `status` enum: `active`, `paused`, `completed`, `abandoned`. Returns `{success, goal_path, status}` |
 | `goals_add_milestone` | `goal_path`, `title` | — | Adds milestone. Returns `{success, goal_path, progress}` |
@@ -222,7 +222,7 @@ Note: `shared_types.EntryType` also defines `quick`, but it is intentionally exc
 
 ### 8. Learning
 **File:** `src/coach_mcp/tools/learning.py`
-**Status:** Stable
+**Status:** DEPRECATED — all 5 tools to be removed in Phase 2 (learning paths merged into goals). Skill gap detection becomes an advisor prompt mode; learning progress tracked via goal milestones.
 
 | Tool | Required args | Optional args (defaults) | Description |
 |---|---|---|---|
@@ -382,7 +382,7 @@ The calling Claude Code instance receives the raw data and the instruction, then
 | Empty required string | `memory_search_facts` (query), `memory_delete_fact` (fact_id) | Returns `{"error": "query is required"}` / `{"error": "fact_id is required"}` |
 | Sub-component failure in proactive brief | `journal_get_context` mode=proactive | Each section (signals, patterns, goals, journal health) wrapped individually; returns empty list/dict + optional `_signal_error` key on failure |
 | Profile load failure | `events_upcoming`, `projects_discover`, `projects_ideas`, `learning_gaps`, `get_daily_brief` | Profile loaded best-effort inside `try/except`; handler continues with `profile=None` or empty string |
-| Learning path not found | `learning_path_get`, `learning_path_progress`, `learning_check_in` | Returns `{"error": "Learning path not found"}` or `{"success": False, "error": "Learning path not found"}` |
+| Learning path not found | `learning_path_get`, `learning_path_progress`, `learning_check_in` (DEPRECATED — Phase 2) | Returns `{"error": "Learning path not found"}` or `{"success": False, "error": "Learning path not found"}` |
 | Thread not found | `threads_get_entries` | Returns `{"error": "Thread not found: <thread_id>"}` |
 | Profile field ValueError | `profile_update_field` | Returns `{"success": False, "error": str(e)}` |
 | Thread detection failure | `journal_create` (post-write) | `_detect_thread` catches all exceptions, logs debug, returns `None`; entry creation still succeeds |
@@ -396,7 +396,7 @@ The calling Claude Code instance receives the raw data and the instruction, then
 | `config["profile"]["path"]` | `~/coach/profile.yaml` | `profile_get`, `profile_update_field`, `learning_gaps`, `projects_discover`, `projects_ideas`, `events_upcoming` |
 | `config["paths"]["intel_db"]` | `~/coach/intel.db` | `signals_list`, `signals_acknowledge`, `heartbeat_notifications`, `heartbeat_dismiss`, `memory_*`, `predictions_*`, `threads_*` |
 | `config["paths"]["chroma_dir"]` | `~/coach/chroma` | `memory_list_facts`, `memory_search_facts`, `memory_delete_fact`, `memory_get_stats` |
-| `config["learning_paths"]["dir"]` | `~/coach/learning_paths` | `learning_paths_list`, `learning_path_get`, `learning_path_progress`, `learning_check_in` |
+| `config["learning_paths"]["dir"]` | `~/coach/learning_paths` | DEPRECATED — `learning_paths_list`, `learning_path_get`, `learning_path_progress`, `learning_check_in` (removed in Phase 2) |
 | `journal_weight` arg default | `0.7` | `journal_get_context` (rag mode) |
 | `max_chars` arg default | `8000` | `journal_get_context` (rag mode) |
 | `config_model.threads.similarity_threshold` | `0.78` | `threads_reindex`, `journal_create` thread detection |
@@ -419,7 +419,7 @@ Tools marked `[Experimental]` carry the prefix in their MCP description string. 
 | Status | Tools |
 |---|---|
 | Experimental | `goals_list`, `goals_add`, `goals_check_in`, `goals_update_status`, `goals_add_milestone`, `goals_complete_milestone`, `research_topics`, `research_run` |
-| Stable | All remaining 40 tools across `journal`, `intelligence`, `recommendations`, `reflect`, `profile`, `learning`, `projects`, `signals`, `brief`, `heartbeat`, `memory`, `threads`, `predictions` |
+| Stable | All remaining 40 tools across `journal`, `intelligence`, `recommendations`, `reflect`, `profile`, `learning` (DEPRECATED), `projects`, `signals`, `brief`, `heartbeat`, `memory`, `threads`, `predictions` |
 ---
 
 ## Test Expectations

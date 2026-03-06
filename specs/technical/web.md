@@ -24,7 +24,7 @@ Creates `FastAPI(title="AI Coach", version="0.1.0")` with an async lifespan that
 2. Calls `_verify_secret_key()` — Fernet encrypt+decrypt roundtrip canary. **Raises `RuntimeError` and aborts startup** if `SECRET_KEY` is missing or canary fails.
 3. Logs `web.startup`.
 
-19 routers mounted via `app.include_router(...)`. CORS middleware configured from `FRONTEND_ORIGIN` env var (default `http://localhost:3000`); allows credentials, all methods, all headers.
+20 routers mounted via `app.include_router(...)`. CORS middleware configured from `FRONTEND_ORIGIN` env var (default `http://localhost:3000`); allows credentials, all methods, all headers. `learning` router to be removed in Phase 2 (learning paths merged into goals).
 
 `GET /api/health` returns `{"status": "ok"}` — unauthenticated.
 
@@ -247,14 +247,14 @@ def conversation_belongs_to(conv_id, user_id) -> bool
 
 `get_user_paths(user_id) -> dict` — Returns per-user path dict, creating `base/` and `base/journal/` if missing. Keys:
 
-| Key | Path |
-|---|---|
-| `journal_dir` | `~/coach/users/{safe_id}/journal/` |
-| `chroma_dir` | `~/coach/users/{safe_id}/chroma/` |
-| `recommendations_dir` | `~/coach/users/{safe_id}/recommendations/` |
-| `learning_paths_dir` | `~/coach/users/{safe_id}/learning_paths/` |
-| `profile` | `~/coach/users/{safe_id}/profile.yaml` |
-| `intel_db` | `~/coach/intel.db` (global, not per-user) |
+| Key | Path | Notes |
+|---|---|---|
+| `journal_dir` | `~/coach/users/{safe_id}/journal/` | |
+| `chroma_dir` | `~/coach/users/{safe_id}/chroma/` | |
+| `recommendations_dir` | `~/coach/users/{safe_id}/recommendations/` | |
+| `learning_paths_dir` | `~/coach/users/{safe_id}/learning_paths/` | DEPRECATED — to be removed in Phase 2 |
+| `profile` | `~/coach/users/{safe_id}/profile.yaml` | |
+| `intel_db` | `~/coach/intel.db` (global, not per-user) | |
 
 `safe_user_id(user_id)` — Replaces `:` with `_` (for OAuth IDs like `google:12345`).
 
@@ -372,7 +372,8 @@ Each step is independent try/except; step 2 is skipped if step 1 fails (needs em
 | `profile` | `/api/profile` | `GET/PUT` profile |
 | `user` | `/api/user` | `GET/PUT /me` |
 | `pageview` | `/api/pageview` | `POST` page view |
-| `learning` | `/api/learning` | CRUD learning paths, check-in |
+| `learning` | `/api/learning` | DEPRECATED — merged into goals (Phase 2). Routes to be removed |
+| `greeting` | `/api/greeting` | Cached personalized greeting for chat-first home |
 | `admin` | `/api/admin` | `GET /stats` (admin only) |
 | `heartbeat` | `/api/heartbeat` | Notifications, status |
 | `memory` | `/api/memory` | Facts CRUD, stats |
@@ -413,13 +414,14 @@ Post-create hooks (embed, threads, memory): all exceptions caught and logged as 
 ```
 ~/coach/
   intel.db          ← global (shared across all users)
+  context_cache.db  ← greeting cache + RAG context cache
   users.db          ← users, secrets, conversations, engagement
   users/
     {safe_user_id}/
-      journal/      ← markdown files
+      journal/      ← markdown files (includes goals with type field)
       chroma/       ← ChromaDB embeddings
       recommendations/
-      learning_paths/
+      learning_paths/ ← DEPRECATED (Phase 2: migrated to goals, dir left for rollback)
       profile.yaml
 ```
 

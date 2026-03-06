@@ -1,6 +1,8 @@
 # Learning Paths
 
-**Status:** Approved
+> **Deprecated:** Learning paths are merged into the goal tracking system as goals with `type="learning"` and auto-generated milestones. See `goal-tracking.md` → Auto-milestone generation and Learning path migration. Modules `LearningPathStorage`, `LearningPathGenerator`, `SubModuleGenerator`, related MCP tools, web routes, and CLI commands will be removed.
+
+**Status:** Deprecated
 **Author:** —
 **Date:** 2026-03-02
 

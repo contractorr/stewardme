@@ -15,13 +15,11 @@ console = Console()
 @click.command()
 def today():
     """Show today's prioritized action plan (no LLM needed)."""
-    from pathlib import Path
 
     from rich.table import Table
 
     from advisor.daily_brief import DailyBriefBuilder
     from advisor.goals import GoalTracker
-    from advisor.learning_paths import LearningPathStorage
     from advisor.recommendation_storage import RecommendationStorage
     from cli.utils import get_profile_storage, get_rec_db_path
 
@@ -39,16 +37,6 @@ def today():
     except Exception:
         pass
 
-    learning_paths: list[dict] = []
-    try:
-        lp_dir = Path(
-            c["config"].get("learning_paths", {}).get("dir", "~/coach/learning_paths")
-        ).expanduser()
-        if lp_dir.exists():
-            learning_paths = LearningPathStorage(lp_dir).list_paths(status="active")
-    except Exception:
-        pass
-
     weekly_hours = 5
     try:
         prof = get_profile_storage(c["config"]).load()
@@ -60,7 +48,7 @@ def today():
     brief = DailyBriefBuilder().build(
         stale_goals=stale_goals,
         recommendations=recs,
-        learning_paths=learning_paths,
+        learning_paths=[],
         all_goals=all_goals,
         weekly_hours=weekly_hours,
     )

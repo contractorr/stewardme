@@ -20,11 +20,12 @@ class GoalTracker:
     def __init__(self, journal_storage):
         self.storage = journal_storage
 
-    def get_goals(self, include_inactive: bool = False) -> list[dict]:
+    def get_goals(self, include_inactive: bool = False, goal_type: str | None = None) -> list[dict]:
         """Get all goals with their metadata.
 
         Args:
             include_inactive: Include completed/paused/abandoned goals
+            goal_type: Filter by type (career, learning, project, general)
 
         Returns:
             List of goal entries with staleness info
@@ -41,6 +42,10 @@ class GoalTracker:
                 if not include_inactive and status in (GoalStatus.COMPLETED, GoalStatus.ABANDONED):
                     continue
 
+                g_type = meta.get("goal_type", "general")
+                if goal_type and g_type != goal_type:
+                    continue
+
                 last_checked = meta.get("last_checked", meta.get("created"))
                 check_in_days = meta.get("check_in_days", self.DEFAULT_CHECK_IN_DAYS)
 
@@ -53,6 +58,7 @@ class GoalTracker:
                         "path": entry["path"],
                         "title": meta.get("title", "Untitled Goal"),
                         "status": status,
+                        "goal_type": g_type,
                         "created": meta.get("created"),
                         "last_checked": last_checked,
                         "check_in_days": check_in_days,
@@ -308,10 +314,11 @@ class GoalJournalLinker:
         return sorted(links, key=lambda x: x["similarity"], reverse=True)
 
 
-def get_goal_defaults() -> dict:
+def get_goal_defaults(goal_type: str = "general") -> dict:
     """Get default metadata for new goal entries."""
     return {
         "status": str(GoalStatus.ACTIVE),
+        "goal_type": goal_type,  # career, learning, project, general
         "last_checked": datetime.now().isoformat(),
         "check_in_days": 14,
     }

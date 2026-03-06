@@ -97,37 +97,6 @@ class TestAnalyzeSkillGaps:
         MockAnalyzer.assert_called_once_with(engine.rag, engine._call_llm)
 
 
-# ── generate_learning_path (lines 336-338) ──
-
-
-class TestGenerateLearningPath:
-    def test_creates_generator_and_calls_generate(self, engine, tmp_path):
-        with (
-            patch("advisor.engine.LearningPathStorage"),
-            patch("advisor.engine.LearningPathGenerator") as MockGen,
-        ):
-            mock_path = tmp_path / "learning.md"
-            mock_path.touch()
-            MockGen.return_value.generate.return_value = mock_path
-
-            result = engine.generate_learning_path("Rust", lp_dir=tmp_path)
-
-        assert result == mock_path
-        MockGen.return_value.generate.assert_called_once_with(
-            "Rust", current_level=1, target_level=4
-        )
-
-    def test_custom_levels(self, engine, tmp_path):
-        with (
-            patch("advisor.engine.LearningPathStorage"),
-            patch("advisor.engine.LearningPathGenerator") as MockGen,
-        ):
-            MockGen.return_value.generate.return_value = tmp_path / "lp.md"
-            engine.generate_learning_path("Go", lp_dir=tmp_path, current_level=2, target_level=5)
-
-        MockGen.return_value.generate.assert_called_once_with("Go", current_level=2, target_level=5)
-
-
 # ── generate_recommendations category="all" (lines 378-383) ──
 
 

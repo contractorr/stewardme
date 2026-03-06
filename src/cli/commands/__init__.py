@@ -18,7 +18,6 @@ from .intelligence import (
     sources,
 )
 from .journal import journal
-from .learn import learn
 from .memory import memory
 from .predictions import predictions
 from .profile import profile
@@ -50,7 +49,6 @@ __all__ = [
     "reflect",
     "export",
     "profile",
-    "learn",
     "projects",
     "capabilities",
     "today",

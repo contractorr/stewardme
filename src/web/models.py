@@ -311,44 +311,6 @@ class TopicTrend(BaseModel):
     representative_titles: list[str]
 
 
-# --- Learning ---
-
-
-class LearningPathSummary(BaseModel):
-    id: str
-    skill: str
-    status: str
-    progress: int
-    total_modules: int
-    completed_modules: int
-    created_at: str
-    updated_at: str
-
-
-class LearningPathDetail(LearningPathSummary):
-    content: str
-
-
-class LearningGenerate(BaseModel):
-    skill: str = Field(..., max_length=100)
-    current_level: int = Field(default=1, ge=1, le=5)
-    target_level: int = Field(default=4, ge=1, le=5)
-
-
-class LearningProgress(BaseModel):
-    completed_modules: int = Field(..., ge=0)
-
-
-class LearningCheckIn(BaseModel):
-    action: str = Field(..., pattern=r"^(continue|deepen|skip)$")
-
-
-class LearningCheckInResponse(BaseModel):
-    path: dict
-    deep_dive_content: Optional[str] = None
-    feedback: Optional[str] = None
-
-
 # --- Projects ---
 
 

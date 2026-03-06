@@ -13,7 +13,6 @@ from .action_brief import ActionBriefGenerator
 from .agentic import AgenticOrchestrator
 from .context_cache import ContextCache
 from .goals import GoalTracker
-from .learning_paths import LearningPathGenerator, LearningPathStorage
 from .prompts import PromptTemplates
 from .rag import RAGRetriever
 from .recommendation_storage import RecommendationStorage
@@ -341,17 +340,77 @@ class AdvisorEngine:
         analyzer = SkillGapAnalyzer(self.rag, self._call_llm)
         return analyzer.analyze()
 
-    def generate_learning_path(
+    def generate_milestones(
         self,
-        skill: str,
-        lp_dir: str | Path = "~/coach/learning_paths",
-        current_level: int = 1,
-        target_level: int = 4,
-    ) -> Path:
-        """Generate a structured learning path for a skill."""
-        storage = LearningPathStorage(lp_dir)
-        generator = LearningPathGenerator(self.rag, self._call_llm, storage)
-        return generator.generate(skill, current_level=current_level, target_level=target_level)
+        goal_path: Path,
+        journal_storage=None,
+    ) -> list[str]:
+        """Auto-generate milestones for a goal via cheap LLM.
+
+        Args:
+            goal_path: Path to goal file
+            journal_storage: Optional storage for reading goal content
+
+        Returns:
+            List of milestone title strings added to the goal
+
+        Raises:
+            ValueError: If goal not found
+        """
+        import re
+
+        import frontmatter as fm
+
+        if not goal_path.exists():
+            raise ValueError(f"Goal not found: {goal_path}")
+
+        post = fm.load(goal_path)
+        goal_title = post.metadata.get("title", "Untitled Goal")
+        goal_type = post.metadata.get("goal_type", "general")
+        goal_content = post.content[:2000] if post.content else ""
+
+        profile_context = self.rag.get_profile_context()
+
+        prompt = PromptTemplates.MILESTONE_GENERATION.format(
+            goal_title=goal_title,
+            goal_type=goal_type,
+            goal_content=goal_content,
+            profile_context=profile_context,
+        )
+
+        try:
+            response = self._call_cheap_llm(PromptTemplates.SYSTEM, prompt, max_tokens=500)
+        except LLMError:
+            logger.warning("generate_milestones.llm_failed", goal=str(goal_path))
+            return []
+
+        # Parse numbered list
+        titles = []
+        for line in response.strip().splitlines():
+            m = re.match(r"^\d+\.\s+(.+)$", line.strip())
+            if m:
+                titles.append(m.group(1).strip())
+
+        if not titles:
+            logger.warning("generate_milestones.parse_failed", goal=str(goal_path))
+            return []
+
+        tracker = GoalTracker(journal_storage) if journal_storage else None
+        added = []
+        for title in titles:
+            if tracker:
+                tracker.add_milestone(goal_path, title)
+            else:
+                # Direct frontmatter manipulation if no storage
+                post = fm.load(goal_path)
+                milestones = post.metadata.get("milestones", [])
+                milestones.append({"title": title, "completed": False, "completed_at": None})
+                post["milestones"] = milestones
+                with open(goal_path, "w") as f:
+                    f.write(fm.dumps(post))
+            added.append(title)
+
+        return added
 
     # === Recommendation Methods ===
 
