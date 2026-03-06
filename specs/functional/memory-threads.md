@@ -19,9 +19,10 @@ All users. Memory value compounds over time — most useful for regular users wi
 1. When a journal entry is created, system automatically extracts structured facts about the user
 2. Facts are categorized: `preference`, `skill`, `constraint`, `pattern`, `context`, `goal_context`
 3. Each fact has a confidence score (0-1) assigned by the LLM
-4. Facts from multiple sources: journal entries, recommendation feedback, goal events
-5. Duplicate/conflicting facts are resolved: fast token-overlap similarity check auto-skips near-duplicates (>0.95 threshold); ambiguous conflicts go to LLM arbitration
-6. Active facts are injected into advisor prompts as `<user_memory>` context
+4. The memory pipeline supports journal entries, recommendation feedback, and goal events as sources
+5. Current integration automatically runs on journal-entry writes; feedback and goal-event ingestion are implemented in the pipeline but not yet wired into the main product flows
+6. Duplicate/conflicting facts are resolved: fast token-overlap similarity check auto-skips near-duplicates (>0.95 threshold); ambiguous conflicts go to LLM arbitration
+7. Active facts are injected into advisor prompts as `<user_memory>` context
 
 ### Viewing and managing memory
 
@@ -30,6 +31,10 @@ All users. Memory value compounds over time — most useful for regular users wi
 3. User can delete incorrect facts
 4. User can view memory statistics (total facts, by category, by source)
 
+Current interface scope:
+- CLI and MCP expose semantic fact search
+- Web currently exposes list/get/delete/stats routes, but not a semantic fact-search endpoint
+
 ### Threads (recurring topics)
 
 1. System detects recurring topics across journal entries using cosine-similarity clustering
@@ -37,6 +42,10 @@ All users. Memory value compounds over time — most useful for regular users wi
 3. Threads are stored with their constituent entry references
 4. Active threads are injected into advisor prompts as `<recurring_thoughts>` context
 5. User can view detected threads and their entries
+
+Current interface scope:
+- CLI and MCP expose thread browsing and reindex operations
+- Web routes exist but are currently experimental and not working correctly
 
 ### Reindexing
 
@@ -49,10 +58,12 @@ All users. Memory value compounds over time — most useful for regular users wi
 - [ ] Facts deduplicated via token-overlap similarity (auto-NOOP at >0.95)
 - [ ] Conflicting facts resolved via LLM arbitration
 - [ ] Up to 25 facts injected into advisor context (configurable)
-- [ ] User can list, search, and delete facts
+- [ ] User can list and delete facts across interfaces
+- [ ] Semantic fact search is available in CLI and MCP; web search is not yet exposed
 - [ ] Threads detected from 2+ entries with similar topics
 - [ ] Threads injected into advisor prompts when enabled
-- [ ] Available via CLI, web, and MCP
+- [ ] Memory management is available via CLI, web, and MCP, though the current web implementation is still being aligned with the per-user storage model
+- [ ] Thread browsing is available via CLI and MCP; the current web route is not yet functioning correctly
 - [ ] Soft-deleted facts never appear in queries or context
 
 ## Edge Cases

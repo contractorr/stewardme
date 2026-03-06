@@ -2,7 +2,7 @@
 
 ## Overview
 
-FastAPI + Next.js web layer for multi-user access to the AI coach. FastAPI backend handles JWT auth (via NextAuth), Fernet-encrypted per-user secrets, and per-user data isolation under `~/coach/users/{safe_user_id}/`. 20 route modules expose JSON REST endpoints and one SSE streaming endpoint. Intel DB stays global (shared across all users).
+FastAPI + Next.js web layer for multi-user access to the AI coach. FastAPI backend handles JWT auth (via NextAuth), Fernet-encrypted per-user secrets, and per-user data isolation under `~/coach/users/{safe_user_id}/`. 19 route modules expose JSON REST endpoints and one SSE streaming endpoint. Intel DB stays global (shared across all users).
 
 ## Dependencies
 
@@ -24,7 +24,7 @@ Creates `FastAPI(title="AI Coach", version="0.1.0")` with an async lifespan that
 2. Calls `_verify_secret_key()` — Fernet encrypt+decrypt roundtrip canary. **Raises `RuntimeError` and aborts startup** if `SECRET_KEY` is missing or canary fails.
 3. Logs `web.startup`.
 
-20 routers mounted via `app.include_router(...)`. CORS middleware configured from `FRONTEND_ORIGIN` env var (default `http://localhost:3000`); allows credentials, all methods, all headers. `learning` router to be removed in Phase 2 (learning paths merged into goals).
+19 routers mounted via `app.include_router(...)`. CORS middleware configured from `FRONTEND_ORIGIN` env var (default `http://localhost:3000`); allows credentials, all methods, all headers.
 
 `GET /api/health` returns `{"status": "ok"}` — unauthenticated.
 
@@ -252,7 +252,6 @@ def conversation_belongs_to(conv_id, user_id) -> bool
 | `journal_dir` | `~/coach/users/{safe_id}/journal/` | |
 | `chroma_dir` | `~/coach/users/{safe_id}/chroma/` | |
 | `recommendations_dir` | `~/coach/users/{safe_id}/recommendations/` | |
-| `learning_paths_dir` | `~/coach/users/{safe_id}/learning_paths/` | DEPRECATED — to be removed in Phase 2 |
 | `profile` | `~/coach/users/{safe_id}/profile.yaml` | |
 | `intel_db` | `~/coach/intel.db` (global, not per-user) | |
 
@@ -313,14 +312,14 @@ State is process-local; multiple worker processes do not share rate limit counte
 
 ### Route Modules
 **File:** `src/web/routes/*.py`
-**Status:** Stable (settings, journal, advisor, profile, user, engagement, pageview, admin) / Experimental (goals, intel, research, briefing, recommendations, learning, insights, memory, threads, onboarding)
+**Status:** Stable (settings, journal, advisor, profile, user, engagement, pageview, admin) / Experimental (goals, intel, research, briefing, recommendations, insights, memory, threads, onboarding, greeting, suggestions)
 
 #### Behavior
 
 All routes require `Depends(get_current_user)` except `GET /api/health` (in `app.py`). All use `get_user_paths(user["id"])` for per-user data isolation.
 
 **Pattern: simple CRUD wrapping a storage class**
-Used by: `journal`, `goals`, `profile`, `recommendations`, `memory`, `threads`, `learning`
+Used by: `journal`, `goals`, `profile`, `recommendations`, `memory`, `threads`
 
 Each route: resolves user paths → instantiates storage class with per-user path → delegates to storage method → maps result to Pydantic response model. Path traversal protection on file-based routes via `_validate_journal_path()` (checks resolved path is inside `journal_dir`).
 
@@ -339,6 +338,11 @@ Fired as `asyncio.create_task` (background, best-effort) after journal create/qu
 2. Thread detection via `ThreadDetector.detect` (requires `config.threads.enabled` and successful embed).
 3. Memory extraction via `MemoryPipeline.process_journal_entry` (requires `config.memory.enabled`).
 Each step is independent try/except; step 2 is skipped if step 1 fails (needs embedding).
+
+**Current implementation caveats:**
+- `DELETE /api/journal/{filepath}` removes the markdown file only; unlike CLI and MCP delete paths, it does not currently remove embeddings or FTS rows.
+- `memory.py` currently instantiates `FactStore` against global `intel.db`, while journal/advisor flows write and read per-user extracted memory from `~/coach/users/{safe_id}/memory.db`.
+- `threads.py` currently expects `get_user_paths(user_id)["data_dir"]`, but `get_user_paths()` does not return that key, so the web thread routes are currently broken.
 
 **Admin route** (`admin.py`):
 `GET /api/admin/stats?days=30` requires `get_admin_user` (admin-only). Returns `get_usage_stats(days)`. Days param: 1–365.
@@ -363,24 +367,24 @@ Each step is independent try/except; step 2 is skipped if step 1 fails (needs em
 | Module | Prefix | Key Routes |
 |---|---|---|
 | `settings` | `/api/settings` | `GET/PUT` settings, `POST /test-llm` |
-| `journal` | `/api/journal` | CRUD + `POST /quick`; post-create hooks |
+| `journal` | `/api/journal` | list/create/read/update/delete + `POST /quick`; post-create hooks |
 | `advisor` | `/api/advisor` | `POST /ask`, `POST /ask/stream`, conversation CRUD |
-| `goals` | `/api/goals` | CRUD goals, check-in, status, milestones |
-| `intel` | `/api/intel` | List intel items (shared DB) |
+| `goals` | `/api/goals` | list/create, check-in, status, milestones, progress |
+| `intel` | `/api/intel` | recent/search/health, RSS feeds, watchlist CRUD, follow-ups, trending, scrape |
 | `research` | `/api/research` | List topics, `POST /run` |
 | `onboarding` | `/api/onboarding` | Chat interview, profile-status, feeds (see profile.md) |
 | `briefing` | `/api/briefing` | Daily briefing, recommendations |
 | `recommendations` | `/api/recommendations` | List/get/update recommendations |
 | `engagement` | `/api/engagement` | Log events, get stats |
-| `profile` | `/api/profile` | `GET/PUT` profile |
+| `profile` | `/api/profile` | `GET/PATCH` profile |
 | `user` | `/api/user` | `GET/PUT /me` |
 | `pageview` | `/api/pageview` | `POST` page view |
-| `learning` | `/api/learning` | DEPRECATED — merged into goals (Phase 2). Routes to be removed |
 | `greeting` | `/api/greeting` | Cached personalized greeting for chat-first home |
 | `admin` | `/api/admin` | `GET /stats` (admin only) |
 | `insights` | `/api/insights` | `GET` active insights |
-| `memory` | `/api/memory` | Facts CRUD, stats |
-| `threads` | `/api/threads` | List threads, entries, reindex |
+| `memory` | `/api/memory` | list/get/delete facts, stats |
+| `threads` | `/api/threads` | list/detail routes; currently miswired |
+| `suggestions` | `/api/suggestions` | merged brief + recommendation suggestions |
 
 #### Invariants
 
@@ -420,11 +424,12 @@ Post-create hooks (embed, threads, memory): all exceptions caught and logged as 
   users.db          ← users, secrets, conversations, engagement
   users/
     {safe_user_id}/
-      journal/      ← markdown files (includes goals with type field)
+      journal/      ← markdown files (includes goals with goal_type field)
       chroma/       ← ChromaDB embeddings
       recommendations/
-      learning_paths/ ← DEPRECATED (Phase 2: migrated to goals, dir left for rollback)
       profile.yaml
+      memory.db     ← per-user extracted memory used by journal/advisor flows
+      threads.db    ← per-user recurring-thought storage used by journal/advisor flows
 ```
 
 `safe_user_id` replaces `:` → `_` (OAuth provider prefix separator).

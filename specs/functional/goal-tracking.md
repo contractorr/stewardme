@@ -21,6 +21,11 @@ Users who set explicit goals during onboarding or manually. Most useful for mid-
 3. Goal gets a status (`active` by default) and 0% progress
 4. Goal has a `type` field: `career`, `learning`, `project`, or `general` (default `general`)
 
+Current interface scope:
+- CLI and web goal creation currently default to `general`
+- MCP goal creation can set `type` explicitly
+- Learning-path migration also produces `type="learning"` goals
+
 ### Milestones
 
 1. User adds milestones to a goal (sub-tasks with titles)
@@ -68,8 +73,10 @@ Existing learning paths are auto-migrated to goals on first startup post-upgrade
 
 ## Acceptance Criteria
 
-- [ ] User can create, update, and delete goals
-- [ ] Goals have a `type` field (`career`, `learning`, `project`, `general`)
+- [ ] User can create goals, update status, record check-ins, and manage milestones
+- [ ] Direct goal deletion is not currently exposed in CLI, web, or MCP
+- [ ] Goals persist a `goal_type` field (`career`, `learning`, `project`, `general`)
+- [ ] MCP can set goal type on create; CLI and web currently create `general` goals unless migrated or edited out-of-band
 - [ ] Goals support milestones with completion tracking
 - [ ] Advisor can auto-generate milestones for any goal on request
 - [ ] Check-ins are timestamped and persisted

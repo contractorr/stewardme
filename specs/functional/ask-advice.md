@@ -74,7 +74,8 @@ Beyond free-form Q&A, the advisor can run:
 - [ ] Classic RAG mode returns a response in a single LLM call
 - [ ] Conversation history is passed through for multi-turn dialogue
 - [ ] Advice type changes the framing/focus of the response
-- [ ] Works via CLI, web (including SSE streaming), and MCP
+- [ ] Works via CLI and web (including SSE streaming)
+- [ ] MCP exposes advisor-supporting context tools for Claude Code, rather than a direct `ask` tool
 - [ ] Greeting returns in <100ms when cached
 - [ ] Greeting reflects current user state (stale goals, recent intel)
 - [ ] Cache invalidated on data events (journal create/update, goal check-in, scrape batch)

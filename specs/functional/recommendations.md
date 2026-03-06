@@ -26,6 +26,7 @@ Users with a completed profile and some journal history. Recommendations improve
 
 1. User lists current recommendations
 2. Each recommendation shows: title, category, score, rationale, and suggested action
+3. When a recommendation is supported by watchlist-matched intel, the system can include lightweight watchlist evidence so the user can see which tracked theme or entity informed the suggestion
 3. Recommendations are sorted by score descending
 
 ### Feedback

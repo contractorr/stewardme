@@ -28,11 +28,20 @@ Entry types: `daily`, `project`, `goal`, `reflection`, `insight`, `note`, `quick
 2. System returns a structured prompt with section headings the user fills in
 3. Completed template is saved as a normal entry
 
+Current interface scope:
+- CLI exposes templates directly during `journal add`
+- Web and MCP do not currently expose dedicated template endpoints
+
 ### Searching entries
 
 1. User searches by keyword, semantic similarity, or both
 2. System returns ranked results combining full-text search (keyword) and vector search (semantic) via weighted rank fusion (configurable semantic weight, default 0.7)
 3. User can filter by entry type, tags, or date range
+
+Current interface scope:
+- CLI exposes semantic search directly
+- MCP exposes semantic journal search
+- Web currently focuses on browse/create/read/update/delete and quick capture; it does not expose a search route yet
 
 ### Browsing entries
 
@@ -42,7 +51,8 @@ Entry types: `daily`, `project`, `goal`, `reflection`, `insight`, `note`, `quick
 ### Editing and deleting
 
 1. User can update an entry's body or metadata; system stamps `updated` timestamp
-2. User can delete an entry; system removes file and cleans up embeddings
+2. User can delete an entry; file removal is supported across interfaces
+3. Embedding cleanup currently happens in CLI and MCP delete paths; the web delete route currently removes only the file
 
 ### Trends and threads
 
@@ -60,11 +70,13 @@ Entry types: `daily`, `project`, `goal`, `reflection`, `insight`, `note`, `quick
 - [ ] User can create entries via CLI, web, and MCP
 - [ ] Entries with no title get an LLM-generated title
 - [ ] New entries are embedded into ChromaDB (via MCP and web layers; direct `JournalStorage.create()` callers must embed separately)
-- [ ] Search returns results combining keyword and semantic matches
+- [ ] Hybrid keyword + semantic search exists in the journal module and is used by advisor retrieval
+- [ ] Search is exposed directly in CLI and MCP; web currently does not expose a journal search endpoint
 - [ ] List entries returns newest-first, respects type/tag filters
 - [ ] Editing an entry updates the `updated` timestamp
-- [ ] Deleting an entry removes both the file and its embedding
-- [ ] Templates return structured prompts for all 5 template types
+- [ ] Deleting an entry removes the file in all interfaces
+- [ ] CLI and MCP delete paths also remove embeddings; web embedding cleanup is not yet wired
+- [ ] Templates exist for all 5 template types in the journal module; direct template UX is currently CLI-only
 - [ ] Entries exceeding 100KB are rejected with a clear error
 - [ ] Tags are limited to 20 per entry; excess silently dropped
 
