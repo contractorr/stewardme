@@ -134,6 +134,8 @@ All handlers are sync. No async handlers exist in any tool module.
 
 **Valid `entry_type` values:** `daily`, `project`, `goal`, `reflection`, `insight`, `note`, `research`, `action_brief`
 
+Note: `shared_types.EntryType` also defines `quick`, but it is intentionally excluded from the MCP schema enum. The `quick` type is only used by the web `POST /api/journal/quick` route.
+
 #### Error Handling
 
 - `journal_read` and `journal_delete`: path traversal check — resolves path and checks `filepath.is_relative_to(journal_dir)`; returns `{"error": "Path escapes journal directory"}` on failure.

@@ -19,11 +19,11 @@ All users. Power users configure custom RSS feeds and enable additional sources.
 1. System runs scrapers on a configurable schedule (cron-based)
 2. Each scraper fetches items from its source, normalizes them into a common format (title, URL, summary, tags, publish date)
 3. Items are deduplicated by URL and content hash before storage
-4. Semantic dedup catches near-duplicate content across sources
+4. Semantic dedup catches near-duplicate content across sources (opt-in via `config.sources.semantic_dedup`, off by default)
 
-Available sources (15 scrapers):
+Available sources (14 source files, 19 scraper classes — `ai_capabilities.py` contains 6 sub-scrapers):
 - **Default enabled:** Hacker News top stories, RSS feeds
-- **Opt-in:** GitHub trending, arXiv papers, Reddit (configurable subreddits), Product Hunt, YC Jobs, Google Patents, AI capabilities tracker, tech events, GitHub Issues (user's repos), Crunchbase, Google Trends, Indeed Hiring Lab
+- **Opt-in:** GitHub trending, arXiv papers, Reddit (configurable subreddits), Product Hunt, YC Jobs, Google Patents, AI capabilities tracker (METR, Epoch AI, AI Index, ARC Evals, Frontier Evals), tech events, GitHub Issues (user's repos), Crunchbase, Google Trends, Indeed Hiring Lab
 
 ### Browsing intel
 
@@ -37,7 +37,7 @@ Available sources (15 scrapers):
 
 ### Trending topics
 
-1. System detects cross-source topic convergence (same topic appearing in 2+ sources within a time window)
+1. System detects cross-source topic convergence (topic appearing in 2+ source families with at least 4 items within a time window)
 2. User can view trending topics with supporting items from each source
 
 ### Goal-intel matching
@@ -54,13 +54,13 @@ Available sources (15 scrapers):
 
 - [ ] Scheduled scrapes run automatically via `coach daemon`
 - [ ] Items are deduplicated by both URL and content hash
-- [ ] Semantic dedup prevents near-identical items across different sources
+- [ ] Semantic dedup prevents near-identical items across different sources (when enabled)
 - [ ] User can browse and search intel via CLI, web, and MCP
-- [ ] Trending radar detects topics appearing in 2+ sources
+- [ ] Trending radar detects topics appearing in 2+ source families with minimum 4 items
 - [ ] User can manually trigger a scrape
 - [ ] Failed scrapes for one source don't block other sources
 - [ ] RSS feeds are configurable via `config.yaml`
-- [ ] Rate limiting prevents API abuse (per-source token bucket)
+- [ ] Rate limiting infrastructure exists (token bucket in `cli/rate_limit.py`) but is not yet wired into scrapers
 
 ## Edge Cases
 
@@ -70,7 +70,7 @@ Available sources (15 scrapers):
 | RSS feed returns malformed XML | Skip feed, log warning |
 | Duplicate item from different sources | Deduplicated; only one copy stored |
 | No sources enabled | No scraping occurs; intel DB stays empty |
-| Very large RSS feed (1000+ items) | Capped by `rss_max_entries` config (default 20) |
+| Very large RSS feed (1000+ items) | Hard-capped at 20 entries per feed |
 | No API key for paid source (Tavily, Crunchbase) | Source silently skipped or falls back |
 
 ## Out of Scope

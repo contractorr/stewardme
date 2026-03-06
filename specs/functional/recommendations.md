@@ -17,10 +17,10 @@ Users with a completed profile and some journal history. Recommendations improve
 ### Generation
 
 1. System periodically generates recommendations by analyzing user profile, journal patterns, goals, and recent intel
-2. Each recommendation is scored on four weighted dimensions: relevance (30%), urgency (25%), feasibility (25%), impact (20%)
+2. Each recommendation is scored on three weighted dimensions: relevance (50%), impact (30%), feasibility (20%). Note: `ScoringConfig.weights` in config has a different 4-dimension scheme (`relevance:0.3, urgency:0.25, feasibility:0.25, impact:0.2`) but this is only used by `RecommendationScorer.adjust_score()`, not the raw LLM scoring formula
 3. Recommendations below a minimum score threshold (default 6.0) are filtered out
 4. At most 3 recommendations per category are kept to avoid overload
-5. Recommendations are deduplicated against recent ones (similarity threshold over a 30-day window)
+5. Recommendations are deduplicated against recent ones (exact content-hash match over a 30-day window)
 
 ### Viewing
 
@@ -30,8 +30,8 @@ Users with a completed profile and some journal history. Recommendations improve
 
 ### Feedback
 
-1. User can rate a recommendation (useful / not useful / already knew)
-2. Rating feeds back into the scoring system as a rating boost for future relevance tuning
+1. User can rate a recommendation on a 1–5 numeric scale with an optional comment
+2. Rating feeds back into the scoring system via three boost components (engagement, outcome, rating) for future relevance tuning
 3. User can dismiss a recommendation to remove it from active list
 
 ### Delivery
@@ -43,9 +43,9 @@ Users with a completed profile and some journal history. Recommendations improve
 ## Acceptance Criteria
 
 - [ ] Recommendations are personalized based on profile and journal content
-- [ ] Scoring weights sum to 1.0; recommendations below threshold are excluded
+- [ ] Scoring weights (relevance 50%, impact 30%, feasibility 20%) sum to 1.0; recommendations below threshold are excluded
 - [ ] Max 3 per category prevents recommendation fatigue
-- [ ] Dedup prevents the same recommendation from recurring within 30 days
+- [ ] Dedup via exact content hash prevents the same recommendation from recurring within 30 days
 - [ ] User can rate recommendations and ratings affect future scoring
 - [ ] Recommendations are viewable via CLI, web, and MCP
 - [ ] Scheduled generation runs without manual intervention
@@ -56,9 +56,9 @@ Users with a completed profile and some journal history. Recommendations improve
 |----------|-------------------|
 | No profile, no journal | Cannot generate meaningful recommendations; return empty or generic fallback |
 | All recommendations below threshold | Return empty list, not low-quality recs |
-| User rates everything as "not useful" | Rating boost adjusts; future recs shift focus |
+| User rates everything low (1-2) | Rating/engagement boosts adjust; future recs shift focus |
 | No intel items available | Recommendations based on profile + journal only |
-| Duplicate recommendation within 30 days | Filtered by similarity dedup |
+| Duplicate recommendation within 30 days | Filtered by content-hash dedup |
 
 ## Out of Scope
 

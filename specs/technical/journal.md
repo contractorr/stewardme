@@ -331,7 +331,7 @@ No exceptions raised. Returns `{"score": 0.0, "label": "neutral", ...}` when tex
 Positive lexicon (32 words):
 `great, good, excellent, happy, excited, proud, accomplished, progress, success, win, awesome, fantastic, love, enjoy, productive, motivated, inspired, grateful, thankful, confident, breakthrough, solved, achieved, improved, optimistic, energized, satisfied, fun, rewarding, thriving, focused, clear`
 
-Negative lexicon (30 words):
+Negative lexicon (31 words):
 `bad, terrible, frustrated, stuck, blocked, stressed, anxious, overwhelmed, exhausted, burned, burnout, failed, struggling, confused, worried, disappointed, tired, difficult, hard, impossible, lost, behind, procrastinating, unmotivated, drained, angry, annoyed, boring, painful, hopeless, doubt`
 
 ---

@@ -2,7 +2,7 @@
 
 ## Overview
 
-FastAPI + Next.js web layer for multi-user access to the AI coach. FastAPI backend handles JWT auth (via NextAuth), Fernet-encrypted per-user secrets, and per-user data isolation under `~/coach/users/{safe_user_id}/`. 19 route modules expose JSON REST endpoints and one SSE streaming endpoint. Intel DB stays global (shared across all users).
+FastAPI + Next.js web layer for multi-user access to the AI coach. FastAPI backend handles JWT auth (via NextAuth), Fernet-encrypted per-user secrets, and per-user data isolation under `~/coach/users/{safe_user_id}/`. 20 route modules expose JSON REST endpoints and one SSE streaming endpoint. Intel DB stays global (shared across all users).
 
 ## Dependencies
 

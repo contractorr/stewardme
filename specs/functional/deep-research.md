@@ -16,9 +16,9 @@ Users who want in-depth understanding of a topic relevant to their goals or inte
 
 ### Topic selection
 
-1. System automatically selects research topics from: active goals, journal trend clusters, and recurring thought threads
+1. System automatically selects research topics from: active goals, journal trend clusters, and word-frequency analysis of recent journal entries
 2. User can also request research on a specific topic manually
-3. System limits to a configurable max topics per cycle (default 3)
+3. System limits to a configurable max topics per cycle. `ResearchConfig.max_topics` defaults to 3 but is unused by the agent; `DeepResearchAgent` reads `max_topics_per_week` (default 2) from the research config dict, which is forwarded to `TopicSelector.max_topics`
 
 ### Research pipeline
 
@@ -42,12 +42,12 @@ Users who want in-depth understanding of a topic relevant to their goals or inte
 
 ## Acceptance Criteria
 
-- [ ] Topic selector draws from goals, trends, and recurring themes
+- [ ] Topic selector draws from goals, trends, and journal word-frequency themes
 - [ ] User can manually request research on any topic
 - [ ] Reports synthesize multiple web sources with citations
 - [ ] Reports saved as journal entries and intel items
 - [ ] Falls back to DuckDuckGo when no Tavily key is set
-- [ ] Rate-limited to 1 request/second to avoid API abuse
+- [ ] Rate-limited to 1 request/second on sync web search client (async client is not rate-limited)
 - [ ] Scheduled research runs unattended when enabled
 - [ ] Available via CLI, web, and MCP
 

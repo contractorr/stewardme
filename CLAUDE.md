@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Environment
+
+Python (primary) and TypeScript (frontend). Python uses uv/uvx for package management with virtual environments (not conda). TypeScript uses npm with Node.js 18+.
+
 ## Commands
 
 ```bash
@@ -46,13 +50,13 @@ RAG-based personal AI advisor. Journal entries + external intelligence scrapers 
 
 - **advisor/** — `AdvisorEngine` with two modes and dual LLM instances (see below)
 - **journal/** — Markdown files with YAML frontmatter, ChromaDB embeddings, semantic+keyword search, KMeans trend detection, sentiment analysis, entry templates
-- **intelligence/** — 15 scrapers in `sources/` inheriting `BaseScraper` (HN, GitHub, arXiv, Reddit, RSS, Product Hunt, YC Jobs, Google Patents, AI capabilities, events, GitHub issues, Crunchbase, Google Trends, Indeed). Only HN+RSS enabled by default. SQLite storage with URL+content-hash dedup, APScheduler
+- **intelligence/** — 14 source files in `sources/` (19 scraper classes — `ai_capabilities.py` contains 6) inheriting `BaseScraper` (HN, GitHub, arXiv, Reddit, RSS, Product Hunt, YC Jobs, Google Patents, AI capabilities, events, GitHub issues, Crunchbase, Google Trends, Indeed). Only HN+RSS enabled by default. SQLite storage with URL+content-hash dedup, APScheduler
 - **research/** — Deep research: topic selection → web search (Tavily or DuckDuckGo fallback) → LLM synthesis → reports
 - **llm/** — Provider factory with auto-detection from env vars. Unified `LLMProvider` interface: Claude/OpenAI/Gemini
 - **profile/** — `UserProfile` Pydantic model (YAML-backed). `ProfileInterviewer` for LLM-driven onboarding (5-7 turns, force-extraction fallback). Two rendering modes: `summary()` (compact) and `structured_summary()` (multi-section XML)
 - **cli/** — Click CLI (`coach` command). Pydantic config validation. Structlog logging
-- **web/** — FastAPI backend: JWT auth (python-jose), Fernet-encrypted secret storage, per-user data isolation at `~/coach/users/{safe_user_id}/`. Global intel DB stays shared. 17 route modules. `get_or_create_user()` auto-registers on first request
-- **coach_mcp/** — 54 MCP tools across 14 modules (journal, goals, intel, recommendations, research, reflect, profile, learning, projects, signals, brief, heartbeat, memory, threads)
+- **web/** — FastAPI backend: JWT auth (python-jose), Fernet-encrypted secret storage, per-user data isolation at `~/coach/users/{safe_user_id}/`. Global intel DB stays shared. 20 route modules. `get_or_create_user()` auto-registers on first request
+- **coach_mcp/** — 48 MCP tools across 15 modules (journal, goals, intel, recommendations, research, reflect, profile, learning, projects, signals, brief, heartbeat, memory, threads, predictions)
 
 ### Advisor deep dive
 
@@ -114,7 +118,7 @@ Removed: mood analysis, burnout detection, momentum detection
 
 ## MCP Server
 
-`src/coach_mcp/` exposes 54 tools across 14 modules. Claude Code does the reasoning; MCP server provides data + context retrieval only — no LLM calls in the MCP layer. Tool convention: `TOOLS = [(name, schema_dict, handler_fn), ...]` per module, loaded lazily and cached in `server.py`.
+`src/coach_mcp/` exposes 48 tools across 15 modules. Claude Code does the reasoning; MCP server provides data + context retrieval only — no LLM calls in the MCP layer. Tool convention: `TOOLS = [(name, schema_dict, handler_fn), ...]` per module, loaded lazily and cached in `server.py`.
 
 ```bash
 python -m coach_mcp  # stdio transport, configured in .mcp.json for auto-discovery
@@ -131,3 +135,19 @@ Notable config: `llm.extended_thinking`, `sources.deduplicate_rss_sources` (auto
 - **test.yml** — Python 3.11 + 3.12 matrix, `pytest --cov-fail-under=50`, Codecov on 3.12
 - **lint.yml** — `ruff check` + `ruff format --check` + `mypy` (continue-on-error). Separate job: `npm ci && npm run lint && npm run build` in `web/`
 - **deploy.yml** — push to main triggers test then SSH docker compose deploy
+
+## Output Conventions
+
+When writing large documents (specs, reports, analyses), write in incremental chunks of ~150 lines using Write followed by Edit/append. Never output an entire large file in a single response.
+
+## Remote Server Access
+
+When the user mentions a 'remote server' or 'production', always ask for or confirm SSH connection details (host, user, key path) before attempting to connect. Check CLAUDE.md env vars or prior session context first.
+
+## Data Access
+
+For data queries, always clarify the data source FIRST: local DuckDB/SQLite, remote database via SSH, Snowflake, or another tool. Do not assume one over another.
+
+## Development Workflow
+
+After implementing changes from a GitHub issue or plan, always: 1) run the full test suite, 2) run lint, 3) commit with a descriptive message referencing the issue number, 4) push to remote. Do not stop at implementation without committing unless told otherwise.
