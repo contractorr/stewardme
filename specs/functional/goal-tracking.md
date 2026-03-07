@@ -52,6 +52,17 @@ Current interface scope:
 - `paused` — temporarily deprioritized
 - `abandoned` — explicitly dropped
 
+### Web goals workspace
+
+1. The web goals page defaults to a focus view that shows `active` and `paused` goals.
+2. Stale goals can be isolated with a dedicated `Needs check-in` filter.
+3. `Completed` and `abandoned` goals remain visible in an archived view instead of crowding the default working list.
+4. The web UI supports quick status transitions from each expanded goal card:
+   - `active` -> `paused`, `completed`, or `abandoned`
+   - `paused` -> `active`, `completed`, or `abandoned`
+   - `abandoned` -> `active`
+5. The web goals page includes title search across the loaded goal list.
+
 ### Goal analysis
 
 1. Advisor can analyze progress on a specific goal or all goals
@@ -78,6 +89,9 @@ Existing learning paths are auto-migrated to goals on first startup post-upgrade
 - [ ] Goals persist a `goal_type` field (`career`, `learning`, `project`, `general`)
 - [ ] MCP can set goal type on create; CLI and web currently create `general` goals unless migrated or edited out-of-band
 - [ ] Goals support milestones with completion tracking
+- [ ] The web goals page defaults to a focus view and lets users filter to stale, archived, or all goals
+- [ ] The web goals page supports title search across loaded goals
+- [ ] The web UI exposes quick abandon and reactivate goal actions
 - [ ] Advisor can auto-generate milestones for any goal on request
 - [ ] Check-ins are timestamped and persisted
 - [ ] Progress percentage reflects milestone completion
@@ -96,6 +110,8 @@ Existing learning paths are auto-migrated to goals on first startup post-upgrade
 | Learning path migration fails | Original files untouched; user can retry migration or manually recreate |
 | All milestones completed | Goal progress is 100%; status remains `active` until user marks complete |
 | No active goals | Goal analysis returns empty; agentic prompt has no goals section |
+| Stale filter has no matches | Web UI shows a reassuring empty state instead of an empty list |
+| Search/filter returns no results | Web UI keeps filters visible and offers a reset action |
 | Goal file corrupted | Silently skipped in listings; error on direct access |
 | 8+ active goals | Only first 8 shown in advisor context |
 

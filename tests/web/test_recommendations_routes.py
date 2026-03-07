@@ -73,3 +73,28 @@ def test_list_action_items_can_filter_by_status(client, auth_headers, tmp_path):
     data = res.json()
     assert len(data) == 1
     assert data[0]["recommendation_id"] == second
+
+
+
+def test_add_recommendation_feedback(client, auth_headers, tmp_path):
+    storage = _storage_for(tmp_path)
+    rec_id = storage.save(Recommendation(category="career", title="Reach out", score=8.4))
+
+    res = client.post(
+        f"/api/recommendations/{rec_id}/feedback",
+        headers=auth_headers,
+        json={"rating": 4, "comment": "Strong fit for this week"},
+    )
+
+    assert res.status_code == 200
+    data = res.json()
+    assert data["id"] == rec_id
+    assert data["user_rating"] == 4
+    assert data["feedback_comment"] == "Strong fit for this week"
+    assert data["feedback_at"] is not None
+
+    stored = storage.get(rec_id)
+    assert stored is not None
+    assert stored.metadata["user_rating"] == 4
+    assert stored.metadata["feedback_comment"] == "Strong fit for this week"
+    assert stored.metadata["feedback_at"] is not None

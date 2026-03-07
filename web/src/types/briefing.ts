@@ -25,6 +25,9 @@ export interface BriefingRecommendation {
   critic?: CriticData | null;
   watchlist_evidence?: string[];
   action_item?: RecommendationActionItem | null;
+  user_rating?: number | null;
+  feedback_comment?: string | null;
+  feedback_at?: string | null;
 }
 
 export interface RecommendationActionItem {

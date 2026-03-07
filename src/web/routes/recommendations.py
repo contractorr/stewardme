@@ -6,24 +6,28 @@ import frontmatter
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from advisor.recommendation_storage import RecommendationStorage
-from intelligence.scraper import IntelStorage
 from intelligence.watchlist import (
-    WatchlistStore,
     annotate_items,
     find_evidence_for_text,
     sort_ranked_items,
 )
 from web.auth import get_current_user
-from web.deps import get_coach_paths, get_user_paths
+from web.deps import (
+    get_intel_storage,
+    get_recommendation_storage,
+    get_user_paths,
+    get_watchlist_store,
+)
 from web.models import (
     BriefingRecommendation,
     RecommendationActionCreate,
     RecommendationActionItem,
     RecommendationActionUpdate,
+    RecommendationFeedbackRequest,
     TrackedRecommendationAction,
     WeeklyPlanResponse,
 )
+from web.user_store import log_event
 
 logger = structlog.get_logger()
 
@@ -31,24 +35,22 @@ router = APIRouter(prefix="/api/recommendations", tags=["recommendations"])
 
 
 def _recent_watchlist_intel(user_id: str) -> list[dict]:
-    paths = get_user_paths(user_id)
-    watchlist_path = Path(paths["profile"]).parent / "watchlist.json"
-    watchlist_items = WatchlistStore(watchlist_path).list_items()
+    watchlist_items = get_watchlist_store(user_id).list_items()
     if not watchlist_items:
         return []
 
-    intel_storage = IntelStorage(get_coach_paths()["intel_db"])
+    intel_storage = get_intel_storage()
     items = intel_storage.get_recent(days=21, limit=80, include_duplicates=True)
     annotate_items(items, watchlist_items)
     return sort_ranked_items(items)
 
 
-def _get_storage(user_id: str) -> RecommendationStorage:
+def _get_storage(user_id: str):
     paths = get_user_paths(user_id)
     rec_dir = paths.get("recommendations_dir")
     if not rec_dir:
         raise HTTPException(status_code=404, detail="Recommendations storage not configured")
-    return RecommendationStorage(rec_dir)
+    return get_recommendation_storage(user_id)
 
 
 def _resolve_goal_link(goal_path: str | None, user_id: str) -> tuple[str | None, str | None]:
@@ -114,6 +116,9 @@ def _shape_recommendation(r, ranked_watchlist_intel: list[dict]) -> BriefingReco
             f"{r.title}\n{r.description}", ranked_watchlist_intel, limit=2
         ),
         action_item=_shape_action_item(meta.get("action_item")),
+        user_rating=meta.get("user_rating"),
+        feedback_comment=meta.get("feedback_comment"),
+        feedback_at=meta.get("feedback_at"),
     )
 
 
@@ -178,6 +183,40 @@ async def list_recommendations(
     # Shape output like briefing.py
     return [_shape_recommendation(r, ranked_watchlist_intel) for r in recs[:limit]]
 
+@router.post(
+    "/{rec_id}/feedback",
+    response_model=BriefingRecommendation,
+    status_code=status.HTTP_200_OK,
+)
+async def add_recommendation_feedback(
+    rec_id: str,
+    payload: RecommendationFeedbackRequest,
+    user: dict = Depends(get_current_user),
+):
+    storage = _get_storage(user["id"])
+    added = storage.add_feedback(rec_id, payload.rating, payload.comment)
+    if not added:
+        raise HTTPException(status_code=404, detail="Recommendation not found")
+
+    recommendation = storage.get(rec_id)
+    if not recommendation:
+        raise HTTPException(status_code=404, detail="Recommendation not found")
+
+    log_event(
+        "recommendation_feedback",
+        user["id"],
+        {
+            "recommendation_id": rec_id,
+            "category": recommendation.category,
+            "rating": payload.rating,
+            "score": 1 if payload.rating >= 4 else (-1 if payload.rating <= 2 else 0),
+        },
+    )
+
+    ranked_watchlist_intel = _recent_watchlist_intel(user["id"])
+    return _shape_recommendation(recommendation, ranked_watchlist_intel)
+
+
 
 @router.post(
     "/{rec_id}/action-item",
@@ -190,17 +229,21 @@ async def create_action_item(
     user: dict = Depends(get_current_user),
 ):
     storage = _get_storage(user["id"])
-    goal_path, goal_title = _resolve_goal_link(body.goal_path, user["id"]) if body.goal_path else (None, None)
+    payload = body.model_dump()
+    goal_path_value = payload.get("goal_path")
+    goal_path, goal_title = (
+        _resolve_goal_link(goal_path_value, user["id"]) if goal_path_value else (None, None)
+    )
     action_item = storage.create_action_item(
         rec_id,
         goal_path=goal_path,
         goal_title=goal_title,
-        objective=body.objective,
-        next_step=body.next_step,
-        effort=body.effort,
-        due_window=body.due_window,
-        blockers=body.blockers,
-        success_criteria=body.success_criteria,
+        objective=payload.get("objective"),
+        next_step=payload.get("next_step"),
+        effort=payload.get("effort"),
+        due_window=payload.get("due_window"),
+        blockers=payload.get("blockers"),
+        success_criteria=payload.get("success_criteria"),
     )
     if not action_item:
         raise HTTPException(status_code=404, detail="Recommendation not found")
@@ -217,19 +260,21 @@ async def update_action_item(
     user: dict = Depends(get_current_user),
 ):
     storage = _get_storage(user["id"])
+    payload = body.model_dump()
     goal_path, goal_title = (None, None)
-    if body.goal_path is not None:
-        goal_path, goal_title = _resolve_goal_link(body.goal_path, user["id"])
+    goal_path_value = payload.get("goal_path")
+    if goal_path_value is not None:
+        goal_path, goal_title = _resolve_goal_link(goal_path_value, user["id"])
 
     action_item = storage.update_action_item(
         rec_id,
-        status=body.status,
-        effort=body.effort,
-        due_window=body.due_window,
-        blockers=body.blockers,
-        review_notes=body.review_notes,
-        next_step=body.next_step,
-        success_criteria=body.success_criteria,
+        status=payload.get("status"),
+        effort=payload.get("effort"),
+        due_window=payload.get("due_window"),
+        blockers=payload.get("blockers"),
+        review_notes=payload.get("review_notes"),
+        next_step=payload.get("next_step"),
+        success_criteria=payload.get("success_criteria"),
         goal_path=goal_path,
         goal_title=goal_title,
     )

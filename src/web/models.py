@@ -244,6 +244,9 @@ class BriefingRecommendation(BaseModel):
     critic: Optional[CriticData] = None
     watchlist_evidence: list[str] = []
     action_item: Optional["RecommendationActionItem"] = None
+    user_rating: Optional[int] = Field(None, ge=1, le=5)
+    feedback_comment: Optional[str] = None
+    feedback_at: Optional[str] = None
 
 
 class RecommendationActionItem(BaseModel):
@@ -282,6 +285,11 @@ class RecommendationActionUpdate(BaseModel):
     next_step: Optional[str] = Field(None, max_length=500)
     success_criteria: Optional[str] = Field(None, max_length=500)
     goal_path: Optional[str] = None
+
+
+class RecommendationFeedbackRequest(BaseModel):
+    rating: int = Field(..., ge=1, le=5)
+    comment: Optional[str] = Field(None, max_length=2000)
 
 
 class TrackedRecommendationAction(BaseModel):

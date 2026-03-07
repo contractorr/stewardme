@@ -1,8 +1,8 @@
 # Research Dossiers
 
-**Status:** Approved
-**Author:** —
-**Date:** 2026-03-06
+**Status:** Partially Implemented
+**Author:** -
+**Date:** 2026-03-07
 
 ## Problem
 
@@ -26,6 +26,11 @@ Users who want persistent research on topics tied to their goals, career plans, 
 2. Each dossier shows its topic, status, last updated time, and a short summary of the latest change.
 3. User can open a dossier to view its current brief, accumulated updates, and open questions.
 
+Current interface scope:
+- Web currently exposes dossier behavior through API routes; there is not yet a dedicated dashboard page.
+- CLI exposes list, create, and view flows.
+- MCP currently exposes dossier create/list and research-run flows, but not dossier-detail retrieval.
+
 ### Updating dossiers
 
 1. User can manually run research against an existing dossier.
@@ -37,44 +42,54 @@ Users who want persistent research on topics tied to their goals, career plans, 
 1. Every dossier update includes:
    - what changed
    - why it matters
-   - evidence with citations
+   - evidence with citations or source references
    - confidence
    - recommended next actions
    - open questions
-2. The system stores a concise “change since last update” summary that is visible when listing or opening the dossier.
+2. The system stores a concise change-since-last-update summary that is visible when listing or opening the dossier.
 
 ### Advisor and recommendation usage
 
-1. When the user asks related questions, the advisor can use dossier summaries and updates as research context.
-2. The recommendation engine can also draw on dossier state when generating recommendations.
+1. Advisor can use research entries, including dossier content and dossier updates, as part of its broader research context.
+2. Recommendation generation can also draw on the same research context when available.
+
+### Lifecycle and status
+
+1. Dossiers carry a status such as `active` or `archived`.
+2. Archived dossiers are skipped by scheduled dossier updates.
+
+Current interface scope:
+- Storage and list filtering understand archived dossiers.
+- User-facing archive or reactivate controls are not yet exposed in web, CLI, or MCP.
 
 ## Acceptance Criteria
 
-- [ ] User can create a dossier with topic plus optional scope, questions, assumptions, goals, and tracked subtopics
-- [ ] User can list existing dossiers with status and latest change summary
-- [ ] Manual research can target an existing dossier
-- [ ] Scheduled research appends updates to active dossiers when dossiers exist
-- [ ] Dossier updates accumulate over time with timestamps and citations
-- [ ] The system exposes a summary of what changed since the prior dossier update
-- [ ] Advisor queries can retrieve dossier content as research context
-- [ ] Recommendation generation can use dossier-backed research context
-- [ ] Available via CLI, web API, and MCP
+- [ ] User can create a dossier with topic plus optional scope, questions, assumptions, goals, and tracked subtopics.
+- [ ] User can list existing dossiers with status and latest change summary.
+- [ ] Manual research can target an existing dossier.
+- [ ] Scheduled research appends updates to active dossiers when dossiers exist.
+- [ ] Dossier updates accumulate over time with timestamps and source references.
+- [ ] The system exposes a summary of what changed since the prior dossier update.
+- [ ] Advisor queries can pull from dossier-backed research context indirectly through shared research retrieval.
+- [ ] Recommendation generation can use dossier-backed research context.
+- [ ] Dossier create/list/run are available via CLI, web API, and MCP.
+- [ ] Dossier detail/view is currently available in CLI and web API; MCP detail retrieval is not yet exposed.
 
 ## Edge Cases
 
 | Scenario | Expected Behavior |
 |----------|-------------------|
-| User creates a dossier with only a topic | System accepts it and uses sensible defaults for the optional fields |
+| User creates a dossier with only a topic | System accepts it and uses sensible defaults for optional fields |
 | Dossier has no prior updates | Dossier detail clearly shows that no updates have been recorded yet |
-| Dossier update finds weak or conflicting evidence | Update still saves, calls out uncertainty, and lowers confidence |
+| Dossier update finds weak or conflicting evidence | Update still saves and calls out uncertainty |
 | User requests research for an unknown dossier ID | System returns a clear not-found error |
 | User has no dossiers | Scheduled research falls back to normal topic selection |
-| Dossier is archived | It remains viewable but is skipped by automatic scheduled research |
+| Dossier is archived out-of-band | It remains viewable and is skipped by automatic scheduled research |
 
 ## Out of Scope
 
 - Shared dossiers across multiple users
 - Automatic dossier creation from title similarity
-- Human-in-the-loop review workflows or approvals
-- Full UI timeline redesign beyond exposing the new data
-
+- Human-in-the-loop approval workflows
+- A dedicated dossier dashboard page or timeline redesign
+- User-facing archive/reactivate controls until they are explicitly implemented
