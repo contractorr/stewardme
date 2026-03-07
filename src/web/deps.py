@@ -58,6 +58,7 @@ def get_user_paths(user_id: str) -> dict:
     journal_dir = base / "journal"
     journal_dir.mkdir(exist_ok=True)
     return {
+        "data_dir": base,
         "journal_dir": journal_dir,
         "chroma_dir": base / "chroma",
         "recommendations_dir": base / "recommendations",

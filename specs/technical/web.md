@@ -22,9 +22,10 @@ FastAPI + Next.js web layer for multi-user access to the AI coach. FastAPI backe
 Creates `FastAPI(title="AI Coach", version="0.1.0")` with an async lifespan that:
 1. Calls `init_db()` to create SQLite tables.
 2. Calls `_verify_secret_key()` — Fernet encrypt+decrypt roundtrip canary. **Raises `RuntimeError` and aborts startup** if `SECRET_KEY` is missing or canary fails.
-3. Logs `web.startup`.
+3. Best-effort starts the intel scheduler unless `DISABLE_INTEL_SCHEDULER` is truthy.
+4. Logs `web.startup`.
 
-19 routers mounted via `app.include_router(...)`. CORS middleware configured from `FRONTEND_ORIGIN` env var (default `http://localhost:3000`); allows credentials, all methods, all headers.
+20 routers mounted via `app.include_router(...)`. CORS middleware configured from `FRONTEND_ORIGIN` env var (default `http://localhost:3000`); allows credentials, all methods, all headers.
 
 `GET /api/health` returns `{"status": "ok"}` — unauthenticated.
 
@@ -50,6 +51,7 @@ No public API beyond ASGI app object. All configuration via env vars.
 | `SECRET_KEY` | required | env var |
 | `NEXTAUTH_SECRET` | required | env var |
 | `FRONTEND_ORIGIN` | `http://localhost:3000` | env var |
+| `DISABLE_INTEL_SCHEDULER` | unset / false | env var |
 
 ---
 

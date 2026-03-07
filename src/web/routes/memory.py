@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api/memory", tags=["memory"])
 
 def _get_store(user_id: str) -> FactStore:
     paths = get_user_paths(user_id)
-    return FactStore(paths["intel_db"], paths.get("chroma_dir"))
+    return FactStore(paths["data_dir"] / "memory.db", paths.get("chroma_dir"))
 
 
 @router.get("/facts", response_model=list[MemoryFact])

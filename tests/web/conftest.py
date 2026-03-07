@@ -91,6 +91,7 @@ def client(jwt_secret, secret_key, tmp_path, users_db):
         jdir = base / "journal"
         jdir.mkdir(exist_ok=True)
         return {
+            "data_dir": base,
             "journal_dir": jdir,
             "chroma_dir": base / "chroma",
             "recommendations_dir": base / "recommendations",
@@ -106,8 +107,12 @@ def client(jwt_secret, secret_key, tmp_path, users_db):
         patch("web.routes.insights.get_user_paths", side_effect=_mock_user_paths),
         patch("web.routes.intel.get_user_paths", side_effect=_mock_user_paths),
         patch("web.routes.onboarding.get_user_paths", side_effect=_mock_user_paths),
+        patch("web.routes.profile.get_user_paths", side_effect=_mock_user_paths),
+        patch("web.routes.projects.get_user_paths", side_effect=_mock_user_paths),
         patch("web.routes.recommendations.get_user_paths", side_effect=_mock_user_paths),
         patch("web.routes.research.get_user_paths", side_effect=_mock_user_paths),
+        patch("web.routes.suggestions.get_user_paths", side_effect=_mock_user_paths),
+        patch("web.routes.threads.get_user_paths", side_effect=_mock_user_paths),
         patch(
             "web.routes.intel.get_coach_paths",
             return_value={
@@ -121,6 +126,8 @@ def client(jwt_secret, secret_key, tmp_path, users_db):
         patch("web.user_store._DEFAULT_DB_PATH", users_db),
         # Disable rate limiting and shared-key blocks in tests (env key = shared)
         patch("web.routes.advisor.check_shared_key_rate_limit", lambda uid, **kw: None),
+        patch("web.routes.briefing.get_user_paths", side_effect=_mock_user_paths),
+        patch("web.routes.memory.get_user_paths", side_effect=_mock_user_paths),
         patch("web.routes.onboarding.check_shared_key_rate_limit", lambda uid, **kw: None),
         patch("web.routes.research._check_shared_key", lambda uid: None),
     ]
@@ -128,10 +135,10 @@ def client(jwt_secret, secret_key, tmp_path, users_db):
     for p in patches:
         p.start()
 
-    from web.app import app
+    from web.app import create_app
 
     reset_rate_limits()
-    yield TestClient(app)
+    yield TestClient(create_app())
 
     for p in reversed(patches):
         p.stop()
