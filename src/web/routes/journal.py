@@ -9,7 +9,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from journal.storage import JournalStorage
 from web.auth import get_current_user
-from web.deps import get_config, get_user_paths, safe_user_id
+from web.deps import (
+    get_config,
+    get_memory_store,
+    get_thread_store,
+    get_user_paths,
+    safe_user_id,
+)
 from web.models import JournalCreate, JournalEntry, JournalUpdate, QuickCapture
 from web.user_store import log_event
 
@@ -93,12 +99,9 @@ async def _run_post_create_hooks(
                     except (ValueError, OSError):
                         pass
 
-                from journal.thread_store import ThreadStore
                 from journal.threads import ThreadDetector
 
-                user_base = paths.get("chroma_dir").parent  # ~/coach/users/{id}/
-                db_path = user_base / "threads.db"
-                store = ThreadStore(db_path)
+                store = get_thread_store(user_id)
                 detector = ThreadDetector(
                     em,
                     store,
@@ -117,11 +120,8 @@ async def _run_post_create_hooks(
         config = get_config()
         if config.memory.enabled:
             from memory.pipeline import MemoryPipeline
-            from memory.store import FactStore
 
-            user_base = paths.get("chroma_dir").parent  # ~/coach/users/{id}/
-            memory_db = user_base / "memory.db"
-            fact_store = FactStore(memory_db)
+            fact_store = get_memory_store(user_id)
             pipeline = MemoryPipeline(fact_store)
             pipeline.process_journal_entry(entry_id, content, metadata)
     except Exception as exc:
@@ -137,6 +137,11 @@ async def _run_post_create_hooks(
         invalidate_greeting(user_id, cache)
     except Exception as exc:
         logger.warning("post_create.greeting_invalidate_failed", error=str(exc), user=user_id)
+
+
+def _schedule_post_create_hooks(user_id: str, filepath: Path, content: str, metadata: dict):
+    """Schedule post-create hooks without blocking the write request."""
+    return asyncio.create_task(_run_post_create_hooks(user_id, filepath, content, metadata))
 
 
 def _validate_journal_path(filepath: str, storage: JournalStorage) -> Path:
@@ -198,9 +203,7 @@ async def create_entry(
     post = storage.read(filepath)
 
     # Fire post-create hooks (embed, threads, memory) in background
-    asyncio.create_task(
-        _run_post_create_hooks(user["id"], filepath, post.content, dict(post.metadata))
-    )
+    _schedule_post_create_hooks(user["id"], filepath, post.content, dict(post.metadata))
 
     return JournalEntry(
         path=str(filepath),
@@ -238,9 +241,7 @@ async def quick_capture(
     post = storage.read(filepath)
 
     # Fire post-create hooks (embed, threads, memory) in background
-    asyncio.create_task(
-        _run_post_create_hooks(user["id"], filepath, post.content, dict(post.metadata))
-    )
+    _schedule_post_create_hooks(user["id"], filepath, post.content, dict(post.metadata))
 
     return JournalEntry(
         path=str(filepath),
@@ -286,9 +287,7 @@ async def update_entry(
     post = storage.read(resolved)
 
     # Re-embed + re-index updated entry
-    asyncio.create_task(
-        _run_post_create_hooks(user["id"], resolved, post.content, dict(post.metadata))
-    )
+    _schedule_post_create_hooks(user["id"], resolved, post.content, dict(post.metadata))
 
     return JournalEntry(
         path=str(resolved),

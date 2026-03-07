@@ -194,9 +194,11 @@ Configured in `.mcp.json` for auto-discovery.
 pip install -e ".[dev]"
 
 # Tests
-ANTHROPIC_API_KEY=test-key pytest              # all tests
-pytest tests/web/ -v                           # web API only
-pytest --cov=src --cov-report=term-missing     # with coverage
+ANTHROPIC_API_KEY=test-key pytest                                  # fast local default
+pytest -m "not slow and not web and not integration"              # fast core suite
+pytest -m "web or integration or slow"                            # extended suites
+pytest tests/web/ -q                                               # web API only
+pytest --cov=src --cov-report=term-missing -m "not slow and not web and not integration"
 
 # Lint + format
 ruff check src tests

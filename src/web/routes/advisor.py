@@ -2,12 +2,16 @@
 
 import asyncio
 import json
-import time
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from starlette.responses import StreamingResponse
 
+from services.advice import (
+    ConversationNotFoundError,
+    finish_conversation_turn,
+    run_advice,
+    start_conversation_turn,
+)
 from web.auth import get_current_user
 from web.conversation_store import (
     add_message,
@@ -20,8 +24,13 @@ from web.conversation_store import (
 )
 from web.deps import (
     SHARED_LLM_MODEL,
+    enforce_shared_key_usage_limit,
     get_api_key_with_source,
     get_config,
+    get_intel_storage,
+    get_memory_store,
+    get_profile_path,
+    get_thread_store,
     get_user_paths,
     safe_user_id,
 )
@@ -32,18 +41,15 @@ from web.models import (
     ConversationListItem,
     ConversationMessage,
 )
-from web.rate_limit import check_shared_key_rate_limit
-from web.user_store import log_event
+from web.user_store import get_default_db_path, log_event
 
 router = APIRouter(prefix="/api/advisor", tags=["advisor"])
 
-MAX_HISTORY_CHARS = 64_000  # ~16k tokens
 
 
 def _get_engine(user_id: str, use_tools: bool = False):
     from advisor.engine import AdvisorEngine
     from advisor.rag import RAGRetriever
-    from intelligence.scraper import IntelStorage
     from journal.embeddings import EmbeddingManager
     from journal.fts import JournalFTSIndex
     from journal.search import JournalSearch
@@ -57,32 +63,28 @@ def _get_engine(user_id: str, use_tools: bool = False):
         paths["chroma_dir"],
         collection_name=f"journal_{safe_user_id(user_id)}",
     )
-    intel_storage = IntelStorage(paths["intel_db"])  # shared
+    intel_storage = get_intel_storage()
     fts_index = JournalFTSIndex(paths["journal_dir"])
     journal_search = JournalSearch(journal_storage, embeddings, fts_index=fts_index)
 
     # Per-user memory + thread stores for cross-conversation continuity
-    from journal.thread_store import ThreadStore
-    from memory.store import FactStore
-
-    user_base = paths["chroma_dir"].parent  # ~/coach/users/{safe_id}/
     fact_store = None
     thread_store = None
     memory_config = None
     if config.memory.enabled:
-        fact_store = FactStore(user_base / "memory.db")
+        fact_store = get_memory_store(user_id)
         memory_config = {
             "max_context_facts": config.memory.max_context_facts,
             "high_confidence_threshold": config.memory.high_confidence_threshold,
         }
     if config.threads.enabled:
-        thread_store = ThreadStore(user_base / "threads.db")
+        thread_store = get_thread_store(user_id)
 
-    users_db = Path.home() / "coach" / "users.db"
+    users_db = get_default_db_path()
     rag = RAGRetriever(
         journal_search=journal_search,
         intel_db_path=paths["intel_db"],
-        profile_path=str(paths["profile"]),
+        profile_path=str(get_profile_path(user_id)),
         users_db_path=users_db,
         user_id=user_id,
         fact_store=fact_store,
@@ -105,7 +107,7 @@ def _get_engine(user_id: str, use_tools: bool = False):
             "embeddings": embeddings,
             "intel_storage": intel_storage,
             "rag": rag,
-            "profile_path": str(paths["profile"]),
+            "profile_path": str(get_profile_path(user_id)),
             "recommendations_dir": paths["recommendations_dir"],
             "user_id": user_id,
         }
@@ -127,65 +129,46 @@ def _get_engine(user_id: str, use_tools: bool = False):
     )
 
 
-def _trim_history(messages: list[dict], max_chars: int = MAX_HISTORY_CHARS) -> list[dict]:
-    """Keep most recent messages that fit within max_chars."""
-    total = 0
-    trimmed = []
-    for msg in reversed(messages):
-        total += len(msg.get("content", ""))
-        if total > max_chars:
-            break
-        trimmed.append(msg)
-    trimmed.reverse()
-    return trimmed
-
-
 @router.post("/ask", response_model=AdvisorResponse)
 async def ask_advisor(
     body: AdvisorAsk,
     use_tools: bool = Query(True),
     user: dict = Depends(get_current_user),
+    _rate_limit: None = Depends(enforce_shared_key_usage_limit),
 ):
     try:
         user_id = user["id"]
-
-        # Rate limit shared-key users
-        _key, _src = get_api_key_with_source(user_id)
-        if _src == "shared":
-            check_shared_key_rate_limit(user_id)
-
-        conv_id = body.conversation_id
-
-        # Create or validate conversation
-        if not conv_id:
-            title = body.question[:80].strip() or "New conversation"
-            conv_id = create_conversation(user_id, title)
-        elif not conversation_belongs_to(conv_id, user_id):
-            raise HTTPException(status_code=404, detail="Conversation not found")
-
-        # Load history
-        history_rows = get_messages(conv_id, limit=20)
-        history = _trim_history(
-            [{"role": m["role"], "content": m["content"]} for m in history_rows]
+        conv_id, history = start_conversation_turn(
+            user_id=user_id,
+            conversation_id=body.conversation_id,
+            question=body.question,
+            create_conversation_fn=create_conversation,
+            conversation_belongs_to_fn=conversation_belongs_to,
+            get_messages_fn=get_messages,
+            add_message_fn=add_message,
         )
 
-        # Save user message
-        add_message(conv_id, "user", body.question)
-
         engine = _get_engine(user_id, use_tools=use_tools)
-        start = time.monotonic()
-        answer = await asyncio.to_thread(
-            engine.ask,
+        result = await asyncio.to_thread(
+            run_advice,
+            engine,
             body.question,
             advice_type=body.advice_type,
             conversation_history=history or None,
         )
 
-        # Save assistant response
-        add_message(conv_id, "assistant", answer)
-        log_event("chat_query", user_id, {"latency_ms": int((time.monotonic() - start) * 1000)})
+        finish_conversation_turn(
+            conv_id=conv_id,
+            user_id=user_id,
+            answer=result["answer"],
+            latency_ms=result["latency_ms"],
+            add_message_fn=add_message,
+            log_event_fn=log_event,
+        )
 
-        return AdvisorResponse(answer=answer, advice_type=body.advice_type, conversation_id=conv_id)
+        return AdvisorResponse(answer=result["answer"], advice_type=body.advice_type, conversation_id=conv_id)
+    except ConversationNotFoundError:
+        raise HTTPException(status_code=404, detail="Conversation not found")
     except HTTPException:
         raise
     except Exception as e:
@@ -197,30 +180,23 @@ async def ask_advisor_stream(
     body: AdvisorAsk,
     use_tools: bool = Query(True),
     user: dict = Depends(get_current_user),
+    _rate_limit: None = Depends(enforce_shared_key_usage_limit),
 ):
     """SSE streaming version of /ask — emits tool_start/tool_done/answer events."""
     user_id = user["id"]
 
-    # Rate limit shared-key users
-    _key, _src = get_api_key_with_source(user_id)
-    if _src == "shared":
-        check_shared_key_rate_limit(user_id)
-
-    conv_id = body.conversation_id
-
-    # Create or validate conversation
-    if not conv_id:
-        title = body.question[:80].strip() or "New conversation"
-        conv_id = create_conversation(user_id, title)
-    elif not conversation_belongs_to(conv_id, user_id):
+    try:
+        conv_id, history = start_conversation_turn(
+            user_id=user_id,
+            conversation_id=body.conversation_id,
+            question=body.question,
+            create_conversation_fn=create_conversation,
+            conversation_belongs_to_fn=conversation_belongs_to,
+            get_messages_fn=get_messages,
+            add_message_fn=add_message,
+        )
+    except ConversationNotFoundError:
         raise HTTPException(status_code=404, detail="Conversation not found")
-
-    # Load history
-    history_rows = get_messages(conv_id, limit=20)
-    history = _trim_history([{"role": m["role"], "content": m["content"]} for m in history_rows])
-
-    # Save user message
-    add_message(conv_id, "user", body.question)
 
     queue: asyncio.Queue[dict | None] = asyncio.Queue()
 
@@ -236,25 +212,30 @@ async def ask_advisor_stream(
         try:
             engine = _get_engine(user_id, use_tools=use_tools)
             loop = asyncio.get_event_loop()
-            start = time.monotonic()
-            answer = await loop.run_in_executor(
+            result = await loop.run_in_executor(
                 None,
-                lambda: engine.ask(
+                lambda: run_advice(
+                    engine,
                     body.question,
                     advice_type=body.advice_type,
                     conversation_history=history or None,
                     event_callback=_event_callback,
                 ),
             )
-            # Save assistant response
-            add_message(conv_id, "assistant", answer)
-            log_event("chat_query", user_id, {"latency_ms": int((time.monotonic() - start) * 1000)})
+            finish_conversation_turn(
+                conv_id=conv_id,
+                user_id=user_id,
+                answer=result["answer"],
+                latency_ms=result["latency_ms"],
+                add_message_fn=add_message,
+                log_event_fn=log_event,
+            )
             # Only emit answer if agentic callback didn't already send one
             if not answer_sent:
                 queue.put_nowait(
                     {
                         "type": "answer",
-                        "content": answer,
+                        "content": result["answer"],
                         "conversation_id": conv_id,
                         "advice_type": body.advice_type,
                     }

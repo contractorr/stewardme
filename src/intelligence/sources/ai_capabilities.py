@@ -490,9 +490,9 @@ class FrontierEvalsGitHubScraper(BaseScraper):
 
     def __init__(self, storage: IntelStorage, token: Optional[str] = None):
         super().__init__(storage)
-        self.client.headers["Accept"] = "application/vnd.github.v3+json"
+        self.set_client_headers(Accept="application/vnd.github.v3+json")
         if token:
-            self.client.headers["Authorization"] = f"token {token}"
+            self.set_client_headers(Authorization=f"token {token}")
 
     @property
     def source_name(self) -> str:

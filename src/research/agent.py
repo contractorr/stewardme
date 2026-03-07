@@ -64,6 +64,10 @@ class DeepResearchAgent:
         intel_storage: IntelStorage,
         embeddings: EmbeddingManager,
         config: Optional[dict] = None,
+        topic_selector: TopicSelector | None = None,
+        search_client: WebSearchClient | None = None,
+        synthesizer: ResearchSynthesizer | None = None,
+        dossiers: ResearchDossierStore | None = None,
     ):
         self.journal = journal_storage
         self.intel = intel_storage
@@ -73,23 +77,35 @@ class DeepResearchAgent:
         research_config = self.config.get("research", {})
         self.max_topics = int(research_config.get("max_topics_per_week", 2) or 2)
 
-        self.topic_selector = TopicSelector(
-            storage=journal_storage,
+        self.topic_selector = topic_selector or self._create_topic_selector(research_config)
+        self.search_client = search_client or self._create_search_client(research_config)
+        llm_config = self.config.get("llm", {})
+        self.synthesizer = synthesizer or self._create_synthesizer(llm_config)
+        self.dossiers = dossiers or self._create_dossier_store(journal_storage)
+
+    def _create_topic_selector(self, research_config: dict) -> TopicSelector:
+        return TopicSelector(
+            storage=self.journal,
             max_topics=self.max_topics,
             skip_researched_days=research_config.get("skip_if_researched_days", 60),
         )
-        self.search_client = WebSearchClient(
+
+    def _create_search_client(self, research_config: dict) -> WebSearchClient:
+        return WebSearchClient(
             api_key=research_config.get("api_key"),
             provider=research_config.get("api_provider", "tavily"),
             max_results=research_config.get("sources_per_topic", 8),
         )
-        llm_config = self.config.get("llm", {})
-        self.synthesizer = ResearchSynthesizer(
+
+    def _create_synthesizer(self, llm_config: dict) -> ResearchSynthesizer:
+        return ResearchSynthesizer(
             model=llm_config.get("model"),
             provider=llm_config.get("provider"),
             api_key=llm_config.get("api_key"),
         )
-        self.dossiers = ResearchDossierStore(journal_storage)
+
+    def _create_dossier_store(self, journal_storage: JournalStorage) -> ResearchDossierStore:
+        return ResearchDossierStore(journal_storage)
 
     def create_dossier(
         self,
@@ -373,10 +389,24 @@ class AsyncDeepResearchAgent(DeepResearchAgent):
         intel_storage: IntelStorage,
         embeddings: EmbeddingManager,
         config: Optional[dict] = None,
+        topic_selector: TopicSelector | None = None,
+        search_client: AsyncWebSearchClient | None = None,
+        synthesizer: ResearchSynthesizer | None = None,
+        dossiers: ResearchDossierStore | None = None,
     ):
-        super().__init__(journal_storage, intel_storage, embeddings, config)
-        research_config = self.config.get("research", {})
-        self.search_client = AsyncWebSearchClient(
+        super().__init__(
+            journal_storage=journal_storage,
+            intel_storage=intel_storage,
+            embeddings=embeddings,
+            config=config,
+            topic_selector=topic_selector,
+            search_client=search_client,
+            synthesizer=synthesizer,
+            dossiers=dossiers,
+        )
+
+    def _create_search_client(self, research_config: dict) -> AsyncWebSearchClient:
+        return AsyncWebSearchClient(
             api_key=research_config.get("api_key"),
             provider=research_config.get("api_provider", "tavily"),
             max_results=research_config.get("sources_per_topic", 8),

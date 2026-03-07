@@ -82,6 +82,11 @@ async def _generate_and_cache_greeting(user_id: str) -> None:
             pass
 
 
+def _schedule_greeting_refresh(user_id: str):
+    """Schedule greeting generation without blocking the current request."""
+    return asyncio.create_task(_generate_and_cache_greeting(user_id))
+
+
 @router.get("", response_model=GreetingResponse)
 async def get_greeting(user: dict = Depends(get_current_user)):
     cache = _get_cache(user["id"])
@@ -91,5 +96,5 @@ async def get_greeting(user: dict = Depends(get_current_user)):
         return GreetingResponse(text=cached_text, cached=True, stale=False)
 
     # No cache — return fallback and generate in background
-    asyncio.create_task(_generate_and_cache_greeting(user["id"]))
+    _schedule_greeting_refresh(user["id"])
     return GreetingResponse(text=STATIC_FALLBACK, cached=False, stale=True)
