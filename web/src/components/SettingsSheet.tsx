@@ -126,7 +126,7 @@ export function SettingsSheet({
         { method: "POST" },
         token
       );
-      toast.success(`${result.provider} connection ok`);
+      toast.success(`${result.provider.charAt(0).toUpperCase() + result.provider.slice(1)} connection successful!`);
     } catch (e) {
       toast.error((e as Error).message);
     } finally {

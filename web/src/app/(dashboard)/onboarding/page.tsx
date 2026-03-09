@@ -246,7 +246,7 @@ export default function OnboardingPage() {
           { method: "POST" },
           token
         );
-        toast.success("Connected to LLM");
+        toast.success(`${result.provider.charAt(0).toUpperCase() + result.provider.slice(1)} connection successful!`);
       } catch (e) {
         toast.error(`Key saved but LLM test failed: ${(e as Error).message}`);
       } finally {
