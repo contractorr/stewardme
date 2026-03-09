@@ -22,7 +22,7 @@ pip install -e ".[dev,all-providers,web]"  # everything (matches CI)
 pytest                                          # all tests
 pytest tests/advisor/test_engine.py::test_ask_advice -v  # single test
 pytest tests/web/ -v                            # web API only
-pytest --cov=src --cov-report=term-missing -v   # with coverage (fail_under=50)
+pytest --cov=src --cov-report=term-missing -v   # with coverage (fail_under=55)
 
 # Lint & format
 ruff check src tests
@@ -55,8 +55,11 @@ RAG-based personal AI advisor. Journal entries + external intelligence scrapers 
 - **llm/** — Provider factory with auto-detection from env vars. Unified `LLMProvider` interface: Claude/OpenAI/Gemini
 - **profile/** — `UserProfile` Pydantic model (YAML-backed). `ProfileInterviewer` for LLM-driven onboarding (5-7 turns, force-extraction fallback). Two rendering modes: `summary()` (compact) and `structured_summary()` (multi-section XML)
 - **cli/** — Click CLI (`coach` command). Pydantic config validation. Structlog logging
-- **web/** — FastAPI backend: JWT auth (python-jose), Fernet-encrypted secret storage, per-user data isolation at `~/coach/users/{safe_user_id}/`. Global intel DB stays shared. 21 route modules. `get_or_create_user()` auto-registers on first request
-- **coach_mcp/** — 37 MCP tools across 12 modules (journal, goals, intel, recommendations, research, reflect, profile, projects, insights, brief, memory, threads)
+- **memory/** — Standalone memory package for persistent user memory (facts, context)
+- **library/** — Content library management
+- **services/** — Shared service layer
+- **web/** — FastAPI backend: JWT auth (python-jose), Fernet-encrypted secret storage, per-user data isolation at `~/coach/users/{safe_user_id}/`. Global intel DB stays shared. 23 route modules. `get_or_create_user()` auto-registers on first request
+- **coach_mcp/** — 46 MCP tools across 12 modules (journal, goals, intel, recommendations, research, reflect, profile, projects, insights, brief, memory, threads)
 
 ### Advisor deep dive
 
