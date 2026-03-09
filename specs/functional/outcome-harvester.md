@@ -132,7 +132,7 @@ Negative signals can include:
 - Financial or business attribution modeling beyond the product's advisory loop
 - Cross-user outcome learning
 
-## Open Questions
+## Resolved Questions
 
-- Should unresolved outcomes ever decay out of the learning loop, and if so after how long?
-- How conservative should the system be before showing a `Looks like this worked` label to the user?
+- **Unresolved outcome decay?** Never decay; unresolved outcomes persist indefinitely in the learning loop.
+- **"Looks like this worked" confidence bar?** High bar: require multiple strong signals (explicit user statement, measurable outcome) before labeling success.

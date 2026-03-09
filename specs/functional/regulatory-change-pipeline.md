@@ -113,7 +113,7 @@ Each alert should include:
 - Monitoring every geography or agency by default without user signal
 - Cross-user shared compliance workspaces
 
-## Open Questions
+## Resolved Questions
 
-- Should standards changes and legal-news summaries ship in the same phase as direct agency-feed monitoring?
-- How much jurisdiction-specific detail is required before the alert is useful rather than noisy?
+- **Standards/legal-news phasing?** Ship in the same phase as direct agency-feed monitoring.
+- **Jurisdiction detail level?** Country + sector required before surfacing an alert.

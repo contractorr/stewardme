@@ -109,7 +109,7 @@ The pipeline should detect signals such as:
 - Private HRIS or applicant-tracking integrations beyond public-source monitoring
 - Assuming LinkedIn-based monitoring is available in MVP
 
-## Open Questions
+## Resolved Questions
 
-- What baseline window should define a meaningful hiring spike for company-level monitoring?
-- Should sector-level hiring monitoring ship in the same phase as company-level monitoring, or after it proves useful?
+- **Baseline window for hiring spikes?** 30-day rolling average.
+- **Sector-level monitoring phasing?** Ship in the same phase as company-level.

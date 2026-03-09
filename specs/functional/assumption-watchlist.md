@@ -112,7 +112,7 @@ Each assumption record should include:
 - Treating every speculative sentence in a journal as an active assumption
 - Hidden state changes with no user-visible evidence trail
 
-## Open Questions
+## Resolved Questions
 
-- Should an automatically extracted assumption require explicit user approval before active monitoring begins?
-- How should the product distinguish between an assumption and a goal, preference, or prediction in ambiguous language?
+- **Auto-extracted assumptions: approval before monitoring?** Monitor silently; only surface to user when evidence is found.
+- **Distinguishing assumptions from goals/preferences/predictions?** LLM classifies with confidence threshold; low-confidence items surfaced for user clarification.

@@ -123,7 +123,7 @@ Current interface scope:
 - Rich document annotation or highlighting inside chat
 - OCR-specific improvements beyond the baseline PDF extraction path
 
-## Open Questions
+## Resolved Questions
 
-- Should chat attachments be visible in the main Library list immediately, or only after explicit save?
-- Should a future version permit background indexing plus a follow-up answer, rather than waiting for upload processing before the first response?
+- **Chat attachments in Library?** Immediately visible on upload.
+- **Indexing before first response?** Wait for indexing to complete before responding. Show a toast message telling the user to come back later while processing.

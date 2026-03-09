@@ -118,7 +118,7 @@ The briefing should be selective and short rather than an exhaustive digest.
 - Exposing raw ranking formulas or internal score weights directly in the UI
 - Real-time collaborative briefings across users
 
-## Open Questions
+## Resolved Questions
 
-- Should the absence threshold be based only on web activity, or also on journal creation and API activity from other surfaces?
-- Should a return briefing ever replace the normal greeting completely, or always appear alongside it?
+- **Absence threshold scope?** All activity: web, journal, API, CLI — any interaction resets the absence clock.
+- **Return briefing vs normal greeting?** Replace greeting only on long absences (e.g., 7+ days); otherwise appear alongside it.

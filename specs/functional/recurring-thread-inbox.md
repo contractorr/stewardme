@@ -130,7 +130,7 @@ Current interface scope:
 - Cross-user shared threads
 - Replacing journal search or entry browsing with the inbox
 
-## Open Questions
+## Resolved Questions
 
-- Should dormant threads reappear automatically when new matching entries arrive, even if previously dismissed?
-- Should starting a dossier from a thread suppress future thread-to-dossier suggestions automatically?
+- **Dormant thread resurfacing?** Yes, auto-resurface when new matching entries arrive, even if previously dismissed.
+- **Dossier-from-thread suppression?** Yes, auto-suppress future thread-to-dossier suggestions once a dossier is created from that thread.

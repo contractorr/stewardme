@@ -119,7 +119,7 @@ The engine should prefer topics that combine personal recurrence with external m
 - Replacing one-off deep research for topics that do not need ongoing monitoring
 - Shared dossier escalation across multiple users
 
-## Open Questions
+## Resolved Questions
 
-- What should count as a material evidence shift large enough to override a prior dismissal?
-- Should an accepted escalation automatically mute the originating thread from future dossier suggestions?
+- **Material evidence shift to override dismissal?** Either trigger: new independent source count OR confidence delta, whichever fires first.
+- **Auto-mute thread after accepted escalation?** Yes, auto-mute the originating thread from future dossier suggestions.

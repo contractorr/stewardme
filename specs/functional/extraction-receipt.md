@@ -131,7 +131,7 @@ Current interface scope:
 - Manual thread creation or thread merging from the receipt
 - Fully blocking review workflows that force the user to approve every extraction before saving
 
-## Open Questions
+## Resolved Questions
 
-- Should quick-capture receipts appear in the home chat stream, a side sheet, or both?
-- Should dismissed receipt items feed back into future extraction ranking immediately, or only after enough repeated dismissals?
+- **Receipt placement?** Both: inline summary in chat stream + expandable detail in side sheet.
+- **Dismissed items feed back into ranking?** Only after repeated dismissals of the same extraction type, not on a single dismissal.

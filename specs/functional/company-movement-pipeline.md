@@ -132,7 +132,7 @@ Each card should include:
 - Automatic creation of dossiers without user confirmation
 - Monitoring companies for every user without a watched-company signal
 
-## Open Questions
+## Resolved Questions
 
-- What should be the minimum required identity fields for a watched company before monitoring begins?
-- Should low-priority companies use a noticeably slower cadence by default?
+- **Minimum identity fields for a watched company?** Name + domain required before monitoring begins.
+- **Low-priority company cadence?** Yes, noticeably slower cadence by default (e.g., weekly vs daily).
