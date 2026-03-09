@@ -36,31 +36,25 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true; };
   }, [token]);
 
-  // Onboarding gate: redirect to /onboarding if user lacks API key or profile.
-  // Runs once on mount for all dashboard pages (not just /).
+  // Onboarding gate: redirect to /onboarding only if user has no API key.
+  // Missing profile is a nudge (handled elsewhere), not a hard block.
   useEffect(() => {
     if (!token || skipGate) return;
     let cancelled = false;
-    Promise.allSettled([
-      apiFetch<{ llm_api_key_set: boolean; using_shared_key: boolean }>("/api/settings", {}, token),
-      apiFetch<{ has_profile: boolean }>("/api/onboarding/profile-status", {}, token),
-    ]).then(([settingsRes, profileRes]) => {
-      if (cancelled) return;
-      // If either call failed (401, network error, etc.), don't redirect —
-      // a stale token after deployment shouldn't send users to onboarding.
-      if (settingsRes.status === "rejected" || profileRes.status === "rejected") {
-        setGateChecked(true);
-        return;
-      }
-      const hasAnyKey =
-        settingsRes.value.llm_api_key_set || settingsRes.value.using_shared_key;
-      const noProfile = !profileRes.value.has_profile;
-      if (!hasAnyKey || noProfile) {
-        router.replace("/onboarding");
-      } else {
-        setGateChecked(true);
-      }
-    });
+    apiFetch<{ llm_api_key_set: boolean; using_shared_key: boolean }>("/api/settings", {}, token)
+      .then((settings) => {
+        if (cancelled) return;
+        const hasAnyKey = settings.llm_api_key_set || settings.using_shared_key;
+        if (!hasAnyKey) {
+          router.replace("/onboarding");
+        } else {
+          setGateChecked(true);
+        }
+      })
+      .catch(() => {
+        // Network error / 401 — don't redirect, let the page render.
+        if (!cancelled) setGateChecked(true);
+      });
     return () => { cancelled = true; };
   }, [token, skipGate, router]);
 
