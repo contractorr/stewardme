@@ -535,50 +535,50 @@ export default function HomePage() {
                 </Button>
               ))}
             </div>
-          </div>
 
-          {mode === "ask" ? (
-            <ChatPdfAttachmentPicker
-              attachments={attachments}
-              disabled={loading || uploading}
-              onAddFiles={addFiles}
-              onRemove={removeAttachment}
-            />
-          ) : null}
+            {mode === "ask" ? (
+              <ChatPdfAttachmentPicker
+                attachments={attachments}
+                disabled={loading || uploading}
+                onAddFiles={addFiles}
+                onRemove={removeAttachment}
+              />
+            ) : null}
 
-          <div className={`flex gap-2 ${mode === "ask" ? "mt-3" : ""}`}>
-            <Textarea
-              ref={textareaRef}
-              rows={1}
-              placeholder={composerCopy.placeholder}
-              value={input}
-              onChange={(event) => handleInputChange(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  handleSubmit();
-                }
-              }}
-              className="flex-1 resize-none"
-            />
-            <div className="flex flex-col gap-1 self-end">
-              {captured ? (
-                <Button size="icon" variant="ghost" disabled className="h-9 w-9">
-                  <Check className="h-4 w-4 text-green-600" />
-                </Button>
-              ) : (
-                <Button
-                  size="icon"
-                  onClick={handleSubmit}
-                  disabled={!input.trim() || loading || uploading}
-                  className="h-9 w-9"
-                >
-                  {effectiveMode === "ask" ? <Send className="h-4 w-4" /> : <PenLine className="h-4 w-4" />}
-                </Button>
-              )}
-              <span className="text-center text-[10px] text-muted-foreground">
-                {effectiveMode === "ask" ? "ask" : "save"}
-              </span>
+            <div className="mt-3 flex gap-2">
+              <Textarea
+                ref={textareaRef}
+                rows={1}
+                placeholder={composerCopy.placeholder}
+                value={input}
+                onChange={(event) => handleInputChange(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    handleSubmit();
+                  }
+                }}
+                className="flex-1 resize-none"
+              />
+              <div className="flex flex-col gap-1 self-end">
+                {captured ? (
+                  <Button size="icon" variant="ghost" disabled className="h-9 w-9">
+                    <Check className="h-4 w-4 text-green-600" />
+                  </Button>
+                ) : (
+                  <Button
+                    size="icon"
+                    onClick={handleSubmit}
+                    disabled={!input.trim() || loading || uploading}
+                    className="h-9 w-9"
+                  >
+                    {effectiveMode === "ask" ? <Send className="h-4 w-4" /> : <PenLine className="h-4 w-4" />}
+                  </Button>
+                )}
+                <span className="text-center text-[10px] text-muted-foreground">
+                  {effectiveMode === "ask" ? "ask" : "save"}
+                </span>
+              </div>
             </div>
           </div>
 
