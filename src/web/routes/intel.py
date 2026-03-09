@@ -1,22 +1,35 @@
 """Intelligence feed routes."""
 
+from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
+from intelligence.company_watch import CompanyMovementStore, WatchedCompanyResolver
+from intelligence.hiring_signals import HiringSignalStore
+from intelligence.regulatory import RegulatoryAlertStore, RegulatoryWatchResolver
 from intelligence.watchlist import annotate_items, attach_follow_up_state, sort_ranked_items
 from web.auth import get_current_user
 from web.deps import (
+    get_company_movement_store,
     get_coach_paths,
     get_config,
     get_follow_up_store,
+    get_hiring_signal_store,
     get_intel_storage,
     get_profile_path,
+    get_regulatory_alert_store,
     get_watchlist_store,
 )
-from web.models import IntelFollowUp, WatchlistItem
+from web.models import (
+    CompanyMovementResponse,
+    HiringSignalResponse,
+    IntelFollowUp,
+    RegulatoryAlertResponse,
+    WatchlistItem,
+)
 from web.user_store import (
     add_user_rss_feed,
     get_user_rss_feeds,
@@ -65,6 +78,18 @@ def _get_watchlist_store(user_id: str):
 
 def _get_follow_up_store(user_id: str):
     return get_follow_up_store(user_id)
+
+
+def _get_company_store() -> CompanyMovementStore:
+    return get_company_movement_store()
+
+
+def _get_hiring_store() -> HiringSignalStore:
+    return get_hiring_signal_store()
+
+
+def _get_regulatory_store() -> RegulatoryAlertStore:
+    return get_regulatory_alert_store()
 
 
 def _apply_watchlist_state(items: list[dict], user_id: str) -> list[dict]:
@@ -162,6 +187,70 @@ async def list_follow_ups(user: dict = Depends(get_current_user)):
 async def save_follow_up(body: FollowUpUpsert, user: dict = Depends(get_current_user)):
     entry = _get_follow_up_store(user["id"]).upsert(**body.model_dump())
     return IntelFollowUp(**entry)
+
+
+@router.get("/company-movements", response_model=list[CompanyMovementResponse])
+async def list_company_movements(
+    limit: int = Query(default=20, ge=1, le=100),
+    user: dict = Depends(get_current_user),
+):
+    resolver = WatchedCompanyResolver()
+    companies = resolver.from_watchlist_items(_get_watchlist_store(user["id"]).list_items())
+    company_keys = {company["company_key"] for company in companies}
+    items = [item for item in _get_company_store().get_since(datetime.now() - timedelta(days=14), limit=limit * 4) if item.get("company_key") in company_keys]
+    return [CompanyMovementResponse(**item) for item in items[:limit]]
+
+
+@router.get("/company-movements/{company_key}", response_model=list[CompanyMovementResponse])
+async def get_company_movements(
+    company_key: str,
+    limit: int = Query(default=20, ge=1, le=100),
+    _user: dict = Depends(get_current_user),
+):
+    return [CompanyMovementResponse(**item) for item in _get_company_store().get_recent_for_company(company_key, limit=limit)]
+
+
+@router.get("/hiring-signals", response_model=list[HiringSignalResponse])
+async def list_hiring_signals(
+    limit: int = Query(default=20, ge=1, le=100),
+    user: dict = Depends(get_current_user),
+):
+    resolver = WatchedCompanyResolver()
+    companies = resolver.from_watchlist_items(_get_watchlist_store(user["id"]).list_items())
+    company_keys = {company["company_key"] for company in companies}
+    items = [item for item in _get_hiring_store().get_recent(limit=limit * 4) if item.get("entity_key") in company_keys]
+    return [HiringSignalResponse(**item) for item in items[:limit]]
+
+
+@router.get("/hiring-signals/{entity_key}", response_model=list[HiringSignalResponse])
+async def get_hiring_signals_for_entity(
+    entity_key: str,
+    limit: int = Query(default=20, ge=1, le=100),
+    _user: dict = Depends(get_current_user),
+):
+    return [HiringSignalResponse(**item) for item in _get_hiring_store().get_recent(entity_key=entity_key, limit=limit)]
+
+
+@router.get("/regulatory-alerts", response_model=list[RegulatoryAlertResponse])
+async def list_regulatory_alerts(
+    limit: int = Query(default=20, ge=1, le=100),
+    user: dict = Depends(get_current_user),
+):
+    resolver = RegulatoryWatchResolver()
+    targets = resolver.from_watchlist_items(_get_watchlist_store(user["id"]).list_items())
+    target_keys = {target["target_key"] for target in targets}
+    items = [item for item in _get_regulatory_store().get_recent(datetime.now() - timedelta(days=30), limit=limit * 4) if item.get("target_key") in target_keys]
+    return [RegulatoryAlertResponse(**item) for item in items[:limit]]
+
+
+@router.get("/regulatory-alerts/{target_key}", response_model=list[RegulatoryAlertResponse])
+async def get_regulatory_alerts_for_target(
+    target_key: str,
+    limit: int = Query(default=20, ge=1, le=100),
+    _user: dict = Depends(get_current_user),
+):
+    items = [item for item in _get_regulatory_store().get_recent(datetime.now() - timedelta(days=90), limit=limit * 4) if item.get("target_key") == target_key]
+    return [RegulatoryAlertResponse(**item) for item in items[:limit]]
 
 
 @router.get("/health")

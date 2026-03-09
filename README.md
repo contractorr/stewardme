@@ -172,10 +172,12 @@ Config locations (checked in order): `./config.yaml` → `~/.coach/config.yaml` 
 | Route | Description |
 |-------|-------------|
 | `/` | Chat-first interface with daily briefing |
+| `/advisor` | Chat, advice, and saved conversations |
 | `/journal` | Create, read, delete entries |
 | `/goals` | Goals + milestones + check-ins |
 | `/intel` | Intelligence feed |
-| `/trends` | Topic trend visualization |
+| `/projects` | Matched issues + project ideas |
+| `/library` | Saved AI-generated reports |
 | `/settings` | API key management (Fernet-encrypted) |
 
 ## MCP server

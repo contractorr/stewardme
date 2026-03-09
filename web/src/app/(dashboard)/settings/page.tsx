@@ -27,6 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ApiKeyInput } from "@/components/ApiKeyInput";
 import { DeleteAccountModal } from "@/components/DeleteAccountModal";
+import { WorkspacePageHeader } from "@/components/WorkspacePageHeader";
 import { apiFetch } from "@/lib/api";
 
 interface Settings {
@@ -137,6 +138,8 @@ function TagsEditor({
           <Badge key={t} variant="secondary" className="gap-1">
             {t}
             <button
+              type="button"
+              aria-label={`Remove ${t}`}
               onClick={() => onChange(value.filter((v) => v !== t))}
               className="ml-0.5 hover:text-destructive"
             >
@@ -183,6 +186,8 @@ function SkillsEditor({
           <Badge key={s.name} variant="secondary" className="gap-1">
             {s.name} ({s.proficiency})
             <button
+              type="button"
+              aria-label={`Remove ${s.name}`}
               onClick={() => onChange(value.filter((v) => v.name !== s.name))}
               className="ml-0.5 hover:text-destructive"
             >
@@ -338,7 +343,7 @@ function ProfileField({
         )}
       </div>
       {!editing && (
-        <Button size="icon" variant="ghost" onClick={startEdit} className="h-7 w-7 shrink-0 mt-3">
+        <Button size="icon" variant="ghost" onClick={startEdit} className="h-7 w-7 shrink-0 mt-3" aria-label={`Edit ${config.label}`}>
           <Pencil className="h-3 w-3" />
         </Button>
       )}
@@ -390,6 +395,16 @@ export default function SettingsPage() {
   const [watchSaving, setWatchSaving] = useState(false);
   const [watchRemoving, setWatchRemoving] = useState<string | null>(null);
   const [editingWatchId, setEditingWatchId] = useState<string | null>(null);
+
+  const sectionLinks = [
+    { id: "account", label: "Account" },
+    { id: "ai-settings", label: "AI" },
+    { id: "api-keys", label: "Keys" },
+    { id: "rss-feeds", label: "RSS" },
+    { id: "watchlist", label: "Watchlist" },
+    { id: "profile", label: "Profile" },
+    { id: "danger-zone", label: "Danger" },
+  ];
 
   const isDirty = Object.keys(form).length > 0;
 
@@ -557,9 +572,23 @@ export default function SettingsPage() {
   if (!settings) return <SettingsSkeleton />;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 p-4 md:p-6">
-      <h1 className="text-2xl font-semibold">Settings</h1>
+    <div className="mx-auto max-w-2xl space-y-6 p-4 pb-28 md:p-6 md:pb-32">
+      <WorkspacePageHeader
+        eyebrow="Control center"
+        title="Settings"
+        description="Manage model access, private keys, radar inputs, and the profile StewardMe uses to personalise guidance."
+        badge={settings.using_shared_key ? "Lite mode active" : "Full mode"}
+      />
 
+      <nav aria-label="Settings sections" className="flex flex-wrap gap-2">
+        {sectionLinks.map((section) => (
+          <Button key={section.id} asChild size="sm" variant="outline">
+            <a href={`#${section.id}`}>{section.label}</a>
+          </Button>
+        ))}
+      </nav>
+
+      <section id="account">
       <Card>
         <CardHeader>
           <CardTitle>Account</CardTitle>
@@ -598,14 +627,16 @@ export default function SettingsPage() {
               )}
             </div>
             {!editingName && (
-              <Button size="icon" variant="ghost" onClick={() => setEditingName(true)} className="h-7 w-7 shrink-0 mt-3">
+              <Button size="icon" variant="ghost" onClick={() => setEditingName(true)} className="h-7 w-7 shrink-0 mt-3" aria-label="Edit display name">
                 <Pencil className="h-3 w-3" />
               </Button>
             )}
           </div>
         </CardContent>
       </Card>
+      </section>
 
+      <section id="ai-settings">
       <Card>
         <CardHeader>
           <CardTitle>LLM Provider</CardTitle>
@@ -655,7 +686,9 @@ export default function SettingsPage() {
           />
         </CardContent>
       </Card>
+      </section>
 
+      <section id="api-keys">
       <Card>
         <CardHeader>
           <CardTitle>API Keys</CardTitle>
@@ -682,7 +715,9 @@ export default function SettingsPage() {
           />
         </CardContent>
       </Card>
+      </section>
 
+      <section id="rss-feeds">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -713,6 +748,7 @@ export default function SettingsPage() {
                   className="h-7 w-7"
                   disabled={rssRemoving === feed.url}
                   onClick={() => handleRemoveFeed(feed.url)}
+                  aria-label={`Remove ${feed.name || new URL(feed.url).hostname}`}
                 >
                   {rssRemoving === feed.url
                     ? <Loader2 className="h-3 w-3 animate-spin" />
@@ -743,7 +779,9 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+      </section>
 
+      <section id="watchlist">
       <Card>
         <CardHeader>
           <CardTitle>Watchlist</CardTitle>
@@ -775,7 +813,7 @@ export default function SettingsPage() {
                   )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleEditWatch(item)}>
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleEditWatch(item)} aria-label={`Edit ${item.label}`}>
                     <Pencil className="h-3 w-3" />
                   </Button>
                   <Button
@@ -784,6 +822,7 @@ export default function SettingsPage() {
                     className="h-7 w-7"
                     disabled={watchRemoving === item.id}
                     onClick={() => handleRemoveWatch(item.id)}
+                    aria-label={`Remove ${item.label}`}
                   >
                     {watchRemoving === item.id
                       ? <Loader2 className="h-3 w-3 animate-spin" />
@@ -852,7 +891,9 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+      </section>
 
+      <section id="profile">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -892,19 +933,9 @@ export default function SettingsPage() {
           </Button>
         </CardContent>
       </Card>
+      </section>
 
-      <Separator />
-      <div className="flex items-center gap-3">
-        <Button onClick={handleSave} disabled={saving || !isDirty}>
-          {saving ? "Saving..." : isDirty ? "Save Changes" : "No Changes"}
-        </Button>
-        {isDirty && (
-          <span className="text-xs text-muted-foreground">
-            {Object.keys(form).length} unsaved {Object.keys(form).length === 1 ? "change" : "changes"}
-          </span>
-        )}
-      </div>
-
+      <section id="danger-zone">
       <Card className="border-destructive/50 bg-destructive/5">
         <CardHeader>
           <CardTitle className="text-destructive">Danger Zone</CardTitle>
@@ -922,7 +953,29 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+      </section>
       <DeleteAccountModal open={deleteOpen} onOpenChange={setDeleteOpen} />
+
+      {isDirty && (
+        <div className="fixed bottom-0 left-0 right-0 z-20 border-t bg-background/95 backdrop-blur lg:left-60">
+          <div className="mx-auto flex max-w-2xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between md:px-6">
+            <div>
+              <p className="text-sm font-medium">You have unsaved settings changes</p>
+              <p className="text-xs text-muted-foreground">
+                {Object.keys(form).length} pending {Object.keys(form).length === 1 ? "update" : "updates"} across provider and key settings.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setForm({})} disabled={saving}>
+                Discard
+              </Button>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? "Saving..." : "Save changes"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

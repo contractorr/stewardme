@@ -28,6 +28,14 @@ export interface BriefingRecommendation {
   user_rating?: number | null;
   feedback_comment?: string | null;
   feedback_at?: string | null;
+  why_now?: Array<{ code: string; label: string; severity: string; detail?: Record<string, unknown> }>;
+  harvested_outcome?: {
+    state: string;
+    confidence: number;
+    source_summary: string;
+    user_overridden: boolean;
+    evidence?: any[];
+  } | null;
 }
 
 export interface RecommendationActionItem {

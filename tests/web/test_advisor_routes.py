@@ -3,22 +3,49 @@
 from unittest.mock import MagicMock, patch
 
 
+def _sample_pdf_bytes(text: str) -> bytes:
+    return (
+        b"%PDF-1.4\n"
+        b"1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n"
+        b"2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n"
+        b"3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 300 144] /Contents 4 0 R >> endobj\n"
+        + f"4 0 obj << /Length 64 >> stream\nBT /F1 12 Tf 40 100 Td ({text}) Tj ET\nendstream endobj\n".encode()
+        + b"xref\n0 5\n0000000000 65535 f \ntrailer << /Root 1 0 R /Size 5 >>\nstartxref\n0\n%%EOF\n"
+    )
+
+
 def _mock_get_engine(user_id, use_tools=False):
     """Return a mock AdvisorEngine that returns canned answers."""
     engine = MagicMock()
 
-    def _ask(question, advice_type="general", conversation_history=None, event_callback=None):
-        # Fire fake tool events if callback provided
+    def _ask(
+        question,
+        advice_type="general",
+        conversation_history=None,
+        attachment_ids=None,
+        event_callback=None,
+    ):
         if event_callback:
             event_callback({"type": "tool_start", "tool": "journal_search"})
             event_callback({"type": "tool_done", "tool": "journal_search", "is_error": False})
-        return f"Mock advice for: {question}"
+        suffix = f" using {len(attachment_ids or [])} attachment(s)" if attachment_ids else ""
+        return f"Mock advice for: {question}{suffix}"
 
     engine.ask.side_effect = _ask
     return engine
 
 
 _ENGINE_PATCH = "web.routes.advisor._get_engine"
+
+
+def _upload_pdf(client, auth_headers, text="Raj Contractor Python leadership"):
+    res = client.post(
+        "/api/library/reports/upload",
+        headers=auth_headers,
+        files={"file": ("resume.pdf", _sample_pdf_bytes(text), "application/pdf")},
+    )
+    assert res.status_code == 201
+    return res.json()
 
 
 def test_ask_returns_answer(client, auth_headers):
@@ -45,15 +72,13 @@ def test_ask_creates_conversation(client, auth_headers):
     conv_id = res.json()["conversation_id"]
     assert conv_id
 
-    # Verify conversation is persisted
     res2 = client.get(f"/api/advisor/conversations/{conv_id}", headers=auth_headers)
     assert res2.status_code == 200
-    assert len(res2.json()["messages"]) == 2  # user + assistant
+    assert len(res2.json()["messages"]) == 2
 
 
 def test_ask_with_existing_conversation(client, auth_headers):
     with patch(_ENGINE_PATCH, side_effect=_mock_get_engine):
-        # First message creates conversation
         res1 = client.post(
             "/api/advisor/ask",
             headers=auth_headers,
@@ -61,7 +86,6 @@ def test_ask_with_existing_conversation(client, auth_headers):
         )
         conv_id = res1.json()["conversation_id"]
 
-        # Second message uses same conversation
         res2 = client.post(
             "/api/advisor/ask",
             headers=auth_headers,
@@ -69,9 +93,48 @@ def test_ask_with_existing_conversation(client, auth_headers):
         )
     assert res2.json()["conversation_id"] == conv_id
 
-    # Should have 4 messages total (2 user + 2 assistant)
     detail = client.get(f"/api/advisor/conversations/{conv_id}", headers=auth_headers)
     assert len(detail.json()["messages"]) == 4
+
+
+def test_ask_persists_attachment_metadata(client, auth_headers):
+    report = _upload_pdf(client, auth_headers)
+
+    with patch(_ENGINE_PATCH, side_effect=_mock_get_engine):
+        res = client.post(
+            "/api/advisor/ask",
+            headers=auth_headers,
+            json={
+                "question": "Use my CV for this answer",
+                "attachment_ids": [report["id"]],
+            },
+        )
+
+    assert res.status_code == 200
+    assert "1 attachment" in res.json()["answer"]
+
+    conv_id = res.json()["conversation_id"]
+    detail = client.get(f"/api/advisor/conversations/{conv_id}", headers=auth_headers)
+    assert detail.status_code == 200
+    first_message = detail.json()["messages"][0]
+    assert first_message["attachments"] == [
+        {
+            "library_item_id": report["id"],
+            "file_name": report["file_name"],
+            "mime_type": report["mime_type"],
+        }
+    ]
+
+
+def test_ask_rejects_unknown_attachment(client, auth_headers):
+    with patch(_ENGINE_PATCH, side_effect=_mock_get_engine):
+        res = client.post(
+            "/api/advisor/ask",
+            headers=auth_headers,
+            json={"question": "Use my CV", "attachment_ids": ["missing-doc"]},
+        )
+    assert res.status_code == 404
+    assert "attachment not found" in res.json()["detail"].lower()
 
 
 def test_ask_stream_sse_events(client, auth_headers):
@@ -84,7 +147,6 @@ def test_ask_stream_sse_events(client, auth_headers):
     assert res.status_code == 200
     assert "text/event-stream" in res.headers.get("content-type", "")
 
-    # Parse SSE events
     events = []
     for line in res.text.strip().split("\n"):
         line = line.strip()
@@ -93,23 +155,21 @@ def test_ask_stream_sse_events(client, auth_headers):
 
             events.append(json.loads(line[6:]))
 
-    types = [e["type"] for e in events]
+    types = [event["type"] for event in events]
     assert "tool_start" in types
     assert "tool_done" in types
     assert "answer" in types
 
-    answer_event = next(e for e in events if e["type"] == "answer")
+    answer_event = next(event for event in events if event["type"] == "answer")
     assert "conversation_id" in answer_event
     assert "Mock advice" in answer_event["content"]
 
 
 def test_conversations_crud(client, auth_headers):
-    # List empty
     res = client.get("/api/advisor/conversations", headers=auth_headers)
     assert res.status_code == 200
     assert res.json() == []
 
-    # Create via ask
     with patch(_ENGINE_PATCH, side_effect=_mock_get_engine):
         ask_res = client.post(
             "/api/advisor/ask",
@@ -118,26 +178,21 @@ def test_conversations_crud(client, auth_headers):
         )
     conv_id = ask_res.json()["conversation_id"]
 
-    # List should have 1
     res = client.get("/api/advisor/conversations", headers=auth_headers)
     assert len(res.json()) == 1
 
-    # Get specific
     res = client.get(f"/api/advisor/conversations/{conv_id}", headers=auth_headers)
     assert res.status_code == 200
     assert res.json()["id"] == conv_id
 
-    # Delete
     res = client.delete(f"/api/advisor/conversations/{conv_id}", headers=auth_headers)
     assert res.status_code == 200
 
-    # List empty again
     res = client.get("/api/advisor/conversations", headers=auth_headers)
     assert res.json() == []
 
 
 def test_conversation_isolation(client, auth_headers, auth_headers_b):
-    """User A can't access User B's conversations."""
     with patch(_ENGINE_PATCH, side_effect=_mock_get_engine):
         res = client.post(
             "/api/advisor/ask",
@@ -146,19 +201,28 @@ def test_conversation_isolation(client, auth_headers, auth_headers_b):
         )
     conv_id = res.json()["conversation_id"]
 
-    # User B can't get it
     res = client.get(f"/api/advisor/conversations/{conv_id}", headers=auth_headers_b)
     assert res.status_code == 404
 
-    # User B can't delete it
     res = client.delete(f"/api/advisor/conversations/{conv_id}", headers=auth_headers_b)
     assert res.status_code == 404
 
-    # User B can't send messages to it
     with patch(_ENGINE_PATCH, side_effect=_mock_get_engine):
         res = client.post(
             "/api/advisor/ask",
             headers=auth_headers_b,
             json={"question": "Hijack", "conversation_id": conv_id},
+        )
+    assert res.status_code == 404
+
+
+def test_attachment_is_user_scoped(client, auth_headers, auth_headers_b):
+    report = _upload_pdf(client, auth_headers)
+
+    with patch(_ENGINE_PATCH, side_effect=_mock_get_engine):
+        res = client.post(
+            "/api/advisor/ask",
+            headers=auth_headers_b,
+            json={"question": "Use someone else's CV", "attachment_ids": [report["id"]]},
         )
     assert res.status_code == 404

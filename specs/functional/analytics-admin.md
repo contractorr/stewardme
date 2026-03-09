@@ -28,6 +28,8 @@ Internal operators and admins.
 Current interface scope:
 - Analytics collection is intentionally lightweight and focused on product operations rather than a full BI stack.
 - The shipped admin stats surface is internal-facing.
+- The admin page exposes fixed day-window controls (`7`, `30`, `90`) and a manual refresh action.
+- Usage totals render as summary cards; denser subsections render as scroll-safe tables on smaller screens.
 
 ## Acceptance Criteria
 
@@ -35,6 +37,7 @@ Current interface scope:
 - [ ] Admin stats can be queried by day range.
 - [ ] Admin stats include usage, scraper health, page-view, and feedback summary sections.
 - [ ] A web admin page can render the aggregated stats.
+- [ ] The admin page remains readable on smaller screens without clipping table content.
 
 ## Edge Cases
 

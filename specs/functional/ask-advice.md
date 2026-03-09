@@ -2,11 +2,11 @@
 
 **Status:** Partially Implemented
 **Author:** -
-**Date:** 2026-03-07
+**Date:** 2026-03-08
 
 ## Problem
 
-Users want personalized career and technical advice grounded in their own journal history, profile, and current industry intelligence - not generic LLM responses.
+Users want personalized career and technical advice grounded in their own journal history, profile, uploaded reference documents, and current industry intelligence - not generic LLM responses.
 
 ## Users
 
@@ -16,10 +16,12 @@ All users. Most valuable for users with 10+ journal entries and a completed prof
 
 ### Asking a question
 
-1. User asks a free-text question (e.g., "Should I learn Rust or Go next?")
-2. System retrieves relevant context: journal entries, intelligence items, user profile, memory facts, recurring thoughts, and recent research when available
-3. System sends the assembled context plus question to the LLM
-4. User receives a personalized answer grounded in their data
+1. User asks a free-text question (e.g., "Should I learn Rust or Go next?").
+2. User can optionally attach one or more PDF files to the same message from any first-party web chat surface.
+3. System stores the uploaded PDFs as private user documents, extracts searchable text, and derives durable memory when the content contains stable user-relevant facts.
+4. System retrieves relevant context: journal entries, intelligence items, user profile, memory facts, recurring thoughts, uploaded documents, and recent research when available.
+5. System sends the assembled context plus question to the LLM.
+6. User receives a personalized answer grounded in their data and attached documents.
 
 ### Advice types
 
@@ -46,7 +48,21 @@ Current interface scope:
 - User profile is injected as structured context.
 - Memory facts are injected when enabled.
 - Recurring thought threads are injected when enabled.
+- Uploaded PDF/document text is available as retrievable context when relevant to the question.
+- Newly uploaded documents in the current chat turn can influence the same response instead of waiting for a later session.
 - Recent research reports, including dossier material saved as research entries, can be included when relevant.
+
+### Reference documents in chat
+
+1. Any first-party web chat entry point can accept PDF attachments alongside a question.
+2. Attached PDFs are shown as part of the conversation turn so the user can tell what was included.
+3. The advisor can use extracted document text in the immediate answer and in later conversations.
+4. Uploaded documents become searchable private assets in the user's account instead of one-off ephemeral chat attachments.
+5. When a document contains durable user context, such as a CV or resume, the system can distill that into memory so later advice stays personalized without requiring repeated uploads.
+
+Current interface scope:
+- Web chat surfaces do not yet support in-thread PDF attachments.
+- The Library workspace already supports basic PDF upload, preview, and download, but extracted-text retrieval and advisor/memory ingestion are not yet wired through chat.
 
 ### Proactive greeting (chat-first home)
 
@@ -85,6 +101,11 @@ Current interface scope:
 - [ ] Advice type changes the framing of the response.
 - [ ] Works via CLI and web, including SSE streaming in web.
 - [ ] MCP exposes advisor-supporting context tools rather than a direct `ask` tool.
+- [ ] Users can attach PDF files from any first-party web chat surface.
+- [ ] Uploaded PDF text is extracted and can be used in the same advisor response.
+- [ ] Uploaded PDF text remains searchable and reusable in later advisor conversations.
+- [ ] Durable user-relevant facts derived from uploaded documents are available to memory-backed advisor context.
+- [ ] Chat UI makes it clear which documents were attached to a turn.
 - [ ] Greeting returns immediately from cache when available.
 - [ ] Greeting reflects current user state and falls back without blocking the page.
 - [ ] Greeting cache is invalidated on journal create/update, goal check-in, and scrape batch.
@@ -99,6 +120,9 @@ Current interface scope:
 | Question unrelated to career or tech | System still answers, even if retrieved context is less relevant |
 | LLM API key missing or invalid | User sees a clear error, not a crash |
 | Very long question (>5K chars in web) | Rejected at the input boundary |
+| User attaches a valid PDF with little or no extractable text | Upload can still succeed, but the user is told the document may not influence advice yet |
+| User attaches a non-PDF file in chat | Upload is rejected with a clear validation message |
+| User asks about their CV immediately after uploading it | Advisor can use the extracted content in that same response |
 | Agentic mode with no tools available | Falls back to classic behavior |
 | Shared/lite mode user asks from web | Request still works, but richer agentic behavior is disabled |
 
@@ -154,3 +178,4 @@ Current interface scope:
 - Replacing journal, goals, or radar pages with a single monolithic advisor page
 - Real-time collaborative chat or shared conversations
 - Guaranteed citations in every answer
+- Non-PDF chat attachments such as images, spreadsheets, audio, or video

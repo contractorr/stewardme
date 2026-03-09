@@ -106,6 +106,33 @@ def get_thread_store(user_id: str):
     return create_thread_store(get_user_paths(user_id))
 
 
+def get_receipt_store(user_id: str):
+    """Construct the per-user extraction receipt store."""
+    from journal.extraction_receipts import ExtractionReceiptStore
+
+    return ExtractionReceiptStore(get_user_paths(user_id)["receipts_db"])
+
+
+def get_thread_inbox_state_store(user_id: str):
+    """Construct the per-user thread inbox state store."""
+    from journal.thread_inbox import ThreadInboxStateStore
+
+    return ThreadInboxStateStore(get_user_paths(user_id)["threads_db"])
+
+
+def get_thread_inbox_service(user_id: str):
+    """Construct the merged recurring-thread inbox service."""
+    from journal.storage import JournalStorage
+    from journal.thread_inbox import ThreadInboxService
+
+    paths = get_user_paths(user_id)
+    return ThreadInboxService(
+        create_thread_store(paths),
+        get_thread_inbox_state_store(user_id),
+        JournalStorage(paths["journal_dir"]),
+    )
+
+
 def get_intel_storage():
     """Construct the shared intel storage."""
     return create_intel_storage(get_coach_paths())
@@ -124,6 +151,55 @@ def get_follow_up_store(user_id: str):
 def get_recommendation_storage(user_id: str):
     """Construct the per-user recommendation store."""
     return create_recommendation_storage(get_user_paths(user_id))
+
+
+def get_dossier_escalation_store(user_id: str):
+    """Construct the per-user dossier escalation store."""
+    from research.escalation import DossierEscalationStore
+
+    return DossierEscalationStore(get_user_paths(user_id)["escalations_db"])
+
+
+def get_outcome_store(user_id: str):
+    """Construct the per-user harvested outcome store."""
+    from advisor.outcomes import HarvestedOutcomeStore
+
+    return HarvestedOutcomeStore(get_user_paths(user_id)["outcomes_db"])
+
+
+def get_assumption_store(user_id: str):
+    """Construct the per-user assumption store."""
+    from advisor.assumptions import AssumptionStore
+
+    return AssumptionStore(get_user_paths(user_id)["assumptions_db"])
+
+
+def get_company_movement_store():
+    """Construct the shared company movement store."""
+    from intelligence.company_watch import CompanyMovementStore
+
+    return CompanyMovementStore(get_coach_paths()["intel_db"])
+
+
+def get_hiring_signal_store():
+    """Construct the shared hiring signal store."""
+    from intelligence.hiring_signals import HiringSignalStore
+
+    return HiringSignalStore(get_coach_paths()["intel_db"])
+
+
+def get_hiring_baseline_tracker():
+    """Construct the shared hiring baseline tracker."""
+    from intelligence.hiring_signals import HiringBaselineTracker
+
+    return HiringBaselineTracker(get_coach_paths()["intel_db"])
+
+
+def get_regulatory_alert_store():
+    """Construct the shared regulatory alert store."""
+    from intelligence.regulatory import RegulatoryAlertStore
+
+    return RegulatoryAlertStore(get_coach_paths()["intel_db"])
 
 
 def get_insight_store():

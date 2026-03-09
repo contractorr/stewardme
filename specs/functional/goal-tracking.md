@@ -62,6 +62,10 @@ Current interface scope:
    - `paused` -> `active`, `completed`, or `abandoned`
    - `abandoned` -> `active`
 5. The web goals page includes title search across the loaded goal list.
+6. The web goals page surfaces a weekly-plan summary so users can see remaining capacity for the current week.
+7. Recommendation action items linked to a goal render inline on that goal card.
+8. Action items without a goal link remain visible in a separate section so they do not disappear.
+9. Recommendation cards on the goals page support inline 1-5 usefulness ratings with optional notes.
 
 ### Goal analysis
 
@@ -91,6 +95,7 @@ Existing learning paths are auto-migrated to goals on first startup post-upgrade
 - [ ] Goals support milestones with completion tracking
 - [ ] The web goals page defaults to a focus view and lets users filter to stale, archived, or all goals
 - [ ] The web goals page supports title search across loaded goals
+- [ ] The web goals page surfaces weekly-plan capacity and linked recommendation action items
 - [ ] The web UI exposes quick abandon and reactivate goal actions
 - [ ] Advisor can auto-generate milestones for any goal on request
 - [ ] Check-ins are timestamped and persisted

@@ -202,6 +202,8 @@ The system uses markdown files, multiple SQLite databases, Chroma embeddings, pe
 
 **Risk:** migrations, backup/restore, and cross-store consistency are easy to get wrong. Bugs often appear as path-resolution or “wrong store” issues rather than obvious logic failures.
 
+Document upload deepens this risk because a single user action can now touch binary file storage, metadata records, extracted-text indexes, conversation attachments, and memory facts.
+
 ### 4. Shared-vs-user-scoped storage is a recurring correctness boundary
 
 The architecture intentionally mixes global intel with per-user journal/profile/memory data.
@@ -240,6 +242,7 @@ These are the ongoing rules that still matter after the refactor work is complet
 - User-scoped stores should always resolve through canonical per-user path helpers.
 - SQLite-backed stores should set or preserve an explicit schema/version marker during initialization.
 - File-backed stores should create a lightweight metadata marker when schema discovery would otherwise be implicit.
+- Binary user uploads and their extracted text/search indexes must remain user-scoped and must never be persisted inside shared/global databases.
 
 ### Surface Rules
 

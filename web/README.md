@@ -33,6 +33,7 @@ Open `http://localhost:3000` and sign in.
 - `/goals` — goal tracking, milestones, check-ins, and action plans
 - `/journal` — writing, browsing, and filtering journal history
 - `/intel` — intelligence feed, trending topics, source health, and saved follow-ups
+- `/projects` — matched issues and project-idea exploration
 - `/settings` — API keys, preferences, and account actions
 
 ## Goals workspace
@@ -66,9 +67,29 @@ The radar page is designed for triage, not just passive reading:
 - Follow-up notes are edited in a side sheet so users can capture next steps without a browser prompt
 - Saved items remain available as a lightweight follow-up queue
 
+## Projects workspace
+
+The projects page bridges tactical opportunities and broader ideation:
+
+- `Issue matches` surfaces ranked GitHub opportunities from recent radar data
+- Filters let users widen or narrow the recent-day window and result count
+- `Project ideas` stays in the same workspace so users can move from execution to exploration without switching tools
+- Empty and error states keep the workspace useful even when radar data or model access is thin
+
 ## Quality checks
 
 ```bash
 npm run lint
 npm run build
 ```
+
+
+## Library workspace
+
+The Library page is the first durable long-form artifact workspace:
+
+- Generate a saved report directly from a prompt instead of leaving it only in chat
+- Use lightweight report types like crash course, overview, memo, plan, and custom
+- Organize reports with simple collection labels
+- Refresh a report in place from its original prompt instead of creating duplicates
+- Edit, archive, and restore reports without losing the saved artifact

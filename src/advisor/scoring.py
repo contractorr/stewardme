@@ -23,6 +23,7 @@ MIN_RATINGS_FOR_BOOST = 2
 MAX_RATING_BOOST = 1.0
 MIN_EXECUTION_EVENTS_FOR_BOOST = 2
 MAX_EXECUTION_BOOST = 1.0
+MAX_HARVESTED_OUTCOME_BOOST = 0.75
 
 
 class RecommendationScorer:
@@ -35,6 +36,7 @@ class RecommendationScorer:
         user_id: Optional[str] = None,
         intel_db_path: Optional[Path] = None,
         rec_storage: Optional["RecommendationStorage"] = None,
+        outcome_store=None,
         **_kwargs,
     ):
         self.min_threshold = min_threshold
@@ -42,9 +44,11 @@ class RecommendationScorer:
         self._user_id = user_id
         self._intel_db_path = intel_db_path
         self._rec_storage = rec_storage
+        self._outcome_store = outcome_store
         self._category_boosts: Optional[dict[str, float]] = None
         self._rating_boosts: Optional[dict[str, float]] = None
         self._execution_boosts: Optional[dict[str, float]] = None
+        self._outcome_boosts: Optional[dict[str, float]] = None
 
     def passes_threshold(self, score: float) -> bool:
         """Check if score meets minimum threshold."""
@@ -170,11 +174,45 @@ class RecommendationScorer:
 
         return self._execution_boosts.get(category, 0.0)
 
+    def harvested_outcome_boost(self, category: str) -> float:
+        """Per-category score adjustment from harvested outcomes."""
+        if self._outcome_boosts is not None:
+            return self._outcome_boosts.get(category, 0.0)
+
+        self._outcome_boosts = {}
+        if not self._rec_storage or not self._outcome_store:
+            return 0.0
+
+        try:
+            rows: dict[str, list[float]] = {}
+            for recommendation in self._rec_storage.list_recent(days=180, limit=200):
+                outcome = self._outcome_store.get(recommendation.id)
+                if not outcome:
+                    continue
+                if outcome.get("state") == "positive":
+                    rows.setdefault(recommendation.category, []).append(1.0)
+                elif outcome.get("state") == "negative":
+                    rows.setdefault(recommendation.category, []).append(-1.0)
+                elif outcome.get("state") in {"conflicted", "unresolved"}:
+                    rows.setdefault(recommendation.category, []).append(0.0)
+
+            for cat, values in rows.items():
+                if not values:
+                    continue
+                self._outcome_boosts[cat] = MAX_HARVESTED_OUTCOME_BOOST * (sum(values) / len(values))
+
+            logger.debug("outcomes.category_boosts", boosts=self._outcome_boosts)
+        except Exception as e:
+            logger.debug("outcomes.boost_error", error=str(e))
+
+        return self._outcome_boosts.get(category, 0.0)
+
     def adjust_score(self, score: float, category: str) -> float:
         """Apply engagement + rating boosts to a raw LLM score, clamped [0, 10]."""
         boost = (
             self.engagement_boost(category)
             + self.rating_boost(category)
             + self.execution_boost(category)
+            + self.harvested_outcome_boost(category)
         )
         return max(0.0, min(10.0, score + boost))

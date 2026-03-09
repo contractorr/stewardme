@@ -74,6 +74,16 @@ def init_db(db_path: Path | None = None) -> None:
                 FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
             );
             CREATE INDEX IF NOT EXISTS idx_msg_conv ON conversation_messages(conversation_id, created_at ASC);
+            CREATE TABLE IF NOT EXISTS conversation_message_attachments (
+                id TEXT PRIMARY KEY,
+                message_id TEXT NOT NULL,
+                library_item_id TEXT NOT NULL,
+                file_name TEXT,
+                mime_type TEXT,
+                created_at TIMESTAMP NOT NULL,
+                FOREIGN KEY (message_id) REFERENCES conversation_messages(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_msg_attachment_message ON conversation_message_attachments(message_id);
 
             CREATE TABLE IF NOT EXISTS onboarding_responses (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

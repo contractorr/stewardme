@@ -28,10 +28,11 @@ def start_conversation_turn(
     user_id: str,
     conversation_id: str | None,
     question: str,
+    attachments: list[dict] | None,
     create_conversation_fn: Callable[[str, str], str],
     conversation_belongs_to_fn: Callable[[str, str], bool],
     get_messages_fn: Callable[..., list[dict]],
-    add_message_fn: Callable[[str, str, str], Any],
+    add_message_fn: Callable[..., Any],
     max_history_chars: int = DEFAULT_MAX_HISTORY_CHARS,
 ) -> tuple[str, list[dict]]:
     """Create or validate a conversation, load trimmed history, and persist the user turn."""
@@ -47,7 +48,7 @@ def start_conversation_turn(
         [{"role": message["role"], "content": message["content"]} for message in history_rows],
         max_chars=max_history_chars,
     )
-    add_message_fn(conv_id, "user", question)
+    add_message_fn(conv_id, "user", question, attachments=attachments)
     return conv_id, history
 
 
@@ -57,7 +58,7 @@ def finish_conversation_turn(
     user_id: str,
     answer: str,
     latency_ms: int,
-    add_message_fn: Callable[[str, str, str], Any],
+    add_message_fn: Callable[..., Any],
     log_event_fn: Callable[[str, str, dict], Any],
 ) -> None:
     """Persist the assistant turn and record request latency."""
@@ -71,6 +72,7 @@ def run_advice(
     *,
     advice_type: str = "general",
     conversation_history: list[dict] | None = None,
+    attachment_ids: list[str] | None = None,
     event_callback: Callable[[dict], Any] | None = None,
 ) -> dict[str, Any]:
     """Run an advisor request and return the answer with latency metadata."""
@@ -79,6 +81,7 @@ def run_advice(
         question,
         advice_type=advice_type,
         conversation_history=conversation_history,
+        attachment_ids=attachment_ids,
         event_callback=event_callback,
     )
     return {

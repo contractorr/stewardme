@@ -6,6 +6,8 @@ import frontmatter
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from advisor.outcomes import OutcomeHarvester
+from advisor.why_now import WhyNowReasoner
 from intelligence.watchlist import (
     annotate_items,
     find_evidence_for_text,
@@ -26,6 +28,7 @@ from services.recommendation_actions import (
 from web.auth import get_current_user
 from web.deps import (
     get_intel_storage,
+    get_outcome_store,
     get_recommendation_storage,
     get_user_paths,
     get_watchlist_store,
@@ -36,6 +39,8 @@ from web.models import (
     RecommendationActionItem,
     RecommendationActionUpdate,
     RecommendationFeedbackRequest,
+    RecommendationOutcomeOverrideRequest,
+    RecommendationOutcomeResponse,
     TrackedRecommendationAction,
     WeeklyPlanResponse,
 )
@@ -196,6 +201,8 @@ async def list_recommendations(
 ):
     rec_storage = _get_storage(user["id"])
     ranked_watchlist_intel = _recent_watchlist_intel(user["id"])
+    harvester = OutcomeHarvester(get_outcome_store(user["id"]), rec_storage)
+    reasoner = WhyNowReasoner()
 
     # Over-fetch for filtering headroom
     fetch_limit = limit * 3
@@ -214,8 +221,49 @@ async def list_recommendations(
                 filtered.append(r)
         recs = filtered
 
-    # Shape output like briefing.py
-    return [_shape_recommendation(r, ranked_watchlist_intel) for r in recs[:limit]]
+    results = []
+    for recommendation in recs[:limit]:
+        shaped = _shape_recommendation(recommendation, ranked_watchlist_intel)
+        harvested = harvester.evaluate_recommendation({"id": recommendation.id, "metadata": recommendation.metadata or {}})
+        payload = shaped.model_dump()
+        payload["harvested_outcome"] = harvested
+        payload["why_now"] = reasoner.explain_recommendation(payload, {"recent_intel": ranked_watchlist_intel})
+        results.append(BriefingRecommendation(**payload))
+    return results
+
+
+@router.get("/{rec_id}/outcome", response_model=RecommendationOutcomeResponse | None)
+async def get_recommendation_outcome(
+    rec_id: str,
+    user: dict = Depends(get_current_user),
+):
+    storage = _get_storage(user["id"])
+    outcome_store = get_outcome_store(user["id"])
+    recommendation = storage.get(rec_id)
+    if not recommendation:
+        raise HTTPException(status_code=404, detail="Recommendation not found")
+    harvester = OutcomeHarvester(outcome_store, storage)
+    outcome = outcome_store.get(rec_id) or harvester.evaluate_recommendation({"id": recommendation.id, "metadata": recommendation.metadata or {}})
+    return RecommendationOutcomeResponse(**outcome) if outcome else None
+
+
+@router.post("/{rec_id}/outcome/override", response_model=RecommendationOutcomeResponse)
+async def override_recommendation_outcome(
+    rec_id: str,
+    payload: RecommendationOutcomeOverrideRequest,
+    user: dict = Depends(get_current_user),
+):
+    storage = _get_storage(user["id"])
+    outcome_store = get_outcome_store(user["id"])
+    recommendation = storage.get(rec_id)
+    if not recommendation:
+        raise HTTPException(status_code=404, detail="Recommendation not found")
+    if not outcome_store.get(rec_id):
+        OutcomeHarvester(outcome_store, storage).evaluate_recommendation({"id": recommendation.id, "metadata": recommendation.metadata or {}})
+    outcome = outcome_store.override(rec_id, payload.state, payload.note)
+    if not outcome:
+        raise HTTPException(status_code=404, detail="Recommendation not found")
+    return RecommendationOutcomeResponse(**outcome)
 
 @router.post(
     "/{rec_id}/feedback",
@@ -248,7 +296,12 @@ async def add_recommendation_feedback(
     )
 
     ranked_watchlist_intel = _recent_watchlist_intel(user["id"])
-    return _shape_recommendation(recommendation, ranked_watchlist_intel)
+    shaped = _shape_recommendation(recommendation, ranked_watchlist_intel)
+    outcome = get_outcome_store(user["id"]).get(rec_id)
+    payload = shaped.model_dump()
+    payload["harvested_outcome"] = outcome
+    payload["why_now"] = WhyNowReasoner().explain_recommendation(payload, {"recent_intel": ranked_watchlist_intel})
+    return BriefingRecommendation(**payload)
 
 
 

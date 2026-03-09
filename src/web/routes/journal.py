@@ -10,13 +10,15 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from journal.storage import JournalStorage
 from web.auth import get_current_user
 from web.deps import (
+    get_assumption_store,
     get_config,
     get_memory_store,
+    get_receipt_store,
     get_thread_store,
     get_user_paths,
     safe_user_id,
 )
-from web.models import JournalCreate, JournalEntry, JournalUpdate, QuickCapture
+from web.models import ExtractionReceiptEnvelope, JournalCreate, JournalEntry, JournalUpdate, QuickCapture
 from web.user_store import log_event
 
 logger = structlog.get_logger()
@@ -52,6 +54,9 @@ async def _run_post_create_hooks(
     """Embed + thread detect + memory extract in background (best-effort)."""
     paths = get_user_paths(user_id)
     entry_id = str(filepath)
+    warnings: list[str] = []
+    thread_match_payload: dict | None = None
+    memory_facts: list[dict] = []
 
     # 1. ChromaDB embedding (per-user collection)
     try:
@@ -63,6 +68,26 @@ async def _run_post_create_hooks(
             em.add_entry(entry_id, content, metadata)
     except Exception as exc:
         logger.warning("post_create.embed_failed", error=str(exc), user=user_id)
+        warnings.append("Embedding failed")
+        try:
+            from journal.extraction_receipts import ReceiptBuilder
+
+            receipt_builder = ReceiptBuilder(get_receipt_store(user_id))
+            receipt_builder.finalize(
+                entry={
+                    "path": entry_id,
+                    "title": metadata.get("title", filepath.stem),
+                    "content": content,
+                    "tags": metadata.get("tags", []),
+                },
+                thread_match=None,
+                memory_facts=[],
+                theme_candidates=[],
+                goal_candidates=[],
+                warnings=warnings,
+            )
+        except Exception:
+            pass
         return  # threads needs the embedding, skip if embed fails
 
     # 1b. FTS index upsert
@@ -80,6 +105,7 @@ async def _run_post_create_hooks(
         )
     except Exception as exc:
         logger.warning("post_create.fts_failed", error=str(exc), user=user_id)
+        warnings.append("Search indexing failed")
 
     # 2. Thread detection
     try:
@@ -111,9 +137,17 @@ async def _run_post_create_hooks(
                         "min_entries_for_thread": threads_cfg.min_entries_for_thread,
                     },
                 )
-                await detector.detect(entry_id, embedding, entry_date)
+                match = await detector.detect(entry_id, embedding, entry_date)
+                if match.thread_id:
+                    thread = await store.get_thread(match.thread_id)
+                    thread_match_payload = {
+                        "thread_id": match.thread_id,
+                        "thread_label": thread.label if thread else metadata.get("title", "Recurring topic"),
+                        "match_type": match.match_type,
+                    }
     except Exception as exc:
         logger.warning("post_create.thread_detect_failed", error=str(exc), user=user_id)
+        warnings.append("Thread detection failed")
 
     # 3. Memory pipeline
     try:
@@ -124,8 +158,76 @@ async def _run_post_create_hooks(
             fact_store = get_memory_store(user_id)
             pipeline = MemoryPipeline(fact_store)
             pipeline.process_journal_entry(entry_id, content, metadata)
+            memory_facts = [
+                {
+                    "fact_id": fact.id,
+                    "text": fact.text,
+                    "category": getattr(fact.category, "value", fact.category),
+                    "confidence": fact.confidence,
+                }
+                for fact in fact_store.get_by_source("journal", entry_id)
+            ]
     except Exception as exc:
         logger.warning("post_create.memory_failed", error=str(exc), user=user_id)
+        warnings.append("Memory extraction failed")
+
+    # 3b. Assumption extraction suggestions
+    try:
+        from advisor.assumptions import AssumptionExtractor
+
+        extractor = AssumptionExtractor()
+        assumption_store = get_assumption_store(user_id)
+        for candidate in extractor.extract_from_journal(
+            {
+                "path": entry_id,
+                "title": metadata.get("title", filepath.stem),
+                "content": content,
+                "tags": metadata.get("tags", []),
+            }
+        ):
+            assumption_store.create(
+                {
+                    "statement": candidate["statement"],
+                    "status": "suggested",
+                    "source_type": candidate.get("source_type") or "journal",
+                    "source_id": candidate.get("source_id") or entry_id,
+                    "extraction_confidence": candidate.get("confidence"),
+                    "linked_entities": candidate.get("linked_entities") or [],
+                }
+            )
+    except Exception as exc:
+        logger.warning("post_create.assumptions_failed", error=str(exc), user=user_id)
+        warnings.append("Assumption extraction failed")
+
+    # 3c. Extraction receipt finalization
+    try:
+        from journal.extraction_receipts import ReceiptBuilder
+
+        receipt_builder = ReceiptBuilder(get_receipt_store(user_id))
+        theme_candidates, goal_candidates = receipt_builder.derive_theme_goal_candidates(
+            {
+                "path": entry_id,
+                "title": metadata.get("title", filepath.stem),
+                "content": content,
+                "tags": metadata.get("tags", []),
+            },
+            memory_facts,
+        )
+        receipt_builder.finalize(
+            entry={
+                "path": entry_id,
+                "title": metadata.get("title", filepath.stem),
+                "content": content,
+                "tags": metadata.get("tags", []),
+            },
+            thread_match=thread_match_payload,
+            memory_facts=memory_facts,
+            theme_candidates=theme_candidates,
+            goal_candidates=goal_candidates,
+            warnings=warnings,
+        )
+    except Exception as exc:
+        logger.warning("post_create.receipt_failed", error=str(exc), user=user_id)
 
     # 4. Invalidate greeting cache
     try:
@@ -202,6 +304,16 @@ async def create_entry(
 
     post = storage.read(filepath)
 
+    try:
+        from journal.extraction_receipts import ReceiptBuilder
+
+        ReceiptBuilder(get_receipt_store(user["id"])).seed_pending(
+            str(filepath),
+            post.get("title", filepath.stem),
+        )
+    except Exception:
+        logger.debug("journal.receipt_seed_skipped", user=user["id"])
+
     # Fire post-create hooks (embed, threads, memory) in background
     _schedule_post_create_hooks(user["id"], filepath, post.content, dict(post.metadata))
 
@@ -240,6 +352,16 @@ async def quick_capture(
 
     post = storage.read(filepath)
 
+    try:
+        from journal.extraction_receipts import ReceiptBuilder
+
+        ReceiptBuilder(get_receipt_store(user["id"])).seed_pending(
+            str(filepath),
+            post.get("title", filepath.stem),
+        )
+    except Exception:
+        logger.debug("journal.receipt_seed_skipped", user=user["id"])
+
     # Fire post-create hooks (embed, threads, memory) in background
     _schedule_post_create_hooks(user["id"], filepath, post.content, dict(post.metadata))
 
@@ -251,6 +373,19 @@ async def quick_capture(
         tags=post.get("tags", []),
         content=post.content,
     )
+
+
+@router.get("/{filepath:path}/receipt", response_model=ExtractionReceiptEnvelope)
+async def get_entry_receipt(
+    filepath: str,
+    user: dict = Depends(get_current_user),
+):
+    storage = _get_storage(user["id"])
+    resolved = _validate_journal_path(filepath, storage)
+    receipt = get_receipt_store(user["id"]).get_by_entry(str(resolved))
+    if not receipt:
+        return ExtractionReceiptEnvelope(status="pending", receipt=None)
+    return ExtractionReceiptEnvelope(status=receipt.get("status") or "pending", receipt=receipt)
 
 
 @router.get("/{filepath:path}", response_model=JournalEntry)
@@ -306,4 +441,8 @@ async def delete_entry(
 ):
     storage = _get_storage(user["id"])
     resolved = _validate_journal_path(filepath, storage)
+    try:
+        get_receipt_store(user["id"]).delete_by_entry(str(resolved))
+    except Exception:
+        pass
     storage.delete(resolved)

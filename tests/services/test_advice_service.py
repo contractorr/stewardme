@@ -35,6 +35,7 @@ def test_start_conversation_turn_creates_or_validates_and_persists_user_message(
         user_id="user-1",
         conversation_id=None,
         question="What now?",
+        attachments=None,
         create_conversation_fn=create_conversation,
         conversation_belongs_to_fn=conversation_belongs_to,
         get_messages_fn=get_messages,
@@ -43,7 +44,7 @@ def test_start_conversation_turn_creates_or_validates_and_persists_user_message(
 
     assert conv_id == "conv-1"
     assert history == [{"role": "assistant", "content": "Earlier"}]
-    add_message.assert_called_once_with("conv-1", "user", "What now?")
+    add_message.assert_called_once_with("conv-1", "user", "What now?", attachments=None)
 
 
 def test_start_conversation_turn_rejects_foreign_conversation():
@@ -52,6 +53,7 @@ def test_start_conversation_turn_rejects_foreign_conversation():
             user_id="user-1",
             conversation_id="conv-x",
             question="What now?",
+            attachments=None,
             create_conversation_fn=MagicMock(),
             conversation_belongs_to_fn=MagicMock(return_value=False),
             get_messages_fn=MagicMock(),

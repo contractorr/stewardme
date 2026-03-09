@@ -13,9 +13,10 @@ from advisor.greeting import (
     get_cached_greeting,
     make_greeting_cache_key,
 )
+from advisor.return_brief import ReturnBriefBuilder
 from web.auth import get_current_user
 from web.briefing_data import assemble_briefing_data
-from web.deps import get_api_key_for_user, get_user_paths
+from web.deps import get_api_key_for_user, get_thread_inbox_service, get_user_paths
 from web.models import GreetingResponse
 
 logger = structlog.get_logger()
@@ -91,10 +92,26 @@ def _schedule_greeting_refresh(user_id: str):
 async def get_greeting(user: dict = Depends(get_current_user)):
     cache = _get_cache(user["id"])
     cached_text = get_cached_greeting(user["id"], cache)
+    return_brief = None
+
+    try:
+        data = assemble_briefing_data(user["id"])
+        thread_rows = await get_thread_inbox_service(user["id"]).list_inbox(limit=3)
+        builder = ReturnBriefBuilder(
+            data_provider=lambda _user_id: {
+                "intel_matches": data.get("goal_intel_matches") or [],
+                "threads": thread_rows,
+                "dossiers": [],
+                "stale_goals": data.get("stale_goals") or [],
+            }
+        )
+        return_brief = builder.build(user["id"])
+    except Exception:
+        return_brief = None
 
     if cached_text:
-        return GreetingResponse(text=cached_text, cached=True, stale=False)
+        return GreetingResponse(text=cached_text, cached=True, stale=False, return_brief=return_brief)
 
     # No cache — return fallback and generate in background
     _schedule_greeting_refresh(user["id"])
-    return GreetingResponse(text=STATIC_FALLBACK, cached=False, stale=True)
+    return GreetingResponse(text=STATIC_FALLBACK, cached=False, stale=True, return_brief=return_brief)

@@ -147,6 +147,7 @@ Multi-user SQLite store at `~/coach/users.db` (override via `COACH_HOME` env or 
 | `user_secrets` | `(user_id, key) PK`, `value TEXT` | Fernet-encrypted values |
 | `conversations` | `id TEXT PK`, `user_id FK`, `title`, `created_at`, `updated_at` | CASCADE delete |
 | `conversation_messages` | `id TEXT PK`, `conversation_id FK`, `role CHECK(user/assistant)`, `content`, `created_at` | CASCADE delete |
+| `conversation_message_attachments` | `id TEXT PK`, `message_id FK`, `library_item_id`, `file_name`, `mime_type` | Per-message attachment linkage to user Library items |
 | `onboarding_responses` | `id AUTOINCREMENT`, `user_id FK`, `turn_number`, `role`, `content` | |
 | `engagement_events` | `id AUTOINCREMENT`, `user_id FK`, `event_type CHECK(...)`, `target_type`, `target_id`, `metadata_json` | 6 valid event types |
 | `usage_events` | `id AUTOINCREMENT`, `event`, `user_id`, `metadata` | Fail-silent analytics |
@@ -212,6 +213,8 @@ def get_all_user_rss_feeds() -> list[dict]
 
 Thin wrapper over `users.db` `conversations` + `conversation_messages` tables (reuses `_get_conn` from `user_store`). Conversations are keyed by `uuid4().hex` IDs. `get_messages` uses a subquery: fetches last N by `DESC`, returns `ASC` (oldest-first for LLM history).
 
+For document-aware chat, the target shape adds a `conversation_message_attachments` table so each user turn can retain zero or more Library attachment references without inlining binary data into message rows.
+
 `conversation_belongs_to(conv_id, user_id)` is used as an ownership check before operations; returns bool (no exception).
 
 `add_message` updates `conversations.updated_at` in the same transaction.
@@ -222,7 +225,7 @@ Thin wrapper over `users.db` `conversations` + `conversation_messages` tables (r
 def create_conversation(user_id, title, db_path=None) -> str          # returns conv_id (hex UUID)
 def list_conversations(user_id, limit=50) -> list[dict]               # newest-first
 def get_conversation(conv_id, user_id) -> dict | None                 # includes messages
-def add_message(conv_id, role, content) -> str                        # returns msg_id
+def add_message(conv_id, role, content, attachments=None) -> str      # returns msg_id
 def get_messages(conv_id, limit=20) -> list[dict]                     # oldest-first, last N
 def delete_conversation(conv_id, user_id) -> bool
 def conversation_belongs_to(conv_id, user_id) -> bool
@@ -230,11 +233,14 @@ def conversation_belongs_to(conv_id, user_id) -> bool
 
 `list_conversations` returns: `{id, title, updated_at, message_count}` (LEFT JOIN count).
 
+Attachment-aware `get_messages()` / `get_conversation()` should return message objects with optional `attachments: list[{library_item_id, file_name, mime_type, title?, source_kind?}]`.
+
 #### Invariants
 
 - Title truncated to 80 chars on create.
 - `get_messages` returns at most `limit` messages, always in chronological order.
 - `delete_conversation` cascade-deletes messages (FK ON DELETE CASCADE).
+- Attachment rows must be deleted when their parent message is deleted.
 - Cross-user access is prevented at query level (`WHERE id = ? AND user_id = ?`).
 
 ---
@@ -252,6 +258,7 @@ def conversation_belongs_to(conv_id, user_id) -> bool
 | Key | Path | Notes |
 |---|---|---|
 | `journal_dir` | `~/coach/users/{safe_id}/journal/` | |
+| `data_dir` | `~/coach/users/{safe_id}/` | Parent directory for library, memory db, and other user-scoped stores |
 | `chroma_dir` | `~/coach/users/{safe_id}/chroma/` | |
 | `recommendations_dir` | `~/coach/users/{safe_id}/recommendations/` | |
 | `profile` | `~/coach/users/{safe_id}/profile.yaml` | |
@@ -326,9 +333,13 @@ Used by: `journal`, `goals`, `profile`, `recommendations`, `memory`, `threads`
 Each route: resolves user paths → instantiates storage class with per-user path → delegates to storage method → maps result to Pydantic response model. Path traversal protection on file-based routes via `_validate_journal_path()` (checks resolved path is inside `journal_dir`).
 
 **Pattern: advisor (non-trivial)**
-`POST /api/advisor/ask` — Creates or reuses a `conversation_id`, loads last 20 messages (trimmed to 64k chars), saves user message, calls `AdvisorEngine.ask()` in `asyncio.to_thread`, saves assistant response, logs `chat_query` usage event. Builds a fresh `AdvisorEngine` instance per request.
+`POST /api/advisor/ask` — Creates or reuses a `conversation_id`, loads last 20 messages (trimmed to 64k chars), saves user message, calls `AdvisorEngine.ask()` in `asyncio.to_thread`, saves assistant response, logs `chat_query` usage event. Builds a fresh `AdvisorEngine` instance per request. Target shape adds `attachment_ids` so chat turns can reference already-uploaded Library items.
 
-`POST /api/advisor/ask/stream` — SSE streaming variant. Uses `asyncio.Queue` as producer-consumer between engine thread and SSE generator. Engine runs in `loop.run_in_executor`. Events emitted: `tool_start`, `tool_done`, `answer`, `error`. `answer` event emitted by SSE generator only if agentic callback didn't already emit one. Returns `StreamingResponse(media_type="text/event-stream")`.
+`POST /api/advisor/ask/stream` — SSE streaming variant. Uses `asyncio.Queue` as producer-consumer between engine thread and SSE generator. Engine runs in `loop.run_in_executor`. Events emitted: `tool_start`, `tool_done`, `answer`, `error`. `answer` event emitted by SSE generator only if agentic callback didn't already emit one. Returns `StreamingResponse(media_type="text/event-stream")`. Target shape keeps the SSE response format but adds JSON request support for `attachment_ids` referencing uploaded Library items.
+
+`library.py`:
+- `POST /api/library/reports/upload` validates and stores PDFs, extracts text, indexes content, and returns a Library item that chat can attach immediately.
+- `GET /api/library/reports/{report_id}/file` streams the original uploaded file back through an ownership-checked path.
 
 **Shared-key constraints** (applied in `advisor` and `onboarding`):
 - `check_shared_key_rate_limit(user_id)` called before LLM operations.
@@ -370,7 +381,8 @@ Each step is independent try/except; step 2 is skipped if step 1 fails (needs em
 |---|---|---|
 | `settings` | `/api/settings` | `GET/PUT` settings, `POST /test-llm` |
 | `journal` | `/api/journal` | list/create/read/update/delete + `POST /quick`; post-create hooks |
-| `advisor` | `/api/advisor` | `POST /ask`, `POST /ask/stream`, conversation CRUD |
+| `advisor` | `/api/advisor` | `POST /ask`, `POST /ask/stream`, conversation CRUD, attachment-aware chat turns |
+| `library` | `/api/library` | report CRUD, PDF upload, file download, search-backed Library browsing |
 | `goals` | `/api/goals` | list/create, check-in, status, milestones, progress |
 | `intel` | `/api/intel` | recent/search/health, RSS feeds, watchlist CRUD, follow-ups, trending, scrape |
 | `research` | `/api/research` | List topics, `POST /run` |
@@ -395,6 +407,7 @@ Each step is independent try/except; step 2 is skipped if step 1 fails (needs em
 - Path traversal check: `resolved.is_relative_to(storage.journal_dir)` on all file-path route params.
 - `asyncio.to_thread` used for all synchronous blocking operations (LLM calls, file I/O).
 - Conversation ownership verified via `conversation_belongs_to` before all conversation operations.
+- Attachment IDs passed into advisor routes must resolve to Library items owned by the same user.
 
 #### Error Handling
 
@@ -404,6 +417,8 @@ Common patterns:
 |---|---|
 | Missing API key for LLM routes | HTTP 400 or 422 `"No API key configured"` |
 | Conversation not found / wrong user | HTTP 404 |
+| Attachment not found / wrong user | HTTP 404 |
+| Invalid PDF upload | HTTP 400 with validation detail |
 | Path traversal attempt | HTTP 400 `"Invalid path"` |
 | Entry not found | HTTP 404 `"Entry not found"` |
 | ValueError from storage | HTTP 400 with detail |
@@ -429,6 +444,7 @@ Post-create hooks (embed, threads, memory): all exceptions caught and logged as 
       journal/      ← markdown files (includes goals with goal_type field)
       chroma/       ← ChromaDB embeddings
       recommendations/
+      library/
       profile.yaml
       memory.db     ← per-user extracted memory used by journal/advisor flows
       threads.db    ← per-user recurring-thought storage used by journal/advisor flows
