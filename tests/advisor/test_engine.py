@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from advisor.engine import AdvisorEngine, APIKeyMissingError, LLMError
 from advisor.council import CouncilMember
+from advisor.engine import AdvisorEngine, APIKeyMissingError, LLMError
 
 
 @pytest.fixture

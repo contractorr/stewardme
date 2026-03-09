@@ -56,7 +56,9 @@ def test_put_settings(client, auth_headers, secret_key, users_db):
             assert data["llm_api_key_hint"] == "...1234"
             assert data["llm_provider"] == "claude"
             assert data["llm_council_ready"] is True
-            configured = {item["provider"]: item["configured"] for item in data["llm_provider_keys"]}
+            configured = {
+                item["provider"]: item["configured"] for item in data["llm_provider_keys"]
+            }
             assert configured == {"claude": True, "openai": True, "gemini": False}
 
 
@@ -70,7 +72,9 @@ def test_put_settings_can_remove_provider_key(client, auth_headers, secret_key, 
         with (
             patch("web.user_store._DEFAULT_DB_PATH", users_db),
             patch("web.routes.settings.set_user_secret", wraps=_real_set_user_secret(users_db)),
-            patch("web.routes.settings.delete_user_secret", wraps=_real_delete_user_secret(users_db)),
+            patch(
+                "web.routes.settings.delete_user_secret", wraps=_real_delete_user_secret(users_db)
+            ),
         ):
             res = client.put(
                 "/api/settings",
@@ -90,7 +94,9 @@ def test_put_settings_can_remove_provider_key(client, auth_headers, secret_key, 
             )
             assert res.status_code == 200
             data = res.json()
-            configured = {item["provider"]: item["configured"] for item in data["llm_provider_keys"]}
+            configured = {
+                item["provider"]: item["configured"] for item in data["llm_provider_keys"]
+            }
             assert configured == {"claude": True, "openai": False, "gemini": False}
             assert data["llm_council_ready"] is False
 

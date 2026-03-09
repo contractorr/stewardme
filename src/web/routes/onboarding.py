@@ -137,7 +137,9 @@ def _make_llm_caller(user_id: str):
         raise HTTPException(status_code=400, detail="No LLM API key configured")
 
     model = SHARED_LLM_MODEL if source == "shared" else config.llm.model
-    llm = create_llm_provider(provider=provider_name or config.llm.provider, api_key=api_key, model=model)
+    llm = create_llm_provider(
+        provider=provider_name or config.llm.provider, api_key=api_key, model=model
+    )
 
     def caller(system: str, prompt: str, max_tokens: int = 1500) -> str:
         return llm.generate(

@@ -241,7 +241,7 @@ export default function OnboardingPage() {
       // Connectivity test
       setTesting(true);
       try {
-        await apiFetch<{ ok: boolean; provider: string }>(
+        const result = await apiFetch<{ ok: boolean; provider: string }>(
           "/api/settings/test-llm",
           { method: "POST" },
           token

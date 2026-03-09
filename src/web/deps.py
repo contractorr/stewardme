@@ -317,9 +317,11 @@ def resolve_llm_credentials_for_user(
     config = get_config()
     secrets = get_decrypted_secrets_for_user(user_id)
     personal_keys = _get_personal_llm_keys_from_secrets(secrets)
-    preferred = _normalize_llm_provider(provider) or _normalize_llm_provider(
-        secrets.get("llm_provider")
-    ) or _normalize_llm_provider(config.llm.provider)
+    preferred = (
+        _normalize_llm_provider(provider)
+        or _normalize_llm_provider(secrets.get("llm_provider"))
+        or _normalize_llm_provider(config.llm.provider)
+    )
 
     if preferred in SUPPORTED_LLM_PROVIDERS and personal_keys.get(preferred):
         return preferred, personal_keys[preferred], "user"

@@ -1,7 +1,7 @@
 """Tests for advisor API routes (ask, streaming, conversations)."""
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 
 def _sample_pdf_bytes(text: str) -> bytes:
@@ -17,6 +17,7 @@ def _sample_pdf_bytes(text: str) -> bytes:
 
 def _mock_get_engine(user_id, use_tools=False):
     """Return a mock AdvisorEngine that returns canned answers."""
+
     def _ask(
         question,
         advice_type="general",
