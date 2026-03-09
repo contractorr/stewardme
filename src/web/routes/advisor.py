@@ -30,8 +30,8 @@ from web.conversation_store import (
 from web.deps import (
     SHARED_LLM_MODEL,
     enforce_shared_key_usage_limit,
-    get_council_members_for_user,
     get_config,
+    get_council_members_for_user,
     get_intel_storage,
     get_memory_store,
     get_profile_path,

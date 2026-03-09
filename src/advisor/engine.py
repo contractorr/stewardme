@@ -12,8 +12,8 @@ from llm import LLMRateLimitError, create_cheap_provider, create_llm_provider
 
 from .action_brief import ActionBriefGenerator
 from .agentic import AgenticOrchestrator
-from .council import CouncilMember, CouncilOrchestrator, is_council_eligible
 from .context_cache import ContextCache
+from .council import CouncilMember, CouncilOrchestrator, is_council_eligible
 from .goals import GoalTracker
 from .prompts import PromptTemplates
 from .rag import RAGRetriever
