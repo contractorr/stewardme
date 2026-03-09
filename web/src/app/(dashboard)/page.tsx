@@ -25,19 +25,17 @@ type InputMode = "ask" | "capture";
 
 const MODE_COPY: Record<
   InputMode,
-  { title: string; helper: string; placeholder: string; examples: string[] }
+  { title: string; helper: string; placeholder: string }
 > = {
   capture: {
     title: "Capture to journal",
     helper: "Use this when you want to save a thought, reflection, or rough note before deciding what to do with it.",
     placeholder: "Write a note worth saving to your journal",
-    examples: ["Quick reflection", "What happened today", "Wins and worries"],
   },
   ask: {
     title: "Ask Steward",
     helper: "Use this when you want grounded guidance, prioritization help, or a response to the draft in front of you.",
     placeholder: "Ask a question or paste context for advice",
-    examples: ["What matters most this week?", "Help me think this through", "Turn this into a plan"],
   },
 };
 
@@ -517,24 +515,6 @@ export default function HomePage() {
               <p className="max-w-xs text-right text-xs text-muted-foreground">{modeStatus}</p>
             </div>
 
-            <div className="mt-3 flex flex-wrap gap-2">
-              {composerCopy.examples.map((example) => (
-                <Button
-                  key={example}
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-8 rounded-full"
-                  onClick={() => {
-                    setModeLocked(true);
-                    setInput(example);
-                    setTimeout(() => textareaRef.current?.focus(), 100);
-                  }}
-                >
-                  {example}
-                </Button>
-              ))}
-            </div>
 
             {mode === "ask" ? (
               <ChatPdfAttachmentPicker

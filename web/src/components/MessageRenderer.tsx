@@ -262,7 +262,7 @@ export function MessageRenderer({ content, onAction, compact }: MessageRendererP
   }), [actionItems, onAction]);
 
   return (
-    <div className={`prose prose-sm max-w-none dark:prose-invert prose-p:leading-relaxed prose-headings:mt-6 ${compact ? "prose-compact" : ""}`}>
+    <div className={`prose prose-sm max-w-none dark:prose-invert text-sm prose-p:leading-relaxed prose-headings:mt-6 ${compact ? "prose-compact" : ""}`}>
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {content}
       </ReactMarkdown>
