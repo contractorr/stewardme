@@ -58,6 +58,12 @@ class WatchlistUpsert(BaseModel):
     goal: str = ""
     time_horizon: str = "quarter"
     source_preferences: list[str] = []
+    domain: str = ""
+    github_org: str = ""
+    ticker: str = ""
+    topics: list[str] = []
+    geographies: list[str] = []
+    linked_dossier_ids: list[str] = []
 
 
 class FollowUpUpsert(BaseModel):

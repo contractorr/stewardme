@@ -315,6 +315,40 @@ class AssumptionSignalMatcher:
         return self.store.list_active(limit=limit)
 
 
+def refresh_active_assumptions(
+    store: AssumptionStore, candidate_signals: list[dict], *, limit: int = 100
+) -> list[dict]:
+    """Refresh active assumptions against current signals and persist new evidence."""
+
+    matcher = AssumptionSignalMatcher(store)
+    refreshed_items: list[dict] = []
+
+    for assumption in store.list_active(limit=limit):
+        existing_source_refs = {
+            str(existing.get("source_ref") or "") for existing in (assumption.get("evidence") or [])
+        }
+
+        for evidence in matcher.evaluate(assumption, candidate_signals)[:3]:
+            source_ref = str(evidence.get("source_ref") or "")
+            if source_ref and source_ref in existing_source_refs:
+                continue
+            store.append_evidence(assumption["id"], evidence)
+            if source_ref:
+                existing_source_refs.add(source_ref)
+
+        refreshed = store.get(assumption["id"]) or assumption
+        evidence_rows = refreshed.get("evidence") or []
+
+        if any(item.get("evidence_state") == "confirming" for item in evidence_rows):
+            refreshed = store.update_status(assumption["id"], "confirmed") or refreshed
+        elif any(item.get("evidence_state") == "invalidating" for item in evidence_rows):
+            refreshed = store.update_status(assumption["id"], "invalidated") or refreshed
+
+        refreshed_items.append(refreshed)
+
+    return refreshed_items
+
+
 class MemoryAdapter:
     def __init__(self, fact_store):
         self.fact_store = fact_store

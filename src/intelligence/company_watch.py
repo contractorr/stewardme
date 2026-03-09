@@ -139,8 +139,107 @@ class CompanyMovementStore:
 
 
 class CompanyMovementCollector:
-    async def collect(self, companies: list[dict]) -> list[dict]:
-        return []
+    _MOVEMENT_KEYWORDS = {
+        "pricing": ("pricing", "price", "plan", "subscription"),
+        "partnership": ("partnership", "partnered", "collaboration", "integrat"),
+        "leadership": ("ceo", "cto", "chief", "leadership", "appointed", "resigned"),
+        "roadmap": ("roadmap", "coming soon", "planned", "preview", "beta"),
+        "github": ("github", "release", "repo", "repository", "open source"),
+        "filing": ("filing", "10-k", "10-q", "sec", "annual report"),
+        "product": ("launch", "launched", "release", "released", "product", "feature"),
+    }
+
+    def _match_terms(self, company: dict) -> list[str]:
+        terms = [company.get("label") or ""]
+        terms.extend(company.get("aliases") or [])
+        for field in ("domain", "github_org", "ticker"):
+            value = str(company.get(field) or "").strip()
+            if value:
+                terms.append(value)
+        seen: set[str] = set()
+        matched: list[str] = []
+        for term in terms:
+            cleaned = term.strip()
+            key = cleaned.lower()
+            if cleaned and key not in seen:
+                seen.add(key)
+                matched.append(cleaned)
+        return matched
+
+    def _matches_item(self, company: dict, intel_item: dict) -> list[str]:
+        text = f"{intel_item.get('title', '')} {intel_item.get('summary', '')}".lower()
+        matches = []
+        for term in self._match_terms(company):
+            lowered = term.lower()
+            if lowered and lowered in text:
+                matches.append(term)
+        return matches
+
+    def _movement_type(self, intel_item: dict) -> str:
+        text = f"{intel_item.get('title', '')} {intel_item.get('summary', '')}".lower()
+        for movement_type, keywords in self._MOVEMENT_KEYWORDS.items():
+            if any(keyword in text for keyword in keywords):
+                return movement_type
+        return "product"
+
+    def _significance(self, company: dict, intel_item: dict, movement_type: str) -> float:
+        priority_score = float(company.get("priority") or 2) / 3.0
+        source = str(intel_item.get("source") or "").lower()
+        source_score = (
+            0.85
+            if source in {"crunchbase", "google_patents"}
+            else 0.7
+            if source.startswith("rss")
+            else 0.6
+        )
+        type_score = {
+            "leadership": 0.9,
+            "pricing": 0.85,
+            "partnership": 0.8,
+            "filing": 0.8,
+            "roadmap": 0.7,
+            "github": 0.65,
+            "product": 0.75,
+        }.get(movement_type, 0.7)
+        return round(min(1.0, 0.45 * priority_score + 0.3 * source_score + 0.25 * type_score), 3)
+
+    def collect(self, companies: list[dict], intel_items: list[dict] | None = None) -> list[dict]:
+        if not intel_items:
+            return []
+
+        seen: set[tuple[str, str]] = set()
+        events: list[dict] = []
+        for company in companies:
+            for intel_item in intel_items:
+                matched_terms = self._matches_item(company, intel_item)
+                if not matched_terms:
+                    continue
+                movement_type = self._movement_type(intel_item)
+                dedupe_key = (company.get("company_key") or "", intel_item.get("url") or "")
+                if dedupe_key in seen:
+                    continue
+                seen.add(dedupe_key)
+                events.append(
+                    {
+                        "company_key": company.get("company_key")
+                        or _slug(company.get("label") or ""),
+                        "company_label": company.get("label") or company.get("company_key") or "",
+                        "movement_type": movement_type,
+                        "title": intel_item.get("title") or "Company movement detected",
+                        "summary": intel_item.get("summary") or intel_item.get("title") or "",
+                        "significance": self._significance(company, intel_item, movement_type),
+                        "source_url": intel_item.get("url") or "",
+                        "source_family": intel_item.get("source") or "generic",
+                        "observed_at": intel_item.get("published")
+                        or intel_item.get("scraped_at")
+                        or datetime.now().isoformat(),
+                        "metadata": {
+                            "matched_terms": matched_terms,
+                            "watchlist_id": company.get("watchlist_id"),
+                        },
+                    }
+                )
+        return self.rank(events)
 
     def rank(self, events: list[dict]) -> list[dict]:
         return sorted(

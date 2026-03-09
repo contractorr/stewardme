@@ -13,6 +13,7 @@ class WhyNowReasoner:
         chips: list[dict] = []
         kind = suggestion.get("kind") or ""
         title = f"{suggestion.get('title', '')} {suggestion.get('description', '')}".lower()
+        payload = suggestion.get("payload") or {}
 
         if kind == "stale_goal":
             chips.append(
@@ -23,6 +24,46 @@ class WhyNowReasoner:
                     "detail": {},
                 }
             )
+
+        if kind == "assumption_alert":
+            status = str(payload.get("status") or suggestion.get("status") or "active")
+            evidence_summary = suggestion.get("description") or payload.get("detail") or ""
+            if status == "invalidated":
+                chips.append(
+                    {
+                        "code": "assumption_invalidated",
+                        "label": "Assumption may be invalid",
+                        "severity": "warning",
+                        "detail": {"status": status, "evidence_summary": evidence_summary},
+                    }
+                )
+            elif status == "confirmed":
+                chips.append(
+                    {
+                        "code": "assumption_confirmed",
+                        "label": "Assumption gained support",
+                        "severity": "success",
+                        "detail": {"status": status, "evidence_summary": evidence_summary},
+                    }
+                )
+            elif status == "suggested":
+                chips.append(
+                    {
+                        "code": "assumption_suggested",
+                        "label": "New assumption to review",
+                        "severity": "info",
+                        "detail": {"status": status, "evidence_summary": evidence_summary},
+                    }
+                )
+            elif evidence_summary:
+                chips.append(
+                    {
+                        "code": "assumption_updated",
+                        "label": "Assumption has new evidence",
+                        "severity": "info",
+                        "detail": {"status": status, "evidence_summary": evidence_summary},
+                    }
+                )
 
         if any(
             title and label.lower() in title for label in user_context.get("watchlist_labels") or []

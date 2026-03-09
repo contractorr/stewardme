@@ -24,12 +24,21 @@ class RegulatoryWatchResolver:
             tags = [str(tag).strip() for tag in (item.get("tags") or []) if str(tag).strip()]
             if not label or not (tags or item.get("kind") in {"regulation", "sector", "theme"}):
                 continue
+            explicit_topics = [
+                str(value).strip() for value in (item.get("topics") or []) if str(value).strip()
+            ]
+            explicit_geographies = [
+                str(value).strip()
+                for value in (item.get("geographies") or [])
+                if str(value).strip()
+            ]
             targets.append(
                 {
                     "target_key": _slug(label),
                     "label": label,
-                    "topics": [label, *tags],
-                    "geographies": [
+                    "topics": explicit_topics or [label, *tags],
+                    "geographies": explicit_geographies
+                    or [
                         str(value).strip()
                         for value in (item.get("source_preferences") or [])
                         if str(value).strip()

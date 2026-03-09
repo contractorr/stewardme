@@ -8,10 +8,14 @@ from web.auth import get_current_user
 from web.briefing_data import assemble_briefing_data
 from web.deps import get_profile_storage
 from web.models import (
+    AssumptionAlertResponse,
     BriefingGoal,
     BriefingRecommendation,
     BriefingResponse,
+    CompanyMovementResponse,
     GoalIntelMatch,
+    HiringSignalResponse,
+    RegulatoryAlertResponse,
 )
 from web.models import (
     DailyBrief as DailyBriefModel,
@@ -38,8 +42,21 @@ async def get_briefing(
     stale_goals = data["stale_goals"]
     all_goals = data["all_goals"]
     goal_intel_matches = data["goal_intel_matches"]
+    company_movements = data.get("company_movements") or []
+    hiring_signals = data.get("hiring_signals") or []
+    regulatory_alerts = data.get("regulatory_alerts") or []
+    assumptions = data.get("assumptions") or []
 
-    has_data = bool(recommendations or stale_goals or all_goals or goal_intel_matches)
+    has_data = bool(
+        recommendations
+        or stale_goals
+        or all_goals
+        or goal_intel_matches
+        or company_movements
+        or hiring_signals
+        or regulatory_alerts
+        or assumptions
+    )
 
     # Adaptation count
     adaptation_count = 0
@@ -76,4 +93,8 @@ async def get_briefing(
         adaptation_count=adaptation_count,
         daily_brief=daily_brief,
         goal_intel_matches=[GoalIntelMatch(**m) for m in goal_intel_matches],
+        company_movements=[CompanyMovementResponse(**item) for item in company_movements],
+        hiring_signals=[HiringSignalResponse(**item) for item in hiring_signals],
+        regulatory_alerts=[RegulatoryAlertResponse(**item) for item in regulatory_alerts],
+        assumptions=[AssumptionAlertResponse(**item) for item in assumptions],
     )

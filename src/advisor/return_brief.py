@@ -64,11 +64,15 @@ class ReturnBriefBuilder:
         sections: list[dict] = []
         next_steps: list[dict] = []
 
-        for kind, label in (
-            ("intel", "intel_matches"),
-            ("threads", "threads"),
-            ("dossiers", "dossiers"),
-            ("goals", "stale_goals"),
+        for kind, label, step_label in (
+            ("intel", "intel_matches", "Review intel"),
+            ("company_movements", "company_movements", "Review company movements"),
+            ("hiring_signals", "hiring_signals", "Review hiring signals"),
+            ("regulatory_alerts", "regulatory_alerts", "Review regulatory alerts"),
+            ("threads", "threads", "Review threads"),
+            ("dossiers", "dossiers", "Review dossiers"),
+            ("goals", "stale_goals", "Review goals"),
+            ("assumptions", "assumptions", "Review assumptions"),
         ):
             items = list(provider.get(label) or [])[: self.max_section_items]
             if items:
@@ -77,7 +81,7 @@ class ReturnBriefBuilder:
                 next_steps.append(
                     {
                         "kind": kind,
-                        "label": f"Review {kind}",
+                        "label": step_label,
                         "target": first.get("id") or first.get("title") or first.get("path") or "",
                     }
                 )
@@ -99,7 +103,13 @@ class ReturnBriefBuilder:
         for section in sections:
             if section["kind"] == "summary":
                 continue
-            part_summaries.append(f"{len(section['items'])} {section['kind']}")
+            summary_label = {
+                "company_movements": "company movements",
+                "hiring_signals": "hiring signals",
+                "regulatory_alerts": "regulatory alerts",
+                "stale_goals": "stale goals",
+            }.get(section["kind"], section["kind"].replace("_", " "))
+            part_summaries.append(f"{len(section['items'])} {summary_label}")
         summary = (
             f"While you were away, {', '.join(part_summaries)} changed."
             if part_summaries

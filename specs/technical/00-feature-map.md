@@ -9,11 +9,11 @@ Current implementation status after repo audit:
 - Attach-to-Ask Bridge - route, storage, retrieval, transcript persistence, and first-party web chat UX are implemented. Chat-origin uploads stay hidden until explicitly saved into Library.
 - Extraction Receipt - receipt store, journal hooks, and receipt endpoint are implemented. First-party dashboard rendering is still missing.
 - Recurring Thread Inbox - thread APIs and action endpoints are implemented. A dedicated web inbox surface is still missing.
-- Dossier Escalation Engine - escalation engine, storage, and API routes are implemented. First-party dossier and escalation management UI remains incomplete.
-- Since-You-Were-Away + Why-Now - greeting and recommendation enrichment are implemented in APIs, but frontend rendering of `return_brief`, `why_now`, and harvested-outcome reasoning is still partial.
+- Dossier Escalation Engine - escalation engine, storage, and API routes are implemented, and shared escalation-context assembly now feeds suggestions, dedicated escalation routes, and return-briefing reuse with active-dossier suppression. First-party dossier and escalation management UI remains incomplete.
+- Since-You-Were-Away + Why-Now - `GET /api/greeting` is now wired into a dedicated home `return_brief` card, and recommendation surfaces render expandable `why_now` chips. Harvested-outcome reasoning is inspectable through chip detail when present, while suggestion-chip coverage still depends on a first-party suggestions surface.
 - Outcome Harvester - store, evaluation, ranking boost, and override APIs are implemented. No first-party web review surface exists yet.
 - Company Movement, Hiring Activity, and Regulatory Change - specialized APIs and stores are implemented. The current Radar UI still consumes only the generalized intel feed and follow-up flows.
-- Assumption Watchlist - store, signal matching, memory adapter, routes, and journal suggestion capture are implemented. A first-party assumptions workspace is still missing.
+- Assumption Watchlist - store, signal matching, memory adapter, routes, journal suggestion capture, and shared briefing/return-brief integration are implemented. A dedicated assumptions workspace is still missing, but assumption updates are now consumed outside the standalone route.
 
 This map summarizes how the 10 new technical feature specs fit into StewardMe's existing architecture. It highlights:
 

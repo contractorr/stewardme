@@ -332,6 +332,12 @@ class WatchlistItem(BaseModel):
     goal: str = ""
     time_horizon: str = "quarter"
     source_preferences: list[str] = []
+    domain: str = ""
+    github_org: str = ""
+    ticker: str = ""
+    topics: list[str] = []
+    geographies: list[str] = []
+    linked_dossier_ids: list[str] = []
     created_at: str = ""
     updated_at: str = ""
 
@@ -372,8 +378,8 @@ class DailyBrief(BaseModel):
 class SuggestionItem(BaseModel):
     """Unified suggestion — either from daily brief or recommendations."""
 
-    source: str = ""  # "brief" | "recommendation"
-    kind: str = ""  # "stale_goal" | "recommendation" | "nudge" | "intel_match"
+    source: str = ""  # "brief" | "recommendation" | "assumption_alert" | ...
+    kind: str = ""  # "stale_goal" | "recommendation" | "nudge" | "intel_match" | ...
     title: str = ""
     description: str = ""
     action: str = ""
@@ -405,6 +411,10 @@ class BriefingResponse(BaseModel):
     adaptation_count: int = 0
     daily_brief: Optional[DailyBrief] = None
     goal_intel_matches: list[GoalIntelMatch] = []
+    company_movements: list["CompanyMovementResponse"] = []
+    hiring_signals: list["HiringSignalResponse"] = []
+    regulatory_alerts: list["RegulatoryAlertResponse"] = []
+    assumptions: list["AssumptionAlertResponse"] = []
 
 
 # --- Trends ---
@@ -714,6 +724,14 @@ class RegulatoryAlertResponse(BaseModel):
     source_url: str = ""
     observed_at: str = ""
     metadata: dict = {}
+
+
+class AssumptionAlertResponse(BaseModel):
+    id: str = ""
+    title: str = ""
+    detail: str = ""
+    status: str = "active"
+    updated_at: Optional[str] = None
 
 
 class AssumptionCreate(BaseModel):

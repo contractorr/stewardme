@@ -18,8 +18,12 @@ def test_briefing_includes_daily_brief_and_feedback_count(client, auth_headers):
                 "critic": None,
             }
         ],
-        "stale_goals": [{"path": "goal-1.md", "title": "Learn Rust", "status": "active", "days_since_check": 12}],
-        "all_goals": [{"path": "goal-1.md", "title": "Learn Rust", "status": "active", "days_since_check": 12}],
+        "stale_goals": [
+            {"path": "goal-1.md", "title": "Learn Rust", "status": "active", "days_since_check": 12}
+        ],
+        "all_goals": [
+            {"path": "goal-1.md", "title": "Learn Rust", "status": "active", "days_since_check": 12}
+        ],
         "goal_intel_matches": [
             {
                 "id": 1,
@@ -33,6 +37,60 @@ def test_briefing_includes_daily_brief_and_feedback_count(client, auth_headers):
                 "match_reasons": ["matches goal"],
                 "created_at": "2026-03-07T00:00:00",
                 "llm_evaluated": False,
+            }
+        ],
+        "company_movements": [
+            {
+                "id": 1,
+                "company_key": "openai",
+                "company_label": "OpenAI",
+                "movement_type": "pricing",
+                "title": "OpenAI pricing update",
+                "summary": "Enterprise plan changed",
+                "significance": 0.82,
+                "source_url": "https://example.com/openai-pricing",
+                "source_family": "rss",
+                "observed_at": "2026-03-07T00:00:00",
+                "metadata": {},
+            }
+        ],
+        "hiring_signals": [
+            {
+                "id": 1,
+                "entity_key": "openai",
+                "entity_label": "OpenAI",
+                "signal_type": "hiring_signal",
+                "title": "Hiring signal at OpenAI",
+                "summary": "Open roles expanded",
+                "strength": 0.7,
+                "source_url": "https://example.com/openai-hiring",
+                "observed_at": "2026-03-07T00:00:00",
+                "metadata": {},
+            }
+        ],
+        "regulatory_alerts": [
+            {
+                "id": 1,
+                "target_key": "ai-act",
+                "title": "EU AI Act finalized",
+                "summary": "New guidance landed",
+                "source_family": "rss",
+                "change_type": "finalized",
+                "urgency": "high",
+                "relevance": 0.88,
+                "effective_date": None,
+                "source_url": "https://example.com/ai-act",
+                "observed_at": "2026-03-07T00:00:00",
+                "metadata": {},
+            }
+        ],
+        "assumptions": [
+            {
+                "id": "asm-1",
+                "title": "Hiring stays strong for Acme",
+                "detail": "Recent expansion supports this assumption.",
+                "status": "confirmed",
+                "updated_at": "2026-03-07T00:00:00",
             }
         ],
     }
@@ -52,9 +110,11 @@ def test_briefing_includes_daily_brief_and_feedback_count(client, auth_headers):
         generated_at="2026-03-07T08:00:00",
     )
 
-    with patch("web.routes.briefing.assemble_briefing_data", return_value=data), patch(
-        "web.routes.briefing.get_feedback_count", return_value=4
-    ), patch("advisor.daily_brief.DailyBriefBuilder.build", return_value=brief):
+    with (
+        patch("web.routes.briefing.assemble_briefing_data", return_value=data),
+        patch("web.routes.briefing.get_feedback_count", return_value=4),
+        patch("advisor.daily_brief.DailyBriefBuilder.build", return_value=brief),
+    ):
         response = client.get("/api/briefing?max_recommendations=5", headers=auth_headers)
 
     assert response.status_code == 200
@@ -65,6 +125,10 @@ def test_briefing_includes_daily_brief_and_feedback_count(client, auth_headers):
     assert body["daily_brief"]["budget_minutes"] == 60
     assert body["daily_brief"]["items"][0]["title"] == "Check in on Learn Rust"
     assert body["goal_intel_matches"][0]["goal_title"] == "Learn Rust"
+    assert body["company_movements"][0]["company_label"] == "OpenAI"
+    assert body["hiring_signals"][0]["entity_label"] == "OpenAI"
+    assert body["regulatory_alerts"][0]["urgency"] == "high"
+    assert body["assumptions"][0]["status"] == "confirmed"
 
 
 def test_briefing_gracefully_skips_daily_brief_failures(client, auth_headers):
@@ -73,11 +137,19 @@ def test_briefing_gracefully_skips_daily_brief_failures(client, auth_headers):
         "stale_goals": [],
         "all_goals": [],
         "goal_intel_matches": [],
+        "company_movements": [],
+        "hiring_signals": [],
+        "regulatory_alerts": [],
+        "assumptions": [],
     }
 
-    with patch("web.routes.briefing.assemble_briefing_data", return_value=data), patch(
-        "web.routes.briefing.get_feedback_count", side_effect=RuntimeError("feedback down")
-    ), patch("advisor.daily_brief.DailyBriefBuilder.build", side_effect=RuntimeError("brief failed")):
+    with (
+        patch("web.routes.briefing.assemble_briefing_data", return_value=data),
+        patch("web.routes.briefing.get_feedback_count", side_effect=RuntimeError("feedback down")),
+        patch(
+            "advisor.daily_brief.DailyBriefBuilder.build", side_effect=RuntimeError("brief failed")
+        ),
+    ):
         response = client.get("/api/briefing", headers=auth_headers)
 
     assert response.status_code == 200
@@ -89,4 +161,8 @@ def test_briefing_gracefully_skips_daily_brief_failures(client, auth_headers):
         "adaptation_count": 0,
         "daily_brief": None,
         "goal_intel_matches": [],
+        "company_movements": [],
+        "hiring_signals": [],
+        "regulatory_alerts": [],
+        "assumptions": [],
     }

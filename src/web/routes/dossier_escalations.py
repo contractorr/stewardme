@@ -7,11 +7,9 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from research.escalation import DossierEscalationEngine
 from web.auth import get_current_user
+from web.dossier_escalation_context import load_dossier_escalation_context
 from web.deps import (
     get_dossier_escalation_store,
-    get_intel_storage,
-    get_thread_inbox_service,
-    get_watchlist_store,
 )
 from web.models import DossierEscalationResponse, DossierEscalationSnoozeRequest
 from web.routes.research import _get_agent
@@ -21,15 +19,8 @@ router = APIRouter(prefix="/api/dossier-escalations", tags=["dossier-escalations
 
 async def _build_engine(user_id: str):
     store = get_dossier_escalation_store(user_id)
-    service = get_thread_inbox_service(user_id)
-    threads = await service.list_inbox(limit=20)
-    return DossierEscalationEngine(store), {
-        "threads": threads,
-        "recent_intel": get_intel_storage().get_recent(days=7, limit=50, include_duplicates=True),
-        "watchlist": get_watchlist_store(user_id).list_items(),
-        "goals": [],
-        "dossiers": [],
-    }
+    context = await load_dossier_escalation_context(user_id, goals=[])
+    return DossierEscalationEngine(store), context
 
 
 @router.get("", response_model=list[DossierEscalationResponse])

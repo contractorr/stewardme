@@ -42,6 +42,7 @@ specs/
 | [settings-account](functional/settings-account.md) | Stable | Keys, lite mode, watchlist, profile editing, account deletion |
 | [memory-threads](functional/memory-threads.md) | Experimental | Persistent facts, recurring topic detection, document-derived memory |
 | [library-reports](functional/library-reports.md) | Partially Implemented | Library workspace for durable AI-generated reports and uploaded PDFs, manual generation, document storage, refresh, collections |
+| [v2-simplified-product](functional/v2-simplified-product.md) | Draft | Simplified information architecture, merged workflows, progressive disclosure across existing features |
 
 ## Technical Specs (modules)
 

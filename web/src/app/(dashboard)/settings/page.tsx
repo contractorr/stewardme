@@ -61,9 +61,19 @@ interface WatchlistItem {
   id: string;
   label: string;
   kind: string;
+  aliases: string[];
   why: string;
   priority: "high" | "medium" | "low";
   tags: string[];
+  goal: string;
+  time_horizon: string;
+  source_preferences: string[];
+  domain: string;
+  github_org: string;
+  ticker: string;
+  topics: string[];
+  geographies: string[];
+  linked_dossier_ids: string[];
   created_at: string;
   updated_at: string;
 }
@@ -97,6 +107,17 @@ interface FieldConfig {
   key: keyof ProfileData;
   label: string;
   type: FieldType;
+}
+
+const WATCH_KINDS = [
+  { value: "theme", label: "Theme" },
+  { value: "company", label: "Company" },
+  { value: "sector", label: "Sector" },
+  { value: "regulation", label: "Regulation" },
+];
+
+function splitCommaValues(value: string): string[] {
+  return value.split(",").map((part) => part.trim()).filter(Boolean);
 }
 
 const PROFILE_FIELDS: FieldConfig[] = [
@@ -389,9 +410,18 @@ export default function SettingsPage() {
   const [rssRemoving, setRssRemoving] = useState<string | null>(null);
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [watchLabel, setWatchLabel] = useState("");
+  const [watchKind, setWatchKind] = useState("theme");
   const [watchWhy, setWatchWhy] = useState("");
+  const [watchAliases, setWatchAliases] = useState("");
   const [watchTags, setWatchTags] = useState("");
   const [watchPriority, setWatchPriority] = useState<"high" | "medium" | "low">("medium");
+  const [watchGoal, setWatchGoal] = useState("");
+  const [watchSourcePreferences, setWatchSourcePreferences] = useState("");
+  const [watchDomain, setWatchDomain] = useState("");
+  const [watchGithubOrg, setWatchGithubOrg] = useState("");
+  const [watchTicker, setWatchTicker] = useState("");
+  const [watchTopics, setWatchTopics] = useState("");
+  const [watchGeographies, setWatchGeographies] = useState("");
   const [watchSaving, setWatchSaving] = useState(false);
   const [watchRemoving, setWatchRemoving] = useState<string | null>(null);
   const [editingWatchId, setEditingWatchId] = useState<string | null>(null);
@@ -429,9 +459,18 @@ export default function SettingsPage() {
 
   const resetWatchForm = () => {
     setWatchLabel("");
+    setWatchKind("theme");
     setWatchWhy("");
+    setWatchAliases("");
     setWatchTags("");
     setWatchPriority("medium");
+    setWatchGoal("");
+    setWatchSourcePreferences("");
+    setWatchDomain("");
+    setWatchGithubOrg("");
+    setWatchTicker("");
+    setWatchTopics("");
+    setWatchGeographies("");
     setEditingWatchId(null);
   };
 
@@ -520,9 +559,18 @@ export default function SettingsPage() {
     try {
       const payload = {
         label: watchLabel.trim(),
+        kind: watchKind,
+        aliases: splitCommaValues(watchAliases),
         why: watchWhy.trim(),
         priority: watchPriority,
-        tags: watchTags.split(",").map((part) => part.trim()).filter(Boolean),
+        tags: splitCommaValues(watchTags),
+        goal: watchGoal.trim(),
+        source_preferences: splitCommaValues(watchSourcePreferences),
+        domain: watchDomain.trim(),
+        github_org: watchGithubOrg.trim(),
+        ticker: watchTicker.trim().toUpperCase(),
+        topics: splitCommaValues(watchTopics),
+        geographies: splitCommaValues(watchGeographies),
       };
       const endpoint = editingWatchId
         ? `/api/intel/watchlist/${editingWatchId}`
@@ -549,9 +597,18 @@ export default function SettingsPage() {
   const handleEditWatch = (item: WatchlistItem) => {
     setEditingWatchId(item.id);
     setWatchLabel(item.label);
+    setWatchKind(item.kind || "theme");
     setWatchWhy(item.why || "");
+    setWatchAliases((item.aliases || []).join(", "));
     setWatchPriority(item.priority || "medium");
     setWatchTags((item.tags || []).join(", "));
+    setWatchGoal(item.goal || "");
+    setWatchSourcePreferences((item.source_preferences || []).join(", "));
+    setWatchDomain(item.domain || "");
+    setWatchGithubOrg(item.github_org || "");
+    setWatchTicker(item.ticker || "");
+    setWatchTopics((item.topics || []).join(", "));
+    setWatchGeographies((item.geographies || []).join(", "));
   };
 
   const handleRemoveWatch = async (itemId: string) => {
@@ -801,9 +858,18 @@ export default function SettingsPage() {
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-medium">{item.label}</p>
+                    <Badge variant="outline" className="text-[10px]">{item.kind}</Badge>
                     <Badge variant="outline" className="text-[10px]">{item.priority}</Badge>
                   </div>
                   {item.why && <p className="text-sm text-muted-foreground">{item.why}</p>}
+                  {(item.domain || item.github_org || item.ticker || item.topics.length > 0 || item.geographies.length > 0) && (
+                    <p className="text-xs text-muted-foreground">
+                      {[item.domain, item.github_org, item.ticker, ...item.topics, ...item.geographies]
+                        .filter(Boolean)
+                        .slice(0, 4)
+                        .join(" ? ")}
+                    </p>
+                  )}
                   {item.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 pt-1">
                       {item.tags.map((tag) => (
@@ -836,14 +902,29 @@ export default function SettingsPage() {
           <Separator />
 
           <div className="space-y-3">
-            <div>
-              <Label className="text-xs text-muted-foreground">What should I watch?</Label>
-              <Input
-                value={watchLabel}
-                onChange={(e) => setWatchLabel(e.target.value)}
-                placeholder="e.g. OpenAI, AI agents, staff+ roles"
-                className="mt-1 h-8 text-sm"
-              />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label className="text-xs text-muted-foreground">What should I watch?</Label>
+                <Input
+                  value={watchLabel}
+                  onChange={(e) => setWatchLabel(e.target.value)}
+                  placeholder="e.g. OpenAI, AI agents, staff+ roles"
+                  className="mt-1 h-8 text-sm"
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Type</Label>
+                <Select value={watchKind} onValueChange={setWatchKind}>
+                  <SelectTrigger className="mt-1 h-8 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WATCH_KINDS.map((kind) => (
+                      <SelectItem key={kind.value} value={kind.value}>{kind.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">Why it matters</Label>
@@ -857,7 +938,7 @@ export default function SettingsPage() {
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <Label className="text-xs text-muted-foreground">Priority</Label>
-                <Select value={watchPriority} onValueChange={(value) => setWatchPriority(value as "high" | "medium" | "low") }>
+                <Select value={watchPriority} onValueChange={(value) => setWatchPriority(value as "high" | "medium" | "low")}>
                   <SelectTrigger className="mt-1 h-8 text-sm">
                     <SelectValue />
                   </SelectTrigger>
@@ -869,6 +950,17 @@ export default function SettingsPage() {
                 </Select>
               </div>
               <div>
+                <Label className="text-xs text-muted-foreground">Aliases</Label>
+                <Input
+                  value={watchAliases}
+                  onChange={(e) => setWatchAliases(e.target.value)}
+                  placeholder="Open AI, OA"
+                  className="mt-1 h-8 text-sm"
+                />
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
                 <Label className="text-xs text-muted-foreground">Tags</Label>
                 <Input
                   value={watchTags}
@@ -877,7 +969,80 @@ export default function SettingsPage() {
                   className="mt-1 h-8 text-sm"
                 />
               </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Goal / intent</Label>
+                <Input
+                  value={watchGoal}
+                  onChange={(e) => setWatchGoal(e.target.value)}
+                  placeholder="e.g. competitor tracking"
+                  className="mt-1 h-8 text-sm"
+                />
+              </div>
             </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label className="text-xs text-muted-foreground">Source preferences</Label>
+                <Input
+                  value={watchSourcePreferences}
+                  onChange={(e) => setWatchSourcePreferences(e.target.value)}
+                  placeholder="rss, eu, sec"
+                  className="mt-1 h-8 text-sm"
+                />
+              </div>
+              {watchKind === "company" ? (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Company domain</Label>
+                  <Input
+                    value={watchDomain}
+                    onChange={(e) => setWatchDomain(e.target.value)}
+                    placeholder="openai.com"
+                    className="mt-1 h-8 text-sm"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Topics</Label>
+                  <Input
+                    value={watchTopics}
+                    onChange={(e) => setWatchTopics(e.target.value)}
+                    placeholder="AI Act, privacy"
+                    className="mt-1 h-8 text-sm"
+                  />
+                </div>
+              )}
+            </div>
+            {watchKind === "company" ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <Label className="text-xs text-muted-foreground">GitHub org</Label>
+                  <Input
+                    value={watchGithubOrg}
+                    onChange={(e) => setWatchGithubOrg(e.target.value)}
+                    placeholder="openai"
+                    className="mt-1 h-8 text-sm"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Ticker</Label>
+                  <Input
+                    value={watchTicker}
+                    onChange={(e) => setWatchTicker(e.target.value)}
+                    placeholder="MSFT"
+                    className="mt-1 h-8 text-sm"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div>
+                <Label className="text-xs text-muted-foreground">Geographies</Label>
+                <Input
+                  value={watchGeographies}
+                  onChange={(e) => setWatchGeographies(e.target.value)}
+                  placeholder="EU, UK, US"
+                  className="mt-1 h-8 text-sm"
+                />
+              </div>
+            )}
             <div className="flex gap-2">
               <Button onClick={handleSaveWatch} disabled={watchSaving || !watchLabel.trim()}>
                 {watchSaving ? "Saving..." : editingWatchId ? "Update Watch" : "Add Watch"}

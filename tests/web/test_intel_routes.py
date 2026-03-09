@@ -59,7 +59,12 @@ def test_watchlist_crud(client, auth_headers):
 
     updated = client.patch(
         f"/api/intel/watchlist/{item['id']}",
-        json={"label": "OpenAI", "priority": "medium", "why": "still relevant", "tags": ["ai", "labs"]},
+        json={
+            "label": "OpenAI",
+            "priority": "medium",
+            "why": "still relevant",
+            "tags": ["ai", "labs"],
+        },
         headers=auth_headers,
     )
     assert updated.status_code == 200
@@ -67,6 +72,38 @@ def test_watchlist_crud(client, auth_headers):
 
     deleted = client.delete(f"/api/intel/watchlist/{item['id']}", headers=auth_headers)
     assert deleted.status_code == 200
+
+
+def test_watchlist_crud_round_trips_pipeline_fields(client, auth_headers):
+    create = client.post(
+        "/api/intel/watchlist",
+        json={
+            "label": "OpenAI",
+            "kind": "company",
+            "priority": "high",
+            "domain": "openai.com",
+            "github_org": "openai",
+            "ticker": "MSFT",
+            "aliases": ["Open AI"],
+            "topics": ["AI infrastructure"],
+            "geographies": ["US", "EU"],
+            "linked_dossier_ids": ["dos_123"],
+        },
+        headers=auth_headers,
+    )
+    assert create.status_code == 200
+    item = create.json()
+    assert item["kind"] == "company"
+    assert item["domain"] == "openai.com"
+    assert item["github_org"] == "openai"
+    assert item["ticker"] == "MSFT"
+    assert item["topics"] == ["AI infrastructure"]
+    assert item["geographies"] == ["US", "EU"]
+    assert item["linked_dossier_ids"] == ["dos_123"]
+
+    listed = client.get("/api/intel/watchlist", headers=auth_headers)
+    assert listed.status_code == 200
+    assert listed.json()[0]["domain"] == "openai.com"
 
 
 def test_recent_items_are_boosted_by_watchlist(client, auth_headers):

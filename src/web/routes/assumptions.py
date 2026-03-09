@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from advisor.assumptions import AssumptionSignalMatcher, MemoryAdapter
+from advisor.assumptions import MemoryAdapter, refresh_active_assumptions
 from web.auth import get_current_user
 from web.deps import (
     get_assumption_store,
@@ -42,29 +42,8 @@ def _candidate_signals() -> list[dict]:
 @router.get("", response_model=list[AssumptionResponse])
 async def list_assumptions(user: dict = Depends(get_current_user)):
     store = get_assumption_store(user["id"])
-    matcher = AssumptionSignalMatcher(store)
-    signals = _candidate_signals()
-    assumptions = store.list_active(limit=100)
-    for assumption in assumptions:
-        for evidence in matcher.evaluate(assumption, signals)[:3]:
-            if not any(
-                existing.get("source_ref") == evidence["source_ref"]
-                for existing in assumption.get("evidence") or []
-            ):
-                store.append_evidence(assumption["id"], evidence)
-        refreshed = store.get(assumption["id"])
-        if refreshed:
-            if any(
-                item.get("evidence_state") == "confirming"
-                for item in refreshed.get("evidence") or []
-            ):
-                store.update_status(assumption["id"], "confirmed")
-            elif any(
-                item.get("evidence_state") == "invalidating"
-                for item in refreshed.get("evidence") or []
-            ):
-                store.update_status(assumption["id"], "invalidated")
-    return [AssumptionResponse(**item) for item in store.list_active(limit=100)]
+    assumptions = refresh_active_assumptions(store, _candidate_signals(), limit=100)
+    return [AssumptionResponse(**item) for item in assumptions]
 
 
 @router.post("", response_model=AssumptionResponse)

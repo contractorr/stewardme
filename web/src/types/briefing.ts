@@ -14,6 +14,13 @@ export interface CriticData {
   intel_contradictions?: string | null;
 }
 
+export interface WhyNowReason {
+  code: string;
+  label: string;
+  severity: string;
+  detail?: Record<string, unknown>;
+}
+
 export interface BriefingRecommendation {
   id: string;
   category: string;
@@ -28,7 +35,7 @@ export interface BriefingRecommendation {
   user_rating?: number | null;
   feedback_comment?: string | null;
   feedback_at?: string | null;
-  why_now?: Array<{ code: string; label: string; severity: string; detail?: Record<string, unknown> }>;
+  why_now?: WhyNowReason[];
   harvested_outcome?: {
     state: string;
     confidence: number;
@@ -108,6 +115,56 @@ export interface GoalIntelMatch {
   llm_evaluated: boolean;
 }
 
+export interface CompanyMovement {
+  id: number;
+  company_key: string;
+  company_label: string;
+  movement_type: string;
+  title: string;
+  summary: string;
+  significance: number;
+  source_url: string;
+  source_family: string;
+  observed_at: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface HiringSignal {
+  id: number;
+  entity_key: string;
+  entity_label: string;
+  signal_type: string;
+  title: string;
+  summary: string;
+  strength: number;
+  source_url: string;
+  observed_at: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface RegulatoryAlert {
+  id: number;
+  target_key: string;
+  title: string;
+  summary: string;
+  source_family: string;
+  change_type: string;
+  urgency: "high" | "medium" | "low" | string;
+  relevance: number;
+  effective_date?: string | null;
+  source_url: string;
+  observed_at: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface AssumptionAlert {
+  id: string;
+  title: string;
+  detail: string;
+  status: string;
+  updated_at?: string | null;
+}
+
 export interface BriefingResponse {
   recommendations: BriefingRecommendation[];
   stale_goals: BriefingGoal[];
@@ -116,4 +173,8 @@ export interface BriefingResponse {
   adaptation_count: number;
   daily_brief?: DailyBrief | null;
   goal_intel_matches: GoalIntelMatch[];
+  company_movements: CompanyMovement[];
+  hiring_signals: HiringSignal[];
+  regulatory_alerts: RegulatoryAlert[];
+  assumptions: AssumptionAlert[];
 }

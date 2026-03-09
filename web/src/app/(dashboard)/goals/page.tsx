@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { WhyNowChip } from "@/components/shared/WhyNowChip";
 import {
   Card,
   CardContent,
@@ -537,6 +538,13 @@ export default function GoalsPage() {
             {rec.description && (
               <p className="text-muted-foreground line-clamp-2">{rec.description}</p>
             )}
+            {rec.why_now?.length ? (
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                {rec.why_now.map((chip, index) => (
+                  <WhyNowChip key={`${rec.id}-${chip.code}-${index}`} chip={chip} />
+                ))}
+              </div>
+            ) : null}
             <p className="text-xs text-muted-foreground">
               Rate this suggestion to tune future recommendations.
             </p>

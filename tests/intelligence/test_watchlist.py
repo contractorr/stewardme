@@ -21,6 +21,31 @@ def test_watchlist_store_upserts_by_label(tmp_path):
     assert items[0]["why"] == "updated"
 
 
+def test_watchlist_store_preserves_pipeline_metadata(tmp_path):
+    store = WatchlistStore(tmp_path / "watchlist.json")
+
+    item = store.save_item(
+        {
+            "label": "OpenAI",
+            "kind": "company",
+            "aliases": ["Open AI"],
+            "domain": "openai.com",
+            "github_org": "openai",
+            "ticker": " msft ",
+            "topics": ["AI Act"],
+            "geographies": ["EU", "UK"],
+            "linked_dossier_ids": ["dos_123"],
+        }
+    )
+
+    assert item["domain"] == "openai.com"
+    assert item["github_org"] == "openai"
+    assert item["ticker"] == "MSFT"
+    assert item["topics"] == ["AI Act"]
+    assert item["geographies"] == ["EU", "UK"]
+    assert item["linked_dossier_ids"] == ["dos_123"]
+
+
 def test_annotate_items_and_evidence(tmp_path):
     store = WatchlistStore(tmp_path / "watchlist.json")
     item = store.save_item({"label": "Anthropic", "priority": "high", "why": "Relevant to role"})

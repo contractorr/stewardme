@@ -156,3 +156,88 @@ class HiringSignalDetector:
                 "metadata": {"open_roles": jobs_now, "delta": delta},
             }
         ]
+
+
+class HiringSignalAnalyzer:
+    _KEYWORDS = {
+        "hiring_spike": ("hiring spree", "rapid hiring", "doubling headcount", "expanding team"),
+        "hiring_signal": ("hiring", "open roles", "job openings", "recruiting", "careers"),
+        "geo_expansion": ("remote in", "new office", "expanding in", "hiring in"),
+    }
+
+    def _match_terms(self, entity: dict) -> list[str]:
+        terms = [
+            entity.get("label") or entity.get("entity_label") or entity.get("entity_key") or ""
+        ]
+        terms.extend(entity.get("aliases") or [])
+        seen: set[str] = set()
+        result: list[str] = []
+        for term in terms:
+            cleaned = str(term).strip()
+            key = cleaned.lower()
+            if cleaned and key not in seen:
+                seen.add(key)
+                result.append(cleaned)
+        return result
+
+    def analyze_mentions(
+        self, entities: list[dict], intel_items: list[dict] | None = None
+    ) -> list[dict]:
+        if not intel_items:
+            return []
+
+        signals: list[dict] = []
+        seen: set[tuple[str, str]] = set()
+        for entity in entities:
+            terms = self._match_terms(entity)
+            for intel_item in intel_items:
+                text = f"{intel_item.get('title', '')} {intel_item.get('summary', '')}".lower()
+                if not any(term.lower() in text for term in terms):
+                    continue
+
+                signal_type = None
+                for candidate, keywords in self._KEYWORDS.items():
+                    if any(keyword in text for keyword in keywords):
+                        signal_type = candidate
+                        break
+                if signal_type is None:
+                    continue
+
+                dedupe_key = (
+                    entity.get("company_key") or entity.get("entity_key") or "",
+                    intel_item.get("url") or "",
+                )
+                if dedupe_key in seen:
+                    continue
+                seen.add(dedupe_key)
+
+                strength = (
+                    0.8
+                    if signal_type == "hiring_spike"
+                    else 0.65
+                    if signal_type == "geo_expansion"
+                    else 0.55
+                )
+                priority = float(entity.get("priority") or 2) / 3.0
+                signals.append(
+                    {
+                        "entity_key": entity.get("company_key") or entity.get("entity_key") or "",
+                        "entity_label": entity.get("label")
+                        or entity.get("entity_label")
+                        or entity.get("entity_key")
+                        or "",
+                        "signal_type": signal_type,
+                        "title": f"Hiring signal at {entity.get('label') or entity.get('entity_label') or entity.get('entity_key')}",
+                        "summary": intel_item.get("summary") or intel_item.get("title") or "",
+                        "strength": round(min(1.0, strength + 0.2 * priority), 3),
+                        "source_url": intel_item.get("url") or "",
+                        "observed_at": intel_item.get("published")
+                        or intel_item.get("scraped_at")
+                        or datetime.now().isoformat(),
+                        "metadata": {
+                            "matched_terms": terms,
+                            "source": intel_item.get("source") or "generic",
+                        },
+                    }
+                )
+        return signals

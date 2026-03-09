@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { useToken } from "@/hooks/useToken";
 import {
   Bookmark,
+  Briefcase,
+  Building2,
   ChevronDown,
   ChevronRight,
   ExternalLink,
@@ -12,6 +14,7 @@ import {
   Newspaper,
   RefreshCw,
   Search,
+  ShieldAlert,
   TrendingUp,
   X,
 } from "lucide-react";
@@ -37,6 +40,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiFetch } from "@/lib/api";
+import type { CompanyMovement, HiringSignal, RegulatoryAlert } from "@/types/briefing";
 
 interface IntelItem {
   source: string;
@@ -326,6 +330,190 @@ function TrendingTab({ token }: { token: string }) {
   );
 }
 
+function PipelinesTab({ token }: { token: string }) {
+  const [companyMovements, setCompanyMovements] = useState<CompanyMovement[]>([]);
+  const [hiringSignals, setHiringSignals] = useState<HiringSignal[]>([]);
+  const [regulatoryAlerts, setRegulatoryAlerts] = useState<RegulatoryAlert[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    Promise.all([
+      apiFetch<CompanyMovement[]>("/api/intel/company-movements?limit=8", {}, token),
+      apiFetch<HiringSignal[]>("/api/intel/hiring-signals?limit=8", {}, token),
+      apiFetch<RegulatoryAlert[]>("/api/intel/regulatory-alerts?limit=8", {}, token),
+    ])
+      .then(([movements, hiring, regulatory]) => {
+        if (cancelled) return;
+        setCompanyMovements(movements);
+        setHiringSignals(hiring);
+        setRegulatoryAlerts(regulatory);
+      })
+      .catch((e) => {
+        if (!cancelled) toast.error(e.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  const totalSignals = companyMovements.length + hiringSignals.length + regulatoryAlerts.length;
+
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-24 animate-pulse rounded-lg bg-muted" />
+        ))}
+      </div>
+    );
+  }
+
+  if (totalSignals === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Pipeline signals are quiet</CardTitle>
+          <CardDescription>
+            Add companies, sectors, or regulatory topics to your watchlist in Settings, then run a fresh scan to populate these focused views.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  const sections = [
+    {
+      key: "company-movements",
+      title: "Company Movements",
+      description: "Strategic company changes matched back to watched companies.",
+      icon: Building2,
+      items: companyMovements,
+      renderMeta: (item: CompanyMovement) => [item.company_label, item.movement_type, `${Math.round(item.significance * 100)}% significance`],
+    },
+    {
+      key: "hiring-signals",
+      title: "Hiring Signals",
+      description: "Hiring changes that may hint at expansion, focus shifts, or new bets.",
+      icon: Briefcase,
+      items: hiringSignals,
+      renderMeta: (item: HiringSignal) => [item.entity_label, item.signal_type, `${Math.round(item.strength * 100)}% strength`],
+    },
+    {
+      key: "regulatory-alerts",
+      title: "Regulatory Alerts",
+      description: "Policy and standards updates filtered to your watched topics and geographies.",
+      icon: ShieldAlert,
+      items: regulatoryAlerts,
+      renderMeta: (item: RegulatoryAlert) => [item.change_type, item.urgency, `${Math.round(item.relevance * 100)}% relevance`],
+    },
+  ] as const;
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 lg:grid-cols-3">
+        <Card className="gap-3 py-4">
+          <CardHeader className="px-4 pb-0">
+            <CardDescription className="text-xs uppercase tracking-wide">Company</CardDescription>
+            <CardTitle className="text-2xl">{companyMovements.length}</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 text-xs text-muted-foreground">
+            Recent company movement cards matched to watched companies.
+          </CardContent>
+        </Card>
+        <Card className="gap-3 py-4">
+          <CardHeader className="px-4 pb-0">
+            <CardDescription className="text-xs uppercase tracking-wide">Hiring</CardDescription>
+            <CardTitle className="text-2xl">{hiringSignals.length}</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 text-xs text-muted-foreground">
+            Hiring signals derived from your watched companies.
+          </CardContent>
+        </Card>
+        <Card className="gap-3 py-4">
+          <CardHeader className="px-4 pb-0">
+            <CardDescription className="text-xs uppercase tracking-wide">Regulatory</CardDescription>
+            <CardTitle className="text-2xl">{regulatoryAlerts.length}</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 text-xs text-muted-foreground">
+            Regulatory alerts relevant to watched sectors, topics, and geographies.
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        {sections.map((section) => {
+          const Icon = section.icon;
+          return (
+            <Card key={section.key}>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Icon className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-base">{section.title}</CardTitle>
+                </div>
+                <CardDescription>{section.description}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {section.items.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No signals yet.</p>
+                ) : (
+                  section.items.map((item) => {
+                    const sourceUrl = item.source_url;
+                    const title = item.title;
+                    const summary = item.summary;
+                    const observedAt = item.observed_at;
+                    const metaValues =
+                      section.key === "company-movements"
+                        ? section.renderMeta(item as CompanyMovement)
+                        : section.key === "hiring-signals"
+                          ? section.renderMeta(item as HiringSignal)
+                          : section.renderMeta(item as RegulatoryAlert);
+                    return (
+                      <div key={`${section.key}-${item.id}`} className="rounded-lg border p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-1">
+                            {sourceUrl ? (
+                              <a
+                                href={sourceUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm font-medium hover:underline"
+                              >
+                                {title}
+                                <ExternalLink className="ml-1 inline h-3 w-3 text-muted-foreground" />
+                              </a>
+                            ) : (
+                              <div className="text-sm font-medium">{title}</div>
+                            )}
+                            <p className="text-sm text-muted-foreground">{summary}</p>
+                          </div>
+                          <span className="shrink-0 text-xs text-muted-foreground">{timeAgo(observedAt)}</span>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {metaValues.filter(Boolean).map((value) => (
+                            <Badge key={`${section.key}-${item.id}-${value}`} variant="outline" className="text-[10px]">
+                              {value}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 const sourceColors: Record<string, string> = {
   hackernews: "bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/25",
   hn: "bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/25",
@@ -593,10 +781,18 @@ export default function IntelPage() {
             <Newspaper className="mr-1 h-4 w-4" />
             Feed
           </TabsTrigger>
+          <TabsTrigger value="pipelines">
+            <Building2 className="mr-1 h-4 w-4" />
+            Pipelines
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="trending">
           {token && <TrendingTab key={`trending-${trendingKey}`} token={token} />}
+        </TabsContent>
+
+        <TabsContent value="pipelines">
+          {token && <PipelinesTab key={`pipelines-${trendingKey}`} token={token} />}
         </TabsContent>
 
         <TabsContent value="feed">

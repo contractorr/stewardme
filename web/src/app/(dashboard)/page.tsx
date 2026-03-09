@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { ChatAttachmentBadges, ChatPdfAttachmentPicker } from "@/components/ChatPdfAttachments";
+import { ReturnBriefCard } from "@/components/home/ReturnBriefCard";
 import { useToken } from "@/hooks/useToken";
 import { useChatPdfAttachments } from "@/hooks/useChatPdfAttachments";
 import { MessageRenderer } from "@/components/MessageRenderer";
@@ -13,13 +14,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { apiFetch, apiFetchSSE } from "@/lib/api";
 import { TOOL_LABELS } from "@/lib/constants";
 import type { ChatMessage } from "@/types/chat";
-import type { GreetingResponse } from "@/types/greeting";
+import type { GreetingResponse, ReturnBrief } from "@/types/greeting";
 
 type InputMode = "ask" | "capture";
 
 export default function HomePage() {
   const token = useToken();
   const [greeting, setGreeting] = useState<string | null>(null);
+  const [returnBrief, setReturnBrief] = useState<ReturnBrief | null>(null);
+  const [dismissedReturnBriefAt, setDismissedReturnBriefAt] = useState<string | null>(null);
   const [greetingLoaded, setGreetingLoaded] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
 
@@ -36,6 +39,20 @@ export default function HomePage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const retried = useRef(false);
+  const lastReturnBriefAt = useRef<string | null>(null);
+
+  const applyGreetingResponse = useCallback((data: GreetingResponse) => {
+    setGreeting(data.text);
+
+    const nextReturnBrief = data.return_brief ?? null;
+    setReturnBrief(nextReturnBrief);
+
+    const nextGeneratedAt = nextReturnBrief?.generated_at ?? null;
+    if (nextGeneratedAt && nextGeneratedAt !== lastReturnBriefAt.current) {
+      setDismissedReturnBriefAt(null);
+    }
+    lastReturnBriefAt.current = nextGeneratedAt;
+  }, []);
 
   // Fetch greeting + user on mount
   useEffect(() => {
@@ -45,14 +62,14 @@ export default function HomePage() {
     apiFetch<GreetingResponse>("/api/greeting", {}, token)
       .then((data) => {
         if (cancelled) return;
-        setGreeting(data.text);
+        applyGreetingResponse(data);
         // If stale, retry once after 5s
         if (data.stale && !retried.current) {
           retried.current = true;
           setTimeout(() => {
             apiFetch<GreetingResponse>("/api/greeting", {}, token)
               .then((fresh) => {
-                if (!cancelled && !fresh.stale) setGreeting(fresh.text);
+                if (!cancelled && !fresh.stale) applyGreetingResponse(fresh);
               })
               .catch(() => {});
           }, 5000);
@@ -72,7 +89,7 @@ export default function HomePage() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, applyGreetingResponse]);
 
   // Auto-scroll
   useEffect(() => {
@@ -216,12 +233,21 @@ export default function HomePage() {
   }
 
   const hasConversation = messages.length > 0;
+  const showReturnBrief =
+    returnBrief && returnBrief.generated_at !== dismissedReturnBriefAt;
 
   return (
     <div className="flex h-full flex-col">
       {/* Messages area */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
         <div className="mx-auto max-w-2xl space-y-3">
+          {showReturnBrief && returnBrief ? (
+            <ReturnBriefCard
+              brief={returnBrief}
+              onDismiss={() => setDismissedReturnBriefAt(returnBrief.generated_at)}
+            />
+          ) : null}
+
           {/* Greeting as first assistant message */}
           {greeting && (
             <div className="mr-4 rounded-2xl rounded-bl-sm px-4 py-2.5">

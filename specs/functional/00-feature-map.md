@@ -13,13 +13,13 @@ Current implementation status after repo audit:
 - Attach-to-Ask Bridge - shipped on first-party web chat surfaces with same-turn PDF upload, transcript attachment persistence, and chat-to-Library save flow. Readiness and warning states are surfaced in chat UI.
 - Extraction Receipt - backend implemented, but first-party web receipt surfaces are still incomplete. The journal API generates and serves receipts, but the journal UI does not yet render or reopen them directly.
 - Recurring Thread Inbox - backend implemented, but first-party web inbox UI is still missing. Thread routes exist and support actions, but there is no dedicated dashboard surface yet.
-- Dossier Escalation Engine - backend implemented and merged into suggestion generation, but there is no first-party dossier workspace or escalation management UI yet.
-- Since-You-Were-Away + Why-Now - backend implemented, but frontend rendering is partial. Greeting responses include `return_brief`, and recommendations or suggestions include `why_now`, but these are not yet fully rendered in the dashboard UI.
+- Dossier Escalation Engine - backend implemented, now reused across suggestions, dedicated escalation routes, and return-briefing flows with active-dossier suppression context. There is still no first-party dossier workspace or escalation-management UI yet.
+- Since-You-Were-Away + Why-Now - first-party web now renders a dedicated home `return_brief` card and recommendation-level `why_now` chips with inline detail disclosure. Suggestion-chip coverage is still limited to surfaces that already expose those items.
 - Outcome Harvester - backend implemented, but review and override flows are not yet surfaced in first-party web UI.
 - Company Movement Pipeline - API implemented, but the specialized company-movement surface is not yet wired into the Radar UI.
 - Hiring Activity Pipeline - API implemented, but the specialized hiring-signal surface is not yet wired into the Radar UI.
 - Regulatory Change Pipeline - API implemented, but the specialized regulatory-alert surface is not yet wired into the Radar UI.
-- Assumption Watchlist - backend implemented, including journal-driven suggestion capture, but there is not yet a first-party assumptions workspace in the dashboard.
+- Assumption Watchlist - backend implemented, including journal-driven suggestion capture, signal evaluation, and reuse in shared return-briefing flows. There is still no dedicated assumptions workspace, but the feature is no longer route-only.
 
 This map shows how the 10 new feature specs relate to each other, which ones share infrastructure, and the recommended order to build them. The set naturally clusters into three layers:
 

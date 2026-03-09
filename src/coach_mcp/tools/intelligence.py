@@ -157,6 +157,12 @@ def _watchlist_upsert(args: dict) -> dict:
         "goal": args.get("goal", ""),
         "time_horizon": args.get("time_horizon", "quarter"),
         "source_preferences": args.get("source_preferences", []),
+        "domain": args.get("domain", ""),
+        "github_org": args.get("github_org", ""),
+        "ticker": args.get("ticker", ""),
+        "topics": args.get("topics", []),
+        "geographies": args.get("geographies", []),
+        "linked_dossier_ids": args.get("linked_dossier_ids", []),
     }
     if item_id:
         item = store.update_item(item_id, payload)
@@ -283,6 +289,12 @@ TOOLS = [
                 "goal": {"type": "string", "description": "Optional linked goal"},
                 "time_horizon": {"type": "string", "description": "Optional horizon label"},
                 "source_preferences": {"type": "array", "items": {"type": "string"}},
+                "domain": {"type": "string", "description": "Company domain"},
+                "github_org": {"type": "string", "description": "Company GitHub org"},
+                "ticker": {"type": "string", "description": "Company ticker"},
+                "topics": {"type": "array", "items": {"type": "string"}},
+                "geographies": {"type": "array", "items": {"type": "string"}},
+                "linked_dossier_ids": {"type": "array", "items": {"type": "string"}},
             },
             "required": ["label"],
         },

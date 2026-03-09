@@ -77,6 +77,12 @@ def _normalize_item(item: dict) -> dict:
         "goal": _normalize_space(item.get("goal", "")),
         "time_horizon": _normalize_space(item.get("time_horizon", "quarter") or "quarter"),
         "source_preferences": _as_list(item.get("source_preferences")),
+        "domain": _normalize_space(item.get("domain", "")),
+        "github_org": _normalize_space(item.get("github_org", "")),
+        "ticker": _normalize_space(item.get("ticker", "")).upper(),
+        "topics": _as_list(item.get("topics")),
+        "geographies": _as_list(item.get("geographies")),
+        "linked_dossier_ids": _as_list(item.get("linked_dossier_ids")),
         "created_at": item.get("created_at") or now,
         "updated_at": now,
     }
@@ -151,6 +157,34 @@ class WatchlistStore:
             return False
         self._save(_sort_items(kept))
         return True
+
+
+def list_all_watchlist_items(coach_home: str | Path | None = None) -> list[dict]:
+    """Load watchlist items across single-user and per-user stores."""
+
+    from storage_paths import get_coach_home
+
+    resolved_home = get_coach_home(Path(coach_home).expanduser() if coach_home else None)
+    all_items: list[dict] = []
+
+    single_user_path = resolved_home / "watchlist.json"
+    if single_user_path.exists():
+        for item in WatchlistStore(single_user_path).list_items():
+            all_items.append({**item, "user_id": "default"})
+
+    users_dir = resolved_home / "users"
+    if not users_dir.exists():
+        return all_items
+
+    for watchlist_path in users_dir.glob("*/watchlist.json"):
+        user_id = watchlist_path.parent.name
+        try:
+            items = WatchlistStore(watchlist_path).list_items()
+        except Exception:
+            continue
+        for item in items:
+            all_items.append({**item, "user_id": user_id})
+    return all_items
 
 
 class IntelFollowUpStore:
