@@ -243,9 +243,7 @@ class ClaudeProvider(LLMProvider):
         if not usage:
             return None
 
-        billed_input_tokens = usage["input_tokens"] + (
-            usage["cache_creation_input_tokens"] * 1.25
-        )
+        billed_input_tokens = usage["input_tokens"] + (usage["cache_creation_input_tokens"] * 1.25)
         logger.debug(
             "anthropic_usage",
             model=self.model,

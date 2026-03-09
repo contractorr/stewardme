@@ -19,7 +19,7 @@ def test_env_assignment_redaction():
 def test_json_field_redaction():
     text = '{"apiKey": "github_pat_abcdefghijklmnopqrstuvwxyz_123456"}'
     redacted = redact_sensitive_text(text)
-    assert 'github...3456' in redacted
+    assert "github...3456" in redacted
     assert "abcdefghijklmnopqrstuvwxyz" not in redacted
 
 

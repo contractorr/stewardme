@@ -24,6 +24,7 @@ def register_advisor_tools(registry: ToolRegistry, components: dict) -> None:
     _register_journal_tools(registry, components)
     _register_goal_tools(registry, components)
     _register_intel_tools(registry, components)
+    _register_entity_tools(registry, components)
     _register_rss_tools(registry, components)
     _register_web_search_tools(registry)
     _register_misc_tools(registry, components)
@@ -32,8 +33,12 @@ def register_advisor_tools(registry: ToolRegistry, components: dict) -> None:
 def _register_journal_tools(registry: ToolRegistry, components: dict) -> None:
     storage = components.get("storage")
     embeddings = components.get("embeddings")
-    storage_check = lambda: components.get("storage") is not None
-    search_check = lambda: components.get("storage") is not None and components.get("embeddings") is not None
+
+    def storage_check():
+        return components.get("storage") is not None
+
+    def search_check():
+        return components.get("storage") is not None and components.get("embeddings") is not None
 
     def journal_search(args: dict) -> dict:
         query = args["query"]
@@ -200,7 +205,9 @@ def _register_journal_tools(registry: ToolRegistry, components: dict) -> None:
 
 def _register_goal_tools(registry: ToolRegistry, components: dict) -> None:
     storage = components.get("storage")
-    check_fn = lambda: components.get("storage") is not None
+
+    def check_fn():
+        return components.get("storage") is not None
 
     def _get_tracker():
         from advisor.goals import GoalTracker
@@ -431,7 +438,9 @@ def _register_goal_tools(registry: ToolRegistry, components: dict) -> None:
 
 def _register_intel_tools(registry: ToolRegistry, components: dict) -> None:
     intel_storage = components.get("intel_storage")
-    check_fn = lambda: components.get("intel_storage") is not None
+
+    def check_fn():
+        return components.get("intel_storage") is not None
 
     def intel_search(args: dict) -> dict:
         query = args["query"]
@@ -513,6 +522,43 @@ def _register_intel_tools(registry: ToolRegistry, components: dict) -> None:
     )
 
 
+def _register_entity_tools(registry: ToolRegistry, components: dict) -> None:
+    entity_store = components.get("entity_store")
+    if entity_store is None:
+        return
+
+    def intel_entity_search(args: dict) -> dict:
+        entities = entity_store.search_entities(
+            query=args["query"],
+            entity_type=args.get("type"),
+            limit=args.get("limit", 5),
+        )
+        for entity in entities:
+            entity["relationships"] = entity_store.get_relationships(entity["id"])
+        return {"entities": entities, "count": len(entities)}
+
+    registry.register(
+        name="intel_entity_search",
+        toolset="intel",
+        description="Search for entities (companies, people, technologies) and their relationships in the intelligence database.",
+        schema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Entity name or search term"},
+                "type": {
+                    "type": "string",
+                    "description": "Entity type filter",
+                    "enum": ["Company", "Person", "Technology", "Product", "Sector"],
+                },
+                "limit": {"type": "integer", "description": "Max entities", "default": 5},
+            },
+            "required": ["query"],
+        },
+        handler=intel_entity_search,
+        check_fn=lambda: components.get("entity_store") is not None,
+    )
+
+
 def _register_rss_tools(registry: ToolRegistry, components: dict) -> None:
     def rss_check() -> bool:
         return bool(components.get("user_id") and components.get("intel_storage") is not None)
@@ -572,7 +618,9 @@ def _register_rss_tools(registry: ToolRegistry, components: dict) -> None:
             intel_storage = components["intel_storage"]
             scraper = RSSFeedScraper(intel_storage, url, name=name)
             items = asyncio.get_event_loop().run_until_complete(scraper.scrape())
-            items_scraped, _ = asyncio.get_event_loop().run_until_complete(scraper.save_items(items))
+            items_scraped, _ = asyncio.get_event_loop().run_until_complete(
+                scraper.save_items(items)
+            )
             asyncio.get_event_loop().run_until_complete(scraper.close())
         except Exception as exc:
             logger.warning("rss_oneshot_scrape_failed", url=url, error=str(exc))
@@ -593,7 +641,10 @@ def _register_rss_tools(registry: ToolRegistry, components: dict) -> None:
             "properties": {
                 "url": {"type": "string", "description": "RSS/Atom feed URL"},
                 "name": {"type": "string", "description": "Display name for the feed"},
-                "reason": {"type": "string", "description": "Why this feed is relevant to the user"},
+                "reason": {
+                    "type": "string",
+                    "description": "Why this feed is relevant to the user",
+                },
             },
             "required": ["url"],
         },

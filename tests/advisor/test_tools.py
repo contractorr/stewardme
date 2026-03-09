@@ -275,6 +275,51 @@ class TestToolResultTruncation:
         assert len(result) <= 4100  # TOOL_RESULT_MAX_CHARS + truncation msg
 
 
+class TestEntitySearchTool:
+    def test_not_registered_without_entity_store(self, mock_components):
+        """intel_entity_search excluded when entity_store not in components."""
+        registry = build_tool_registry(mock_components)
+        names = {d.name for d in registry.get_definitions()}
+        assert "intel_entity_search" not in names
+
+    def test_registered_with_entity_store(self, mock_components):
+        entity_store = MagicMock(name="entity_store")
+        entity_store.search_entities.return_value = []
+        mock_components["entity_store"] = entity_store
+        registry = build_tool_registry(mock_components)
+        names = {d.name for d in registry.get_definitions()}
+        assert "intel_entity_search" in names
+        assert len(registry.get_definitions()) == 16
+
+    def test_returns_entities_with_relationships(self, mock_components):
+        entity_store = MagicMock(name="entity_store")
+        entity_store.search_entities.return_value = [
+            {"id": 1, "name": "Acme Corp", "type": "Company", "item_count": 3},
+        ]
+        entity_store.get_relationships.return_value = [
+            {"source_name": "Acme Corp", "target_name": "WidgetCo", "type": "COMPETES_WITH"},
+        ]
+        mock_components["entity_store"] = entity_store
+        registry = build_tool_registry(mock_components)
+        result = registry.execute("intel_entity_search", {"query": "Acme"})
+        parsed = json.loads(result)
+        assert parsed["count"] == 1
+        assert parsed["entities"][0]["name"] == "Acme Corp"
+        assert len(parsed["entities"][0]["relationships"]) == 1
+
+    def test_type_filter_passed_through(self, mock_components):
+        entity_store = MagicMock(name="entity_store")
+        entity_store.search_entities.return_value = []
+        mock_components["entity_store"] = entity_store
+        registry = build_tool_registry(mock_components)
+        registry.execute("intel_entity_search", {"query": "test", "type": "Person", "limit": 3})
+        entity_store.search_entities.assert_called_once_with(
+            query="test",
+            entity_type="Person",
+            limit=3,
+        )
+
+
 class TestGoalNextStepsTool:
     def test_returns_enriched_context(self, mock_components):
         registry = build_tool_registry(mock_components)

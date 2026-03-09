@@ -9,7 +9,7 @@ from typing import Optional
 import structlog
 
 from advisor.entity_retriever import EntityRetriever
-from advisor.query_analyzer import QueryAnalyzer, QueryAnalysis, RetrievalMode
+from advisor.query_analyzer import QueryAnalysis, QueryAnalyzer, RetrievalMode
 from advisor.query_decomposer import QueryDecomposer
 from db import wal_connect
 from intelligence.entity_store import EntityStore
@@ -633,7 +633,10 @@ class RAGRetriever:
 
         entity_budget = 0
         entity_context = ""
-        if analysis.mode in {RetrievalMode.ENTITY, RetrievalMode.COMBINED} and self.entity_retriever:
+        if (
+            analysis.mode in {RetrievalMode.ENTITY, RetrievalMode.COMBINED}
+            and self.entity_retriever
+        ):
             entity_budget = int(self.max_context_chars * 0.2)
             try:
                 entity_context = self.entity_retriever.retrieve(analysis.matched_entities, query)
@@ -646,7 +649,10 @@ class RAGRetriever:
         else:
             text_budget = self.max_context_chars
 
-        if analysis.mode in {RetrievalMode.DECOMPOSED, RetrievalMode.COMBINED} and self.query_decomposer:
+        if (
+            analysis.mode in {RetrievalMode.DECOMPOSED, RetrievalMode.COMBINED}
+            and self.query_decomposer
+        ):
             journal_ctx, intel_ctx = self._run_async(
                 self._decomposed_retrieval(query, total_chars=text_budget)
             )

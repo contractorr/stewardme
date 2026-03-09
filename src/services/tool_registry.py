@@ -6,8 +6,9 @@ import json
 from collections.abc import Callable
 
 import structlog
-from llm.base import ToolDefinition
 from mcp.types import Tool
+
+from llm.base import ToolDefinition
 
 logger = structlog.get_logger()
 

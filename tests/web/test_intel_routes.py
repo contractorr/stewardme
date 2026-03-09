@@ -185,7 +185,9 @@ def test_recent_items_include_entity_tags(client, auth_headers):
 
 def test_entity_search_endpoint(client, auth_headers):
     mock_entity_store = MagicMock()
-    mock_entity_store.search_entities.return_value = [{"id": 1, "name": "OpenAI", "type": "Company"}]
+    mock_entity_store.search_entities.return_value = [
+        {"id": 1, "name": "OpenAI", "type": "Company"}
+    ]
     with patch("web.routes.intel._get_entity_store", return_value=mock_entity_store):
         res = client.get("/api/intel/entities?q=openai", headers=auth_headers)
     assert res.status_code == 200
@@ -205,7 +207,9 @@ def test_entity_detail_endpoint(client, auth_headers):
 
 def test_item_entities_endpoint(client, auth_headers):
     mock_entity_store = MagicMock()
-    mock_entity_store.get_item_entities.return_value = [{"id": 1, "name": "OpenAI", "type": "Company"}]
+    mock_entity_store.get_item_entities.return_value = [
+        {"id": 1, "name": "OpenAI", "type": "Company"}
+    ]
     with patch("web.routes.intel._get_entity_store", return_value=mock_entity_store):
         res = client.get("/api/intel/items/5/entities", headers=auth_headers)
     assert res.status_code == 200

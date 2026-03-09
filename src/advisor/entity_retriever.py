@@ -38,7 +38,9 @@ class EntityRetriever:
             relationships = self.entity_store.get_relationships(entity["id"])[
                 : self.max_relationships_per_entity
             ]
-            items = self.entity_store.get_entity_items(entity["id"], limit=self.max_items_per_entity)
+            items = self.entity_store.get_entity_items(
+                entity["id"], limit=self.max_items_per_entity
+            )
             block = [
                 f'<entity name="{entity["name"]}" type="{entity["type"]}">',
                 "<relationships>",

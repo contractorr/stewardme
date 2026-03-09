@@ -63,9 +63,7 @@ class ContextCompressor:
                 }
             )
             suffix = f" Key tools called: {', '.join(tool_names)}." if tool_names else ""
-            summary_text = (
-                f"[Earlier context omitted - {len(evicted)} turns summarized.{suffix}]"
-            )
+            summary_text = f"[Earlier context omitted - {len(evicted)} turns summarized.{suffix}]"
 
         summary_message = {"role": "user", "content": summary_text[: self.summary_target_chars]}
         compressed = first + [summary_message] + deepcopy(messages[boundary:middle_end]) + last
@@ -121,8 +119,7 @@ class ContextCompressor:
 
         prompt = (
             "Summarize this conversation segment concisely, preserving key facts, tool results, and "
-            "decisions.\n\n"
-            + "\n".join(rendered)
+            "decisions.\n\n" + "\n".join(rendered)
         )
         try:
             summary = self.cheap_llm.generate(

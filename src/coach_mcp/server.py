@@ -1,7 +1,5 @@
 """MCP server entry point — stdio transport, tool routing by prefix."""
 
-import json
-
 import structlog
 from mcp.server import Server
 from mcp.server.stdio import stdio_server

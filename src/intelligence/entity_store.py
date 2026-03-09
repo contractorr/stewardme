@@ -203,7 +203,9 @@ class EntityStore:
                     entity["aliases"] = self._decode_aliases(entity.get("aliases"))
                     return entity
 
-            rows = conn.execute("SELECT * FROM entities WHERE normalized_name = ?", (normalized_name,)).fetchall()
+            rows = conn.execute(
+                "SELECT * FROM entities WHERE normalized_name = ?", (normalized_name,)
+            ).fetchall()
             if rows:
                 entity = dict(rows[0])
                 entity["aliases"] = self._decode_aliases(entity.get("aliases"))

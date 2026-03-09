@@ -109,12 +109,23 @@ class EntityExtractor:
             existing = self.entity_store.get_entity_by_name(entity_name, entity_type)
             entity_id = self.entity_store.save_entity(entity_name, entity_type, aliases=aliases)
             if existing:
-                entity_lookup[normalize_entity_name(entity_name)] = {"id": entity_id, "type": entity_type}
+                entity_lookup[normalize_entity_name(entity_name)] = {
+                    "id": entity_id,
+                    "type": entity_type,
+                }
             else:
                 created_entities.append(
-                    {"entity_id": entity_id, "name": entity_name, "type": entity_type, "aliases": aliases}
+                    {
+                        "entity_id": entity_id,
+                        "name": entity_name,
+                        "type": entity_type,
+                        "aliases": aliases,
+                    }
                 )
-                entity_lookup[normalize_entity_name(entity_name)] = {"id": entity_id, "type": entity_type}
+                entity_lookup[normalize_entity_name(entity_name)] = {
+                    "id": entity_id,
+                    "type": entity_type,
+                }
             self.entity_store.link_item(int(item["id"]), entity_id)
 
         created_relationships = []
@@ -124,12 +135,12 @@ class EntityExtractor:
             rel_type = relationship.get("type")
             if not source_name or not target_name or rel_type not in self.relationship_types:
                 continue
-            source = entity_lookup.get(normalize_entity_name(source_name)) or self.entity_store.get_entity_by_name(
-                source_name
-            )
-            target = entity_lookup.get(normalize_entity_name(target_name)) or self.entity_store.get_entity_by_name(
-                target_name
-            )
+            source = entity_lookup.get(
+                normalize_entity_name(source_name)
+            ) or self.entity_store.get_entity_by_name(source_name)
+            target = entity_lookup.get(
+                normalize_entity_name(target_name)
+            ) or self.entity_store.get_entity_by_name(target_name)
             if not source or not target:
                 continue
             relationship_id = self.entity_store.save_relationship(
@@ -199,8 +210,5 @@ class ExtractionScheduler:
 
     async def run_extraction(self) -> ExtractionResult:
         item_ids = self.entity_store.get_unprocessed_items(limit=self.batch_size)
-        items = [
-            self.entity_extractor.storage.get_item_by_id(item_id)
-            for item_id in item_ids
-        ]
+        items = [self.entity_extractor.storage.get_item_by_id(item_id) for item_id in item_ids]
         return await self.entity_extractor.extract_batch([item for item in items if item])

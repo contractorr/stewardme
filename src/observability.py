@@ -110,10 +110,9 @@ class Metrics:
         token_summary = {}
         for model, usage in tokens.items():
             input_rate, output_rate, has_pricing = self._get_pricing(model)
-            estimated_cost = (
-                (usage["billed_input_tokens"] / 1_000_000.0) * input_rate
-                + (usage["output_tokens"] / 1_000_000.0) * output_rate
-            )
+            estimated_cost = (usage["billed_input_tokens"] / 1_000_000.0) * input_rate + (
+                usage["output_tokens"] / 1_000_000.0
+            ) * output_rate
             token_summary[model] = {
                 "input_tokens": int(usage["input_tokens"]),
                 "output_tokens": int(usage["output_tokens"]),

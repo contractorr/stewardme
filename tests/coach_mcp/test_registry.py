@@ -9,4 +9,6 @@ def test_build_tool_registry_matches_tool_modules():
 
     expected = sum(len(module.TOOLS) for module in TOOL_MODULES)
     assert len(tools) == expected
-    assert set(tool.name for tool in tools) == set(entry[0] for module in TOOL_MODULES for entry in module.TOOLS)
+    assert set(tool.name for tool in tools) == set(
+        entry[0] for module in TOOL_MODULES for entry in module.TOOLS
+    )
