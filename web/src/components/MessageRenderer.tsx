@@ -147,29 +147,27 @@ export function MessageRenderer({ content, onAction, compact }: MessageRendererP
         <>
           {remainder && <p>{remainder}</p>}
           {ctas.length > 0 && (
-            <div className="mt-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 not-prose overflow-hidden">
-              <p className="text-xs font-medium text-muted-foreground mb-2">What would you like to do next?</p>
-              <div className="flex flex-col gap-2">
+            <div className="relative mt-3 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 not-prose overflow-hidden">
+              <button
+                type="button"
+                onClick={() => {}}
+                className="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
+                aria-label="Dismiss suggestions"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+              <div className="flex flex-wrap gap-1.5 pr-6">
                 {ctas.map((cta) => (
                   <Button
                     key={cta}
                     variant="outline"
                     size="sm"
                     onClick={() => onAction(cta)}
-                    className="text-xs h-auto py-1.5 px-3 bg-background whitespace-normal text-left justify-start"
+                    className="text-xs h-auto py-1 px-2.5 bg-background whitespace-normal text-left justify-start"
                   >
                     {cta}
                   </Button>
                 ))}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {}}
-                  className="text-xs h-auto py-1.5 px-2 text-muted-foreground"
-                >
-                  <X className="h-3 w-3 mr-1" />
-                  Dismiss
-                </Button>
               </div>
             </div>
           )}
