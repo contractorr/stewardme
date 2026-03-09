@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, ExternalLink, PenLine, Send, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
@@ -22,6 +22,24 @@ import type { SuggestionItem } from "@/types/suggestions";
 import { MessageRenderer } from "@/components/MessageRenderer";
 
 type InputMode = "ask" | "capture";
+
+const MODE_COPY: Record<
+  InputMode,
+  { title: string; helper: string; placeholder: string; examples: string[] }
+> = {
+  capture: {
+    title: "Capture to journal",
+    helper: "Use this when you want to save a thought, reflection, or rough note before deciding what to do with it.",
+    placeholder: "Write a note worth saving to your journal",
+    examples: ["Quick reflection", "What happened today", "Wins and worries"],
+  },
+  ask: {
+    title: "Ask Steward",
+    helper: "Use this when you want grounded guidance, prioritization help, or a response to the draft in front of you.",
+    placeholder: "Ask a question or paste context for advice",
+    examples: ["What matters most this week?", "Help me think this through", "Turn this into a plan"],
+  },
+};
 
 interface CapturedNote {
   path: string;
@@ -79,6 +97,7 @@ export default function HomePage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [mode, setMode] = useState<InputMode>("capture");
+  const [modeLocked, setModeLocked] = useState(false);
   const [loading, setLoading] = useState(false);
   const [toolStatus, setToolStatus] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -157,6 +176,18 @@ export default function HomePage() {
     if (mode === "capture") clearAttachments();
   }, [mode, clearAttachments]);
 
+  useEffect(() => {
+    const trimmed = input.trim();
+    if (!trimmed) {
+      if (modeLocked) setModeLocked(false);
+      if (mode !== "capture") setMode("capture");
+      return;
+    }
+    if (modeLocked) return;
+    const inferredMode: InputMode = looksLikeQuestion(trimmed) ? "ask" : "capture";
+    if (mode !== inferredMode) setMode(inferredMode);
+  }, [input, mode, modeLocked]);
+
   const sendMessage = useCallback(
     async (question: string, convId: string | null, attachmentIds: string[] = []) => {
       setLoading(true);
@@ -184,7 +215,8 @@ export default function HomePage() {
             } else if (type === "answer") {
               const cid = event.conversation_id as string;
               setConversationId(cid);
-              setMessages((prev) => [...prev, { role: "assistant", content: event.content as string }]);
+              const prefix = event.council_used ? "Council-assisted answer\n\n" : "";
+              setMessages((prev) => [...prev, { role: "assistant", content: prefix + (event.content as string) }]);
             } else if (type === "error") {
               toast.error(event.detail as string);
               setMessages((prev) => [
@@ -273,10 +305,19 @@ export default function HomePage() {
     }
   }, [input, token]);
 
-  const effectiveMode = useMemo<InputMode>(() => {
-    if (mode === "ask") return "ask";
-    return looksLikeQuestion(input) ? "ask" : "capture";
-  }, [input, mode]);
+  const effectiveMode = mode;
+
+  const handleModeSelect = useCallback((nextMode: InputMode) => {
+    setMode(nextMode);
+    setModeLocked(true);
+  }, []);
+
+  const handleInputChange = useCallback((value: string) => {
+    setInput(value);
+    if (!value.trim()) {
+      setModeLocked(false);
+    }
+  }, []);
 
   const handleSubmit = useCallback(() => {
     if (effectiveMode === "ask") {
@@ -304,6 +345,12 @@ export default function HomePage() {
   const hasConversation = messages.length > 0;
   const showReturnBrief = Boolean(returnBrief && returnBrief.generated_at !== dismissedReturnBriefAt);
   const replaceGreeting = Boolean(showReturnBrief && returnBrief && returnBrief.absent_hours >= 24 * 7);
+  const composerCopy = MODE_COPY[mode];
+  const modeStatus = modeLocked
+    ? `${mode === "ask" ? "Ask" : "Capture"} is locked for this draft.`
+    : mode === "ask"
+      ? "Question detected — Enter will ask Steward."
+      : "Enter will save this draft to Journal.";
 
   return (
     <div className="flex h-full flex-col">
@@ -395,6 +442,7 @@ export default function HomePage() {
                   onAction={(text) => {
                     setInput(text);
                     setMode("ask");
+                    setModeLocked(true);
                     setTimeout(() => textareaRef.current?.focus(), 100);
                   }}
                 />
@@ -437,17 +485,55 @@ export default function HomePage() {
             <span>Write a note or ask a question</span>
             <div className="flex items-center gap-1 rounded-full border bg-muted/30 p-1">
               <button
-                onClick={() => setMode("capture")}
+                type="button"
+                aria-pressed={mode === "capture"}
+                onClick={() => handleModeSelect("capture")}
                 className={`rounded-full px-2.5 py-1 transition-colors ${mode === "capture" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
               >
                 Capture
               </button>
               <button
-                onClick={() => setMode("ask")}
+                type="button"
+                aria-pressed={mode === "ask"}
+                onClick={() => handleModeSelect("ask")}
                 className={`rounded-full px-2.5 py-1 transition-colors ${mode === "ask" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
               >
                 Ask
               </button>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border bg-muted/20 p-3">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-medium">{composerCopy.title}</p>
+                  <Badge variant="secondary" className="text-[11px]">
+                    {modeLocked ? "Manual" : "Auto"}
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">{composerCopy.helper}</p>
+              </div>
+              <p className="max-w-xs text-right text-xs text-muted-foreground">{modeStatus}</p>
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {composerCopy.examples.map((example) => (
+                <Button
+                  key={example}
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 rounded-full"
+                  onClick={() => {
+                    setModeLocked(true);
+                    setInput(example);
+                    setTimeout(() => textareaRef.current?.focus(), 100);
+                  }}
+                >
+                  {example}
+                </Button>
+              ))}
             </div>
           </div>
 
@@ -464,9 +550,9 @@ export default function HomePage() {
             <Textarea
               ref={textareaRef}
               rows={1}
-              placeholder="Write a note or ask a question"
+              placeholder={composerCopy.placeholder}
               value={input}
-              onChange={(event) => setInput(event.target.value)}
+              onChange={(event) => handleInputChange(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey) {
                   event.preventDefault();
@@ -495,6 +581,12 @@ export default function HomePage() {
               </span>
             </div>
           </div>
+
+          <p className="text-xs text-muted-foreground">
+            {modeLocked
+              ? "Clear the draft to return to automatic mode detection."
+              : "Home can switch between capture and ask automatically while you draft."}
+          </p>
         </div>
       </div>
     </div>
