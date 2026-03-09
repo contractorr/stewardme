@@ -49,9 +49,11 @@ def _get_stored_provider_key(user_id: str, provider: str, fernet_key: str) -> st
         return provider_key
 
     legacy_key = get_user_secret(user_id, "llm_api_key", fernet_key)
-    legacy_provider = get_user_secret(user_id, "llm_provider", fernet_key)
-    if legacy_key and legacy_provider == provider:
-        return legacy_key
+    if legacy_key:
+        legacy_provider = get_user_secret(user_id, "llm_provider", fernet_key)
+        inferred = legacy_provider or _detect_provider_from_key(legacy_key)
+        if inferred == provider:
+            return legacy_key
     return None
 
 
