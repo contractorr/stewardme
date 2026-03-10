@@ -109,7 +109,7 @@ export default function Landing() {
         <p className="mb-6 text-sm text-muted-foreground">
           Scans the sources you care about
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-8">
+        <div className="grid grid-cols-5 gap-10">
           {SOURCE_ICONS.map(({ name, icon: Icon }) => (
             <div key={name} className="flex flex-col items-center gap-1">
               <Icon className="h-6 w-6 text-muted-foreground" />
