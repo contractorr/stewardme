@@ -103,17 +103,13 @@ Two-tier system under `specs/`. See [`specs/README.md`](specs/README.md) for ful
 
 Never skip steps or reorder. Even small changes must flow: functional spec → technical spec → code. When modifying existing behavior, update the relevant functional spec for acceptance criteria and edge cases before touching technical spec or code.
 
-## Feature Freeze
-
-Core loop stabilization in progress. Do NOT add new features.
+## Feature Status
 
 Core (stable): journal, intelligence scrapers, RAG retrieval, advisor Q&A, recommendations
-Experimental: goal tracking, deep research, trend clustering, memory, threads, insights, suggestions
+Experimental (enabled by default): goal tracking, deep research, trend clustering, memory, threads, insights, suggestions
 Removed: mood analysis, burnout detection, momentum detection, predictions, signals (merged into insights), heartbeat UI (now invisible infra), learning paths (merged into goal milestones), skill gap analyzer (merged into advisor prompt mode)
 
 ## Adding a new intelligence source
-
-(For when freeze lifts.)
 
 1. Create scraper in `src/intelligence/sources/` inheriting `BaseScraper`
 2. Implement `source_name` property + `scrape()` async method
