@@ -34,7 +34,7 @@ sources:
   deduplicate_rss_sources: true
   # Semantic dedup: use vector similarity to skip near-duplicate articles across sources
   # Requires ChromaDB. Slightly slower scrapes but much cleaner feed.
-  semantic_dedup: false
+  semantic_dedup: true
   semantic_dedup_threshold: 0.92  # 0.90-0.95; higher = stricter
   github_trending:
     enabled: true
@@ -44,62 +44,62 @@ sources:
     subreddits: [programming, MachineLearning]
     limit: 25
   producthunt:
-    enabled: false
+    enabled: true
     max_items: 20
   yc_jobs:
-    enabled: false
+    enabled: true
     max_items: 30
   google_patents:
-    enabled: false
+    enabled: true
     # feeds:  # override default AI/ML + Networking feeds
     #   - https://patents.google.com/api/feed?q=CPC%3DG06N&num=20
     max_per_feed: 15
   ai_capabilities:
-    enabled: false
+    enabled: true
     sources: [metr, chatbot_arena, helm]
     max_items_per_source: 10
   indeed_hiring_lab:
-    enabled: false
+    enabled: false  # requires Indeed API access
     change_threshold: 5.0
     max_items: 8
   google_trends:
-    enabled: false
+    enabled: true
     keywords: [AI agents, LLM fine-tuning, rust programming]
     spike_threshold: 20.0
     timeframe: "today 1-m"
   crunchbase:
-    enabled: false
-    # api_key: ${CRUNCHBASE_API_KEY}  # required — get free key at crunchbase.com/api
+    enabled: false  # requires API key — get free key at crunchbase.com/api
+    # api_key: ${CRUNCHBASE_API_KEY}
     categories: [artificial-intelligence, developer-tools, saas]
     days_back: 7
     max_items: 20
   enabled:
     - hn_top
     - rss_feeds
-    # - custom_blogs     # uncomment to enable
-    # - github_trending  # uncomment to enable
-    # - reddit           # uncomment to enable
-    # - arxiv            # uncomment to enable
-    # - producthunt      # uncomment to enable
-    # - yc_jobs          # uncomment to enable
-    # - google_patents   # uncomment to enable
-    # - ai_capabilities  # METR evals, Chatbot Arena, HELM benchmarks
-    # - indeed_hiring_lab  # sector job posting trends
-    # - google_trends       # keyword interest spikes
-    # - crunchbase          # funding rounds (requires API key)
+    - custom_blogs
+    - github_trending
+    - reddit
+    - arxiv
+    - producthunt
+    - yc_jobs
+    - google_patents
+    - ai_capabilities
+    - google_trends
+    # - indeed_hiring_lab  # requires Indeed API access
+    # - crunchbase         # requires API key
 
 schedule:
   weekly_review: "sunday 9am"
   intelligence_gather: "daily 6am"
 
 company_movement:
-  enabled: false
+  enabled: true
   min_significance: 0.45
   run_cron: "0 */6 * * *"
   lookback_days: 14
 
 hiring:
-  enabled: false
+  enabled: true
   spike_multiplier: 2.0
   min_post_count: 5
   min_family_count: 3
@@ -108,7 +108,7 @@ hiring:
   lookback_days: 14
 
 regulatory:
-  enabled: false
+  enabled: true
   min_relevance: 0.5
   run_cron: "0 */12 * * *"
   lookback_days: 30
@@ -121,13 +121,16 @@ regulatory:
 #       type: "daily"
 #       content: "## Yesterday\n\n## Today\n\n## Blockers\n"
 
-# --- Optional: paid features ---
-# Uncomment and set TAVILY_API_KEY for deep research
-# research:
-#   search_provider: tavily  # or duckduckgo (free, no key needed)
+entity_extraction:
+  enabled: true
+  schedule_minutes: 30
+
+research:
+  enabled: true
+  search_provider: tavily  # or duckduckgo (free, no key needed)
 
 recommendations:
-  enabled: false  # enable after 5+ journal entries
+  enabled: true
   delivery:
     methods: [journal]
 
