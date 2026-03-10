@@ -92,13 +92,13 @@ export default function Landing() {
             <Badge variant="secondary">Self-hostable</Badge>
           </a>
         </div>
-        <div className="mt-8 flex gap-3">
+        <div className="mt-8 grid w-72 grid-cols-2 gap-3">
           <Button asChild>
             <Link href="/login">Get started</Link>
           </Button>
           <Button variant="outline" asChild>
             <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
-              View on GitHub
+              View GitHub
             </a>
           </Button>
         </div>
