@@ -146,7 +146,7 @@ events:
   location_filter: true  # use profile.location
   rss_feeds:
     - https://confs.tech/rss
-  # eventbrite_token: ${EVENTBRITE_TOKEN}  # optional
+  eventbrite_token: ${EVENTBRITE_TOKEN}  # optional — set in Settings or env
 
 # --- Learning Paths ---
 learning_paths:
