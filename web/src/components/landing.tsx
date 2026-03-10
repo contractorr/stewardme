@@ -73,7 +73,7 @@ export default function Landing() {
   return (
     <div className="flex min-h-screen flex-col items-center bg-muted/40">
       {/* Hero */}
-      <section className="flex flex-col items-center px-4 pt-[15vh] pb-16 text-center">
+      <section className="flex flex-col items-center px-4 pt-[15vh] pb-10 text-center">
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
           <Brain className="h-7 w-7 text-primary" />
         </div>
@@ -98,7 +98,6 @@ export default function Landing() {
           </Button>
           <Button variant="outline" asChild>
             <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
-              <Github className="mr-2 h-4 w-4" />
               View on GitHub
             </a>
           </Button>
@@ -106,7 +105,7 @@ export default function Landing() {
       </section>
 
       {/* Source logos */}
-      <section className="flex flex-col items-center px-4 py-12">
+      <section className="flex flex-col items-center px-4 pt-2 pb-12">
         <p className="mb-6 text-sm text-muted-foreground">
           Scans the sources you care about
         </p>
@@ -239,14 +238,13 @@ export default function Landing() {
       </section>
 
       {/* Footer CTA + links */}
-      <section className="flex flex-col items-center px-4 py-16">
+      <section className="flex flex-col items-center px-4 pt-8 pb-16">
         <div className="flex gap-3">
           <Button asChild size="lg">
             <Link href="/login">Get started free</Link>
           </Button>
           <Button variant="outline" size="lg" asChild>
             <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
-              <Github className="mr-2 h-4 w-4" />
               Explore the code
             </a>
           </Button>
