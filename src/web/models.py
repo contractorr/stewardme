@@ -73,6 +73,24 @@ class SettingsResponse(BaseModel):
     feature_regulatory_signals_enabled: bool = False
 
 
+# --- Usage ---
+
+
+class UsageModelStats(BaseModel):
+    model: str
+    input_tokens: int = 0
+    output_tokens: int = 0
+    query_count: int = 0
+    estimated_cost_usd: float = 0.0
+
+
+class UsageStatsResponse(BaseModel):
+    days: int = 30
+    total_queries: int = 0
+    total_estimated_cost_usd: float = 0.0
+    by_model: list[UsageModelStats] = Field(default_factory=list)
+
+
 # --- Journal ---
 
 

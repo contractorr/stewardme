@@ -26,6 +26,7 @@ Settings owns account-level and advanced configuration tasks so everyday work ca
 
 - Add, replace, test, or remove one provider key without affecting the others.
 - Review which providers are available for normal answers versus council-assisted answers.
+- View estimated LLM cost breakdown by model for the last 30 days.
 - Update account or model-access settings.
 - Add or edit a tracked topic.
 - Review and delete memory facts.

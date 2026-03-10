@@ -51,6 +51,7 @@ class AgenticOrchestrator:
             token_threshold=token_threshold,
         )
         self._total_input_tokens = 0
+        self._total_usage: dict = {"input_tokens": 0, "output_tokens": 0, "billed_input_tokens": 0}
         self._session_id: str = ""
         self._trace: list[dict] = []
 
@@ -68,9 +69,10 @@ class AgenticOrchestrator:
         conversation_history: list[dict] | None = None,
         event_callback: Callable[[dict], None] | None = None,
     ) -> str:
-        # Reset trace for this run
+        # Reset trace and usage for this run
         self._session_id = uuid.uuid4().hex[:16]
         self._trace = [make_session_entry(self._session_id, user_message)]
+        self._total_usage = {"input_tokens": 0, "output_tokens": 0, "billed_input_tokens": 0}
 
         messages = list(conversation_history or [])
         messages.append({"role": "user", "content": user_message})
@@ -95,7 +97,11 @@ class AgenticOrchestrator:
             input_tokens = 0
             if response.usage:
                 input_tokens = int(response.usage.get("input_tokens", 0))
-                self._total_input_tokens = input_tokens
+                self._total_input_tokens += input_tokens
+                for k in ("input_tokens", "output_tokens", "billed_input_tokens"):
+                    self._total_usage[k] = self._total_usage.get(k, 0) + int(
+                        response.usage.get(k, 0)
+                    )
             else:
                 logger.warning("agentic_usage_missing", iteration=iteration)
 

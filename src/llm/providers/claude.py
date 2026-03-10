@@ -34,6 +34,7 @@ class ClaudeProvider(LLMProvider):
         self.model_name = self.model
         self.extended_thinking = extended_thinking
         self.prompt_caching_enabled = prompt_caching_enabled
+        self._last_usage: dict | None = None
 
         if client:
             self.client = client
@@ -90,7 +91,7 @@ class ClaudeProvider(LLMProvider):
                 kwargs["thinking"] = {"type": "enabled", "budget_tokens": budget}
 
             response = self.client.messages.create(**kwargs)
-            self._record_usage(response)
+            self._last_usage = self._record_usage(response)
 
             # With thinking enabled, extract the text block (skip thinking blocks)
             for block in response.content:
@@ -143,6 +144,7 @@ class ClaudeProvider(LLMProvider):
 
             response = self.client.messages.create(**kwargs)
             usage = self._record_usage(response)
+            self._last_usage = usage
 
             # Parse response blocks
             text_parts = []

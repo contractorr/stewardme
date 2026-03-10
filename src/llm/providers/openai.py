@@ -2,6 +2,8 @@
 
 import json
 
+from observability import metrics
+
 from ..base import (
     GenerateResponse,
     LLMAuthError,
@@ -48,6 +50,8 @@ class OpenAIProvider(LLMProvider):
 
     def __init__(self, api_key: str | None = None, model: str | None = None, client=None):
         self.model = model or "gpt-4o"
+        self.model_name = self.model
+        self._last_usage: dict | None = None
 
         if client:
             self.client = client
@@ -59,6 +63,21 @@ class OpenAIProvider(LLMProvider):
             raise LLMError("openai package not installed. Run: pip install 'stewardme[openai]'")
 
         self.client = OpenAI(api_key=api_key)
+
+    def _extract_and_record_usage(self, response) -> dict | None:
+        usage = getattr(response, "usage", None)
+        if not usage:
+            return None
+        input_tokens = int(getattr(usage, "prompt_tokens", 0) or 0)
+        output_tokens = int(getattr(usage, "completion_tokens", 0) or 0)
+        metrics.token_usage(self.model, input_tokens, output_tokens)
+        result = {
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "billed_input_tokens": float(input_tokens),
+        }
+        self._last_usage = result
+        return result
 
     def generate(
         self,
@@ -78,6 +97,7 @@ class OpenAIProvider(LLMProvider):
                 max_tokens=max_tokens,
                 messages=full_messages,
             )
+            self._extract_and_record_usage(response)
             return self._strip_think_tags(response.choices[0].message.content)
         except Exception as e:
             _handle_openai_error(e)
@@ -182,7 +202,10 @@ class OpenAIProvider(LLMProvider):
             else:
                 finish = "stop"
 
-            return GenerateResponse(content=content, tool_calls=tool_calls, finish_reason=finish)
+            usage = self._extract_and_record_usage(response)
+            return GenerateResponse(
+                content=content, tool_calls=tool_calls, finish_reason=finish, usage=usage
+            )
 
         except Exception as e:
             _handle_openai_error(e)

@@ -2,6 +2,8 @@
 
 import uuid
 
+from observability import metrics
+
 from ..base import (
     GenerateResponse,
     LLMAuthError,
@@ -30,6 +32,7 @@ class GeminiProvider(LLMProvider):
     def __init__(self, api_key: str | None = None, model: str | None = None, client=None):
         self.model_name = model or "gemini-2.5-flash"
         self._api_key = api_key
+        self._last_usage: dict | None = None
 
         if client:
             self.client = client
@@ -43,6 +46,21 @@ class GeminiProvider(LLMProvider):
             )
 
         self.client = genai.Client(api_key=api_key)
+
+    def _extract_and_record_usage(self, response) -> dict | None:
+        usage = getattr(response, "usage_metadata", None)
+        if not usage:
+            return None
+        input_tokens = int(getattr(usage, "prompt_token_count", 0) or 0)
+        output_tokens = int(getattr(usage, "candidates_token_count", 0) or 0)
+        metrics.token_usage(self.model_name, input_tokens, output_tokens)
+        result = {
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "billed_input_tokens": float(input_tokens),
+        }
+        self._last_usage = result
+        return result
 
     def generate(
         self,
@@ -70,6 +88,7 @@ class GeminiProvider(LLMProvider):
                 contents=prompt,
                 config=config,
             )
+            self._extract_and_record_usage(response)
             return self._strip_think_tags(response.text)
         except Exception as e:
             _handle_gemini_error(e)
@@ -140,7 +159,10 @@ class GeminiProvider(LLMProvider):
             content = self._strip_think_tags("\n".join(text_parts)) if text_parts else None
             finish = "tool_calls" if tool_calls else "stop"
 
-            return GenerateResponse(content=content, tool_calls=tool_calls, finish_reason=finish)
+            usage = self._extract_and_record_usage(response)
+            return GenerateResponse(
+                content=content, tool_calls=tool_calls, finish_reason=finish, usage=usage
+            )
 
         except Exception as e:
             _handle_gemini_error(e)

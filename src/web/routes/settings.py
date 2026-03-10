@@ -13,8 +13,13 @@ from web.deps import (
     llm_secret_key,
     resolve_llm_credentials_for_user,
 )
-from web.models import SettingsResponse, SettingsUpdate
-from web.user_store import delete_user_secret, get_user_secret, set_user_secret
+from web.models import SettingsResponse, SettingsUpdate, UsageStatsResponse
+from web.user_store import (
+    delete_user_secret,
+    get_user_secret,
+    get_user_usage_stats,
+    set_user_secret,
+)
 
 logger = structlog.get_logger()
 
@@ -158,6 +163,16 @@ async def update_settings(
 
     logger.info("settings.updated", user_id=user_id, keys=updated_keys)
     return SettingsResponse(**get_settings_mask_for_user(user["id"]))
+
+
+@router.get("/usage", response_model=UsageStatsResponse)
+async def get_usage(
+    days: int = Query(30, ge=1, le=365),
+    user: dict = Depends(get_current_user),
+):
+    """Per-user LLM cost estimation from chat_query events."""
+    stats = get_user_usage_stats(user["id"], days=days)
+    return UsageStatsResponse(**stats)
 
 
 @router.post("/test-llm")

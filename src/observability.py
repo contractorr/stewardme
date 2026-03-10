@@ -141,6 +141,14 @@ class Metrics:
 metrics = Metrics()
 
 
+def compute_cost(model: str, billed_input: float, output_tokens: int) -> float:
+    """Estimate USD cost for a single request given token counts."""
+    input_rate, output_rate, _ = metrics._get_pricing(model)
+    return round(
+        (billed_input / 1_000_000) * input_rate + (output_tokens / 1_000_000) * output_rate, 8
+    )
+
+
 def log_run_summary():
     """Log the current metrics summary via structlog."""
     summary = metrics.summary()

@@ -122,6 +122,21 @@ interface ProfileData {
   is_stale: boolean;
 }
 
+interface UsageModelStats {
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  query_count: number;
+  estimated_cost_usd: number;
+}
+
+interface UsageStats {
+  days: number;
+  total_queries: number;
+  total_estimated_cost_usd: number;
+  by_model: UsageModelStats[];
+}
+
 interface MemoryFact {
   id: string;
   text: string;
@@ -448,6 +463,7 @@ export default function SettingsPage() {
   const [rssAdding, setRssAdding] = useState(false);
   const [rssRemoving, setRssRemoving] = useState<string | null>(null);
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
+  const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
   const [memoryFacts, setMemoryFacts] = useState<MemoryFact[]>([]);
   const [memoryStats, setMemoryStats] = useState<MemoryStats | null>(null);
   const [deletingFactId, setDeletingFactId] = useState<string | null>(null);
@@ -472,6 +488,7 @@ export default function SettingsPage() {
   const sectionLinks = [
     { id: "account", label: "Account" },
     { id: "ai-settings", label: "AI" },
+    { id: "usage", label: "Usage" },
     { id: "api-keys", label: "Keys" },
     { id: "features", label: "Features" },
     { id: "rss-feeds", label: "RSS" },
@@ -499,6 +516,9 @@ export default function SettingsPage() {
       .catch(() => {});
     apiFetch<WatchlistItem[]>("/api/intel/watchlist", {}, token)
       .then(setWatchlist)
+      .catch(() => {});
+    apiFetch<UsageStats>("/api/settings/usage", {}, token)
+      .then(setUsageStats)
       .catch(() => {});
     apiFetch<MemoryFact[]>("/api/memory/facts?limit=50", {}, token)
       .then(setMemoryFacts)
@@ -940,6 +960,46 @@ export default function SettingsPage() {
               );
             })}
           </div>
+        </CardContent>
+      </Card>
+      </section>
+
+      <section id="usage">
+      <Card>
+        <CardHeader>
+          <CardTitle>Usage</CardTitle>
+          <CardDescription>Estimated LLM cost for advisor queries (last 30 days)</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {usageStats && usageStats.by_model.length > 0 ? (
+            <>
+              <div className="flex flex-wrap gap-4 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground">Total queries</p>
+                  <p className="text-lg font-semibold">{usageStats.total_queries}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Estimated cost</p>
+                  <p className="text-lg font-semibold">${usageStats.total_estimated_cost_usd.toFixed(4)}</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {usageStats.by_model.map((m) => (
+                  <div key={m.model} className="flex items-center justify-between rounded-lg border p-3 text-sm">
+                    <div>
+                      <p className="font-medium">{m.model}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {m.query_count} {m.query_count === 1 ? "query" : "queries"} &middot; {m.input_tokens.toLocaleString()} in / {m.output_tokens.toLocaleString()} out tokens
+                      </p>
+                    </div>
+                    <p className="font-mono text-xs">${m.estimated_cost_usd.toFixed(4)}</p>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">No usage data yet.</p>
+          )}
         </CardContent>
       </Card>
       </section>

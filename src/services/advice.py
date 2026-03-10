@@ -65,10 +65,24 @@ def finish_conversation_turn(
     latency_ms: int,
     add_message_fn: Callable[..., Any],
     log_event_fn: Callable[[str, str, dict], Any],
+    usage: dict | None = None,
+    model: str | None = None,
 ) -> None:
     """Persist the assistant turn and record request latency."""
     add_message_fn(conv_id, "assistant", answer)
-    log_event_fn("chat_query", user_id, {"latency_ms": latency_ms})
+    metadata: dict[str, Any] = {"latency_ms": latency_ms}
+    if usage:
+        from observability import compute_cost
+
+        billed = float(usage.get("billed_input_tokens", usage.get("input_tokens", 0)))
+        output = int(usage.get("output_tokens", 0))
+        metadata["input_tokens"] = int(usage.get("input_tokens", 0))
+        metadata["output_tokens"] = output
+        metadata["billed_input_tokens"] = billed
+        metadata["estimated_cost_usd"] = compute_cost(model or "unknown", billed, output)
+    if model:
+        metadata["model"] = model
+    log_event_fn("chat_query", user_id, metadata)
 
 
 def _maybe_persist_trace(engine, trace_data_dir: Path | None) -> None:
@@ -89,6 +103,33 @@ def _maybe_persist_trace(engine, trace_data_dir: Path | None) -> None:
         purge_old_traces(trace_data_dir)
     except Exception:
         logger.debug("trace_persist_failed", exc_info=True)
+
+
+def _collect_usage_from_engine(engine) -> dict | None:
+    """Extract token usage from the engine after a request. Never raises."""
+    try:
+        orch = getattr(engine, "_orchestrator", None)
+        if orch is not None:
+            usage = getattr(orch, "_total_usage", None)
+            if usage and (usage.get("input_tokens", 0) or usage.get("output_tokens", 0)):
+                return dict(usage)
+        llm = getattr(engine, "llm", None)
+        if llm is not None:
+            return getattr(llm, "_last_usage", None)
+    except Exception:
+        pass
+    return None
+
+
+def _get_model_name(engine) -> str | None:
+    """Extract the model name from the engine. Never raises."""
+    try:
+        llm = getattr(engine, "llm", None)
+        if llm is None:
+            return None
+        return getattr(llm, "model_name", None) or getattr(llm, "model", None)
+    except Exception:
+        return None
 
 
 def run_advice(
@@ -121,6 +162,8 @@ def run_advice(
             "council_providers": getattr(result, "council_providers", []),
             "council_failed_providers": getattr(result, "council_failed_providers", []),
             "council_partial": getattr(result, "council_partial", False),
+            "usage": _collect_usage_from_engine(engine),
+            "model": _get_model_name(engine),
         }
         return payload
 
@@ -140,4 +183,6 @@ def run_advice(
         "council_providers": [],
         "council_failed_providers": [],
         "council_partial": False,
+        "usage": _collect_usage_from_engine(engine),
+        "model": _get_model_name(engine),
     }

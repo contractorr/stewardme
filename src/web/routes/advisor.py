@@ -309,6 +309,8 @@ async def ask_advisor(
             latency_ms=result["latency_ms"],
             add_message_fn=add_message,
             log_event_fn=log_event,
+            usage=result.get("usage"),
+            model=result.get("model"),
         )
 
         return AdvisorResponse(
@@ -387,6 +389,8 @@ async def ask_advisor_stream(
                 latency_ms=result["latency_ms"],
                 add_message_fn=add_message,
                 log_event_fn=log_event,
+                usage=result.get("usage"),
+                model=result.get("model"),
             )
             if not answer_sent:
                 queue.put_nowait(
