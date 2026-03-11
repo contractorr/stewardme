@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta
+from unittest.mock import MagicMock, patch
 
 from intelligence.company_watch import CompanyMovementStore
 from intelligence.hiring_signals import HiringSignalStore
 from intelligence.regulatory import RegulatoryAlertStore
-from intelligence.scheduler import IntelScheduler
+from intelligence.scheduler import IntelScheduler, RecommendationRunner
 from intelligence.scraper import IntelItem, IntelStorage
 from intelligence.watchlist import WatchlistStore
 from storage_paths import get_user_paths
@@ -162,3 +163,73 @@ def test_regulatory_alert_store_counts_only_inserted_rows(tmp_path):
 
     assert store.save_many([alert]) == 1
     assert store.save_many([alert]) == 0
+
+
+@patch("journal.fts.JournalFTSIndex")
+@patch("journal.JournalSearch")
+@patch("journal.EmbeddingManager")
+@patch("advisor.rag.RAGRetriever")
+@patch("advisor.engine.AdvisorEngine")
+def test_recommendation_runner_reports_brief_not_saved_without_journal_delivery(
+    mock_advisor_cls,
+    mock_rag_cls,
+    mock_search_cls,
+    mock_embeddings_cls,
+    mock_fts_cls,
+    tmp_path,
+):
+    storage = MagicMock()
+    storage.db_path = tmp_path / "intel.db"
+    runner = RecommendationRunner(
+        storage=storage,
+        journal_storage=MagicMock(),
+        config={"recommendations": {"enabled": True, "delivery": {"methods": ["email"]}}},
+    )
+
+    mock_advisor = MagicMock()
+    mock_advisor.generate_recommendations.return_value = [object(), object()]
+    mock_advisor_cls.return_value = mock_advisor
+    mock_rag_cls.return_value = MagicMock()
+    mock_search_cls.return_value = MagicMock()
+    mock_embeddings_cls.return_value = MagicMock()
+    mock_fts_cls.return_value = MagicMock()
+
+    result = runner.run()
+
+    assert result == {"recommendations": 2, "brief_saved": False}
+    mock_advisor.generate_action_brief.assert_not_called()
+
+
+@patch("journal.fts.JournalFTSIndex")
+@patch("journal.JournalSearch")
+@patch("journal.EmbeddingManager")
+@patch("advisor.rag.RAGRetriever")
+@patch("advisor.engine.AdvisorEngine")
+def test_recommendation_runner_reports_brief_saved_when_journal_delivery_enabled(
+    mock_advisor_cls,
+    mock_rag_cls,
+    mock_search_cls,
+    mock_embeddings_cls,
+    mock_fts_cls,
+    tmp_path,
+):
+    storage = MagicMock()
+    storage.db_path = tmp_path / "intel.db"
+    runner = RecommendationRunner(
+        storage=storage,
+        journal_storage=MagicMock(),
+        config={"recommendations": {"enabled": True, "delivery": {"methods": ["journal"]}}},
+    )
+
+    mock_advisor = MagicMock()
+    mock_advisor.generate_recommendations.return_value = [object()]
+    mock_advisor_cls.return_value = mock_advisor
+    mock_rag_cls.return_value = MagicMock()
+    mock_search_cls.return_value = MagicMock()
+    mock_embeddings_cls.return_value = MagicMock()
+    mock_fts_cls.return_value = MagicMock()
+
+    result = runner.run()
+
+    assert result == {"recommendations": 1, "brief_saved": True}
+    mock_advisor.generate_action_brief.assert_called_once()

@@ -184,15 +184,17 @@ class RecommendationRunner:
             )
 
             delivery = rec_config.get("delivery", {})
+            brief_saved = False
             if "journal" in delivery.get("methods", ["journal"]):
                 advisor.generate_action_brief(
                     rec_db,
                     journal_storage=self.journal_storage,
                     save=True,
                 )
+                brief_saved = True
                 logger.info("Action brief saved to journal")
 
-            return {"recommendations": len(recs), "brief_saved": True}
+            return {"recommendations": len(recs), "brief_saved": brief_saved}
 
         except Exception as e:
             logger.error("Failed to generate recommendations: %s", e)
