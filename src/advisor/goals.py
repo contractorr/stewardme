@@ -16,6 +16,7 @@ class GoalTracker:
     """Track goals and detect stale ones needing attention."""
 
     DEFAULT_CHECK_IN_DAYS = 14
+    INACTIVE_STATUSES = (GoalStatus.PAUSED, GoalStatus.COMPLETED, GoalStatus.ABANDONED)
 
     def __init__(self, journal_storage):
         self.storage = journal_storage
@@ -39,7 +40,7 @@ class GoalTracker:
                 meta = dict(post.metadata)
 
                 status = meta.get("status", "active")
-                if not include_inactive and status in (GoalStatus.COMPLETED, GoalStatus.ABANDONED):
+                if not include_inactive and status in self.INACTIVE_STATUSES:
                     continue
 
                 g_type = meta.get("goal_type", "general")
@@ -73,7 +74,9 @@ class GoalTracker:
                 continue
 
         return sorted(
-            goals, key=lambda g: (not g["is_stale"], g.get("days_since_check") or 0), reverse=True
+            goals,
+            key=lambda g: (g["is_stale"], g.get("days_since_check") or -1),
+            reverse=True,
         )
 
     def get_stale_goals(self, days_threshold: Optional[int] = None) -> list[dict]:

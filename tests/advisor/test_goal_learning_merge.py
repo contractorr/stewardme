@@ -1,5 +1,6 @@
 """Tests for Phase 2: goal-learning merge — type field, milestones, migration."""
 
+from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import frontmatter
@@ -108,6 +109,67 @@ class TestGoalTypeField:
 
         all_goals = tracker.get_goals()
         assert len(all_goals) == 3
+
+    def test_paused_goals_excluded_by_default(self, tmp_path):
+        jdir = tmp_path / "journal"
+        jdir.mkdir()
+
+        active_goal = jdir / "2024-01-01_goal_active.md"
+        paused_goal = jdir / "2024-01-02_goal_paused.md"
+
+        for path, status in ((active_goal, "active"), (paused_goal, "paused")):
+            post = frontmatter.Post(f"{status} goal")
+            post.metadata = {
+                "title": f"{status.title()} Goal",
+                "entry_type": "goal",
+                "status": status,
+                "created": "2024-01-01T00:00:00",
+                "last_checked": "2024-01-01T00:00:00",
+            }
+            path.write_text(frontmatter.dumps(post))
+
+        storage = MagicMock()
+        storage.list_entries.return_value = [{"path": str(active_goal)}, {"path": str(paused_goal)}]
+        tracker = GoalTracker(storage)
+
+        visible = tracker.get_goals()
+        assert [goal["status"] for goal in visible] == ["active"]
+
+        all_goals = tracker.get_goals(include_inactive=True)
+        assert {goal["status"] for goal in all_goals} == {"active", "paused"}
+
+    def test_stale_goals_sort_first(self, tmp_path):
+        jdir = tmp_path / "journal"
+        jdir.mkdir()
+        now = datetime.now()
+
+        goal_specs = [
+            ("stale-oldest", now - timedelta(days=30)),
+            ("stale-recent", now - timedelta(days=20)),
+            ("fresh", now - timedelta(days=3)),
+        ]
+
+        storage_entries = []
+        for idx, (title, checked_at) in enumerate(goal_specs, start=1):
+            goal_file = jdir / f"2024-01-0{idx}_goal_{title}.md"
+            post = frontmatter.Post(title)
+            post.metadata = {
+                "title": title,
+                "entry_type": "goal",
+                "status": "active",
+                "created": checked_at.isoformat(),
+                "last_checked": checked_at.isoformat(),
+                "check_in_days": 14,
+            }
+            goal_file.write_text(frontmatter.dumps(post))
+            storage_entries.append({"path": str(goal_file)})
+
+        storage = MagicMock()
+        storage.list_entries.return_value = storage_entries
+        tracker = GoalTracker(storage)
+
+        goals = tracker.get_goals()
+        assert [goal["title"] for goal in goals] == ["stale-oldest", "stale-recent", "fresh"]
 
 
 # === Auto-milestone generation ===
