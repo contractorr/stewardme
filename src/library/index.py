@@ -141,7 +141,7 @@ class LibraryIndex:
             sql += " AND status = ?"
             params.append(status)
         if collection:
-            sql += " AND collection = ?"
+            sql += " AND collection = ? COLLATE NOCASE"
             params.append(collection)
 
         sql += " ORDER BY rank LIMIT ?"
