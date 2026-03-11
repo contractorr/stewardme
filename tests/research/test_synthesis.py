@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from llm import LLMRateLimitError
 from research.synthesis import ResearchSynthesizer
 from research.web_search import SearchResult
 
@@ -117,3 +118,34 @@ class TestResearchSynthesizer:
 
         assert "synthesis unavailable" in report.lower()
         assert "Article 1" in report
+
+    def test_retries_before_fallback_on_rate_limit(self, sample_search_results):
+        """Retriable LLM failures should exhaust retries before falling back."""
+        mock_client = MagicMock()
+        mock_client.messages.create.side_effect = LLMRateLimitError("rate limited")
+
+        synth = ResearchSynthesizer(provider="claude", client=mock_client)
+        synth._generate_report.retry.sleep = lambda _: None
+
+        report = synth.synthesize(topic="Test", results=sample_search_results)
+
+        assert "synthesis unavailable" in report.lower()
+        assert mock_client.messages.create.call_count == 3
+
+    def test_dossier_update_retries_before_fallback(self, sample_search_results):
+        """Dossier updates should retry retriable failures before fallback."""
+        mock_client = MagicMock()
+        mock_client.messages.create.side_effect = LLMRateLimitError("rate limited")
+
+        synth = ResearchSynthesizer(provider="claude", client=mock_client)
+        synth._generate_dossier_update.retry.sleep = lambda _: None
+
+        report = synth.synthesize_dossier_update(
+            topic="Test",
+            results=sample_search_results,
+            dossier_context="Tracked context",
+            previous_change_summary="Previous summary",
+        )
+
+        assert "fallback mode" in report.lower()
+        assert mock_client.messages.create.call_count == 3

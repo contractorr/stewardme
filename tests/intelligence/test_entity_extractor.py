@@ -104,6 +104,56 @@ def test_extraction_scheduler_processes_oldest_unprocessed_items(tmp_path):
     assert store.get_unprocessed_items(limit=5) == []
 
 
+def test_extraction_scheduler_marks_empty_items_processed(tmp_path):
+    storage = IntelStorage(tmp_path / "intel.db")
+    storage.save(
+        IntelItem(
+            source="rss",
+            title="No entities here",
+            url="https://example.com/empty",
+            summary="Nothing named explicitly.",
+        )
+    )
+    store = EntityStore(tmp_path / "intel.db")
+    extractor = EntityExtractor(
+        llm=FakeLLM('{"entities": [], "relationships": []}'),
+        storage=storage,
+        entity_store=store,
+    )
+    scheduler = ExtractionScheduler(extractor, store, batch_size=5)
+
+    result = _run(scheduler.run_extraction())
+
+    assert result.processed == 1
+    assert result.errors == 0
+    assert store.get_unprocessed_items(limit=5) == []
+
+
+def test_extraction_scheduler_marks_failed_items_processed(tmp_path):
+    storage = IntelStorage(tmp_path / "intel.db")
+    storage.save(
+        IntelItem(
+            source="rss",
+            title="LLM failure",
+            url="https://example.com/fail",
+            summary="This item triggers invalid JSON.",
+        )
+    )
+    store = EntityStore(tmp_path / "intel.db")
+    extractor = EntityExtractor(
+        llm=FakeLLM("not-json"),
+        storage=storage,
+        entity_store=store,
+    )
+    scheduler = ExtractionScheduler(extractor, store, batch_size=5)
+
+    result = _run(scheduler.run_extraction())
+
+    assert result.processed == 1
+    assert result.errors == 1
+    assert store.get_unprocessed_items(limit=5) == []
+
+
 def _run(coro):
     import asyncio
 

@@ -70,6 +70,16 @@ class EntityExtractor:
             if not item or self.entity_store.is_item_processed(int(item["id"])):
                 continue
             result = await self.extract_item(item)
+            if result.error:
+                self.entity_store.mark_item_processed(
+                    int(item["id"]),
+                    status="failed",
+                    last_error=result.error[:500],
+                )
+            elif result.entities or result.relationships:
+                self.entity_store.mark_item_processed(int(item["id"]), status="succeeded")
+            else:
+                self.entity_store.mark_item_processed(int(item["id"]), status="empty")
             summary.processed += 1
             if result.error:
                 summary.errors += 1

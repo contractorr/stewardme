@@ -100,7 +100,6 @@ Focus on what is new or changed. If little changed, say that explicitly."""
             client=client,
         )
 
-    @llm_retry(exceptions=(LLMRateLimitError, LLMError))
     def synthesize(
         self,
         topic: str,
@@ -132,16 +131,11 @@ Focus on what is new or changed. If little changed, say that explicitly."""
         )
 
         try:
-            return self.llm.generate(
-                messages=[{"role": "user", "content": prompt}],
-                system=self.SYSTEM_PROMPT,
-                max_tokens=max_tokens,
-            )
+            return self._generate_report(prompt, max_tokens=max_tokens)
         except LLMError as e:
             logger.error("LLM synthesis failed: %s", e)
             return self._fallback_report(topic, results)
 
-    @llm_retry(exceptions=(LLMRateLimitError, LLMError))
     def synthesize_dossier_update(
         self,
         topic: str,
@@ -165,14 +159,26 @@ Focus on what is new or changed. If little changed, say that explicitly."""
         )
 
         try:
-            return self.llm.generate(
-                messages=[{"role": "user", "content": prompt}],
-                system=self.SYSTEM_PROMPT,
-                max_tokens=max_tokens,
-            )
+            return self._generate_dossier_update(prompt, max_tokens=max_tokens)
         except LLMError as e:
             logger.error("LLM dossier synthesis failed: %s", e)
             return self._fallback_dossier_update(topic, results, previous_change_summary)
+
+    @llm_retry(exceptions=(LLMRateLimitError, LLMError))
+    def _generate_report(self, prompt: str, max_tokens: int) -> str:
+        return self.llm.generate(
+            messages=[{"role": "user", "content": prompt}],
+            system=self.SYSTEM_PROMPT,
+            max_tokens=max_tokens,
+        )
+
+    @llm_retry(exceptions=(LLMRateLimitError, LLMError))
+    def _generate_dossier_update(self, prompt: str, max_tokens: int) -> str:
+        return self.llm.generate(
+            messages=[{"role": "user", "content": prompt}],
+            system=self.SYSTEM_PROMPT,
+            max_tokens=max_tokens,
+        )
 
     def _format_sources(self, results: list[SearchResult]) -> str:
         """Format search results for the prompt."""

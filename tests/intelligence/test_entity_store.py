@@ -26,7 +26,7 @@ def test_entity_store_migrates_schema_and_deduplicates_names(tmp_path):
     assert entity["type"] == "Company"
 
     with wal_connect(tmp_path / "intel.db") as conn:
-        assert get_schema_version(conn) == 4
+        assert get_schema_version(conn) == 5
 
 
 def test_entity_store_links_items_and_relationships(tmp_path):

@@ -8,7 +8,7 @@ from pathlib import Path
 
 from db import ensure_schema_version, wal_connect
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 
 def normalize_entity_name(name: str) -> str:
@@ -74,6 +74,16 @@ class EntityStore:
             )
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_item_links_item ON entity_item_links(item_id)"
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS entity_item_processing (
+                    item_id INTEGER PRIMARY KEY REFERENCES intel_items(id),
+                    status TEXT NOT NULL,
+                    last_error TEXT,
+                    processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
             )
             ensure_schema_version(conn, SCHEMA_VERSION)
 
@@ -322,10 +332,30 @@ class EntityStore:
     def is_item_processed(self, item_id: int) -> bool:
         with wal_connect(self.db_path) as conn:
             row = conn.execute(
+                "SELECT status FROM entity_item_processing WHERE item_id = ? LIMIT 1",
+                (item_id,),
+            ).fetchone()
+            if row is not None:
+                return True
+            row = conn.execute(
                 "SELECT 1 FROM entity_item_links WHERE item_id = ? LIMIT 1",
                 (item_id,),
             ).fetchone()
         return row is not None
+
+    def mark_item_processed(self, item_id: int, status: str, last_error: str | None = None) -> None:
+        with wal_connect(self.db_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO entity_item_processing (item_id, status, last_error, processed_at)
+                VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(item_id) DO UPDATE SET
+                    status = excluded.status,
+                    last_error = excluded.last_error,
+                    processed_at = CURRENT_TIMESTAMP
+                """,
+                (item_id, status, last_error),
+            )
 
     def get_unprocessed_items(self, limit: int = 100) -> list[int]:
         with wal_connect(self.db_path) as conn:
@@ -334,7 +364,8 @@ class EntityStore:
                 SELECT i.id
                 FROM intel_items i
                 LEFT JOIN entity_item_links l ON l.item_id = i.id
-                WHERE l.item_id IS NULL
+                LEFT JOIN entity_item_processing p ON p.item_id = i.id
+                WHERE l.item_id IS NULL AND p.item_id IS NULL
                 ORDER BY i.scraped_at ASC
                 LIMIT ?
                 """,
