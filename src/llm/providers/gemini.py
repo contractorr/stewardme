@@ -79,7 +79,7 @@ class GeminiProvider(LLMProvider):
     @staticmethod
     def _make_text_part(types_module, text: str):
         if types_module:
-            return types_module.Part.from_text(text)
+            return types_module.Part.from_text(text=text)
         return {"text": text}
 
     @staticmethod

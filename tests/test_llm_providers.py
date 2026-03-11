@@ -192,6 +192,7 @@ class TestGeminiProvider:
         mock_client.models.generate_content.return_value = mock_resp
 
         provider = GeminiProvider(client=mock_client)
+        provider._get_genai_types = lambda: None
         provider.generate(messages=[{"role": "user", "content": "hi"}])
 
         call_kwargs = mock_client.models.generate_content.call_args.kwargs
@@ -205,6 +206,7 @@ class TestGeminiProvider:
         mock_client.models.generate_content.return_value = mock_resp
 
         provider = GeminiProvider(client=mock_client)
+        provider._get_genai_types = lambda: None
         provider.generate(
             messages=[
                 {"role": "user", "content": "My name is Raj"},

@@ -387,6 +387,7 @@ class TestOpenAIToolCalling:
 class TestGeminiToolCalling:
     def test_convert_messages_reuses_tool_name_from_prior_call(self):
         provider = GeminiProvider(client=MagicMock())
+        provider._get_genai_types = lambda: None
         messages = [
             {"role": "user", "content": "weather?"},
             {
@@ -414,6 +415,7 @@ class TestGeminiToolCalling:
 
     def test_convert_messages_falls_back_to_tool_when_name_cannot_be_resolved(self):
         provider = GeminiProvider(client=MagicMock())
+        provider._get_genai_types = lambda: None
 
         contents = provider._convert_messages(
             [{"role": "tool", "tool_call_id": "missing", "content": '{"temp": 72}'}]
