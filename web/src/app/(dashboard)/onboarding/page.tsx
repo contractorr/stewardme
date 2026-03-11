@@ -227,7 +227,19 @@ export default function OnboardingPage() {
     setPhase(hasApiKey ? "chat" : "welcome");
   };
 
-  const handleSkipKey = () => {
+  const handleSkipKey = async () => {
+    // Clear any stale personal key so backend falls through to shared key
+    if (token) {
+      try {
+        await apiFetch("/api/settings", {
+          method: "PUT",
+          body: JSON.stringify({ llm_api_key: "" }),
+        }, token);
+      } catch {
+        // best-effort
+      }
+    }
+    setApiKey("");
     setUsingSharedKey(true);
     setPhase("chat");
   };
