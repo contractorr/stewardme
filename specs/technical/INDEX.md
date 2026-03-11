@@ -36,5 +36,14 @@ This index summarizes each file in `specs/technical/` after the v2 simplificatio
 | `unified-tool-registry.md` | Single ToolRegistry replacing MCP tuples + advisor registry, with check_fn gates and uniform dispatch | `services/tool_registry.py`, `coach_mcp/server.py`, `advisor/agentic.py`, `advisor/tools.py` | Register, gate, execute |
 | `agentic-context-compression.md` | Token-aware compression with boundary-aligned eviction and LLM summarization | `advisor/context_compressor.py`, `advisor/agentic.py`, `advisor/engine.py` | Track tokens, evict pairs, summarize |
 | `prompt-caching.md` | Anthropic cache_control injection on system prompt + first 3 messages | `llm/providers/anthropic.py`, `advisor/agentic.py`, `observability.py` | Cache prefix, track hits, bill correctly |
+| `ai-capabilities.md` | Static AI KB + dynamic horizon model + 6 scrapers | `advisor/ai_capabilities_kb.py`, `intelligence/capability_model.py`, `intelligence/sources/ai_capabilities.py` | Render context, synthesize horizon, scrape evals |
+| `conversation-storage.md` | Per-user chat persistence in SQLite | `web/conversation_store.py`, `web/routes/advisor.py` | Create, list, message, delete conversations |
+| `engagement-scoring.md` | Event-based engagement tracking | `web/routes/engagement.py`, `web/user_store.py` | Record events, query stats, feed dynamic weighting |
+| `goal-intel-matching.md` | Fused keyword+semantic goal-intel matching | `intelligence/goal_intel_match.py` | Score, tier, LLM re-rank, dedup matches |
+| `nudge-engine.md` | CLI-only behavioral nudges | `advisor/nudges.py` | Check staleness, goals, journal streak |
+| `signals.md` | 7-detector signal engine with hash dedup | `advisor/signals.py` | Detect, persist, dual-write to insights |
+| `suggestions-engine.md` | Unified suggestion endpoint with why_now | `web/routes/suggestions.py`, `web/briefing_data.py` | Assemble, annotate, return merged list |
+| `trending-radar.md` | NLP + LLM cross-source topic trends | `intelligence/trending_radar.py` | Extract phrases, score, persist snapshots |
+| `usage-cost-estimation.md` | Per-user LLM cost estimation | Settings route, usage events | Estimate costs by model |
 | `TEMPLATE.md` | Template for future technical docs | Module paths, interfaces, product mapping | Describe module, boundaries, consumers |
 | `web.md` | Frontend route map plus web-surface persistence invariants | Sidebar, dashboard pages, FastAPI app, canonical user-state store | Navigate five workspaces, chat with attachments, complete onboarding |

@@ -37,6 +37,7 @@ FEATURE_TOGGLE_FIELDS = [
     "feature_company_movement_enabled",
     "feature_hiring_signals_enabled",
     "feature_regulatory_signals_enabled",
+    "feature_github_monitoring",
 ]
 
 
@@ -143,6 +144,7 @@ async def update_settings(
     for key, value in {
         "tavily_api_key": body.tavily_api_key,
         "github_token": body.github_token,
+        "github_pat": body.github_pat,
         "eventbrite_token": body.eventbrite_token,
     }.items():
         if value is None:

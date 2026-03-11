@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { WorkspacePageHeader } from "@/components/WorkspacePageHeader";
 import { WhyNowChip } from "@/components/shared/WhyNowChip";
 import {
   Card,
@@ -717,64 +718,63 @@ export default function GoalsPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold">Focus</h1>
-          <p className="text-sm text-muted-foreground">
-            See your best next moves, keep active goals moving, and turn opportunities into progress.
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/projects">More opportunities</Link>
-          </Button>
-          <Sheet open={createOpen} onOpenChange={setCreateOpen}>
-            <SheetTrigger asChild>
-              <Button size="sm">
-                <Plus className="mr-2 h-4 w-4" /> New Goal
-              </Button>
-            </SheetTrigger>
-            <SheetContent className="sm:max-w-lg overflow-y-auto">
-              <SheetHeader>
-                <SheetTitle>New goal</SheetTitle>
-                <SheetDescription>
-                  What are you committing to next? New web goals start as general goals and can be broken into milestones after creation.
-                </SheetDescription>
-              </SheetHeader>
-              <div className="mt-6 space-y-4 px-6 pb-6">
-                <div className="space-y-1.5">
-                  <Label>Title</Label>
-                  <Input
-                    value={form.title}
-                    onChange={(e) => setForm({ ...form, title: e.target.value })}
-                    placeholder="Ship the portfolio refresh"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Description</Label>
-                  <Textarea
-                    rows={6}
-                    value={form.content}
-                    onChange={(e) => setForm({ ...form, content: e.target.value })}
-                    placeholder="Why this matters, what done looks like, and any constraints to keep in mind."
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Tags (comma-separated)</Label>
-                  <Input
-                    value={form.tags}
-                    onChange={(e) => setForm({ ...form, tags: e.target.value })}
-                    placeholder="career, portfolio"
-                  />
-                </div>
-                <Button onClick={handleCreate} disabled={creating || !form.title.trim()}>
-                  {creating ? "Saving..." : "Add Goal"}
+      <WorkspacePageHeader
+        eyebrow="Work on"
+        title="Focus"
+        description="See your best next moves, keep active goals moving, and turn opportunities into progress."
+        actions={
+          <>
+            <Button variant="outline" asChild>
+              <Link href="/projects">More opportunities</Link>
+            </Button>
+            <Sheet open={createOpen} onOpenChange={setCreateOpen}>
+              <SheetTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4" /> New Goal
                 </Button>
-              </div>
-            </SheetContent>
-          </Sheet>
-        </div>
-      </div>
+              </SheetTrigger>
+              <SheetContent className="sm:max-w-lg overflow-y-auto">
+                <SheetHeader>
+                  <SheetTitle>New goal</SheetTitle>
+                  <SheetDescription>
+                    What are you committing to next? New web goals start as general goals and can be broken into milestones after creation.
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="mt-6 space-y-4 px-6 pb-6">
+                  <div className="space-y-1.5">
+                    <Label>Title</Label>
+                    <Input
+                      value={form.title}
+                      onChange={(e) => setForm({ ...form, title: e.target.value })}
+                      placeholder="Ship the portfolio refresh"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Description</Label>
+                    <Textarea
+                      rows={6}
+                      value={form.content}
+                      onChange={(e) => setForm({ ...form, content: e.target.value })}
+                      placeholder="Why this matters, what done looks like, and any constraints to keep in mind."
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Tags (comma-separated)</Label>
+                    <Input
+                      value={form.tags}
+                      onChange={(e) => setForm({ ...form, tags: e.target.value })}
+                      placeholder="career, portfolio"
+                    />
+                  </div>
+                  <Button onClick={handleCreate} disabled={creating || !form.title.trim()}>
+                    {creating ? "Saving..." : "Add Goal"}
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </>
+        }
+      />
 
       {/* Loading */}
       {loading && (

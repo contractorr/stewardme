@@ -31,6 +31,23 @@ Settings owns account-level and advanced configuration tasks so everyday work ca
 - Add or edit a tracked topic.
 - Review and delete memory facts.
 
+## User Deletion
+
+Users can permanently delete their account and all associated data via a single self-service action.
+
+### Behavior
+
+- `DELETE /api/user/me` — authenticated endpoint, no request body required.
+- Before deletion, an `account_deleted` event is logged for audit purposes.
+- DB records are removed in FK-safe order: `user_secrets` → `onboarding_responses` → `engagement_events` → `usage_events` → `user_rss_feeds` → `users`.
+- Filesystem cleanup (`shutil.rmtree(~/coach/users/{safe_user_id}/)`) is best-effort; failure does not block the response.
+- Returns `204 No Content` on success.
+- After deletion the JWT is invalid; subsequent requests with the same token receive `401`.
+
+### User Flow Addition
+
+- Delete account and all associated data from the Settings page.
+
 ## Key System Components
 
 - `web/src/app/(dashboard)/settings/page.tsx`

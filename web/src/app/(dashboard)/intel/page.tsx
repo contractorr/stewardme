@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { WorkspacePageHeader } from "@/components/WorkspacePageHeader";
 import {
   Card,
   CardContent,
@@ -751,22 +752,21 @@ export default function IntelPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold">Radar</h1>
-          <p className="text-sm text-muted-foreground">
-            Scan the market, surface what matters to you, and save follow-up signals without leaving the feed.
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          onClick={handleScrape}
-          disabled={scraping}
-        >
-          <RefreshCw className={`mr-2 h-4 w-4 ${scraping ? "animate-spin" : ""}`} />
-          {scraping ? "Scanning..." : "Scan Now"}
-        </Button>
-      </div>
+      <WorkspacePageHeader
+        eyebrow="Intelligence"
+        title="Radar"
+        description="Scan the market, surface what matters to you, and save follow-up signals without leaving the feed."
+        actions={
+          <Button
+            variant="outline"
+            onClick={handleScrape}
+            disabled={scraping}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${scraping ? "animate-spin" : ""}`} />
+            {scraping ? "Scanning..." : "Scan Now"}
+          </Button>
+        }
+      />
 
       {/* Scraper Health */}
       {token && <HealthDashboard key={`health-${trendingKey}`} token={token} />}

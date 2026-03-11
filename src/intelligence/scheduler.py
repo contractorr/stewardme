@@ -900,7 +900,18 @@ class IntelScheduler:
             from advisor.signals import SignalDetector
 
             db_path = self.storage.db_path
-            detector = SignalDetector(self.journal_storage, db_path, self.full_config)
+            repo_store = None
+            gh_config = self.full_config.get("github_monitoring", {})
+            if gh_config.get("enabled", False):
+                try:
+                    from .github_repo_store import GitHubRepoStore
+
+                    repo_store = GitHubRepoStore(db_path)
+                except Exception:
+                    pass
+            detector = SignalDetector(
+                self.journal_storage, db_path, self.full_config, repo_store=repo_store
+            )
             signals = detector.detect_all()
             logger.info("signal_detection_complete", count=len(signals))
             return signals
@@ -998,6 +1009,68 @@ class IntelScheduler:
             domains_fallback=fallback,
         )
         return {"items_scraped": len(items), "domains": len(model.domains)}
+
+    def run_github_repo_poll(self) -> dict:
+        """Poll monitored GitHub repos for all users."""
+        gh_config = self.full_config.get("github_monitoring", {})
+        if not gh_config.get("enabled", False):
+            return {"status": "disabled"}
+
+        try:
+            from .github_repo_poller import GitHubRepoPoller
+            from .github_repo_store import GitHubRepoStore
+            from .github_repos import GitHubRepoClient
+
+            store = GitHubRepoStore(self.storage.db_path)
+            user_ids = store.get_all_user_ids_with_repos()
+            if not user_ids:
+                return {"status": "no_repos"}
+
+            total_snapshots = 0
+            for user_id in user_ids:
+                token = None
+                try:
+                    from user_state_store import get_user_secret
+
+                    fernet_key = os.environ.get("SECRET_KEY", "")
+                    if fernet_key:
+                        token = get_user_secret(user_id, "github_pat", fernet_key)
+                        if not token:
+                            token = get_user_secret(user_id, "github_token", fernet_key)
+                except Exception:
+                    pass  # user_state_store may not be available in CLI mode
+
+                client = GitHubRepoClient(
+                    token=token,
+                    base_url=gh_config.get("api_base_url", "https://api.github.com"),
+                    timeout=gh_config.get("request_timeout_s", 15),
+                )
+                poller = GitHubRepoPoller(client, store)
+                try:
+                    snapshots = asyncio.run(poller.poll_user_repos(user_id))
+                    total_snapshots += len(snapshots)
+                except Exception as e:
+                    logger.warning(
+                        "github_repo_poll.user_failed",
+                        user_id=user_id,
+                        error=str(e),
+                    )
+                finally:
+                    asyncio.run(client.close())
+
+            # Prune old snapshots
+            retention = gh_config.get("snapshot_retention_days", 90)
+            pruned = store.prune_snapshots(retention)
+            logger.info(
+                "github_repo_poll.complete",
+                users=len(user_ids),
+                snapshots=total_snapshots,
+                pruned=pruned,
+            )
+            return {"users": len(user_ids), "snapshots": total_snapshots, "pruned": pruned}
+        except Exception as e:
+            logger.error("github_repo_poll.failed", error=str(e))
+            return {"error": str(e)}
 
     def start_with_research(
         self,
@@ -1146,6 +1219,18 @@ class IntelScheduler:
             replace_existing=True,
         )
         logger.info("Weekly summary job scheduled: Monday 8am")
+
+        # GitHub repo monitoring
+        gh_mon_config = self.full_config.get("github_monitoring", {})
+        if gh_mon_config.get("enabled", False):
+            gh_cron = gh_mon_config.get("poll_cron", "0 */4 * * *")
+            self.scheduler.add_job(
+                self.run_github_repo_poll,
+                trigger=_parse_cron(gh_cron),
+                id="github_repo_poll",
+                replace_existing=True,
+            )
+            logger.info("github_repo_poll.scheduled", cron=gh_cron)
 
         self.scheduler.add_listener(self._default_error_handler, EVENT_JOB_ERROR)
         self.scheduler.start()

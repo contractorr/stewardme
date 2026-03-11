@@ -20,6 +20,7 @@ class SettingsUpdate(BaseModel):
     llm_remove_providers: list[str] = Field(default_factory=list)
     tavily_api_key: Optional[str] = None
     github_token: Optional[str] = None
+    github_pat: Optional[str] = None
     eventbrite_token: Optional[str] = None
     # Feature toggles
     feature_extended_thinking: Optional[bool] = None
@@ -33,6 +34,7 @@ class SettingsUpdate(BaseModel):
     feature_company_movement_enabled: Optional[bool] = None
     feature_hiring_signals_enabled: Optional[bool] = None
     feature_regulatory_signals_enabled: Optional[bool] = None
+    feature_github_monitoring: Optional[bool] = None
 
 
 class LLMProviderKeyStatus(BaseModel):
@@ -58,6 +60,8 @@ class SettingsResponse(BaseModel):
     tavily_api_key_hint: Optional[str] = None
     github_token_set: bool = False
     github_token_hint: Optional[str] = None
+    github_pat_set: bool = False
+    github_pat_hint: Optional[str] = None
     eventbrite_token_set: bool = False
     # Feature toggles (default = global config fallback)
     feature_extended_thinking: bool = True
@@ -71,6 +75,7 @@ class SettingsResponse(BaseModel):
     feature_company_movement_enabled: bool = False
     feature_hiring_signals_enabled: bool = False
     feature_regulatory_signals_enabled: bool = False
+    feature_github_monitoring: bool = False
 
 
 # --- Usage ---
@@ -844,3 +849,50 @@ class AssumptionResponse(BaseModel):
     created_at: str = ""
     updated_at: str = ""
     evidence: list[dict] = []
+
+
+# --- GitHub Repo Monitoring ---
+
+
+class MonitorRepoRequest(BaseModel):
+    repo_full_name: str = Field(..., pattern=r"^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$")
+    html_url: str = ""
+    is_private: bool = False
+
+
+class LinkGoalRequest(BaseModel):
+    goal_path: str = Field(..., min_length=1)
+
+
+class RepoSnapshotResponse(BaseModel):
+    commits_30d: int = 0
+    open_issues: int = 0
+    open_prs: int = 0
+    latest_release: Optional[str] = None
+    ci_status: str = "none"
+    contributors_30d: int = 0
+    pushed_at: Optional[str] = None
+    weekly_commits: list[int] = Field(default_factory=list)
+    snapshot_at: Optional[str] = None
+
+
+class MonitoredRepoResponse(BaseModel):
+    id: str = ""
+    repo_full_name: str = ""
+    html_url: str = ""
+    is_private: bool = False
+    linked_goal_path: Optional[str] = None
+    poll_tier: str = "moderate"
+    last_polled_at: Optional[str] = None
+    added_at: str = ""
+    latest_snapshot: Optional[RepoSnapshotResponse] = None
+
+
+class RepoSummaryResponse(BaseModel):
+    name: str = ""
+    full_name: str = ""
+    private: bool = False
+    html_url: str = ""
+    language: Optional[str] = None
+    pushed_at: Optional[str] = None
+    open_issues_count: int = 0

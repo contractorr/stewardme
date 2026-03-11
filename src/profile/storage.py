@@ -35,6 +35,7 @@ class UserProfile(BaseModel):
     constraints: dict = Field(default_factory=dict)  # time_per_week, geography, budget_sensitivity
     fears_risks: list[str] = Field(default_factory=list)
     active_projects: list[str] = Field(default_factory=list)
+    github_username: Optional[str] = None
     updated_at: Optional[str] = None
 
     def is_stale(self, days: int = 90) -> bool:

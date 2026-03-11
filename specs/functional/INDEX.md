@@ -35,5 +35,14 @@ This index summarizes each file in `specs/functional/` after the v2 simplificati
 | `unified-tool-registry.md` | Single tool registry with availability checks for MCP + advisor | Tool registry, MCP server, agentic orchestrator | Register tool, check availability, execute with uniform errors |
 | `agentic-context-compression.md` | Token-aware context window management for agentic mode | Agentic orchestrator, context compressor, cheap_llm | Compress old turns, summarize evicted context, protect recent turns |
 | `prompt-caching.md` | Anthropic prompt caching for Claude to reduce input token costs | Claude provider, agentic orchestrator | Cache system prompt, track cache hits, reduce costs |
+| `ai-capabilities.md` | AI capabilities KB and capability horizon model | AI KB, capability model, 6 scrapers | Inject AI context into advisor, track capability trajectories |
+| `conversation-storage.md` | Per-user chat persistence | Conversation store, advisor chat | Create, continue, delete conversations |
+| `engagement-scoring.md` | Event-based engagement tracking feeding dynamic weighting | Engagement routes, recommendation weighting | Record feedback, view stats, influence ranking |
+| `goal-intel-matching.md` | Match intel items to active goals | Goal-intel matcher, ChromaDB, LLM evaluator | Surface goal-relevant intel, filter false positives |
+| `heartbeat-hybrid.md` | Heartbeat LLM evaluation triggered by Home load | Heartbeat service, Home page | Trigger eval, surface stale data |
+| `nudge-engine.md` | CLI behavioral nudges for profile/goals/journal | Nudge engine, CLI | Show profile staleness, stale goals, journal streak |
+| `signals.md` | Proactive signal detection across all data sources | Signal detectors, signal store, insight store | Detect goal staleness, topic emergence, journal gaps |
+| `suggestions-engine.md` | Unified suggestion endpoint merging all subsystems | Suggestions route, briefing data, WhyNowReasoner | Review prioritized next steps with timing context |
+| `trending-radar.md` | Cross-source topic trend detection | Trending radar, intel items, NLP/LLM modes | Surface emerging topics from intelligence feeds |
+| `usage-cost-estimation.md` | Per-user LLM cost estimation on settings page | Settings page, usage events | View cost breakdown by model |
 | `TEMPLATE.md` | Template for future functional docs | Functional spec structure, workspace placement | Define problem, map workspace, list flows |
-| `archive/v2-simplified-product.md` | Accepted simplification decision record | Home, Focus, Radar, Library, Settings, onboarding | Explain five jobs, define simplified flows, list acceptance criteria |
