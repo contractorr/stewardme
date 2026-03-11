@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from fastapi import HTTPException
+
 from journal.storage import JournalStorage
 from web.deps import get_user_paths
 
