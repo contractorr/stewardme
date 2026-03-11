@@ -30,11 +30,11 @@ Your journal, goals, and 10 live intel sources feed a RAG pipeline that delivers
 
 ## Why StewardMe?
 
-**The world moves faster than any person can track.** Every day, breakthroughs ship, markets shift, and the signal that matters to your career is buried across hundreds of sources. The information exists — it's just scattered and underutilised.
+**The world moves fast** There is a lot of signal online that is underutilised. Every day, you miss important events and updates that you might have found useful or interesting. The problem is they are buried across hundreds of sources, and everybody is time-poor.
 
-**Foundation models can cover the gaps we can't.** Humans are limited in bandwidth, recall, and hours in the day. LLMs aren't. Right now our strengths are complementary: we set direction, they do the legwork. StewardMe is built on this premise — delegate the scanning, pattern-matching, and synthesis to a model so you can focus on decisions and execution.
+**Foundation models are complementary** Humans are limited in bandwidth, recall, and hours in the day. LLMs aren't. Right now our strengths are complementary. StewardMe is allows users to delegate the scanning, pattern-matching and synthesis to a model.
 
-**Journaling closes the loop.** In a world that rewards speed, reflection is the thing that gets cut first. But writing things down — even rough notes — creates a feedback signal that makes everything else sharper. Your journal is what makes the AI personal: it learns what you care about, what you're stuck on, and where to point you next.
+**Journaling closes the loop.** Journaling forces reflection. Writing things down also creates a signal that can be leveraged by LLMs to provide useful guidance. It creates a feedback loop that allows them to do more targeted research and surface more relevant information to you over time. Your journal is what makes the AI personal. 
 
 ### How it compares
 
