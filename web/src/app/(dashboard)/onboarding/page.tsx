@@ -72,6 +72,8 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
   blockchain_web3: Link,
 };
 
+const ALL_LLM_PROVIDERS = ["claude", "openai", "gemini"] as const;
+
 const introSections = [
   {
     icon: Newspaper,
@@ -233,7 +235,10 @@ export default function OnboardingPage() {
       try {
         await apiFetch("/api/settings", {
           method: "PUT",
-          body: JSON.stringify({ llm_api_key: "" }),
+          body: JSON.stringify({
+            llm_api_key: "",
+            llm_remove_providers: ALL_LLM_PROVIDERS,
+          }),
         }, token);
       } catch {
         // best-effort

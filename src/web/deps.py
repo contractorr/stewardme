@@ -13,6 +13,7 @@ from storage_access import (
     create_insight_store,
     create_intel_storage,
     create_memory_store,
+    create_mind_map_store,
     create_profile_embedding_manager,
     create_profile_storage,
     create_recommendation_storage,
@@ -115,6 +116,11 @@ def get_memory_store(user_id: str):
 def get_thread_store(user_id: str):
     """Construct the per-user thread store."""
     return create_thread_store(get_user_paths(user_id))
+
+
+def get_mind_map_store(user_id: str):
+    """Construct the per-user journal mind-map store."""
+    return create_mind_map_store(get_user_paths(user_id))
 
 
 def get_receipt_store(user_id: str):

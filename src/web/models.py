@@ -1,6 +1,6 @@
 """Pydantic request/response schemas for the web API."""
 
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -124,6 +124,43 @@ class JournalEntry(BaseModel):
     tags: list[str] = []
     preview: str = ""
     content: Optional[str] = None
+
+
+class JournalMindMapNode(BaseModel):
+    id: str
+    label: str
+    kind: str
+    weight: float = 0.0
+    confidence: float = 0.0
+    is_root: bool = False
+    source_type: Optional[str] = None
+    source_label: str = ""
+    source_ref: str = ""
+
+
+class JournalMindMapEdge(BaseModel):
+    source: str
+    target: str
+    label: str = ""
+    strength: float = 0.0
+
+
+class JournalMindMapResponse(BaseModel):
+    map_id: str
+    entry_path: str
+    entry_title: str
+    summary: str = ""
+    rationale: str = ""
+    generator: str = ""
+    nodes: list[JournalMindMapNode] = []
+    edges: list[JournalMindMapEdge] = []
+    created_at: str = ""
+    updated_at: str = ""
+
+
+class JournalMindMapEnvelope(BaseModel):
+    status: Literal["ready", "not_available", "insufficient_signal"] = "not_available"
+    mind_map: Optional[JournalMindMapResponse] = None
 
 
 # --- Advisor ---

@@ -7,6 +7,7 @@ import remarkGfm from "remark-gfm";
 import { useToken } from "@/hooks/useToken";
 import { BookOpen, Plus, Calendar, Search, Tag, X } from "lucide-react";
 import { WorkspacePageHeader } from "@/components/WorkspacePageHeader";
+import { MindMapCard } from "@/components/journal/MindMapCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -587,6 +588,7 @@ export default function JournalPage() {
                   {selected.content || ""}
                 </ReactMarkdown>
               </div>
+              <MindMapCard entry={selected} token={token} />
               <div className="border-t pt-4">
                 {deletingPath === selected.path ? (
                   <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/5 p-3">
