@@ -1,11 +1,11 @@
 """Journal MCP tools — CRUD, search, RAG context retrieval, proactive coaching."""
 
-import asyncio
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import structlog
 
+from coach_mcp.async_utils import run_coro_sync
 from coach_mcp.bootstrap import get_components, get_insight_store, get_thread_store
 
 logger = structlog.get_logger()
@@ -223,14 +223,13 @@ def _detect_thread(c: dict, entry_id: str) -> dict | None:
             },
         )
 
-        loop = asyncio.get_event_loop()
-        match = loop.run_until_complete(detector.detect(entry_id, embedding, entry_date))
+        match = run_coro_sync(detector.detect(entry_id, embedding, entry_date))
 
         if match.match_type == "unthreaded":
             return None
 
-        thread = loop.run_until_complete(store.get_thread(match.thread_id))
-        entries = loop.run_until_complete(store.get_thread_entries(match.thread_id))
+        thread = run_coro_sync(store.get_thread(match.thread_id))
+        entries = run_coro_sync(store.get_thread_entries(match.thread_id))
         dates = sorted(
             set(te.entry_date.strftime("%Y-%m-%d") for te in entries if te.entry_id != entry_id)
         )

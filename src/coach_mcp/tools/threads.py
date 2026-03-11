@@ -1,7 +1,6 @@
 """Thread MCP tools — list, search, and manage journal recurrence threads."""
 
-import asyncio
-
+from coach_mcp.async_utils import run_coro_sync
 from coach_mcp.bootstrap import get_components, get_thread_store
 
 
@@ -12,12 +11,11 @@ def _list_threads(args: dict) -> dict:
 
     store = get_thread_store()
 
-    loop = asyncio.get_event_loop()
-    threads = loop.run_until_complete(store.get_active_threads(min_entries=min_entries))
+    threads = run_coro_sync(store.get_active_threads(min_entries=min_entries))
 
     result = []
     for t in threads:
-        entries = loop.run_until_complete(store.get_thread_entries(t.id))
+        entries = run_coro_sync(store.get_thread_entries(t.id))
         dates = [e.entry_date.strftime("%Y-%m-%d") for e in entries]
         result.append(
             {
@@ -40,12 +38,11 @@ def _get_thread_entries(args: dict) -> dict:
 
     store = get_thread_store()
 
-    loop = asyncio.get_event_loop()
-    thread = loop.run_until_complete(store.get_thread(thread_id))
+    thread = run_coro_sync(store.get_thread(thread_id))
     if not thread:
         return {"error": f"Thread not found: {thread_id}"}
 
-    entries = loop.run_until_complete(store.get_thread_entries(thread_id))
+    entries = run_coro_sync(store.get_thread_entries(thread_id))
     return {
         "thread": {
             "id": thread.id,
@@ -83,9 +80,7 @@ def _reindex_threads(args: dict) -> dict:
         },
     )
 
-    loop = asyncio.get_event_loop()
-    stats = loop.run_until_complete(detector.reindex_all())
-    return stats
+    return run_coro_sync(detector.reindex_all())
 
 
 TOOLS = [
