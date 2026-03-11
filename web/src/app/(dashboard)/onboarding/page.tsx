@@ -72,6 +72,8 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
   blockchain_web3: Link,
 };
 
+const ALL_LLM_PROVIDERS = ["claude", "openai", "gemini"] as const;
+
 const introSections = [
   {
     icon: Newspaper,
@@ -153,10 +155,19 @@ export default function OnboardingPage() {
   useEffect(() => {
     if (!token) return;
     apiFetch<{ llm_api_key_set: boolean; using_shared_key: boolean }>("/api/settings", {}, token)
-      .then((s) => {
-        setHasApiKey(s.llm_api_key_set);
+      .then(async (s) => {
         setUsingSharedKey(s.using_shared_key);
-        if (s.llm_api_key_set) setPhase("chat");
+        if (s.llm_api_key_set) {
+          // Verify key still works before skipping welcome
+          try {
+            await apiFetch("/api/settings/test-llm", { method: "POST" }, token);
+            setHasApiKey(true);
+          } catch {
+            setHasApiKey(false); // key invalid — force welcome phase
+          }
+        } else {
+          setHasApiKey(false);
+        }
       })
       .catch(() => setHasApiKey(false));
   }, [token]);
@@ -174,8 +185,11 @@ export default function OnboardingPage() {
         );
         setMessages([{ role: "assistant", content: res.message }]);
         setTurn(res.turn);
-      } catch (e) {
-        toast.error((e as Error).message);
+      } catch {
+        toast.error("AI service unavailable — please check your API key.");
+        setMessages([]);
+        setTurn(0);
+        setPhase("welcome");
       } finally {
         setSending(false);
       }
@@ -215,7 +229,22 @@ export default function OnboardingPage() {
     setPhase(hasApiKey ? "chat" : "welcome");
   };
 
-  const handleSkipKey = () => {
+  const handleSkipKey = async () => {
+    // Clear any stale personal key so backend falls through to shared key
+    if (token) {
+      try {
+        await apiFetch("/api/settings", {
+          method: "PUT",
+          body: JSON.stringify({
+            llm_api_key: "",
+            llm_remove_providers: ALL_LLM_PROVIDERS,
+          }),
+        }, token);
+      } catch {
+        // best-effort
+      }
+    }
+    setApiKey("");
     setUsingSharedKey(true);
     setPhase("chat");
   };
@@ -238,7 +267,7 @@ export default function OnboardingPage() {
         token
       );
 
-      // Connectivity test
+      // Connectivity test — only advance if it passes
       setTesting(true);
       try {
         const result = await apiFetch<{ ok: boolean; provider: string }>(
@@ -247,17 +276,18 @@ export default function OnboardingPage() {
           token
         );
         toast.success(`${result.provider.charAt(0).toUpperCase() + result.provider.slice(1)} connection successful!`);
-      } catch (e) {
-        toast.error(`Key saved but LLM test failed: ${(e as Error).message}`);
-      } finally {
         setTesting(false);
+        setPhase("chat");
+      } catch {
+        setTesting(false);
+        toast.error("Could not connect — double-check your API key and try again.");
+        // stay on welcome — don't advance
       }
-
-      setPhase("chat");
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
       setSaving(false);
+      setTesting(false);
     }
   };
 
@@ -294,7 +324,11 @@ export default function OnboardingPage() {
         setTurn(0);
         setPhase("chat"); // triggers auto-start effect
       } else {
-        toast.error(msg);
+        // LLM / key error — bounce back to welcome for re-entry
+        toast.error("AI service error — please re-enter your API key.");
+        setMessages([]);
+        setTurn(0);
+        setPhase("welcome");
       }
     } finally {
       setSending(false);

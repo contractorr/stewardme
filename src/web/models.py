@@ -54,6 +54,7 @@ class SettingsResponse(BaseModel):
     llm_provider_keys: list[LLMProviderKeyStatus] = Field(default_factory=list)
     llm_api_key_set: bool = False
     llm_api_key_hint: Optional[str] = None
+    has_profile: bool = False
     using_shared_key: bool = False
     has_own_key: bool = False
     tavily_api_key_set: bool = False
@@ -123,6 +124,40 @@ class JournalEntry(BaseModel):
     tags: list[str] = []
     preview: str = ""
     content: Optional[str] = None
+
+
+class JournalMindMapNode(BaseModel):
+    id: str
+    label: str
+    kind: str
+    weight: float = 0.0
+    confidence: float = 0.0
+    is_root: bool = False
+
+
+class JournalMindMapEdge(BaseModel):
+    source: str
+    target: str
+    label: str = ""
+    strength: float = 0.0
+
+
+class JournalMindMapResponse(BaseModel):
+    map_id: str
+    entry_path: str
+    entry_title: str
+    summary: str = ""
+    rationale: str = ""
+    generator: str = ""
+    nodes: list[JournalMindMapNode] = []
+    edges: list[JournalMindMapEdge] = []
+    created_at: str = ""
+    updated_at: str = ""
+
+
+class JournalMindMapEnvelope(BaseModel):
+    status: str = "not_available"
+    mind_map: Optional[JournalMindMapResponse] = None
 
 
 # --- Advisor ---

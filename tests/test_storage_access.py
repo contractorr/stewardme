@@ -6,6 +6,7 @@ from storage_access import (
     create_insight_store,
     create_intel_storage,
     create_memory_store,
+    create_mind_map_store,
     create_profile_storage,
     create_recommendation_storage,
     create_thread_store,
@@ -20,6 +21,7 @@ def test_storage_access_builds_stores_from_canonical_paths(tmp_path):
         "profile_path": tmp_path / "profile.yaml",
         "memory_db": tmp_path / "memory.db",
         "threads_db": tmp_path / "threads.db",
+        "mind_maps_db": tmp_path / "mind_maps.db",
         "watchlist_path": tmp_path / "watchlist.json",
         "follow_up_path": tmp_path / "intel_follow_ups.json",
         "recommendations_dir": tmp_path / "recommendations",
@@ -30,6 +32,7 @@ def test_storage_access_builds_stores_from_canonical_paths(tmp_path):
     profile_storage = create_profile_storage(paths)
     memory_store = create_memory_store(paths)
     thread_store = create_thread_store(paths)
+    mind_map_store = create_mind_map_store(paths)
     watchlist_store = create_watchlist_store(paths)
     follow_up_store = create_follow_up_store(paths)
     intel_storage = create_intel_storage(paths)
@@ -40,6 +43,7 @@ def test_storage_access_builds_stores_from_canonical_paths(tmp_path):
     assert profile_storage.path == tmp_path / "profile.yaml"
     assert memory_store.db_path == tmp_path / "memory.db"
     assert thread_store.db_path == tmp_path / "threads.db"
+    assert mind_map_store.db_path == tmp_path / "mind_maps.db"
     assert watchlist_store.path == tmp_path / "watchlist.json"
     assert follow_up_store.path == tmp_path / "intel_follow_ups.json"
     assert intel_storage.db_path == tmp_path / "intel.db"

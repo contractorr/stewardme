@@ -26,6 +26,7 @@ def test_get_settings(client, auth_headers, secret_key):
         assert data["llm_council_enabled"] is True
         assert data["llm_council_ready"] is False
         assert len(data["llm_provider_keys"]) == 3
+        assert "has_profile" in data
 
 
 def test_put_settings(client, auth_headers, secret_key, users_db):
@@ -99,6 +100,48 @@ def test_put_settings_can_remove_provider_key(client, auth_headers, secret_key, 
             }
             assert configured == {"claude": True, "openai": False, "gemini": False}
             assert data["llm_council_ready"] is False
+
+
+def test_put_settings_blank_legacy_key_clears_all_personal_keys(
+    client, auth_headers, secret_key, users_db
+):
+    with patch.dict(os.environ, {"SECRET_KEY": secret_key}):
+        from web.user_store import get_or_create_user, init_db
+
+        init_db(users_db)
+        get_or_create_user("user-123", db_path=users_db)
+
+        with (
+            patch("web.user_store._DEFAULT_DB_PATH", users_db),
+            patch("web.routes.settings.set_user_secret", wraps=_real_set_user_secret(users_db)),
+            patch(
+                "web.routes.settings.delete_user_secret", wraps=_real_delete_user_secret(users_db)
+            ),
+        ):
+            res = client.put(
+                "/api/settings",
+                headers=auth_headers,
+                json={
+                    "llm_provider": "claude",
+                    "llm_api_key_claude": "sk-ant-test1234",
+                    "llm_api_key_openai": "sk-openai5678",
+                },
+            )
+            assert res.status_code == 200
+
+            res = client.put(
+                "/api/settings",
+                headers=auth_headers,
+                json={"llm_api_key": ""},
+            )
+            assert res.status_code == 200
+            data = res.json()
+            configured = {
+                item["provider"]: item["configured"] for item in data["llm_provider_keys"]
+            }
+            assert configured == {"claude": False, "openai": False, "gemini": False}
+            assert data["llm_api_key_set"] is False
+            assert data["using_shared_key"] is True
 
 
 def _real_set_user_secret(db_path):

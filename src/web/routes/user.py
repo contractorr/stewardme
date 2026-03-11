@@ -1,12 +1,12 @@
 """User profile (name, email) routes."""
 
 import shutil
-from pathlib import Path
 
 import structlog
 from fastapi import APIRouter, Depends
 from fastapi.responses import Response
 
+from storage_paths import get_coach_home
 from web.auth import get_current_user
 from web.deps import safe_user_id
 from web.models import UserMe, UserMeUpdate
@@ -39,7 +39,7 @@ async def delete_me(user: dict = Depends(get_current_user)):
     log_event("account_deleted", user_id=user_id)
     delete_user(user_id)
     # Best-effort filesystem cleanup
-    user_dir = Path.home() / "coach" / "users" / safe_user_id(user_id)
+    user_dir = get_coach_home() / "users" / safe_user_id(user_id)
     try:
         if user_dir.exists():
             shutil.rmtree(user_dir)

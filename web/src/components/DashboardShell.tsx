@@ -22,8 +22,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
-  const skipGate = pathname === "/onboarding" || pathname === "/settings";
-  const [gateChecked, setGateChecked] = useState(skipGate);
+  const skipGate = pathname === "/onboarding";
+  const [gateChecked, setGateChecked] = useState(false);
   const showBanner = liteMode && !bannerDismissed && pathname !== "/onboarding";
 
   // Fetch display name from backend (prefers onboarding name over OAuth name)
@@ -36,16 +36,15 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true; };
   }, [token]);
 
-  // Onboarding gate: redirect to /onboarding only if user has no API key.
-  // Missing profile is a nudge (handled elsewhere), not a hard block.
+  // Onboarding gate: redirect if no API key or no profile (e.g. after account deletion).
   useEffect(() => {
     if (!token || skipGate) return;
     let cancelled = false;
-    apiFetch<{ llm_api_key_set: boolean; using_shared_key: boolean }>("/api/settings", {}, token)
+    apiFetch<{ llm_api_key_set: boolean; using_shared_key: boolean; has_profile: boolean }>("/api/settings", {}, token)
       .then((settings) => {
         if (cancelled) return;
         const hasAnyKey = settings.llm_api_key_set || settings.using_shared_key;
-        if (!hasAnyKey) {
+        if (!hasAnyKey || !settings.has_profile) {
           router.replace("/onboarding");
         } else {
           setGateChecked(true);
@@ -64,7 +63,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         onOpenSettings={() => setSettingsOpen(true)}
         onToggleSidebar={() => setSidebarOpen((v) => !v)}
       />
-      <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} displayName={displayName} />
+      <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} displayName={displayName} disabled={skipGate} />
       {token && (
         <SettingsSheet
           open={settingsOpen}
@@ -89,7 +88,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
       <main className={`h-full overflow-y-auto pt-12 lg:pl-60 ${showBanner ? "mt-8" : ""}`}>
-        {gateChecked ? children : null}
+        {(gateChecked || skipGate) ? children : null}
       </main>
     </div>
   );

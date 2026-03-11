@@ -63,6 +63,15 @@ def _legacy_provider(body: SettingsUpdate) -> str:
     return "openai"
 
 
+def _clear_personal_llm_keys(user_id: str) -> list[str]:
+    removed: list[str] = []
+    for provider in SUPPORTED_LLM_PROVIDERS:
+        delete_user_secret(user_id, llm_secret_key(provider))
+        removed.append(f"remove:{provider}")
+    delete_user_secret(user_id, "llm_api_key")
+    return removed
+
+
 def _get_stored_provider_key(user_id: str, provider: str, fernet_key: str) -> str | None:
     provider_key = get_user_secret(user_id, llm_secret_key(provider), fernet_key)
     if provider_key:
@@ -132,13 +141,17 @@ async def update_settings(
             updated_keys.append(f"remove:{provider}")
 
     if body.llm_api_key is not None:
-        provider = _legacy_provider(body)
         if body.llm_api_key.strip():
+            provider = _legacy_provider(body)
             set_user_secret(user_id, llm_secret_key(provider), body.llm_api_key.strip(), fernet_key)
             updated_keys.append(llm_secret_key(provider))
         else:
-            delete_user_secret(user_id, llm_secret_key(provider))
-            updated_keys.append(f"remove:{provider}")
+            requested = (body.llm_provider or "").strip().lower()
+            if requested in SUPPORTED_LLM_PROVIDERS:
+                delete_user_secret(user_id, llm_secret_key(requested))
+                updated_keys.append(f"remove:{requested}")
+            else:
+                updated_keys.extend(_clear_personal_llm_keys(user_id))
         delete_user_secret(user_id, "llm_api_key")
 
     for key, value in {

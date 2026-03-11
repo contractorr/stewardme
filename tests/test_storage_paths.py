@@ -14,6 +14,7 @@ def test_get_user_paths_returns_canonical_user_and_shared_paths(tmp_path):
     assert paths["profile_path"] == user_dir / "profile.yaml"
     assert paths["memory_db"] == user_dir / "memory.db"
     assert paths["threads_db"] == user_dir / "threads.db"
+    assert paths["mind_maps_db"] == user_dir / "mind_maps.db"
     assert paths["watchlist_path"] == user_dir / "watchlist.json"
     assert paths["follow_up_path"] == user_dir / "intel_follow_ups.json"
     assert paths["intel_follow_ups_path"] == user_dir / "intel_follow_ups.json"
@@ -31,6 +32,7 @@ def test_get_single_user_paths_returns_rooted_local_paths(tmp_path):
     assert paths["profile_path"] == profile_path
     assert paths["memory_db"] == tmp_path / "memory.db"
     assert paths["threads_db"] == tmp_path / "threads.db"
+    assert paths["mind_maps_db"] == tmp_path / "mind_maps.db"
     assert paths["watchlist_path"] == tmp_path / "watchlist.json"
     assert paths["follow_up_path"] == tmp_path / "intel_follow_ups.json"
     assert paths["intel_db"] == tmp_path / "intel.db"

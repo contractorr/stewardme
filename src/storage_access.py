@@ -76,6 +76,13 @@ def create_thread_store(paths: PathMap):
     return ThreadStore(_require_path(paths, "threads_db"))
 
 
+def create_mind_map_store(paths: PathMap):
+    """Construct a journal mind-map store from canonical paths."""
+    from journal.mind_map import JournalMindMapStore
+
+    return JournalMindMapStore(_require_path(paths, "mind_maps_db"))
+
+
 def create_intel_storage(paths: PathMap):
     """Construct shared intel storage from canonical paths."""
     from intelligence.scraper import IntelStorage

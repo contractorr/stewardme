@@ -34,6 +34,7 @@ from web.user_store import (
     add_user_rss_feed,
     clear_onboarding_responses,
     log_event,
+    mark_onboarded,
     save_onboarding_turn,
     update_user_name,
 )
@@ -248,6 +249,12 @@ def _save_results(user_id: str, data: dict) -> int:
     return goals_created
 
 
+def _record_onboarding_completion(user_id: str, turn: int, goals_created: int) -> None:
+    """Persist successful onboarding completion state and analytics."""
+    mark_onboarded(user_id)
+    log_event("onboarding_complete", user_id, {"goals_created": goals_created, "turns": turn})
+
+
 def _strip_json_block(text: str) -> str:
     """Remove JSON block from response text to get just the conversational part."""
     # Remove ```json...``` blocks (non-greedy across newlines)
@@ -350,8 +357,10 @@ Output the JSON block now with whatever information you have."""
         # Check for completion JSON
         completion = _extract_completion_json(response)
         if completion:
+            completed = False
             try:
                 goals_created = _save_results(user_id, completion)
+                completed = True
             except Exception as e:
                 logger.error("onboarding.save_failed", user_id=user_id, error=str(e))
                 goals_created = 0
@@ -359,9 +368,8 @@ Output the JSON block now with whatever information you have."""
             clean_msg = _strip_json_block(response)
             if not clean_msg:
                 clean_msg = "Great, I've got everything I need! Your profile is set up and will continue to deepen over time."
-            log_event(
-                "onboarding_complete", user_id, {"goals_created": goals_created, "turns": turn}
-            )
+            if completed:
+                _record_onboarding_completion(user_id, turn, goals_created)
             return OnboardingResponse(
                 message=clean_msg, done=True, goals_created=goals_created, turn=turn
             )
@@ -382,6 +390,7 @@ Coach: {response}
 
 Now output ONLY the JSON block with profile and goals based on everything discussed."""
             goals_created = 0
+            completed = False
             try:
                 force_response = await asyncio.to_thread(
                     caller, ONBOARDING_SYSTEM, force_prompt, max_tokens=2000
@@ -390,6 +399,7 @@ Now output ONLY the JSON block with profile and goals based on everything discus
                 if completion:
                     try:
                         goals_created = _save_results(user_id, completion)
+                        completed = True
                     except Exception as e:
                         logger.error("onboarding.save_failed", user_id=user_id, error=str(e))
                 else:
@@ -399,9 +409,8 @@ Now output ONLY the JSON block with profile and goals based on everything discus
             finally:
                 _sessions.pop(user_id, None)
 
-            log_event(
-                "onboarding_complete", user_id, {"goals_created": goals_created, "turns": turn}
-            )
+            if completed:
+                _record_onboarding_completion(user_id, turn, goals_created)
             return OnboardingResponse(
                 message=response, done=True, goals_created=goals_created, turn=turn
             )

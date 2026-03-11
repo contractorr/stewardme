@@ -11,10 +11,11 @@ import structlog
 
 from crypto_utils import decrypt_value, encrypt_value
 from db import wal_connect
+from storage_paths import get_coach_home
 
 logger = structlog.get_logger()
 
-_DEFAULT_DB_PATH = Path(os.environ.get("COACH_HOME", Path.home() / "coach")) / "users.db"
+_DEFAULT_DB_PATH = get_coach_home() / "users.db"
 
 
 def get_default_db_path() -> Path:
@@ -135,6 +136,12 @@ def init_db(db_path: Path | None = None) -> None:
             conn.commit()
         except sqlite3.OperationalError:
             pass  # column already exists
+        # Migration: add onboarded flag (default TRUE for existing users)
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN onboarded BOOLEAN NOT NULL DEFAULT 1")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass  # column already exists
     finally:
         conn.close()
 
@@ -196,7 +203,7 @@ def get_or_create_user(
         else:
             now = datetime.now(timezone.utc).isoformat()
             conn.execute(
-                "INSERT INTO users (id, email, name, created_at, last_login) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO users (id, email, name, created_at, last_login, onboarded) VALUES (?, ?, ?, ?, ?, 0)",
                 (user_id, email, name, now, now),
             )
             conn.commit()
@@ -210,6 +217,26 @@ def get_or_create_user(
                 "created_at": now,
                 "last_login": now,
             }
+    finally:
+        conn.close()
+
+
+def is_onboarded(user_id: str, db_path: Path | None = None) -> bool:
+    """Check if user has completed onboarding."""
+    conn = _get_conn(db_path)
+    try:
+        row = conn.execute("SELECT onboarded FROM users WHERE id = ?", (user_id,)).fetchone()
+        return bool(row and row["onboarded"])
+    finally:
+        conn.close()
+
+
+def mark_onboarded(user_id: str, db_path: Path | None = None) -> None:
+    """Mark user as having completed onboarding."""
+    conn = _get_conn(db_path)
+    try:
+        conn.execute("UPDATE users SET onboarded = 1 WHERE id = ?", (user_id,))
+        conn.commit()
     finally:
         conn.close()
 

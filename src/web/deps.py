@@ -13,6 +13,7 @@ from storage_access import (
     create_insight_store,
     create_intel_storage,
     create_memory_store,
+    create_mind_map_store,
     create_profile_embedding_manager,
     create_profile_storage,
     create_recommendation_storage,
@@ -26,7 +27,7 @@ from storage_paths import get_user_paths as resolve_user_paths
 from storage_paths import safe_user_id as _safe_user_id
 from web.auth import get_current_user
 from web.rate_limit import check_shared_key_rate_limit
-from web.user_store import get_user_secrets
+from web.user_store import get_user_secrets, is_onboarded
 
 logger = structlog.get_logger()
 
@@ -115,6 +116,11 @@ def get_memory_store(user_id: str):
 def get_thread_store(user_id: str):
     """Construct the per-user thread store."""
     return create_thread_store(get_user_paths(user_id))
+
+
+def get_mind_map_store(user_id: str):
+    """Construct the per-user journal mind-map store."""
+    return create_mind_map_store(get_user_paths(user_id))
 
 
 def get_receipt_store(user_id: str):
@@ -452,8 +458,10 @@ def get_settings_mask_for_user(user_id: str) -> dict:
     elif personal_keys:
         key_hint = _hint(next(iter(personal_keys.values())))
     council_enabled = _parse_bool_secret(secrets.get("llm_council_enabled"), default=True)
+    has_profile = is_onboarded(user_id)
 
     return {
+        "has_profile": has_profile,
         "llm_provider": display_provider,
         "llm_model": secrets.get("llm_model") or config.llm.model,
         "llm_council_enabled": council_enabled,

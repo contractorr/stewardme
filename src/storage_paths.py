@@ -39,6 +39,7 @@ def _build_paths(data_dir: Path, profile_path: Path, intel_db: Path) -> dict[str
         "memory_db": data_dir / "memory.db",
         "threads_db": data_dir / "threads.db",
         "receipts_db": data_dir / "receipts.db",
+        "mind_maps_db": data_dir / "mind_maps.db",
         "escalations_db": data_dir / "escalations.db",
         "outcomes_db": data_dir / "outcomes.db",
         "assumptions_db": data_dir / "assumptions.db",

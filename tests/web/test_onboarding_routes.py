@@ -98,6 +98,39 @@ def test_chat_completes_with_json(client, auth_headers):
     mock_save.assert_called_once()
 
 
+def test_completion_save_failure_does_not_mark_onboarded(client, auth_headers):
+    with patch(_LLM_PATCH, return_value=_fake_caller("Starting!")):
+        client.post("/api/onboarding/start", headers=auth_headers)
+
+    completion_response = """Great, here's your profile!
+```json
+{"done": true, "profile": {
+  "current_role": "Engineer",
+  "career_stage": "senior"
+}, "goals": []}
+```"""
+
+    from web.routes.onboarding import _sessions
+
+    _sessions["user-123"]["caller"] = _fake_caller(completion_response)
+
+    with (
+        patch(_SAVE_PATCH, side_effect=RuntimeError("save failed")),
+        patch("web.routes.onboarding.mark_onboarded") as mock_mark,
+        patch("web.routes.onboarding.log_event") as mock_log,
+    ):
+        res = client.post(
+            "/api/onboarding/chat",
+            headers=auth_headers,
+            json={"message": "That's everything"},
+        )
+
+    assert res.status_code == 200
+    assert res.json()["done"] is True
+    mock_mark.assert_not_called()
+    mock_log.assert_not_called()
+
+
 def test_blank_chat_message_does_not_consume_turn(client, auth_headers):
     with patch(_LLM_PATCH, return_value=_fake_caller("Welcome!")):
         client.post("/api/onboarding/start", headers=auth_headers)
@@ -144,6 +177,31 @@ def test_force_finalize_clears_session_when_second_llm_call_fails(client, auth_h
     assert res.json()["message"] == "Let me wrap this up."
     assert call_count["value"] == 2
     assert "user-123" not in _sessions
+
+
+def test_force_finalize_without_completion_does_not_mark_onboarded(client, auth_headers):
+    with patch(_LLM_PATCH, return_value=_fake_caller("Starting!")):
+        client.post("/api/onboarding/start", headers=auth_headers)
+
+    from web.routes.onboarding import MAX_TURNS, _sessions
+
+    _sessions["user-123"]["caller"] = _fake_caller("Still no JSON here.")
+    _sessions["user-123"]["turns"] = MAX_TURNS - 1
+
+    with (
+        patch("web.routes.onboarding.mark_onboarded") as mock_mark,
+        patch("web.routes.onboarding.log_event") as mock_log,
+    ):
+        res = client.post(
+            "/api/onboarding/chat",
+            headers=auth_headers,
+            json={"message": "Final details"},
+        )
+
+    assert res.status_code == 200
+    assert res.json()["done"] is True
+    mock_mark.assert_not_called()
+    mock_log.assert_not_called()
 
 
 # --- Feed category / selection tests ---
