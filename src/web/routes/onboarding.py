@@ -338,9 +338,7 @@ async def chat_onboarding(
 
 Output the JSON block now with whatever information you have."""
         else:
-            prompt = (
-                f"Interview so far:\n{history}\n\nContinue the interview or finalize if you have enough info."
-            )
+            prompt = f"Interview so far:\n{history}\n\nContinue the interview or finalize if you have enough info."
 
         caller = session["caller"]
         try:
@@ -360,10 +358,10 @@ Output the JSON block now with whatever information you have."""
             _sessions.pop(user_id, None)
             clean_msg = _strip_json_block(response)
             if not clean_msg:
-                clean_msg = (
-                    "Great, I've got everything I need! Your profile is set up and will continue to deepen over time."
-                )
-            log_event("onboarding_complete", user_id, {"goals_created": goals_created, "turns": turn})
+                clean_msg = "Great, I've got everything I need! Your profile is set up and will continue to deepen over time."
+            log_event(
+                "onboarding_complete", user_id, {"goals_created": goals_created, "turns": turn}
+            )
             return OnboardingResponse(
                 message=clean_msg, done=True, goals_created=goals_created, turn=turn
             )
@@ -401,7 +399,9 @@ Now output ONLY the JSON block with profile and goals based on everything discus
             finally:
                 _sessions.pop(user_id, None)
 
-            log_event("onboarding_complete", user_id, {"goals_created": goals_created, "turns": turn})
+            log_event(
+                "onboarding_complete", user_id, {"goals_created": goals_created, "turns": turn}
+            )
             return OnboardingResponse(
                 message=response, done=True, goals_created=goals_created, turn=turn
             )
