@@ -88,6 +88,27 @@ def test_create(mock_components):
     mock_components["embeddings"].add_entry.assert_called_once()
 
 
+def test_create_rolls_back_file_when_embedding_sync_fails(mock_components):
+    """journal_create should remove the new file if embedding sync fails."""
+    from coach_mcp.tools.journal import _create
+
+    fake_path = mock_components["storage"].journal_dir / "2024-01-01_daily_test.md"
+    post = frontmatter.Post("test content")
+    post["title"] = "Test"
+    post["type"] = "daily"
+    fake_path.write_text(frontmatter.dumps(post))
+
+    mock_components["storage"].create.return_value = fake_path
+    mock_components["storage"].delete.side_effect = lambda path: Path(path).unlink()
+    mock_components["embeddings"].add_entry.side_effect = RuntimeError("embedding sync failed")
+
+    with pytest.raises(RuntimeError, match="embedding sync failed"):
+        _create({"content": "test content", "entry_type": "daily", "title": "Test"})
+
+    assert not fake_path.exists()
+    mock_components["storage"].delete.assert_called_once_with(fake_path)
+
+
 def test_list(mock_components):
     """journal_list should return entries from storage."""
     from coach_mcp.tools.journal import _list

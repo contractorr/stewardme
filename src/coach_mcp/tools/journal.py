@@ -161,15 +161,22 @@ def _create(args: dict) -> dict:
         metadata=metadata,
     )
 
-    # Sync embedding
-    import frontmatter
+    try:
+        # Sync embedding
+        import frontmatter
 
-    post = frontmatter.load(filepath)
-    embeddings.add_entry(
-        entry_id=str(filepath),
-        content=post.content,
-        metadata=dict(post.metadata),
-    )
+        post = frontmatter.load(filepath)
+        embeddings.add_entry(
+            entry_id=str(filepath),
+            content=post.content,
+            metadata=dict(post.metadata),
+        )
+    except Exception:
+        try:
+            storage.delete(filepath)
+        except Exception as cleanup_exc:
+            logger.warning("mcp_journal_create_rollback_failed", path=str(filepath), error=str(cleanup_exc))
+        raise
 
     result = {
         "path": str(filepath),
