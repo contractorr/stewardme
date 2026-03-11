@@ -73,7 +73,7 @@ def profile_update():
     c = get_components()
     ps = get_profile_storage(c["config"])
 
-    from profile.interview import ProfileInterviewAborted, ProfileInterviewError, ProfileInterviewer
+    from profile.interview import ProfileInterviewAborted, ProfileInterviewer, ProfileInterviewError
 
     from advisor.engine import LLMError
 
@@ -106,8 +106,8 @@ def profile_update():
 def profile_edit():
     """Edit profile YAML in $EDITOR."""
     import os
-    import yaml
 
+    import yaml
     from pydantic import ValidationError
 
     ps = get_profile_storage()

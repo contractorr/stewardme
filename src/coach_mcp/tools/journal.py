@@ -183,7 +183,9 @@ def _create(args: dict) -> dict:
         try:
             storage.delete(filepath)
         except Exception as cleanup_exc:
-            logger.warning("mcp_journal_create_rollback_failed", path=str(filepath), error=str(cleanup_exc))
+            logger.warning(
+                "mcp_journal_create_rollback_failed", path=str(filepath), error=str(cleanup_exc)
+            )
         raise
 
     result = {

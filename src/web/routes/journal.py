@@ -14,8 +14,8 @@ from web.deps import (
     get_config,
     get_memory_store,
     get_receipt_store,
-    get_thread_store,
     get_thread_inbox_state_store,
+    get_thread_store,
     get_user_paths,
     safe_user_id,
 )
@@ -261,7 +261,9 @@ async def _cleanup_deleted_entry_state(user_id: str, filepath: Path) -> None:
     try:
         get_receipt_store(user_id).delete_by_entry(entry_id)
     except Exception as exc:
-        logger.warning("journal.delete_receipt_failed", error=str(exc), user=user_id, entry=entry_id)
+        logger.warning(
+            "journal.delete_receipt_failed", error=str(exc), user=user_id, entry=entry_id
+        )
 
     try:
         from journal.embeddings import EmbeddingManager
@@ -274,7 +276,9 @@ async def _cleanup_deleted_entry_state(user_id: str, filepath: Path) -> None:
             )
             manager.remove_entry(entry_id)
     except Exception as exc:
-        logger.warning("journal.delete_embedding_failed", error=str(exc), user=user_id, entry=entry_id)
+        logger.warning(
+            "journal.delete_embedding_failed", error=str(exc), user=user_id, entry=entry_id
+        )
 
     try:
         from journal.fts import JournalFTSIndex
@@ -287,7 +291,9 @@ async def _cleanup_deleted_entry_state(user_id: str, filepath: Path) -> None:
     try:
         deleted_thread_ids = await get_thread_store(user_id).remove_entry(entry_id)
     except Exception as exc:
-        logger.warning("journal.delete_threads_failed", error=str(exc), user=user_id, entry=entry_id)
+        logger.warning(
+            "journal.delete_threads_failed", error=str(exc), user=user_id, entry=entry_id
+        )
 
     if deleted_thread_ids:
         try:

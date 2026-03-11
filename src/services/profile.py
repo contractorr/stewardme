@@ -1,8 +1,9 @@
 """Shared profile read/update orchestration for delivery surfaces."""
 
 from profile.storage import Skill
-from pydantic import ValidationError
 from typing import Any
+
+from pydantic import ValidationError
 
 from shared_types import CareerStage
 

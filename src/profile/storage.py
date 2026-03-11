@@ -200,7 +200,9 @@ class ProfileStorage:
         if not data:
             return None
         if not isinstance(data, dict):
-            logger.warning("profile.invalid_data", path=str(self.path), data_type=type(data).__name__)
+            logger.warning(
+                "profile.invalid_data", path=str(self.path), data_type=type(data).__name__
+            )
             return None
         try:
             return UserProfile(**data)

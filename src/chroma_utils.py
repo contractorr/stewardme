@@ -117,7 +117,9 @@ class LocalCollection:
         return len(self._records)
 
     def get(self, *, ids: list[str] | None = None, include: list[str] | None = None) -> dict:
-        requested_ids = [str(item_id) for item_id in ids] if ids is not None else list(self._records.keys())
+        requested_ids = (
+            [str(item_id) for item_id in ids] if ids is not None else list(self._records.keys())
+        )
         record_ids = [item_id for item_id in requested_ids if item_id in self._records]
         include = include or ["documents", "metadatas"]
 
@@ -125,9 +127,13 @@ class LocalCollection:
         if "documents" in include:
             result["documents"] = [self._records[item_id]["document"] for item_id in record_ids]
         if "metadatas" in include:
-            result["metadatas"] = [self._records[item_id].get("metadata", {}) for item_id in record_ids]
+            result["metadatas"] = [
+                self._records[item_id].get("metadata", {}) for item_id in record_ids
+            ]
         if "embeddings" in include:
-            result["embeddings"] = [self._records[item_id].get("vector", []) for item_id in record_ids]
+            result["embeddings"] = [
+                self._records[item_id].get("vector", []) for item_id in record_ids
+            ]
         return result
 
     def query(
@@ -152,7 +158,9 @@ class LocalCollection:
         ]
 
         query_vectors = (
-            query_embeddings if query_embeddings is not None else self.embedding_function(query_texts or [])
+            query_embeddings
+            if query_embeddings is not None
+            else self.embedding_function(query_texts or [])
         )
 
         for query_vector in query_vectors:

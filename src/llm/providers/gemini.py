@@ -234,7 +234,9 @@ class GeminiProvider(LLMProvider):
                     contents.append(self._make_content(types_module, role="model", parts=parts))
 
             elif role == "tool":
-                tool_name = msg.get("name") or tool_name_by_id.get(msg.get("tool_call_id")) or "tool"
+                tool_name = (
+                    msg.get("name") or tool_name_by_id.get(msg.get("tool_call_id")) or "tool"
+                )
                 contents.append(
                     self._make_content(
                         types_module,

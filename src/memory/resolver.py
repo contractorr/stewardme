@@ -154,7 +154,9 @@ class ConflictResolver:
             and self._text_similarity(candidate.text, existing.text) >= self.similarity_threshold
         ]
 
-    def _rank_similar(self, candidate: StewardFact, similar: list[StewardFact]) -> list[StewardFact]:
+    def _rank_similar(
+        self, candidate: StewardFact, similar: list[StewardFact]
+    ) -> list[StewardFact]:
         return sorted(
             similar,
             key=lambda fact: self._text_similarity(candidate.text, fact.text),
