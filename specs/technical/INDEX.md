@@ -4,9 +4,9 @@ This index summarizes each file in `specs/technical/` after the v2 simplificatio
 
 | Filename | Purpose | Key system components referenced | Key user flows described |
 | --- | --- | --- | --- |
-| `action-plans.md` | Focus action tracking and weekly planning | Recommendations route, Focus page | Read weekly plan, update tracked action |
+| `action-plans.md` | Focus action tracking and weekly planning | Recommendations route, shared goal-path resolver, Focus page | Read weekly plan, update tracked action, link to a real goal |
 | `advisor.md` | Conversational engine behind Home Ask mode | Advisor route, Home page, full chat page | Ask question, stream answer, continue long thread |
-| `architecture.md` | Five-job product architecture | Dashboard pages, route modules, ranking/storage services | Land on Home, move through Focus/Radar/Library/Settings |
+| `architecture.md` | Five-job product architecture | Dashboard pages, route modules, ranking/storage services, canonical user-state store | Land on Home, move through Focus/Radar/Library/Settings |
 | `assumption-watchlist.md` | Settings-driven tracked topics and assumptions | Assumptions route, intel route, suggestions | Add tracked topic, surface relevant signal |
 | `attach-to-ask-bridge.md` | Same-turn attachment flow for Ask mode | Attachment hook, advisor route, Library storage | Attach, ask, retrieve later |
 | `cli.md` | Operator/developer command surface | CLI entry points, config, ingestion jobs | Run maintenance, trigger ingestion, debug locally |
@@ -26,7 +26,7 @@ This index summarizes each file in `specs/technical/` after the v2 simplificatio
 | `mcp.md` | Advanced integration surface | MCP server, tool adapters, auth helpers | Call tools from integration clients |
 | `memory.md` | Durable memory storage and management | Memory route, memory services, Settings page | List facts, show stats, delete fact |
 | `outcome-harvester.md` | Background learning from outcomes | Journal/goal events, ranking services | Harvest signal, improve future prioritization |
-| `profile.md` | User profile data and editing | Profile/user routes, Settings, onboarding | Read/update profile, personalize app |
+| `profile.md` | User profile data and onboarding behavior | Profile/user routes, onboarding, Settings, user-state store | Start onboarding, progress interview, read/update profile |
 | `recurring-thread-inbox.md` | Thread APIs now consumed by Radar | Threads route, Radar page | Review thread, convert to goal/research/dossier |
 | `regulatory-change-pipeline.md` | Regulatory-signal ingestion for Radar | Intel route, suggestions route, ranking | Scan and prioritize regulatory changes |
 | `research-dossiers.md` | Active/archived dossier lifecycle | Research route, escalation route, Radar, Library | Refresh dossier, archive to Library |
@@ -37,4 +37,4 @@ This index summarizes each file in `specs/technical/` after the v2 simplificatio
 | `agentic-context-compression.md` | Token-aware compression with boundary-aligned eviction and LLM summarization | `advisor/context_compressor.py`, `advisor/agentic.py`, `advisor/engine.py` | Track tokens, evict pairs, summarize |
 | `prompt-caching.md` | Anthropic cache_control injection on system prompt + first 3 messages | `llm/providers/anthropic.py`, `advisor/agentic.py`, `observability.py` | Cache prefix, track hits, bill correctly |
 | `TEMPLATE.md` | Template for future technical docs | Module paths, interfaces, product mapping | Describe module, boundaries, consumers |
-| `web.md` | Frontend route map and navigation model | Sidebar, dashboard pages, pageview tracking | Navigate five workspaces and deep links |
+| `web.md` | Frontend route map plus web-surface persistence invariants | Sidebar, dashboard pages, FastAPI app, canonical user-state store | Navigate five workspaces, chat with attachments, complete onboarding |

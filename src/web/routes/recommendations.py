@@ -1,8 +1,5 @@
 """Recommendations query endpoint — text search + category filtering."""
 
-from pathlib import Path
-
-import frontmatter
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
@@ -44,6 +41,7 @@ from web.models import (
     TrackedRecommendationAction,
     WeeklyPlanResponse,
 )
+from web.services.journal_entries import resolve_goal_entry
 from web.user_store import log_event
 
 logger = structlog.get_logger()
@@ -74,19 +72,13 @@ def _resolve_goal_link(goal_path: str | None, user_id: str) -> tuple[str | None,
     if not goal_path:
         return None, None
 
-    paths = get_user_paths(user_id)
-    journal_dir = paths["journal_dir"]
-    resolved = Path(goal_path).resolve()
-    if not resolved.is_relative_to(journal_dir):
-        raise HTTPException(status_code=400, detail="Invalid goal path")
-    if not resolved.exists():
-        raise HTTPException(status_code=404, detail="Goal not found")
-
     try:
-        post = frontmatter.load(resolved)
+        resolved, post = resolve_goal_entry(goal_path, user_id)
         title = str(post.metadata.get("title") or resolved.stem)
-    except Exception:
-        title = resolved.stem
+    except HTTPException as exc:
+        if exc.status_code == 400:
+            raise HTTPException(status_code=400, detail="Invalid goal path")
+        raise
     return str(resolved), title
 
 

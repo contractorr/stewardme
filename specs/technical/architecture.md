@@ -4,7 +4,7 @@
 
 ## Overview
 
-The user-facing architecture is now organized around five jobs: `Home`, `Focus`, `Radar`, `Library`, and `Settings`. Advanced routes still exist, but the primary navigation explains the product through those five destinations.
+The user-facing architecture is organized around five jobs: `Home`, `Focus`, `Radar`, `Library`, and `Settings`. Advanced routes still exist, but the primary navigation explains the product through those five destinations.
 
 ## Key Modules
 
@@ -12,6 +12,7 @@ The user-facing architecture is now organized around five jobs: `Home`, `Focus`,
 - Navigation in `web/src/components/Sidebar.tsx`
 - Page-view tracking in `web/src/hooks/usePageView.ts` and `src/web/routes/pageview.py`
 - API routes in `src/web/routes`
+- Canonical web persistence in `src/user_state_store.py`
 
 ## Interfaces
 
@@ -20,6 +21,7 @@ The user-facing architecture is now organized around five jobs: `Home`, `Focus`,
 - Radar consumes suggestions, watchlist, threads, dossier-escalation, dossier, and follow-up APIs.
 - Library consumes report and archived-dossier APIs.
 - Settings consumes account, profile, watchlist, and memory APIs.
+- Web persistence bootstraps through the canonical `src/user_state_store.py` schema, with `src/web/user_store.py` acting as a compatibility import layer.
 
 ## Simplified Product Notes
 

@@ -1,6 +1,9 @@
 """Tests for recommendations execution routes."""
 
+import pytest
+
 from advisor.recommendation_storage import Recommendation, RecommendationStorage
+from journal.storage import JournalStorage
 
 
 def _storage_for(tmp_path):
@@ -41,6 +44,24 @@ def test_create_goal_linked_action_item(client, auth_headers, tmp_path):
     assert data["action_item"]["status"] == "accepted"
 
 
+@pytest.mark.parametrize("entry_type", ["daily", "quick", "research"])
+def test_create_action_item_rejects_non_goal_entries(client, auth_headers, tmp_path, entry_type):
+    journal = JournalStorage(tmp_path / "users" / "user-123" / "journal")
+    entry_path = journal.create(content="Not a goal", entry_type=entry_type, title=f"{entry_type} note")
+
+    storage = _storage_for(tmp_path)
+    rec_id = storage.save(Recommendation(category="projects", title="Ship MVP", score=9.0))
+
+    res = client.post(
+        f"/api/recommendations/{rec_id}/action-item",
+        headers=auth_headers,
+        json={"goal_path": str(entry_path)},
+    )
+
+    assert res.status_code == 404
+    assert res.json()["detail"] == "Goal not found"
+
+
 def test_update_action_item_and_weekly_plan(client, auth_headers, tmp_path):
     storage = _storage_for(tmp_path)
     rec_id = storage.save(Recommendation(category="learning", title="Learn Go", score=8.0))
@@ -58,6 +79,20 @@ def test_update_action_item_and_weekly_plan(client, auth_headers, tmp_path):
     assert weekly_res.status_code == 200
     plan = weekly_res.json()
     assert plan["items"][0]["recommendation_id"] == rec_id
+
+
+def test_weekly_plan_goal_filter_rejects_non_goal_entry(client, auth_headers, tmp_path):
+    journal = JournalStorage(tmp_path / "users" / "user-123" / "journal")
+    entry_path = journal.create(content="Daily note", entry_type="daily", title="Today")
+
+    res = client.get(
+        "/api/recommendations/weekly-plan",
+        headers=auth_headers,
+        params={"goal_path": str(entry_path)},
+    )
+
+    assert res.status_code == 404
+    assert res.json()["detail"] == "Goal not found"
 
 
 def test_list_action_items_can_filter_by_status(client, auth_headers, tmp_path):

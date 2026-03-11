@@ -9,6 +9,7 @@ from journal.storage import JournalStorage
 from web.auth import get_current_user
 from web.deps import get_user_paths
 from web.models import GoalCheckIn, GoalCreate, GoalStatusUpdate, MilestoneAdd, MilestoneComplete
+from web.services.journal_entries import resolve_goal_entry
 from web.user_store import log_event
 
 router = APIRouter(prefix="/api/goals", tags=["goals"])
@@ -26,21 +27,17 @@ def _get_tracker(user_id: str) -> GoalTracker:
 
 def _validate_goal_path(filepath: str, user_id: str) -> Path:
     """Validate path is inside the user's journal dir (prevent traversal)."""
-    paths = get_user_paths(user_id)
-    journal_dir = paths["journal_dir"]
-    resolved = Path(filepath).resolve()
-    if not resolved.is_relative_to(journal_dir):
-        raise HTTPException(status_code=400, detail="Invalid path")
-    if not resolved.exists():
-        raise HTTPException(status_code=404, detail="Goal not found")
-    storage = JournalStorage(journal_dir)
     try:
-        post = storage.read(resolved)
-    except (OSError, ValueError):
-        raise HTTPException(status_code=400, detail="Invalid goal entry")
-    if post.get("type") != "goal":
-        raise HTTPException(status_code=404, detail="Goal not found")
-    return resolved
+        resolved, _post = resolve_goal_entry(filepath, user_id)
+        return resolved
+    except HTTPException as exc:
+        if exc.status_code == 400 and exc.detail == "Invalid path":
+            raise HTTPException(status_code=400, detail="Invalid path")
+        if exc.status_code == 400:
+            raise HTTPException(status_code=400, detail="Invalid goal entry")
+        if exc.status_code == 404:
+            raise HTTPException(status_code=404, detail="Goal not found")
+        raise
 
 
 @router.get("")

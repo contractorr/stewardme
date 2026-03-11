@@ -54,13 +54,13 @@ specs/
 | [advisor](technical/advisor.md) | AdvisorEngine, RAG retrieval, agentic orchestrator, prompts |
 | [journal](technical/journal.md) | Storage, embeddings, search, FTS, threads, trends, sentiment |
 | [intelligence](technical/intelligence.md) | Scrapers, IntelStorage, scheduler, dedup, trending radar |
-| [profile](technical/profile.md) | UserProfile model, ProfileInterviewer, storage |
+| [profile](technical/profile.md) | UserProfile model, onboarding interview flow, profile storage and editing |
 | [research](technical/research.md) | WebSearchClient, ResearchSynthesizer, DeepResearchAgent |
 | [research-dossiers](technical/research-dossiers.md) | ResearchDossierStore, dossier update flow, cross-surface integrations |
-| [action-plans](technical/action-plans.md) | Recommendation execution metadata, weekly plan assembly, execution feedback |
+| [action-plans](technical/action-plans.md) | Recommendation execution metadata, weekly plan assembly, goal-link validation, execution feedback |
 | [memory](technical/memory.md) | FactStore, FactExtractor, ConflictResolver, MemoryPipeline |
 | [llm](technical/llm.md) | Provider factory, Claude/OpenAI/Gemini adapters |
-| [web](technical/web.md) | FastAPI app, JWT auth, route modules, user isolation |
+| [web](technical/web.md) | FastAPI app, JWT auth, route modules, canonical user-state storage, onboarding and attachment invariants |
 | [library](technical/library.md) | ReportStore, Library routes, Library workspace MVP |
 | [mcp](technical/mcp.md) | MCP server, bootstrap, 37 tools across 12 modules |
 | [cli](technical/cli.md) | Click commands, config validation, logging |
