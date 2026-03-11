@@ -94,6 +94,21 @@ class TestUpdateCreatesSupersessionChain:
         assert old.superseded_by == new.id
         assert new.confidence == pytest.approx(0.95)
 
+    def test_update_can_replace_source_type_and_category(self, store):
+        store.add(_fact(id="old"))
+
+        new = store.update(
+            "old",
+            "User is preparing for interviews",
+            "doc-1",
+            new_source_type=FactSource.DOCUMENT,
+            new_category=FactCategory.CONTEXT,
+        )
+
+        assert new.source_type == FactSource.DOCUMENT
+        assert new.source_id == "doc-1"
+        assert new.category == FactCategory.CONTEXT
+
 
 class TestDelete:
     def test_soft_delete(self, store):

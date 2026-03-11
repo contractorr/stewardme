@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from memory.extractor import FactExtractor
-from memory.models import FactCategory, FactSource
+from memory.models import FactCategory, FactSource, FactUpdate, StewardFact
 from memory.pipeline import MemoryPipeline
 from memory.resolver import ConflictResolver
 from memory.store import FactStore
@@ -136,6 +136,42 @@ class TestGoalPipeline:
         facts = store.get_all_active()
         assert len(facts) == 1
         assert facts[0].category == FactCategory.GOAL_CONTEXT
+
+    def test_update_uses_candidate_provenance_and_category(self, store):
+        store.add(
+            StewardFact(
+                id="old",
+                text="User prefers Python",
+                category=FactCategory.PREFERENCE,
+                source_type=FactSource.JOURNAL,
+                source_id="entry-1",
+                confidence=0.8,
+            )
+        )
+        candidate = StewardFact(
+            id="candidate-1",
+            text="User is preparing for interviews",
+            category=FactCategory.CONTEXT,
+            source_type=FactSource.DOCUMENT,
+            source_id="doc-1",
+            confidence=0.9,
+        )
+        extractor = MagicMock()
+        extractor.extract_from_document.return_value = [candidate]
+        resolver = MagicMock()
+        resolver.resolve.return_value = [
+            FactUpdate(action="UPDATE", candidate=candidate.text, existing_id="old")
+        ]
+
+        pipeline = MemoryPipeline(store, extractor=extractor, resolver=resolver)
+        pipeline.process_document("doc-1", "Resume content" * 10, {"title": "Resume"})
+
+        facts = store.get_all_active()
+        assert len(facts) == 1
+        assert facts[0].text == "User is preparing for interviews"
+        assert facts[0].source_type == FactSource.DOCUMENT
+        assert facts[0].source_id == "doc-1"
+        assert facts[0].category == FactCategory.CONTEXT
 
 
 class TestBackfill:

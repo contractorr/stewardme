@@ -167,6 +167,8 @@ class MemoryPipeline:
                         update.existing_id,
                         candidate.text,
                         candidate.source_id,
+                        new_source_type=candidate.source_type,
+                        new_category=candidate.category,
                         new_confidence=candidate.confidence,
                     )
                     stored += 1

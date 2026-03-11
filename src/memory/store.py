@@ -174,6 +174,8 @@ class FactStore:
         fact_id: str,
         new_text: str,
         new_source_id: str,
+        new_source_type: FactSource | str | None = None,
+        new_category: FactCategory | str | None = None,
         new_confidence: float | None = None,
         decay_amount: float = DEFAULT_CONTRADICTION_DECAY,
     ) -> StewardFact:
@@ -209,8 +211,8 @@ class FactStore:
         new_fact = StewardFact(
             id=new_id,
             text=new_text,
-            category=old.category,
-            source_type=old.source_type,
+            category=new_category if new_category is not None else old.category,
+            source_type=new_source_type if new_source_type is not None else old.source_type,
             source_id=new_source_id,
             confidence=new_confidence if new_confidence is not None else old.confidence,
             created_at=old.created_at,
