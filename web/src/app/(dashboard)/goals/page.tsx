@@ -724,12 +724,12 @@ export default function GoalsPage() {
         description="See your best next moves, keep active goals moving, and turn opportunities into progress."
         actions={
           <>
-            <Button variant="outline" size="sm" asChild>
+            <Button variant="outline" asChild>
               <Link href="/projects">More opportunities</Link>
             </Button>
             <Sheet open={createOpen} onOpenChange={setCreateOpen}>
               <SheetTrigger asChild>
-                <Button size="sm">
+                <Button>
                   <Plus className="h-4 w-4" /> New Goal
                 </Button>
               </SheetTrigger>
