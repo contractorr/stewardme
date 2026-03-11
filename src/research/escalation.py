@@ -16,6 +16,20 @@ def _now() -> str:
     return datetime.now().isoformat()
 
 
+def _parse_dt(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def _is_future(value: str | None) -> bool:
+    when = _parse_dt(value)
+    return when is not None and when > datetime.now()
+
+
 def _topic_key(text: str) -> str:
     normalized = re.sub(r"[^a-z0-9]+", "-", (text or "").strip().lower()).strip("-")
     return normalized[:80] or "topic"
@@ -60,15 +74,37 @@ class DossierEscalationStore:
         topic_key = suggestion.get("topic_key") or _topic_key(suggestion.get("topic_label") or "")
 
         with wal_connect(self.db_path) as conn:
+            self._reactivate_expired_snoozes(conn)
             existing = conn.execute(
-                "SELECT escalation_id, created_at, state, accepted_dossier_id, snoozed_until FROM dossier_escalations WHERE topic_key = ? ORDER BY updated_at DESC LIMIT 1",
+                """
+                SELECT escalation_id, created_at, state, accepted_dossier_id, snoozed_until, dismissed_at
+                FROM dossier_escalations
+                WHERE topic_key = ?
+                ORDER BY updated_at DESC
+                LIMIT 1
+                """,
                 (topic_key,),
             ).fetchone()
             if existing and existing[2] == "accepted":
                 return existing[0]
+
+            state = suggestion.get("state") or "active"
+            snoozed_until = suggestion.get("snoozed_until")
+            dismissed_at = suggestion.get("dismissed_at")
             if existing:
                 escalation_id = existing[0]
                 created_at = existing[1]
+                if existing[2] == "dismissed":
+                    state = "dismissed"
+                    dismissed_at = existing[5]
+                    snoozed_until = None
+                elif existing[2] == "snoozed" and _is_future(existing[4]):
+                    state = "snoozed"
+                    snoozed_until = existing[4]
+                    dismissed_at = None
+                else:
+                    dismissed_at = None
+                    snoozed_until = None
             conn.execute(
                 """
                 INSERT INTO dossier_escalations (
@@ -91,17 +127,29 @@ class DossierEscalationStore:
                     topic_key,
                     suggestion.get("topic_label") or topic_key,
                     float(suggestion.get("score") or 0.0),
-                    suggestion.get("state") or "active",
+                    state,
                     json.dumps(suggestion.get("evidence") or {}),
                     json.dumps(suggestion.get("payload") or {}),
                     created_at,
                     updated_at,
-                    suggestion.get("snoozed_until"),
-                    suggestion.get("dismissed_at"),
+                    snoozed_until,
+                    dismissed_at,
                     suggestion.get("accepted_dossier_id"),
                 ),
             )
         return escalation_id
+
+    def _reactivate_expired_snoozes(self, conn: sqlite3.Connection) -> None:
+        conn.execute(
+            """
+            UPDATE dossier_escalations
+            SET state = 'active', snoozed_until = NULL, updated_at = ?
+            WHERE state = 'snoozed'
+            AND snoozed_until IS NOT NULL
+            AND snoozed_until <= ?
+            """,
+            (_now(), _now()),
+        )
 
     def _row_to_dict(self, row: sqlite3.Row | None) -> dict | None:
         if not row:
@@ -132,9 +180,15 @@ class DossierEscalationStore:
 
     def list_active(self, limit: int = 10) -> list[dict]:
         with wal_connect(self.db_path) as conn:
+            self._reactivate_expired_snoozes(conn)
             conn.row_factory = sqlite3.Row
             rows = conn.execute(
-                "SELECT * FROM dossier_escalations WHERE state IN ('active', 'snoozed') ORDER BY score DESC, updated_at DESC LIMIT ?",
+                """
+                SELECT * FROM dossier_escalations
+                WHERE state = 'active'
+                ORDER BY score DESC, updated_at DESC
+                LIMIT ?
+                """,
                 (limit,),
             ).fetchall()
         return [self._row_to_dict(row) for row in rows if row]
@@ -259,7 +313,7 @@ class DossierEscalationEngine:
             }
             saved_id = self.store.upsert_candidate(suggestion)
             saved = self.store.get(saved_id)
-            if saved:
+            if saved and saved.get("state") == "active":
                 candidates.append(saved)
 
         candidates.sort(
