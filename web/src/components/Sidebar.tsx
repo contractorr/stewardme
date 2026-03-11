@@ -40,13 +40,23 @@ function NavItem({
   icon: Icon,
   active,
   onClick,
+  disabled,
 }: {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   active: boolean;
   onClick: () => void;
+  disabled?: boolean;
 }) {
+  if (disabled) {
+    return (
+      <span className="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/30 cursor-not-allowed">
+        <Icon className="h-[18px] w-[18px] shrink-0 text-sidebar-foreground/20" />
+        {label}
+      </span>
+    );
+  }
   return (
     <Link
       href={href}
@@ -71,10 +81,12 @@ export function Sidebar({
   open,
   onOpenChange,
   displayName,
+  disabled,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   displayName?: string | null;
+  disabled?: boolean;
 }) {
   const pathname = usePathname();
   const { data: session } = useSession();
@@ -120,6 +132,7 @@ export function Sidebar({
                 {...item}
                 active={pathname === item.href}
                 onClick={() => onOpenChange(false)}
+                disabled={disabled}
               />
             ))}
           </div>
@@ -133,12 +146,19 @@ export function Sidebar({
             icon={Settings}
             active={pathname === "/settings"}
             onClick={() => onOpenChange(false)}
+            disabled={disabled}
           />
           <button
-            onClick={() => setGuideOpen(true)}
-            className="group relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-all"
+            onClick={() => !disabled && setGuideOpen(true)}
+            disabled={disabled}
+            className={cn(
+              "group relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all",
+              disabled
+                ? "text-sidebar-foreground/30 cursor-not-allowed"
+                : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+            )}
           >
-            <HelpCircle className="h-[18px] w-[18px] shrink-0 text-sidebar-foreground/40 group-hover:text-sidebar-foreground/60" />
+            <HelpCircle className={cn("h-[18px] w-[18px] shrink-0", disabled ? "text-sidebar-foreground/20" : "text-sidebar-foreground/40 group-hover:text-sidebar-foreground/60")} />
             How this works
           </button>
 

@@ -63,7 +63,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         onOpenSettings={() => setSettingsOpen(true)}
         onToggleSidebar={() => setSidebarOpen((v) => !v)}
       />
-      <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} displayName={displayName} />
+      <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} displayName={displayName} disabled={skipGate} />
       {token && (
         <SettingsSheet
           open={settingsOpen}
