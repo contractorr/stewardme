@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useToken } from "@/hooks/useToken";
 import { BookOpen, Plus, Calendar, Search, Tag, X } from "lucide-react";
+import { WorkspacePageHeader } from "@/components/WorkspacePageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -257,24 +258,18 @@ export default function JournalPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold">Journal</h1>
-            {!loading && entries.length > 0 && (
-              <span className="text-sm text-muted-foreground">{entries.length} {entries.length === 1 ? "entry" : "entries"}</span>
-            )}
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Capture context, then narrow it fast with local search, type filters, and tag chips.
-          </p>
-        </div>
-        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-          <SheetTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4" /> New Entry
-            </Button>
-          </SheetTrigger>
+      <WorkspacePageHeader
+        eyebrow="Capture"
+        title="Journal"
+        description="Capture context, then narrow it fast with local search, type filters, and tag chips."
+        badge={!loading && entries.length > 0 ? `${entries.length} ${entries.length === 1 ? "entry" : "entries"}` : undefined}
+        actions={
+          <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+            <SheetTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4" /> New Entry
+              </Button>
+            </SheetTrigger>
           <SheetContent className="w-full sm:max-w-lg md:max-w-xl overflow-y-auto">
             <SheetHeader>
               <SheetTitle>New entry</SheetTitle>
@@ -338,7 +333,8 @@ export default function JournalPage() {
             </div>
           </SheetContent>
         </Sheet>
-      </div>
+        }
+      />
 
       {!loading && entries.length > 0 && (
         <>

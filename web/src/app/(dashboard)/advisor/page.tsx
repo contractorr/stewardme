@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { WorkspacePageHeader } from "@/components/WorkspacePageHeader";
 import { apiFetch, apiFetchSSE } from "@/lib/api";
 import { TOOL_LABELS } from "@/lib/constants";
 import type { ChatMessage } from "@/types/chat";
@@ -272,30 +273,34 @@ export default function AdvisorPage() {
 
       {/* Main chat area */}
       <div className="flex flex-1 flex-col">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Steward</h1>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="md:hidden"
-              onClick={handleNewChat}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-            <Select value={adviceType} onValueChange={setAdviceType}>
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="general">General</SelectItem>
-                <SelectItem value="career">Career</SelectItem>
-                <SelectItem value="goals">Goals</SelectItem>
-                <SelectItem value="opportunities">Opportunities</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+        <WorkspacePageHeader
+          eyebrow="Ask"
+          title="Steward"
+          description="Ask about a decision, a career move, a goal you're stuck on, or what to focus on next."
+          actions={
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="md:hidden"
+                onClick={handleNewChat}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+              <Select value={adviceType} onValueChange={setAdviceType}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="general">General</SelectItem>
+                  <SelectItem value="career">Career</SelectItem>
+                  <SelectItem value="goals">Goals</SelectItem>
+                  <SelectItem value="opportunities">Opportunities</SelectItem>
+                </SelectContent>
+              </Select>
+            </>
+          }
+        />
 
         {/* Chat messages */}
         <div ref={scrollRef} className="mt-4 flex-1 space-y-4 overflow-y-auto">

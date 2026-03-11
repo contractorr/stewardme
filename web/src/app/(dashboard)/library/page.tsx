@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Download, FileText, FolderOpen, RefreshCcw, Search } from "lucide-react";
+import { WorkspacePageHeader } from "@/components/WorkspacePageHeader";
 import { useToken } from "@/hooks/useToken";
 import { apiFetch, apiUrl } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
@@ -325,12 +326,11 @@ export default function LibraryPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold">Library</h1>
-        <p className="text-sm text-muted-foreground">
-          Keep your durable documents, reports, and completed dossier outputs in one reference workspace.
-        </p>
-      </div>
+      <WorkspacePageHeader
+        eyebrow="Reference"
+        title="Library"
+        description="Keep your durable documents, reports, and completed dossier outputs in one reference workspace."
+      />
 
       <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
         <div className="space-y-4">
