@@ -22,8 +22,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [displayName, setDisplayName] = useState<string | null>(null);
-  const skipGate = pathname === "/onboarding" || pathname === "/settings";
-  const [gateChecked, setGateChecked] = useState(skipGate);
+  const skipGate = pathname === "/onboarding";
+  const [gateChecked, setGateChecked] = useState(false);
   const showBanner = liteMode && !bannerDismissed && pathname !== "/onboarding";
 
   // Fetch display name from backend (prefers onboarding name over OAuth name)
