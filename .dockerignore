@@ -1,0 +1,39 @@
+.git
+.github
+.venv
+.venv*
+venv
+__pycache__
+*.py[cod]
+*.so
+*.egg-info
+dist
+build
+
+# Data & secrets
+data
+config.yaml
+.env
+.env.local
+
+# Node / Next.js
+web/node_modules
+web/.next
+web/.env.local
+node_modules
+.next
+
+# Local databases & artifacts
+*.db
+.coverage
+.mcp.json
+.playwright-mcp
+.codex-agent.md
+
+# Test & eval
+test-harness/state
+eval
+
+# OS
+.DS_Store
+*.png
