@@ -4,10 +4,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+import structlog
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from shared_types import CareerStage
+
+logger = structlog.get_logger()
 
 
 class Skill(BaseModel):
@@ -37,8 +40,14 @@ class UserProfile(BaseModel):
     def is_stale(self, days: int = 90) -> bool:
         if not self.updated_at:
             return True
-        updated = datetime.fromisoformat(self.updated_at)
-        return (datetime.now() - updated).days > days
+        try:
+            updated = datetime.fromisoformat(self.updated_at)
+        except (TypeError, ValueError):
+            logger.warning("profile.invalid_updated_at", updated_at=self.updated_at)
+            return True
+
+        now = datetime.now(updated.tzinfo) if updated.tzinfo else datetime.now()
+        return (now - updated).days > days
 
     def summary(self) -> str:
         """One-paragraph profile summary for LLM context."""
@@ -182,11 +191,22 @@ class ProfileStorage:
     def load(self) -> Optional[UserProfile]:
         if not self.path.exists():
             return None
-        with open(self.path) as f:
-            data = yaml.safe_load(f)
+        try:
+            with open(self.path) as f:
+                data = yaml.safe_load(f)
+        except (OSError, yaml.YAMLError) as exc:
+            logger.warning("profile.load_failed", path=str(self.path), error=str(exc))
+            return None
         if not data:
             return None
-        return UserProfile(**data)
+        if not isinstance(data, dict):
+            logger.warning("profile.invalid_data", path=str(self.path), data_type=type(data).__name__)
+            return None
+        try:
+            return UserProfile(**data)
+        except (TypeError, ValidationError) as exc:
+            logger.warning("profile.invalid_schema", path=str(self.path), error=str(exc))
+            return None
 
     def save(self, profile: UserProfile) -> Path:
         profile.updated_at = datetime.now().isoformat()
