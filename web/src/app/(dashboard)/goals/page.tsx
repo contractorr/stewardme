@@ -730,7 +730,7 @@ export default function GoalsPage() {
             <Sheet open={createOpen} onOpenChange={setCreateOpen}>
               <SheetTrigger asChild>
                 <Button size="sm">
-                  <Plus className="mr-2 h-4 w-4" /> New Goal
+                  <Plus className="h-4 w-4" /> New Goal
                 </Button>
               </SheetTrigger>
               <SheetContent className="sm:max-w-lg overflow-y-auto">

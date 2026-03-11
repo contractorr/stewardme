@@ -105,9 +105,11 @@ Never skip steps or reorder. Even small changes must flow: functional spec → t
 
 ## Feature Status
 
-Core (stable): journal, intelligence scrapers, RAG retrieval, advisor Q&A, recommendations
-Experimental (enabled by default): goal tracking, deep research, trend clustering, memory, threads, insights, suggestions
-Removed: mood analysis, burnout detection, momentum detection, predictions, signals (merged into insights), heartbeat UI (now invisible infra), learning paths (merged into goal milestones), skill gap analyzer (merged into advisor prompt mode)
+Core (stable): journal, intelligence scrapers, RAG retrieval, advisor Q&A, recommendations, conversation storage, library (reports + PDF uploads)
+Experimental (enabled by default): goal tracking, deep research, trend clustering, memory, threads, insights, suggestions, signals, engagement scoring, nudges (CLI), trending radar, goal-intel matching, AI capabilities KB, capability horizon model, query analysis/decomposition, thread inbox state machine
+Infrastructure: heartbeat (invisible), pageview tracking, feed catalog, user deletion, onboarding feeds, attachments
+Removed: mood analysis, burnout detection, momentum detection, predictions, skill gap analyzer (merged into advisor prompt mode)
+Legacy config present: `learning_paths` key in config.example.yaml + migration file (`advisor/migrate_learning_paths.py`) — feature merged into goal milestones
 
 ## Adding a new intelligence source
 
@@ -117,7 +119,7 @@ Removed: mood analysis, burnout detection, momentum detection, predictions, sign
 
 ## MCP Server
 
-`src/coach_mcp/` exposes 37 tools across 12 modules. Claude Code does the reasoning; MCP server provides data + context retrieval only — no LLM calls in the MCP layer. Tool convention: `TOOLS = [(name, schema_dict, handler_fn), ...]` per module, loaded lazily and cached in `server.py`.
+`src/coach_mcp/` exposes 46 tools across 12 modules. Claude Code does the reasoning; MCP server provides data + context retrieval only — no LLM calls in the MCP layer. Tool convention: `TOOLS = [(name, schema_dict, handler_fn), ...]` per module, loaded lazily and cached in `server.py`.
 
 ```bash
 python -m coach_mcp  # stdio transport, configured in .mcp.json for auto-discovery
