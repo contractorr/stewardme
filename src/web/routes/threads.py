@@ -10,6 +10,7 @@ from web.deps import (
     get_thread_inbox_state_store,
     get_thread_store,
     get_user_paths,
+    require_personal_research_key,
 )
 from web.models import (
     ThreadDetail,
@@ -140,6 +141,7 @@ async def make_goal_from_thread(
 async def run_research_from_thread(
     thread_id: str,
     user: dict = Depends(get_current_user),
+    _private_key: None = Depends(require_personal_research_key),
 ):
     from web.routes.research import _get_agent
 
@@ -160,6 +162,7 @@ async def run_research_from_thread(
 async def start_dossier_from_thread(
     thread_id: str,
     user: dict = Depends(get_current_user),
+    _private_key: None = Depends(require_personal_research_key),
 ):
     from web.routes.research import _get_agent
 

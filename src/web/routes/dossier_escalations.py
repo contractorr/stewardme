@@ -9,6 +9,7 @@ from research.escalation import DossierEscalationEngine
 from web.auth import get_current_user
 from web.deps import (
     get_dossier_escalation_store,
+    require_personal_research_key,
 )
 from web.dossier_escalation_context import load_dossier_escalation_context
 from web.models import DossierEscalationResponse, DossierEscalationSnoozeRequest
@@ -58,7 +59,11 @@ async def snooze_dossier_escalation(
 
 
 @router.post("/{escalation_id}/accept", response_model=DossierEscalationResponse)
-async def accept_dossier_escalation(escalation_id: str, user: dict = Depends(get_current_user)):
+async def accept_dossier_escalation(
+    escalation_id: str,
+    user: dict = Depends(get_current_user),
+    _private_key: None = Depends(require_personal_research_key),
+):
     store = get_dossier_escalation_store(user["id"])
     existing = store.get(escalation_id)
     if not existing:
