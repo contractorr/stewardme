@@ -114,6 +114,22 @@ class TestResolve:
         assert len(updates) == 2
         assert all(u.action == "ADD" for u in updates)
 
+    def test_batch_resolve_uses_fallback_search_for_paraphrases(self, resolver, provider, store):
+        store.add(_fact(id="e1", text="User prefers Python for backend development"))
+        provider.generate.return_value = json.dumps(
+            {
+                "action": "NOOP",
+                "existing_id": "e1",
+                "reasoning": "Same preference phrased differently",
+            }
+        )
+
+        updates = resolver.resolve([_fact(id="c1", text="User prefers Python for APIs")])
+
+        assert updates[0].action == "NOOP"
+        assert updates[0].existing_id == "e1"
+        provider.generate.assert_called_once()
+
 
 class TestTextSimilarity:
     def test_identical(self):

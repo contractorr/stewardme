@@ -171,6 +171,15 @@ class TestSearch:
         # Should only find the new version
         assert all("Java" not in r.text for r in results)
 
+    def test_fallback_search_surfaces_paraphrase_matches(self, store):
+        store.add(_fact(id="a", text="User prefers Python for backend development"))
+        store.add(_fact(id="b", text="User prefers Java for enterprise systems"))
+
+        results = store.search("User prefers Python for APIs", limit=5)
+
+        assert results
+        assert results[0].id == "a"
+
 
 class TestHistory:
     def test_history_chain(self, store):

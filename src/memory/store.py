@@ -1,5 +1,6 @@
 """Persistent storage for Steward Facts — SQLite metadata + ChromaDB embeddings."""
 
+import re
 import sqlite3
 import uuid
 from datetime import datetime, timedelta
@@ -16,6 +17,28 @@ logger = structlog.get_logger()
 SCHEMA_VERSION = 1
 DEFAULT_REINFORCEMENT = 0.05
 DEFAULT_CONTRADICTION_DECAY = 0.15
+_SEARCH_STOPWORDS = {
+    "a",
+    "an",
+    "and",
+    "are",
+    "for",
+    "from",
+    "has",
+    "have",
+    "into",
+    "is",
+    "its",
+    "now",
+    "that",
+    "the",
+    "their",
+    "then",
+    "they",
+    "this",
+    "user",
+    "with",
+}
 
 
 class FactStore:
@@ -311,8 +334,12 @@ class FactStore:
         categories: list[FactCategory] | None = None,
     ) -> list[StewardFact]:
         """Fallback keyword search in SQLite."""
-        sql = "SELECT * FROM steward_facts WHERE superseded_by IS NULL AND text LIKE ?"
-        params: list = [f"%{query}%"]
+        query = query.strip()
+        if not query:
+            return []
+
+        sql = "SELECT * FROM steward_facts WHERE superseded_by IS NULL"
+        params: list[str] = []
 
         if categories:
             cat_values = [c.value if isinstance(c, FactCategory) else c for c in categories]
@@ -320,13 +347,22 @@ class FactStore:
             sql += f" AND category IN ({placeholders})"
             params.extend(cat_values)
 
-        sql += " ORDER BY confidence DESC LIMIT ?"
-        params.append(limit)
+        patterns = [query.lower()]
+        patterns.extend(token for token in self._search_tokens(query) if token not in patterns)
+        placeholders = " OR ".join("LOWER(text) LIKE ?" for _ in patterns)
+        sql += f" AND ({placeholders})"
+        params.extend(f"%{pattern}%" for pattern in patterns)
 
         with wal_connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             rows = conn.execute(sql, params).fetchall()
-            return [self._row_to_fact(r) for r in rows]
+            facts = [self._row_to_fact(r) for r in rows]
+
+        facts.sort(
+            key=lambda fact: (self._fallback_keyword_score(query, fact.text), fact.confidence),
+            reverse=True,
+        )
+        return facts[:limit]
 
     def get_all_active(self) -> list[StewardFact]:
         """Return all non-superseded facts ordered by confidence desc."""
@@ -479,6 +515,30 @@ class FactStore:
             )
         except Exception as e:
             logger.warning("chroma_upsert_failed", fact_id=fact.id, error=str(e))
+
+    @staticmethod
+    def _search_tokens(text: str) -> list[str]:
+        return [
+            token
+            for token in re.findall(r"[a-z0-9]+", text.lower())
+            if len(token) >= 3 and token not in _SEARCH_STOPWORDS
+        ]
+
+    @classmethod
+    def _fallback_keyword_score(cls, query: str, text: str) -> float:
+        query_lower = query.lower()
+        text_lower = text.lower()
+        exact_match = 1.0 if query_lower in text_lower else 0.0
+        query_tokens = set(cls._search_tokens(query))
+        if not query_tokens:
+            return exact_match
+
+        text_tokens = set(cls._search_tokens(text))
+        if not text_tokens:
+            return exact_match
+
+        overlap = len(query_tokens & text_tokens) / len(query_tokens)
+        return max(exact_match, overlap)
 
     @staticmethod
     def _row_to_fact(row: sqlite3.Row) -> StewardFact:
