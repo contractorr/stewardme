@@ -78,6 +78,51 @@ def test_ask_returns_answer(client, auth_headers):
     assert "conversation_id" in data
 
 
+def test_ask_failure_cleans_up_new_conversation(client, auth_headers):
+    class _BrokenEngine:
+        def ask_result(self, *args, **kwargs):
+            raise RuntimeError("engine failed")
+
+    with patch(_ENGINE_PATCH, return_value=_BrokenEngine()):
+        res = client.post(
+            "/api/advisor/ask",
+            headers=auth_headers,
+            json={"question": "What should I do?"},
+        )
+
+    assert res.status_code == 500
+    assert client.get("/api/advisor/conversations", headers=auth_headers).json() == []
+
+
+def test_ask_failure_cleans_up_only_failed_user_turn(client, auth_headers):
+    with patch(_ENGINE_PATCH, side_effect=_mock_get_engine):
+        first = client.post(
+            "/api/advisor/ask",
+            headers=auth_headers,
+            json={"question": "First"},
+        )
+    conv_id = first.json()["conversation_id"]
+
+    class _BrokenEngine:
+        def ask_result(self, *args, **kwargs):
+            raise RuntimeError("engine failed")
+
+    with patch(_ENGINE_PATCH, return_value=_BrokenEngine()):
+        failed = client.post(
+            "/api/advisor/ask",
+            headers=auth_headers,
+            json={"question": "Second", "conversation_id": conv_id},
+        )
+
+    assert failed.status_code == 500
+    detail = client.get(f"/api/advisor/conversations/{conv_id}", headers=auth_headers)
+    assert detail.status_code == 200
+    assert [message["content"] for message in detail.json()["messages"]] == [
+        "First",
+        "Mock advice for: First",
+    ]
+
+
 def test_ask_returns_council_metadata_for_decision_prompt(client, auth_headers):
     with patch(_ENGINE_PATCH, side_effect=_mock_get_engine):
         res = client.post(

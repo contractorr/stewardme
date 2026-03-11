@@ -22,6 +22,7 @@ from web.conversation_store import (
     add_message,
     conversation_belongs_to,
     create_conversation,
+    delete_message,
     delete_conversation,
     get_conversation,
     get_messages,
@@ -276,10 +277,13 @@ async def ask_advisor(
     user: dict = Depends(get_current_user),
     _rate_limit: None = Depends(enforce_shared_key_usage_limit),
 ):
+    created_conversation = body.conversation_id is None
+    conv_id: str | None = None
+    user_message_id: str | None = None
     try:
         user_id = user["id"]
         attachments = _resolve_attachment_records(user_id, body.attachment_ids)
-        conv_id, history = start_conversation_turn(
+        conv_id, history, user_message_id = start_conversation_turn(
             user_id=user_id,
             conversation_id=body.conversation_id,
             question=body.question,
@@ -328,6 +332,14 @@ async def ask_advisor(
     except HTTPException:
         raise
     except Exception as exc:
+        if conv_id is not None:
+            try:
+                if user_message_id is not None:
+                    delete_message(user_message_id, conv_id)
+                if created_conversation:
+                    delete_conversation(conv_id, user_id)
+            except Exception:
+                pass
         raise HTTPException(status_code=500, detail=str(exc))
 
 
@@ -343,7 +355,7 @@ async def ask_advisor_stream(
 
     try:
         attachments = _resolve_attachment_records(user_id, body.attachment_ids)
-        conv_id, history = start_conversation_turn(
+        conv_id, history, _user_message_id = start_conversation_turn(
             user_id=user_id,
             conversation_id=body.conversation_id,
             question=body.question,

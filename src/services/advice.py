@@ -39,7 +39,7 @@ def start_conversation_turn(
     get_messages_fn: Callable[..., list[dict]],
     add_message_fn: Callable[..., Any],
     max_history_chars: int = DEFAULT_MAX_HISTORY_CHARS,
-) -> tuple[str, list[dict]]:
+) -> tuple[str, list[dict], str]:
     """Create or validate a conversation, load trimmed history, and persist the user turn."""
     conv_id = conversation_id
     if not conv_id:
@@ -53,8 +53,8 @@ def start_conversation_turn(
         [{"role": message["role"], "content": message["content"]} for message in history_rows],
         max_chars=max_history_chars,
     )
-    add_message_fn(conv_id, "user", question, attachments=attachments)
-    return conv_id, history
+    user_message_id = add_message_fn(conv_id, "user", question, attachments=attachments)
+    return conv_id, history, user_message_id
 
 
 def finish_conversation_turn(
