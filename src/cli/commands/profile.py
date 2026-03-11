@@ -73,7 +73,7 @@ def profile_update():
     c = get_components()
     ps = get_profile_storage(c["config"])
 
-    from profile.interview import ProfileInterviewer
+    from profile.interview import ProfileInterviewAborted, ProfileInterviewer, ProfileInterviewError
 
     from advisor.engine import LLMError
 
@@ -91,6 +91,12 @@ def profile_update():
             f"\n[green]Profile saved![/] {len(p.skills)} skills, {len(p.interests)} interests"
         )
         console.print(f"[dim]Saved to: {ps.path}[/]")
+    except ProfileInterviewAborted as e:
+        console.print(f"[yellow]Interview cancelled:[/] {e}")
+        sys.exit(1)
+    except ProfileInterviewError as e:
+        console.print(f"[red]Error:[/] {e}")
+        sys.exit(1)
     except LLMError as e:
         console.print(f"[red]Error:[/] {e}")
         sys.exit(1)
@@ -100,6 +106,9 @@ def profile_update():
 def profile_edit():
     """Edit profile YAML in $EDITOR."""
     import os
+
+    import yaml
+    from pydantic import ValidationError
 
     ps = get_profile_storage()
     if not ps.exists():
@@ -113,7 +122,11 @@ def profile_edit():
     try:
         subprocess.run([editor, str(ps.path)], check=True)
         # Validate after edit
-        p = ps.load()
+        try:
+            p = ps.load()
+        except (ValidationError, ValueError, TypeError, yaml.YAMLError) as e:
+            console.print(f"[red]Profile validation failed:[/] {e}")
+            raise SystemExit(1) from e
         if p:
             console.print(
                 f"[green]Profile valid.[/] {len(p.skills)} skills, {len(p.interests)} interests"

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from xml.sax.saxutils import quoteattr
+
 from intelligence.entity_store import EntityStore
 
 
@@ -42,7 +44,7 @@ class EntityRetriever:
                 entity["id"], limit=self.max_items_per_entity
             )
             block = [
-                f'<entity name="{entity["name"]}" type="{entity["type"]}">',
+                f"<entity name={self._attr(entity.get('name'))} type={self._attr(entity.get('type'))}>",
                 "<relationships>",
             ]
             for relationship in relationships:
@@ -52,15 +54,17 @@ class EntityRetriever:
                     else relationship.get("source_name")
                 )
                 block.append(
-                    f'<rel type="{relationship["type"]}" target="{target_name}" '
-                    f'evidence="{(relationship.get("evidence") or "")[:160]}" />'
+                    f"<rel type={self._attr(relationship.get('type'))} "
+                    f"target={self._attr(target_name)} "
+                    f"evidence={self._attr((relationship.get('evidence') or '')[:160])} />"
                 )
             block.append("</relationships>")
-            block.append(f'<recent_items count="{len(items)}">')
+            block.append(f"<recent_items count={self._attr(len(items))}>")
             for item in items:
                 block.append(
-                    f'<item source="{item.get("source", "")}" title="{item.get("title", "")}" '
-                    f'summary="{(item.get("summary") or "")[:180]}" />'
+                    f"<item source={self._attr(item.get('source', ''))} "
+                    f"title={self._attr(item.get('title', ''))} "
+                    f"summary={self._attr((item.get('summary') or '')[:180])} />"
                 )
             block.append("</recent_items>")
             block.append("</entity>")
@@ -70,3 +74,7 @@ class EntityRetriever:
             parts.extend(block)
         parts.append("</entity_context>")
         return "\n".join(parts) if len(parts) > 2 else ""
+
+    @staticmethod
+    def _attr(value) -> str:
+        return quoteattr("" if value is None else str(value))

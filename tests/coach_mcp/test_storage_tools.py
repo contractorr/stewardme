@@ -1,8 +1,10 @@
 """Tests for MCP bootstrap storage helpers and tool delegation."""
 
 import asyncio
+from datetime import datetime
 from profile.storage import ProfileStorage
-from unittest.mock import MagicMock, patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -67,6 +69,18 @@ def test_profile_tool_uses_bootstrap_profile_store(mock_components, tmp_path):
     assert mock_get.call_count == 2
 
 
+def test_profile_tool_reports_invalid_updates(mock_components, tmp_path):
+    from coach_mcp.tools.profile import _profile_update_field
+
+    storage = ProfileStorage(tmp_path / "custom-profile.yaml")
+
+    with patch("coach_mcp.tools.profile.get_profile_storage", return_value=storage):
+        result = _profile_update_field({"field": "weekly_hours_available", "value": "a lot"})
+
+    assert result["success"] is False
+    assert "weekly_hours_available" in result["error"]
+
+
 def test_memory_tool_uses_bootstrap_memory_store(mock_components, tmp_path):
     from coach_mcp.tools.memory import _delete_fact, _list_facts
 
@@ -93,8 +107,6 @@ def test_memory_tool_uses_bootstrap_memory_store(mock_components, tmp_path):
 
 
 def test_threads_tool_uses_bootstrap_thread_store(mock_components, tmp_path):
-    from datetime import datetime
-
     from coach_mcp.tools.threads import _get_thread_entries, _list_threads
 
     store = ThreadStore(tmp_path / "threads.db")
@@ -117,6 +129,59 @@ def test_threads_tool_uses_bootstrap_thread_store(mock_components, tmp_path):
     assert detail["thread"]["entry_count"] == 2
     assert [item["entry_id"] for item in detail["entries"]] == ["entry-1", "entry-2"]
     assert mock_get.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_threads_tool_supports_running_event_loop(mock_components, tmp_path):
+    from coach_mcp.tools.threads import _list_threads
+
+    store = ThreadStore(tmp_path / "threads.db")
+    thread = await store.create_thread("Recurring planning")
+    await store.add_entry(thread.id, "entry-1", 0.91, datetime(2026, 3, 1))
+    await store.add_entry(thread.id, "entry-2", 0.83, datetime(2026, 3, 4))
+
+    with patch("coach_mcp.tools.threads.get_thread_store", return_value=store):
+        result = _list_threads({})
+
+    assert result["count"] == 1
+    assert result["threads"][0]["id"] == thread.id
+
+
+@pytest.mark.asyncio
+async def test_journal_thread_detection_supports_running_event_loop(mock_components):
+    from coach_mcp.tools.journal import _detect_thread
+
+    entry_id = "entry-1"
+    mock_components["storage"].read.return_value = {"created": "2026-03-01T00:00:00"}
+    mock_components["embeddings"].collection.get.return_value = {"embeddings": [[0.1, 0.2]]}
+    mock_components["config_model"].threads.enabled = True
+    mock_components["config_model"].threads.similarity_threshold = 0.78
+    mock_components["config_model"].threads.candidate_count = 10
+    mock_components["config_model"].threads.min_entries_for_thread = 2
+
+    match = SimpleNamespace(thread_id="thread-1", match_type="joined_existing")
+    entry = SimpleNamespace(entry_id="entry-0", entry_date=datetime(2026, 2, 28), similarity=0.9)
+    store = MagicMock()
+    store.get_thread = AsyncMock(
+        return_value=SimpleNamespace(id="thread-1", label="Recurring planning", entry_count=2)
+    )
+    store.get_thread_entries = AsyncMock(return_value=[entry])
+
+    detector = MagicMock()
+    detector.detect = AsyncMock(return_value=match)
+
+    with (
+        patch("coach_mcp.tools.journal.get_thread_store", return_value=store),
+        patch("journal.threads.ThreadDetector", return_value=detector),
+    ):
+        result = _detect_thread(mock_components, entry_id)
+
+    assert result == {
+        "thread_id": "thread-1",
+        "match_type": "joined_existing",
+        "entry_count": 2,
+        "related_dates": ["2026-02-28"],
+    }
 
 
 def test_bootstrap_shared_storage_helpers_use_canonical_paths(mock_components, tmp_path):

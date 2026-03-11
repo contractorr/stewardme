@@ -154,22 +154,21 @@ class MemoryPipeline:
     def _execute(self, updates: list[FactUpdate], candidates: list) -> int:
         """Execute resolved actions. Returns count of facts stored."""
         stored = 0
-        candidate_map = {c.text: c for c in candidates}
 
-        for update in updates:
+        for update, candidate in zip(updates, candidates, strict=False):
             if update.action == "ADD":
-                candidate = candidate_map.get(update.candidate)
                 if candidate:
                     self.store.add(candidate)
                     stored += 1
 
             elif update.action == "UPDATE" and update.existing_id:
-                candidate = candidate_map.get(update.candidate)
                 if candidate:
                     self.store.update(
                         update.existing_id,
-                        update.candidate,
+                        candidate.text,
                         candidate.source_id,
+                        new_source_type=candidate.source_type,
+                        new_category=candidate.category,
                         new_confidence=candidate.confidence,
                     )
                     stored += 1

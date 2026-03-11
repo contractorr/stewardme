@@ -14,6 +14,17 @@ DEFAULTS = LimitsConfig().model_dump()
 DEFAULT_CONFIG = CoachConfig().to_dict()
 
 
+def _deep_merge(base: dict, override: dict) -> dict:
+    """Merge validated config values into the original config tree."""
+    result = base.copy()
+    for key, value in override.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = _deep_merge(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
 def find_config() -> Optional[Path]:
     """Find config file in standard locations."""
     locations = [
@@ -29,7 +40,18 @@ def find_config() -> Optional[Path]:
 
 def load_config(config_path: Optional[Path] = None) -> dict:
     """Load configuration from file or defaults as a dict."""
-    return load_config_model(config_path).to_dict()
+    path = config_path or find_config()
+    base_config = {}
+
+    if path and path.exists():
+        try:
+            with open(path, encoding="utf-8") as f:
+                base_config = yaml.safe_load(f) or {}
+        except yaml.YAMLError as e:
+            raise ValueError(f"Invalid YAML in config file: {e}")
+
+    validated = load_config_model(path).to_dict()
+    return _deep_merge(base_config, validated)
 
 
 def load_config_model(config_path: Optional[Path] = None) -> CoachConfig:

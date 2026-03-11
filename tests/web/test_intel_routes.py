@@ -2,6 +2,12 @@
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from web.auth import get_admin_user
+
+
+def _allow_admin(app):
+    app.dependency_overrides[get_admin_user] = lambda: {"id": "user-123"}
+
 
 def test_get_recent_empty(client, auth_headers):
     mock_storage = MagicMock()
@@ -236,18 +242,28 @@ def test_follow_up_saved_on_item(client, auth_headers):
     assert listed.json()[0]["note"] == "review this later"
 
 
-def test_scrape_trigger(client, auth_headers):
+def test_scrape_trigger(client, app, auth_headers):
     mock_scheduler = MagicMock()
     mock_scheduler._run_async = AsyncMock(return_value={"sources": 3})
-    with (
-        patch("web.routes.intel._get_storage", return_value=MagicMock()),
-        patch("intelligence.scheduler.IntelScheduler", return_value=mock_scheduler),
-        patch("journal.storage.JournalStorage"),
-        patch("journal.embeddings.EmbeddingManager"),
-    ):
-        res = client.post("/api/intel/scrape", headers=auth_headers)
+    _allow_admin(app)
+    try:
+        with (
+            patch("web.routes.intel._get_storage", return_value=MagicMock()),
+            patch("intelligence.scheduler.IntelScheduler", return_value=mock_scheduler),
+            patch("journal.storage.JournalStorage"),
+            patch("journal.embeddings.EmbeddingManager"),
+        ):
+            res = client.post("/api/intel/scrape", headers=auth_headers)
+    finally:
+        app.dependency_overrides.pop(get_admin_user, None)
     assert res.status_code == 200
     assert res.json()["status"] == "completed"
+
+
+def test_scrape_requires_admin(client, auth_headers):
+    res = client.post("/api/intel/scrape", headers=auth_headers)
+    assert res.status_code == 403
+    assert res.json() == {"detail": "Admin access required"}
 
 
 def test_trending_returns_personalized_flag(client, auth_headers):
@@ -295,7 +311,7 @@ def test_trending_returns_personalized_flag(client, auth_headers):
     assert "personalized" in data
 
 
-def test_scrape_injects_user_github_token(client, auth_headers, secret_key):
+def test_scrape_injects_user_github_token(client, app, auth_headers, secret_key):
     """User's stored github_token flows into scheduler full_config."""
     captured = {}
     real_init_called = False
@@ -310,37 +326,45 @@ def test_scrape_injects_user_github_token(client, auth_headers, secret_key):
         async def _run_async(self):
             return {"sources": 0}
 
-    with (
-        patch("web.routes.intel._get_storage", return_value=MagicMock()),
-        patch("intelligence.scheduler.IntelScheduler", FakeScheduler),
-        patch("journal.storage.JournalStorage"),
-        patch("journal.embeddings.EmbeddingManager"),
-        patch(
-            "web.user_store.get_user_secret",
-            return_value="ghp_test_token_123",
-        ),
-        patch("web.deps.get_secret_key", return_value=secret_key),
-    ):
-        res = client.post("/api/intel/scrape", headers=auth_headers)
+    _allow_admin(app)
+    try:
+        with (
+            patch("web.routes.intel._get_storage", return_value=MagicMock()),
+            patch("intelligence.scheduler.IntelScheduler", FakeScheduler),
+            patch("journal.storage.JournalStorage"),
+            patch("journal.embeddings.EmbeddingManager"),
+            patch(
+                "web.user_store.get_user_secret",
+                return_value="ghp_test_token_123",
+            ),
+            patch("web.deps.get_secret_key", return_value=secret_key),
+        ):
+            res = client.post("/api/intel/scrape", headers=auth_headers)
+    finally:
+        app.dependency_overrides.pop(get_admin_user, None)
     assert res.status_code == 200
     assert real_init_called
     token = captured["full_config"]["projects"]["github_issues"]["token"]
     assert token == "ghp_test_token_123"
 
 
-def test_scrape_works_without_github_token(client, auth_headers):
+def test_scrape_works_without_github_token(client, app, auth_headers):
     """Scrape still works when user has no stored github_token."""
     mock_scheduler = MagicMock()
     mock_scheduler._run_async = AsyncMock(return_value={"sources": 0})
-    with (
-        patch("web.routes.intel._get_storage", return_value=MagicMock()),
-        patch("intelligence.scheduler.IntelScheduler", return_value=mock_scheduler),
-        patch("journal.storage.JournalStorage"),
-        patch("journal.embeddings.EmbeddingManager"),
-        patch("web.user_store.get_user_secret", return_value=None),
-        patch("web.deps.get_secret_key", return_value="fake-key"),
-    ):
-        res = client.post("/api/intel/scrape", headers=auth_headers)
+    _allow_admin(app)
+    try:
+        with (
+            patch("web.routes.intel._get_storage", return_value=MagicMock()),
+            patch("intelligence.scheduler.IntelScheduler", return_value=mock_scheduler),
+            patch("journal.storage.JournalStorage"),
+            patch("journal.embeddings.EmbeddingManager"),
+            patch("web.user_store.get_user_secret", return_value=None),
+            patch("web.deps.get_secret_key", return_value="fake-key"),
+        ):
+            res = client.post("/api/intel/scrape", headers=auth_headers)
+    finally:
+        app.dependency_overrides.pop(get_admin_user, None)
     assert res.status_code == 200
 
 

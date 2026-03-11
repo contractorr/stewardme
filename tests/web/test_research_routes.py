@@ -114,9 +114,15 @@ def test_get_agent_injects_user_tavily_key(client, auth_headers, secret_key):
         patch("journal.storage.JournalStorage"),
         patch("journal.embeddings.EmbeddingManager"),
         patch("web.routes.research.get_intel_storage"),
+        patch(
+            "web.routes.research.resolve_llm_credentials_for_user",
+            return_value=("openai", "sk-user-key", "user"),
+        ),
         patch("web.user_store.get_user_secret", return_value="tvly-test-key-456"),
         patch("web.deps.get_secret_key", return_value=secret_key),
     ):
         res = client.get("/api/research/topics", headers=auth_headers)
     assert res.status_code == 200
     assert captured_config.get("research", {}).get("api_key") == "tvly-test-key-456"
+    assert captured_config.get("llm", {}).get("provider") == "openai"
+    assert captured_config.get("llm", {}).get("api_key") == "sk-user-key"

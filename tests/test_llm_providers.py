@@ -192,10 +192,41 @@ class TestGeminiProvider:
         mock_client.models.generate_content.return_value = mock_resp
 
         provider = GeminiProvider(client=mock_client)
+        provider._get_genai_types = lambda: None
         provider.generate(messages=[{"role": "user", "content": "hi"}])
 
         call_kwargs = mock_client.models.generate_content.call_args.kwargs
-        assert "System:" not in call_kwargs["contents"]
+        assert call_kwargs["config"] == {"max_output_tokens": 2000}
+        assert call_kwargs["contents"] == [{"role": "user", "parts": [{"text": "hi"}]}]
+
+    def test_generate_preserves_multi_turn_roles(self):
+        mock_client = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.text = "Raj"
+        mock_client.models.generate_content.return_value = mock_resp
+
+        provider = GeminiProvider(client=mock_client)
+        provider._get_genai_types = lambda: None
+        provider.generate(
+            messages=[
+                {"role": "user", "content": "My name is Raj"},
+                {"role": "assistant", "content": "Noted"},
+                {"role": "user", "content": "What is my name?"},
+            ],
+            system="Be helpful",
+            max_tokens=123,
+        )
+
+        call_kwargs = mock_client.models.generate_content.call_args.kwargs
+        assert call_kwargs["config"] == {
+            "max_output_tokens": 123,
+            "system_instruction": "Be helpful",
+        }
+        assert call_kwargs["contents"] == [
+            {"role": "user", "parts": [{"text": "My name is Raj"}]},
+            {"role": "model", "parts": [{"text": "Noted"}]},
+            {"role": "user", "parts": [{"text": "What is my name?"}]},
+        ]
 
     def test_auth_error(self):
         mock_client = MagicMock()

@@ -25,7 +25,7 @@ def memory():
 def memory_status():
     """Show fact counts by category and total."""
     c = get_components(skip_advisor=True)
-    store = _get_store(c["config"])
+    store = _get_store(c)
     stats = store.get_stats()
 
     console.print(f"Active facts: {stats['total_active']}")
@@ -41,7 +41,7 @@ def memory_status():
 def memory_list(category: str | None):
     """List all active facts, grouped by category."""
     c = get_components(skip_advisor=True)
-    store = _get_store(c["config"])
+    store = _get_store(c)
 
     if category:
         from memory.models import FactCategory
@@ -85,7 +85,7 @@ def memory_list(category: str | None):
 def memory_search(query: str, limit: int):
     """Semantic search over facts."""
     c = get_components(skip_advisor=True)
-    store = _get_store(c["config"])
+    store = _get_store(c)
     facts = store.search(query, limit=limit)
 
     if not facts:
@@ -101,7 +101,7 @@ def memory_search(query: str, limit: int):
 def memory_inspect(fact_id: str):
     """Show fact details and supersession history."""
     c = get_components(skip_advisor=True)
-    store = _get_store(c["config"])
+    store = _get_store(c)
     fact = store.get(fact_id)
     if not fact:
         console.print(f"[red]Fact not found: {fact_id}[/]")
@@ -130,7 +130,7 @@ def memory_inspect(fact_id: str):
 def memory_delete(fact_id: str):
     """Soft-delete a fact."""
     c = get_components(skip_advisor=True)
-    store = _get_store(c["config"])
+    store = _get_store(c)
     fact = store.get(fact_id)
     if not fact:
         console.print(f"[red]Fact not found: {fact_id}[/]")
@@ -145,7 +145,7 @@ def memory_backfill(dry_run: bool):
     """Extract facts from all existing journal entries."""
     c = get_components(skip_advisor=True)
     config = c["config"]
-    store = _get_store(config)
+    store = _get_store(c)
 
     from journal.storage import JournalStorage
 
@@ -203,6 +203,6 @@ def memory_backfill(dry_run: bool):
 def memory_reset():
     """Delete all facts."""
     c = get_components(skip_advisor=True)
-    store = _get_store(c["config"])
+    store = _get_store(c)
     count = store.reset()
     console.print(f"Deleted {count} facts")

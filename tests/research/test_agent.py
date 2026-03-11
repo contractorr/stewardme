@@ -1,13 +1,14 @@
 """Tests for DeepResearchAgent."""
 
-from unittest.mock import MagicMock
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from intelligence.scraper import IntelStorage
 from journal.embeddings import EmbeddingManager
 from journal.storage import JournalStorage
-from research.agent import DeepResearchAgent
+from research.agent import AsyncDeepResearchAgent, DeepResearchAgent
 from research.web_search import SearchResult
 
 
@@ -152,6 +153,17 @@ class TestDeepResearchAgent:
         assert len(items) == 1
         assert items[0]["source"] == "deep_research"
 
+    def test_store_intel_item_uses_unique_url_per_run(self, agent_components, agent_factory):
+        """Standalone research reruns should not collide on the synthetic intel URL."""
+        agent = agent_factory()
+
+        agent._store_intel_item("Test Topic", "Report 1", [], summary="Summary 1")
+        agent._store_intel_item("Test Topic", "Report 2", [], summary="Summary 2")
+
+        items = agent_components["intel"].search("Test Topic")
+        assert len(items) == 2
+        assert len({item["url"] for item in items}) == 2
+
     def test_run_no_search_results(self, agent_factory):
         """Test handling when search returns no results."""
         search_client = MagicMock()
@@ -183,3 +195,215 @@ class TestDeepResearchAgent:
 
         agent.close()
         search_client.close.assert_called_once()
+
+    def test_scheduled_dossier_run_continues_after_failure(self, agent_factory):
+        """A failed dossier should not abort the rest of the scheduled batch."""
+        dossiers = MagicMock()
+        dossiers.get_active_dossiers.return_value = [
+            {"dossier_id": "dos-1", "topic": "Topic One"},
+            {"dossier_id": "dos-2", "topic": "Topic Two"},
+        ]
+        agent = agent_factory(dossiers=dossiers)
+        agent._run_dossier = MagicMock(
+            side_effect=[
+                RuntimeError("append failed"),
+                {
+                    "topic": "Topic Two",
+                    "title": "Research Update: Topic Two",
+                    "dossier_id": "dos-2",
+                    "filepath": "/tmp/topic-two.md",
+                    "success": True,
+                },
+            ]
+        )
+
+        results = agent.run()
+
+        assert results == [
+            {
+                "topic": "Topic One",
+                "title": "Research Update: Topic One",
+                "dossier_id": "dos-1",
+                "filepath": None,
+                "success": False,
+                "error": "append failed",
+            },
+            {
+                "topic": "Topic Two",
+                "title": "Research Update: Topic Two",
+                "dossier_id": "dos-2",
+                "filepath": "/tmp/topic-two.md",
+                "success": True,
+            },
+        ]
+        assert agent._run_dossier.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_async_scheduled_dossier_run_continues_after_failure(temp_dirs):
+    journal = JournalStorage(temp_dirs["journal_dir"])
+    intel = IntelStorage(temp_dirs["intel_db"])
+    embeddings = MagicMock(spec=EmbeddingManager)
+    dossiers = MagicMock()
+    dossiers.get_active_dossiers.return_value = [
+        {"dossier_id": "dos-1", "topic": "Topic One"},
+        {"dossier_id": "dos-2", "topic": "Topic Two"},
+    ]
+    search_client = MagicMock()
+    search_client.close = AsyncMock()
+    agent = AsyncDeepResearchAgent(
+        journal_storage=journal,
+        intel_storage=intel,
+        embeddings=embeddings,
+        search_client=search_client,
+        synthesizer=MagicMock(),
+        dossiers=dossiers,
+    )
+
+    async def _run_dossier_async(dossier, run_source):
+        if dossier["dossier_id"] == "dos-1":
+            raise RuntimeError("append failed")
+        return {
+            "topic": dossier["topic"],
+            "title": f"Research Update: {dossier['topic']}",
+            "dossier_id": dossier["dossier_id"],
+            "filepath": "/tmp/topic-two.md",
+            "success": True,
+        }
+
+    agent._run_dossier_async = AsyncMock(side_effect=_run_dossier_async)
+
+    results = await agent.run()
+
+    assert results == [
+        {
+            "topic": "Topic One",
+            "title": "Research Update: Topic One",
+            "dossier_id": "dos-1",
+            "filepath": None,
+            "success": False,
+            "error": "append failed",
+        },
+        {
+            "topic": "Topic Two",
+            "title": "Research Update: Topic Two",
+            "dossier_id": "dos-2",
+            "filepath": "/tmp/topic-two.md",
+            "success": True,
+        },
+    ]
+    assert agent._run_dossier_async.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_async_topic_run_matches_sync_result_shape(temp_dirs, mock_search_results):
+    journal = JournalStorage(temp_dirs["journal_dir"])
+    intel = IntelStorage(temp_dirs["intel_db"])
+    embeddings = MagicMock(spec=EmbeddingManager)
+    sync_search = MagicMock()
+    sync_search.max_results = 8
+    sync_search.search.return_value = mock_search_results
+    sync_search.close = MagicMock()
+    async_search = MagicMock()
+    async_search.search = AsyncMock(return_value=mock_search_results)
+    async_search.close = AsyncMock()
+    synthesizer = MagicMock()
+    synthesizer.synthesize.return_value = "## Summary\nTest async parity"
+
+    sync_agent = DeepResearchAgent(
+        journal_storage=journal,
+        intel_storage=intel,
+        embeddings=embeddings,
+        search_client=sync_search,
+        synthesizer=synthesizer,
+    )
+    async_agent = AsyncDeepResearchAgent(
+        journal_storage=journal,
+        intel_storage=intel,
+        embeddings=embeddings,
+        search_client=async_search,
+        synthesizer=synthesizer,
+    )
+
+    sync_result = sync_agent.run(specific_topic="Parity Topic")[0]
+    async_result = await async_agent.run(specific_topic="Parity Topic")
+
+    assert set(async_result[0]) == set(sync_result)
+
+
+@pytest.mark.asyncio
+async def test_async_dossier_run_matches_sync_result_shape(temp_dirs, mock_search_results):
+    journal = JournalStorage(temp_dirs["journal_dir"])
+    intel = MagicMock(spec=IntelStorage)
+    embeddings = MagicMock(spec=EmbeddingManager)
+    dossier = {
+        "dossier_id": "dos-1",
+        "topic": "Parity Topic",
+        "content": "Tracked context",
+        "path": Path("/tmp/dossier.md"),
+        "latest_change_summary": "Previous summary",
+    }
+    refreshed = {**dossier, "content": "Updated dossier", "latest_change_summary": "Fresh change"}
+    search_sync = MagicMock()
+    search_sync.max_results = 8
+    search_sync.search.return_value = mock_search_results
+    search_sync.close = MagicMock()
+    search_async = MagicMock()
+    search_async.search = AsyncMock(return_value=mock_search_results)
+    search_async.close = AsyncMock()
+    synthesizer = MagicMock()
+    synthesizer.synthesize_dossier_update.return_value = """## What Changed
+- Fresh change
+
+## Why It Matters
+Important.
+
+## Evidence
+- Source
+
+## Confidence
+High - official source.
+
+## Recommended Actions
+- Follow up
+
+## Open Questions
+- Unknown
+
+## Sources
+- ML Guide: https://example.com/ml
+"""
+    dossiers_sync = MagicMock()
+    dossiers_sync.append_update.return_value = {
+        "title": "Research Update: Parity Topic",
+        "path": Path("/tmp/update-sync.md"),
+    }
+    dossiers_sync.get_dossier.return_value = refreshed
+    dossiers_async = MagicMock()
+    dossiers_async.append_update.return_value = {
+        "title": "Research Update: Parity Topic",
+        "path": Path("/tmp/update-async.md"),
+    }
+    dossiers_async.get_dossier.return_value = refreshed
+
+    sync_agent = DeepResearchAgent(
+        journal_storage=journal,
+        intel_storage=intel,
+        embeddings=embeddings,
+        search_client=search_sync,
+        synthesizer=synthesizer,
+        dossiers=dossiers_sync,
+    )
+    async_agent = AsyncDeepResearchAgent(
+        journal_storage=journal,
+        intel_storage=intel,
+        embeddings=embeddings,
+        search_client=search_async,
+        synthesizer=synthesizer,
+        dossiers=dossiers_async,
+    )
+
+    sync_result = sync_agent._run_dossier(dossier, run_source="manual")
+    async_result = await async_agent._run_dossier_async(dossier, run_source="manual")
+
+    assert set(async_result) == set(sync_result)

@@ -7,6 +7,7 @@ import pytest
 
 from llm.base import GenerateResponse, ToolCall, ToolDefinition, ToolResult
 from llm.providers.claude import ClaudeProvider
+from llm.providers.gemini import GeminiProvider
 from llm.providers.openai import OpenAIProvider
 
 SAMPLE_TOOLS = [
@@ -381,3 +382,55 @@ class TestOpenAIToolCalling:
         assert api_msgs[2]["role"] == "assistant"
         assert "tool_calls" in api_msgs[2]
         assert api_msgs[3]["role"] == "tool"
+
+
+class TestGeminiToolCalling:
+    def test_convert_messages_reuses_tool_name_from_prior_call(self):
+        provider = GeminiProvider(client=MagicMock())
+        provider._get_genai_types = lambda: None
+        messages = [
+            {"role": "user", "content": "weather?"},
+            {
+                "role": "assistant",
+                "tool_calls": [
+                    {"id": "call_1", "name": "get_weather", "arguments": {"location": "NYC"}}
+                ],
+            },
+            {"role": "tool", "tool_call_id": "call_1", "content": '{"temp": 72}'},
+        ]
+
+        contents = provider._convert_messages(messages)
+
+        assert contents[2] == {
+            "role": "user",
+            "parts": [
+                {
+                    "function_response": {
+                        "name": "get_weather",
+                        "response": {"result": '{"temp": 72}'},
+                    }
+                }
+            ],
+        }
+
+    def test_convert_messages_falls_back_to_tool_when_name_cannot_be_resolved(self):
+        provider = GeminiProvider(client=MagicMock())
+        provider._get_genai_types = lambda: None
+
+        contents = provider._convert_messages(
+            [{"role": "tool", "tool_call_id": "missing", "content": '{"temp": 72}'}]
+        )
+
+        assert contents == [
+            {
+                "role": "user",
+                "parts": [
+                    {
+                        "function_response": {
+                            "name": "tool",
+                            "response": {"result": '{"temp": 72}'},
+                        }
+                    }
+                ],
+            }
+        ]

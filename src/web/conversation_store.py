@@ -142,6 +142,20 @@ def add_message(
         conn.close()
 
 
+def delete_message(message_id: str, conv_id: str, db_path=None) -> bool:
+    """Delete a specific message from a conversation."""
+    conn = _get_conn(db_path)
+    try:
+        cur = conn.execute(
+            "DELETE FROM conversation_messages WHERE id = ? AND conversation_id = ?",
+            (message_id, conv_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
 def get_messages(conv_id: str, limit: int = 20, db_path=None) -> list[dict]:
     """Get last N messages for a conversation (oldest first)."""
     conn = _get_conn(db_path)

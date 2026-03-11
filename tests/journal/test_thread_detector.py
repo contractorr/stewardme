@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from journal.embeddings import EmbeddingManager
 from journal.thread_store import ThreadStore
 from journal.threads import ThreadDetector
 
@@ -14,7 +15,11 @@ def store(tmp_path):
     return ThreadStore(tmp_path / "threads.db")
 
 
-def _make_embeddings_mock(entries: dict[str, list[float]], documents: dict[str, str] | None = None):
+def _make_embeddings_mock(
+    entries: dict[str, list[float]],
+    documents: dict[str, str] | None = None,
+    metadatas: dict[str, dict] | None = None,
+):
     """Create a mock EmbeddingManager with a mock collection.
 
     Args:
@@ -55,7 +60,7 @@ def _make_embeddings_mock(entries: dict[str, list[float]], documents: dict[str, 
                     documents.get(eid, f"Content for {eid}") if documents else f"Content for {eid}"
                 )
                 embeds.append(entries[eid])
-                metas.append({})
+                metas.append((metadatas or {}).get(eid, {}))
         if ids is None:
             found_ids = list(entries.keys())
             docs = [
@@ -63,7 +68,7 @@ def _make_embeddings_mock(entries: dict[str, list[float]], documents: dict[str, 
                 for e in found_ids
             ]
             embeds = [entries[e] for e in found_ids]
-            metas = [{} for _ in found_ids]
+            metas = [(metadatas or {}).get(e, {}) for e in found_ids]
         return {
             "ids": found_ids,
             "documents": docs,
@@ -118,6 +123,30 @@ class TestCreatesNewThread:
 
         thread = await store.get_thread(match.thread_id)
         assert thread.entry_count == 3
+
+    @pytest.mark.asyncio
+    async def test_preserves_existing_entry_dates_when_creating_new_thread(self, store):
+        entries = {
+            "e1": [0.9, 0.3, 0.1],
+            "e2": [0.88, 0.32, 0.12],
+            "e3": [0.87, 0.33, 0.11],
+        }
+        metadatas = {
+            "e1": {"created": "2026-01-05T00:00:00"},
+            "e2": {"created": "2026-01-07T00:00:00"},
+            "e3": {"created": "2026-02-12T00:00:00"},
+        }
+        embeddings = _make_embeddings_mock(entries, metadatas=metadatas)
+        detector = ThreadDetector(embeddings, store, {"similarity_threshold": 0.7})
+
+        match = await detector.detect("e3", entries["e3"], datetime(2026, 2, 12))
+
+        thread_entries = await store.get_thread_entries(match.thread_id)
+        assert [(entry.entry_id, entry.entry_date.strftime("%Y-%m-%d")) for entry in thread_entries] == [
+            ("e1", "2026-01-05"),
+            ("e2", "2026-01-07"),
+            ("e3", "2026-02-12"),
+        ]
 
 
 class TestUnthreaded:
@@ -215,3 +244,29 @@ class TestReindex:
         await detector.reindex_all()
         active = await store.get_active_threads()
         assert len(active) == 0
+
+    @pytest.mark.asyncio
+    async def test_reindex_with_real_embedding_manager(self, temp_dirs, tmp_path):
+        embeddings = EmbeddingManager(temp_dirs["chroma_dir"])
+        embeddings.add_entry("e1", "career planning distributed systems", {"created": "2026-01-01T00:00:00"})
+        embeddings.add_entry(
+            "e2",
+            "career planning distributed systems next steps",
+            {"created": "2026-01-02T00:00:00"},
+        )
+        embeddings.add_entry(
+            "e3",
+            "career planning distributed systems reflection",
+            {"created": "2026-01-03T00:00:00"},
+        )
+
+        detector = ThreadDetector(
+            embeddings,
+            ThreadStore(tmp_path / "threads.db"),
+            {"similarity_threshold": 0.1},
+        )
+
+        stats = await detector.reindex_all()
+
+        assert stats["entries_processed"] == 3
+        assert stats["entries_threaded"] >= 2

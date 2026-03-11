@@ -27,7 +27,7 @@ def run(retrieval_only, response_only, dataset, k):
     from eval.response import ResponseJudge
     from eval.runner import EvalRunner
 
-    c = get_components(skip_advisor=response_only is False)
+    c = get_components(skip_advisor=retrieval_only and not response_only)
 
     judge = None
     advisor = c.get("advisor")
@@ -228,7 +228,7 @@ def radar(db, profile, with_coherence, as_json):
     if with_coherence:
         from cli.utils import get_components
 
-        c = get_components(skip_advisor=True)
+        c = get_components(skip_advisor=False)
         advisor = c.get("advisor")
         if advisor and hasattr(advisor, "cheap_llm"):
             judge_llm = advisor.cheap_llm

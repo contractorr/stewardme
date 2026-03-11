@@ -70,6 +70,16 @@ class EntityExtractor:
             if not item or self.entity_store.is_item_processed(int(item["id"])):
                 continue
             result = await self.extract_item(item)
+            if result.error:
+                self.entity_store.mark_item_processed(
+                    int(item["id"]),
+                    status="failed",
+                    last_error=result.error[:500],
+                )
+            elif result.entities or result.relationships:
+                self.entity_store.mark_item_processed(int(item["id"]), status="succeeded")
+            else:
+                self.entity_store.mark_item_processed(int(item["id"]), status="empty")
             summary.processed += 1
             if result.error:
                 summary.errors += 1
@@ -88,7 +98,7 @@ class EntityExtractor:
                 system=self._system_prompt(),
                 max_tokens=1200,
             )
-            parsed = json.loads(raw)
+            parsed = self._parse_llm_payload(raw)
         except Exception as exc:
             logger.warning("entity_extraction_failed", item_id=item.get("id"), error=str(exc))
             return ItemExtractionResult(
@@ -185,6 +195,26 @@ class EntityExtractor:
         summary = item.get("summary", "")
         content = (item.get("content") or "")[: self.max_content_chars]
         return f"Title: {title}\nSummary: {summary}\nContent: {content}"
+
+    @staticmethod
+    def _parse_llm_payload(raw: str) -> dict:
+        text = (raw or "").strip()
+        if text.startswith("```"):
+            lines = text.splitlines()
+            if lines:
+                lines = lines[1:]
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
+            text = "\n".join(lines).strip()
+
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            start = min((idx for idx in (text.find("{"), text.find("[")) if idx != -1), default=-1)
+            end = max([idx for idx in (text.rfind("}"), text.rfind("]")) if idx != -1], default=-1)
+            if start == -1 or end < start:
+                raise
+            return json.loads(text[start : end + 1])
 
     def _normalize_entity_type(self, raw_type: str | None) -> str | None:
         if not raw_type:

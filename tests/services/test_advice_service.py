@@ -31,7 +31,7 @@ def test_start_conversation_turn_creates_or_validates_and_persists_user_message(
     get_messages = MagicMock(return_value=[{"role": "assistant", "content": "Earlier"}])
     add_message = MagicMock()
 
-    conv_id, history = start_conversation_turn(
+    conv_id, history, user_message_id = start_conversation_turn(
         user_id="user-1",
         conversation_id=None,
         question="What now?",
@@ -44,6 +44,7 @@ def test_start_conversation_turn_creates_or_validates_and_persists_user_message(
 
     assert conv_id == "conv-1"
     assert history == [{"role": "assistant", "content": "Earlier"}]
+    assert user_message_id is add_message.return_value
     add_message.assert_called_once_with("conv-1", "user", "What now?", attachments=None)
 
 

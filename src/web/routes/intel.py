@@ -12,7 +12,7 @@ from intelligence.entity_store import EntityStore
 from intelligence.hiring_signals import HiringSignalStore
 from intelligence.regulatory import RegulatoryAlertStore, RegulatoryWatchResolver
 from intelligence.watchlist import annotate_items, attach_follow_up_state, sort_ranked_items
-from web.auth import get_current_user
+from web.auth import get_admin_user, get_current_user
 from web.deps import (
     get_coach_paths,
     get_company_movement_store,
@@ -482,7 +482,7 @@ def _get_cheap_llm(user_id: str):
 
 
 @router.post("/scrape")
-async def scrape_now(user: dict = Depends(get_current_user)):
+async def scrape_now(user: dict = Depends(get_admin_user)):
     """Trigger immediate scrape of all sources."""
     try:
         from intelligence.scheduler import IntelScheduler

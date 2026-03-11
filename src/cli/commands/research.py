@@ -35,7 +35,14 @@ def research():
 @click.option("--dossier", "dossier_id", help="Update a persistent dossier by ID")
 def research_run(topic: str | None, dossier_id: str | None):
     """Run deep research on selected topics or an existing dossier."""
-    c = get_components()
+    c = get_components(skip_advisor=True)
+
+    if not c["config"].get("research", {}).get("enabled", False):
+        console.print(
+            "[yellow]Research not enabled. Add 'research.enabled: true' to config.yaml[/]"
+        )
+        return
+
     scheduler = IntelScheduler(
         c["intel_storage"],
         c["config"].get("sources", {}),
@@ -43,12 +50,6 @@ def research_run(topic: str | None, dossier_id: str | None):
         embeddings=c["embeddings"],
         full_config=c["config"],
     )
-
-    if not c["config"].get("research", {}).get("enabled", False):
-        console.print(
-            "[yellow]Research not enabled. Add 'research.enabled: true' to config.yaml[/]"
-        )
-        return
 
     with console.status("Running deep research..."):
         results = scheduler.run_research_now(topic=topic, dossier_id=dossier_id)

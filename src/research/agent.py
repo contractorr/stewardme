@@ -159,9 +159,7 @@ class DeepResearchAgent:
 
         active_dossiers = self.dossiers.get_active_dossiers(limit=self.max_topics)
         if active_dossiers:
-            return [
-                self._run_dossier(dossier, run_source="scheduled") for dossier in active_dossiers
-            ]
+            return self._run_dossier_batch(active_dossiers, run_source="scheduled")
 
         recent = self.topic_selector.get_recent_research_topics()
         return self._run_topics(self.topic_selector.get_topics(researched_topics=recent))
@@ -290,6 +288,32 @@ class DeepResearchAgent:
             "success": True,
         }
 
+    def _run_dossier_batch(self, dossiers: list[dict], run_source: str) -> list[dict]:
+        results = []
+        for dossier in dossiers:
+            try:
+                results.append(self._run_dossier(dossier, run_source=run_source))
+            except Exception as e:
+                logger.error(
+                    "research_dossier_failed",
+                    dossier_id=dossier.get("dossier_id"),
+                    topic=dossier.get("topic"),
+                    error=str(e),
+                )
+                results.append(self._dossier_failure_result(dossier, str(e)))
+        return results
+
+    def _dossier_failure_result(self, dossier: dict, error: str) -> dict:
+        topic = dossier.get("topic") or "Unknown dossier"
+        return {
+            "topic": topic,
+            "title": f"Research Update: {topic}",
+            "dossier_id": dossier.get("dossier_id"),
+            "filepath": None,
+            "success": False,
+            "error": error,
+        }
+
     def _build_update_metadata(
         self,
         report: str,
@@ -378,9 +402,7 @@ class DeepResearchAgent:
             tags = ["research", "dossier"]
             title = f"Research Update: {topic}"
         else:
-            unique_url = (
-                f"research://{topic.lower().replace(' ', '-')}/{datetime.now().strftime('%Y%m%d')}"
-            )
+            unique_url = f"research://{topic.lower().replace(' ', '-')}/{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
             tags = ["research", "auto"]
             title = f"Research: {topic}"
 
@@ -458,10 +480,7 @@ class AsyncDeepResearchAgent(DeepResearchAgent):
         else:
             active_dossiers = self.dossiers.get_active_dossiers(limit=self.max_topics)
             if active_dossiers:
-                return [
-                    await self._run_dossier_async(dossier, run_source="scheduled")
-                    for dossier in active_dossiers
-                ]
+                return await self._run_dossier_batch_async(active_dossiers, run_source="scheduled")
             recent = self.topic_selector.get_recent_research_topics()
             topics = self.topic_selector.get_topics(researched_topics=recent)
 
@@ -492,7 +511,16 @@ class AsyncDeepResearchAgent(DeepResearchAgent):
                     {"type": "research", "topic": topic, "research_kind": "report"},
                 )
                 results.append(
-                    {"topic": topic, "filepath": filepath, "saved_path": filepath, "success": True}
+                    {
+                        "topic": topic,
+                        "title": f"Research: {topic}",
+                        "summary": report[:400],
+                        "content": report,
+                        "sources": [r.url for r in search_results],
+                        "saved_path": filepath,
+                        "filepath": filepath,
+                        "success": True,
+                    }
                 )
             except (IOError, ValueError, KeyError) as e:
                 logger.error("async_research_failed", topic=topic, error=str(e))
@@ -507,6 +535,7 @@ class AsyncDeepResearchAgent(DeepResearchAgent):
         if not search_results:
             return {
                 "topic": topic,
+                "title": f"Research Update: {topic}",
                 "dossier_id": dossier["dossier_id"],
                 "filepath": None,
                 "success": False,
@@ -554,11 +583,29 @@ class AsyncDeepResearchAgent(DeepResearchAgent):
             "topic": topic,
             "title": update["title"],
             "summary": metadata.get("change_summary", ""),
+            "content": report,
+            "sources": [r.url for r in search_results],
             "saved_path": update["path"],
             "filepath": update["path"],
             "dossier_id": dossier["dossier_id"],
+            "change_summary": metadata.get("change_summary", ""),
             "success": True,
         }
+
+    async def _run_dossier_batch_async(self, dossiers: list[dict], run_source: str) -> list[dict]:
+        results = []
+        for dossier in dossiers:
+            try:
+                results.append(await self._run_dossier_async(dossier, run_source=run_source))
+            except Exception as e:
+                logger.error(
+                    "async_research_dossier_failed",
+                    dossier_id=dossier.get("dossier_id"),
+                    topic=dossier.get("topic"),
+                    error=str(e),
+                )
+                results.append(self._dossier_failure_result(dossier, str(e)))
+        return results
 
     async def close(self):
         await self.search_client.close()

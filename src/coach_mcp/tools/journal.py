@@ -1,11 +1,11 @@
 """Journal MCP tools — CRUD, search, RAG context retrieval, proactive coaching."""
 
-import asyncio
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import structlog
 
+from coach_mcp.async_utils import run_coro_sync
 from coach_mcp.bootstrap import get_components, get_insight_store, get_thread_store
 
 logger = structlog.get_logger()
@@ -26,14 +26,22 @@ def _get_context(args: dict) -> dict:
     max_chars = args.get("max_chars")
 
     rag = c["rag"]
-    if journal_weight is not None:
-        rag.journal_weight = journal_weight
-    if max_chars is not None:
-        rag.max_context_chars = max_chars
+    original_journal_weight = getattr(rag, "journal_weight", None)
+    original_max_chars = getattr(rag, "max_context_chars", None)
+    try:
+        if journal_weight is not None:
+            rag.journal_weight = journal_weight
+        if max_chars is not None:
+            rag.max_context_chars = max_chars
 
-    journal_ctx, intel_ctx, research_ctx = rag.get_full_context(
-        query, include_research=include_research
-    )
+        journal_ctx, intel_ctx, research_ctx = rag.get_full_context(
+            query, include_research=include_research
+        )
+    finally:
+        if journal_weight is not None:
+            rag.journal_weight = original_journal_weight
+        if max_chars is not None:
+            rag.max_context_chars = original_max_chars
 
     return {
         "journal_context": journal_ctx,
@@ -161,15 +169,24 @@ def _create(args: dict) -> dict:
         metadata=metadata,
     )
 
-    # Sync embedding
-    import frontmatter
+    try:
+        # Sync embedding
+        import frontmatter
 
-    post = frontmatter.load(filepath)
-    embeddings.add_entry(
-        entry_id=str(filepath),
-        content=post.content,
-        metadata=dict(post.metadata),
-    )
+        post = frontmatter.load(filepath)
+        embeddings.add_entry(
+            entry_id=str(filepath),
+            content=post.content,
+            metadata=dict(post.metadata),
+        )
+    except Exception:
+        try:
+            storage.delete(filepath)
+        except Exception as cleanup_exc:
+            logger.warning(
+                "mcp_journal_create_rollback_failed", path=str(filepath), error=str(cleanup_exc)
+            )
+        raise
 
     result = {
         "path": str(filepath),
@@ -223,14 +240,13 @@ def _detect_thread(c: dict, entry_id: str) -> dict | None:
             },
         )
 
-        loop = asyncio.get_event_loop()
-        match = loop.run_until_complete(detector.detect(entry_id, embedding, entry_date))
+        match = run_coro_sync(detector.detect(entry_id, embedding, entry_date))
 
         if match.match_type == "unthreaded":
             return None
 
-        thread = loop.run_until_complete(store.get_thread(match.thread_id))
-        entries = loop.run_until_complete(store.get_thread_entries(match.thread_id))
+        thread = run_coro_sync(store.get_thread(match.thread_id))
+        entries = run_coro_sync(store.get_thread_entries(match.thread_id))
         dates = sorted(
             set(te.entry_date.strftime("%Y-%m-%d") for te in entries if te.entry_id != entry_id)
         )

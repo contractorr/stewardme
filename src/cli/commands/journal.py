@@ -131,7 +131,7 @@ def journal():
 @click.argument("content", required=False)
 def journal_add(entry_type: str, title: str, tags: str, template_name: str, content: str):
     """Add new journal entry. Opens editor if no content provided."""
-    c = get_components()
+    c = get_components(skip_advisor=True)
 
     if not content:
         initial = "# Write your entry here\n\n"
@@ -210,7 +210,7 @@ def journal_list(entry_type: str, tag: str, limit: int):
 @click.option("-n", "--limit", default=5, help="Max results")
 def journal_search(query: str, limit: int):
     """Semantic search across journal."""
-    c = get_components()
+    c = get_components(skip_advisor=True)
 
     with console.status("Searching..."):
         results = c["search"].semantic_search(query, n_results=limit)
@@ -230,7 +230,7 @@ def journal_search(query: str, limit: int):
 @journal.command("sync")
 def journal_sync():
     """Sync all entries to embedding store."""
-    c = get_components()
+    c = get_components(skip_advisor=True)
 
     with console.status("Syncing embeddings..."):
         added, removed = c["search"].sync_embeddings()
@@ -276,7 +276,7 @@ def journal_export(output: str, fmt: str, entry_type: str, days: int, limit: int
 @click.argument("filename")
 def journal_view(filename: str):
     """View a journal entry."""
-    c = get_components()
+    c = get_components(skip_advisor=True)
     journal_dir = c["paths"]["journal_dir"].resolve()
     filepath = resolve_journal_path(journal_dir, filename)
     if filepath is None:

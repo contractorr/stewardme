@@ -86,7 +86,11 @@ async def generate_ideas(
         )
 
         def llm_caller(system, prompt, max_tokens=2000):
-            return provider.generate(system=system, prompt=prompt, max_tokens=max_tokens)
+            return provider.generate(
+                messages=[{"role": "user", "content": prompt}],
+                system=system,
+                max_tokens=max_tokens,
+            )
 
         ideas = await asyncio.to_thread(generate_project_ideas, rag, llm_caller)
         return {"ideas": ideas}

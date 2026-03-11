@@ -94,6 +94,21 @@ class TestUpdateCreatesSupersessionChain:
         assert old.superseded_by == new.id
         assert new.confidence == pytest.approx(0.95)
 
+    def test_update_can_replace_source_type_and_category(self, store):
+        store.add(_fact(id="old"))
+
+        new = store.update(
+            "old",
+            "User is preparing for interviews",
+            "doc-1",
+            new_source_type=FactSource.DOCUMENT,
+            new_category=FactCategory.CONTEXT,
+        )
+
+        assert new.source_type == FactSource.DOCUMENT
+        assert new.source_id == "doc-1"
+        assert new.category == FactCategory.CONTEXT
+
 
 class TestDelete:
     def test_soft_delete(self, store):
@@ -155,6 +170,15 @@ class TestSearch:
         results = store.search("prefers", limit=5)
         # Should only find the new version
         assert all("Java" not in r.text for r in results)
+
+    def test_fallback_search_surfaces_paraphrase_matches(self, store):
+        store.add(_fact(id="a", text="User prefers Python for backend development"))
+        store.add(_fact(id="b", text="User prefers Java for enterprise systems"))
+
+        results = store.search("User prefers Python for APIs", limit=5)
+
+        assert results
+        assert results[0].id == "a"
 
 
 class TestHistory:

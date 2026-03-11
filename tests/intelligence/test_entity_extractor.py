@@ -78,6 +78,61 @@ def test_entity_extractor_handles_bad_json(tmp_path):
     assert result.error is not None
 
 
+def test_entity_extractor_handles_fenced_json(tmp_path):
+    storage = IntelStorage(tmp_path / "intel.db")
+    item_id = storage.save(
+        IntelItem(
+            source="rss",
+            title="Fenced JSON",
+            url="https://example.com/fenced",
+            summary="LLM returned fenced JSON",
+        )
+    )
+    store = EntityStore(tmp_path / "intel.db")
+    extractor = EntityExtractor(
+        llm=FakeLLM(
+            """```json
+            {
+              "entities": [{"name": "OpenAI", "type": "Company", "aliases": []}],
+              "relationships": []
+            }
+            ```"""
+        ),
+        storage=storage,
+        entity_store=store,
+    )
+
+    result = _run(extractor.extract_item(storage.get_item_by_id(item_id)))
+
+    assert result.error is None
+    assert len(result.entities) == 1
+
+
+def test_entity_extractor_handles_json_with_preamble(tmp_path):
+    storage = IntelStorage(tmp_path / "intel.db")
+    item_id = storage.save(
+        IntelItem(
+            source="rss",
+            title="Preamble JSON",
+            url="https://example.com/preamble",
+            summary="LLM returned extra wrapper text",
+        )
+    )
+    store = EntityStore(tmp_path / "intel.db")
+    extractor = EntityExtractor(
+        llm=FakeLLM(
+            'Here is the extraction result: {"entities": [{"name": "Anthropic", "type": "Company", "aliases": []}], "relationships": []}'
+        ),
+        storage=storage,
+        entity_store=store,
+    )
+
+    result = _run(extractor.extract_item(storage.get_item_by_id(item_id)))
+
+    assert result.error is None
+    assert len(result.entities) == 1
+
+
 def test_extraction_scheduler_processes_oldest_unprocessed_items(tmp_path):
     storage = IntelStorage(tmp_path / "intel.db")
     storage.save(
@@ -101,6 +156,56 @@ def test_extraction_scheduler_processes_oldest_unprocessed_items(tmp_path):
     result = _run(scheduler.run_extraction())
 
     assert result.processed == 1
+    assert store.get_unprocessed_items(limit=5) == []
+
+
+def test_extraction_scheduler_marks_empty_items_processed(tmp_path):
+    storage = IntelStorage(tmp_path / "intel.db")
+    storage.save(
+        IntelItem(
+            source="rss",
+            title="No entities here",
+            url="https://example.com/empty",
+            summary="Nothing named explicitly.",
+        )
+    )
+    store = EntityStore(tmp_path / "intel.db")
+    extractor = EntityExtractor(
+        llm=FakeLLM('{"entities": [], "relationships": []}'),
+        storage=storage,
+        entity_store=store,
+    )
+    scheduler = ExtractionScheduler(extractor, store, batch_size=5)
+
+    result = _run(scheduler.run_extraction())
+
+    assert result.processed == 1
+    assert result.errors == 0
+    assert store.get_unprocessed_items(limit=5) == []
+
+
+def test_extraction_scheduler_marks_failed_items_processed(tmp_path):
+    storage = IntelStorage(tmp_path / "intel.db")
+    storage.save(
+        IntelItem(
+            source="rss",
+            title="LLM failure",
+            url="https://example.com/fail",
+            summary="This item triggers invalid JSON.",
+        )
+    )
+    store = EntityStore(tmp_path / "intel.db")
+    extractor = EntityExtractor(
+        llm=FakeLLM("not-json"),
+        storage=storage,
+        entity_store=store,
+    )
+    scheduler = ExtractionScheduler(extractor, store, batch_size=5)
+
+    result = _run(scheduler.run_extraction())
+
+    assert result.processed == 1
+    assert result.errors == 1
     assert store.get_unprocessed_items(limit=5) == []
 
 

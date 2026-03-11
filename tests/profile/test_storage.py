@@ -1,6 +1,6 @@
 """Tests for profile storage — UserProfile model + ProfileStorage CRUD."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from profile.storage import ProfileStorage, Skill, UserProfile
 
 import pytest
@@ -34,6 +34,14 @@ class TestIsStale:
         p = UserProfile(updated_at=old)
         assert p.is_stale(days=30)
         assert not p.is_stale(days=60)
+
+    def test_invalid_updated_at_is_stale(self):
+        p = UserProfile(updated_at="not-a-date")
+        assert p.is_stale()
+
+    def test_timezone_aware_updated_at_supported(self):
+        p = UserProfile(updated_at=datetime.now(timezone.utc).isoformat())
+        assert not p.is_stale()
 
 
 # ── UserProfile.summary ──
@@ -183,6 +191,24 @@ class TestProfileStorage:
 
     def test_load_returns_none_when_no_file(self, tmp_path):
         ps = ProfileStorage(tmp_path / "nope.yaml")
+        assert ps.load() is None
+
+    def test_load_returns_none_for_malformed_yaml(self, tmp_path):
+        path = tmp_path / "profile.yaml"
+        path.write_text("current_role: [unterminated")
+        ps = ProfileStorage(path)
+        assert ps.load() is None
+
+    def test_load_returns_none_for_non_mapping_yaml(self, tmp_path):
+        path = tmp_path / "profile.yaml"
+        path.write_text("- not\n- a\n- mapping\n")
+        ps = ProfileStorage(path)
+        assert ps.load() is None
+
+    def test_load_returns_none_for_invalid_schema(self, tmp_path):
+        path = tmp_path / "profile.yaml"
+        path.write_text("interests: not-a-list\ncareer_stage: guru\n")
+        ps = ProfileStorage(path)
         assert ps.load() is None
 
     def test_update_field_modifies_and_persists(self, tmp_path):

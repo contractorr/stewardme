@@ -214,6 +214,15 @@ def _register_goal_tools(registry: ToolRegistry, components: dict) -> None:
 
         return GoalTracker(storage)
 
+    def _resolve_goal_path(raw_path: str) -> Path | None:
+        goal_path = Path(raw_path)
+        journal_dir = Path(storage.journal_dir)
+        try:
+            goal_path.resolve().relative_to(journal_dir.resolve())
+        except ValueError:
+            return None
+        return goal_path
+
     def goals_list(args: dict) -> dict:
         tracker = _get_tracker()
         include_inactive = args.get("include_inactive", False)
@@ -305,7 +314,9 @@ def _register_goal_tools(registry: ToolRegistry, components: dict) -> None:
 
     def goals_check_in(args: dict) -> dict:
         tracker = _get_tracker()
-        goal_path = Path(args["goal_path"])
+        goal_path = _resolve_goal_path(args["goal_path"])
+        if goal_path is None:
+            return {"error": "Invalid path"}
         notes = args.get("notes")
         success = tracker.check_in_goal(goal_path, notes=notes)
         return {"success": success, "goal_path": str(goal_path)}
@@ -328,7 +339,9 @@ def _register_goal_tools(registry: ToolRegistry, components: dict) -> None:
 
     def goals_update_status(args: dict) -> dict:
         tracker = _get_tracker()
-        goal_path = Path(args["goal_path"])
+        goal_path = _resolve_goal_path(args["goal_path"])
+        if goal_path is None:
+            return {"error": "Invalid path"}
         status = args["status"]
         success = tracker.update_goal_status(goal_path, status)
         return {"success": success, "goal_path": str(goal_path), "status": status}
@@ -353,11 +366,8 @@ def _register_goal_tools(registry: ToolRegistry, components: dict) -> None:
     )
 
     def goal_next_steps(args: dict) -> dict:
-        goal_path = Path(args["goal_path"])
-        journal_dir = Path(storage.journal_dir)
-        try:
-            goal_path.resolve().relative_to(journal_dir.resolve())
-        except ValueError:
+        goal_path = _resolve_goal_path(args["goal_path"])
+        if goal_path is None:
             return {"error": "Invalid path"}
         if not goal_path.exists():
             return {"error": f"Goal not found: {goal_path}"}

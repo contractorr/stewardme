@@ -11,6 +11,7 @@ from web.deps import (
     get_intel_storage,
     get_user_paths,
     require_personal_research_key,
+    resolve_llm_credentials_for_user,
     safe_user_id,
 )
 
@@ -43,6 +44,12 @@ def _get_agent(user_id: str):
     intel_storage = get_intel_storage()
 
     cfg = config.to_dict()
+    provider_name, api_key, _source = resolve_llm_credentials_for_user(user_id)
+    if api_key:
+        llm_cfg = cfg.setdefault("llm", {})
+        llm_cfg["api_key"] = api_key
+        if provider_name:
+            llm_cfg["provider"] = provider_name
 
     from web.deps import get_secret_key
     from web.user_store import get_user_secret

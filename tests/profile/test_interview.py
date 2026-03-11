@@ -1,6 +1,14 @@
 """Tests for profile interview — extraction, building, interactive flow."""
 
-from profile.interview import ProfileInterviewer, _build_profile, _extract_profile_json
+import pytest
+
+from profile.interview import (
+    ProfileInterviewAborted,
+    ProfileInterviewError,
+    ProfileInterviewer,
+    _build_profile,
+    _extract_profile_json,
+)
 from profile.storage import ProfileStorage, UserProfile
 
 # ── _extract_profile_json ──
@@ -88,9 +96,21 @@ class TestBuildProfile:
         p = _build_profile({"skills": [{"name": "X", "proficiency": -1}]})
         assert p.skills[0].proficiency == 1
 
+    def test_invalid_proficiency_defaults_midpoint(self):
+        p = _build_profile({"skills": [{"name": "X", "proficiency": "high"}]})
+        assert p.skills[0].proficiency == 3
+
     def test_comma_separated_list_fields_normalized(self):
         p = _build_profile({"industries_watching": "fintech, healthtech, edtech"})
         assert p.industries_watching == ["fintech", "healthtech", "edtech"]
+
+    def test_interests_string_normalized(self):
+        p = _build_profile({"interests": "ML, infra"})
+        assert p.interests == ["ML", "infra"]
+
+    def test_languages_frameworks_string_normalized(self):
+        p = _build_profile({"languages_frameworks": "Python, FastAPI"})
+        assert p.languages_frameworks == ["Python", "FastAPI"]
 
     def test_non_dict_constraints_empty(self):
         p = _build_profile({"constraints": "none"})
@@ -168,6 +188,78 @@ class TestProfileInterviewer:
         assert isinstance(profile, UserProfile)
         assert profile.current_role == ""
         assert storage.exists()
+
+    def test_blank_inputs_do_not_consume_turn_budget(self, tmp_path):
+        storage = self._make_storage(tmp_path)
+        call_count = 0
+
+        def fake_llm(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count <= 11:
+                return "Tell me more about your work."
+            return '```json\n{"done": true, "profile": {"current_role": "Recovered"}}\n```'
+
+        inputs = iter(["", "   "] + ["answer"] * 10)
+        interviewer = ProfileInterviewer(fake_llm, storage)
+        profile = interviewer.run_interactive(
+            input_fn=lambda _: next(inputs),
+            output_fn=lambda _: None,
+        )
+        assert profile.current_role == "Recovered"
+
+    def test_eof_error_raises_aborted(self, tmp_path):
+        storage = self._make_storage(tmp_path)
+        interviewer = ProfileInterviewer(lambda *a, **k: "What's your role?", storage)
+
+        with pytest.raises(ProfileInterviewAborted, match="end-of-input"):
+            interviewer.run_interactive(
+                input_fn=lambda _: (_ for _ in ()).throw(EOFError()),
+                output_fn=lambda _: None,
+            )
+
+    def test_llm_failure_raises_profile_interview_error(self, tmp_path):
+        storage = self._make_storage(tmp_path)
+        call_count = 0
+
+        def fake_llm(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return "What's your role?"
+            raise RuntimeError("provider unavailable")
+
+        interviewer = ProfileInterviewer(fake_llm, storage)
+        with pytest.raises(ProfileInterviewError, match="Interview LLM call failed"):
+            interviewer.run_interactive(
+                input_fn=lambda _: "Engineer",
+                output_fn=lambda _: None,
+            )
+
+    def test_save_failure_raises_profile_interview_error(self, tmp_path):
+        class FailingStorage(ProfileStorage):
+            def save(self, profile):
+                raise OSError("disk full")
+
+        storage = FailingStorage(tmp_path / "profile.yaml")
+        responses = [
+            "What's your current role?",
+            '```json\n{"done": true, "profile": {"current_role": "Dev"}}\n```',
+        ]
+        call_count = 0
+
+        def fake_llm(*args, **kwargs):
+            nonlocal call_count
+            resp = responses[call_count]
+            call_count += 1
+            return resp
+
+        interviewer = ProfileInterviewer(fake_llm, storage)
+        with pytest.raises(ProfileInterviewError, match="Profile save failed"):
+            interviewer.run_interactive(
+                input_fn=lambda _: "Engineer",
+                output_fn=lambda _: None,
+            )
 
     def test_needs_refresh_no_profile(self, tmp_path):
         storage = self._make_storage(tmp_path)

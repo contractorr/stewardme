@@ -114,6 +114,41 @@ def test_upload_pdf_is_searchable_and_downloadable(client, auth_headers):
     assert file_res.headers["content-type"].startswith("application/pdf")
 
 
+def test_search_collection_filter_is_case_insensitive(client, auth_headers):
+    library_routes._generate_report_content = (
+        lambda user_id,
+        prompt,
+        report_type: f"# Generated\n\nPrompt: {prompt}\n\nType: {report_type}"
+    )
+    try:
+        create_res = client.post(
+            "/api/library/reports",
+            headers=auth_headers,
+            json={
+                "prompt": "Give me an insurance market overview",
+                "report_type": "overview",
+                "collection": "Industries",
+            },
+        )
+        assert create_res.status_code == 201
+        created = create_res.json()
+
+        list_res = client.get("/api/library/reports?collection=industries", headers=auth_headers)
+        assert list_res.status_code == 200
+        assert [item["id"] for item in list_res.json()] == [created["id"]]
+
+        search_res = client.get(
+            "/api/library/reports?search=insurance&collection=industries",
+            headers=auth_headers,
+        )
+        assert search_res.status_code == 200
+        assert [item["id"] for item in search_res.json()] == [created["id"]]
+    finally:
+        from importlib import reload
+
+        reload(library_routes)
+
+
 def test_refresh_rejects_uploaded_pdf(client, auth_headers):
     upload_res = client.post(
         "/api/library/reports/upload",

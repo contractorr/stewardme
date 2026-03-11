@@ -62,6 +62,38 @@ class GeminiProvider(LLMProvider):
         self._last_usage = result
         return result
 
+    @staticmethod
+    def _get_genai_types():
+        try:
+            from google.genai import types
+        except ImportError:
+            return None
+        return types
+
+    @staticmethod
+    def _make_content(types_module, role: str, parts: list):
+        if types_module:
+            return types_module.Content(role=role, parts=parts)
+        return {"role": role, "parts": parts}
+
+    @staticmethod
+    def _make_text_part(types_module, text: str):
+        if types_module:
+            return types_module.Part.from_text(text=text)
+        return {"text": text}
+
+    @staticmethod
+    def _make_function_call_part(types_module, name: str, args: dict):
+        if types_module:
+            return types_module.Part.from_function_call(name=name, args=args)
+        return {"function_call": {"name": name, "args": args}}
+
+    @staticmethod
+    def _make_function_response_part(types_module, name: str, response: dict):
+        if types_module:
+            return types_module.Part.from_function_response(name=name, response=response)
+        return {"function_response": {"name": name, "response": response}}
+
     def generate(
         self,
         messages: list[dict],
@@ -69,23 +101,22 @@ class GeminiProvider(LLMProvider):
         max_tokens: int = 2000,
         use_thinking: bool = False,
     ) -> str:
-        parts = []
-        if system:
-            parts.append(f"System: {system}\n")
-        for msg in messages:
-            parts.append(msg["content"])
-        prompt = "\n".join(parts)
+        types_module = self._get_genai_types()
+        contents = self._convert_messages(messages, types_module=types_module)
 
         try:
-            try:
-                from google.genai import types  # type: ignore
-
-                config = types.GenerateContentConfig(max_output_tokens=max_tokens)
-            except ImportError:
+            if types_module:
+                config = types_module.GenerateContentConfig(
+                    max_output_tokens=max_tokens,
+                    system_instruction=system,
+                )
+            else:
                 config = {"max_output_tokens": max_tokens}
+                if system:
+                    config["system_instruction"] = system
             response = self.client.models.generate_content(
                 model=self.model_name,
-                contents=prompt,
+                contents=contents,
                 config=config,
             )
             self._extract_and_record_usage(response)
@@ -167,41 +198,53 @@ class GeminiProvider(LLMProvider):
         except Exception as e:
             _handle_gemini_error(e)
 
-    def _convert_messages(self, messages: list[dict]) -> list:
+    def _convert_messages(self, messages: list[dict], types_module=None) -> list:
         """Convert generic messages to Gemini Content format."""
-        from google.genai import types
+        types_module = types_module or self._get_genai_types()
 
         contents = []
+        tool_name_by_id = {}
         for msg in messages:
             role = msg.get("role")
 
             if role == "user":
                 contents.append(
-                    types.Content(role="user", parts=[types.Part.from_text(msg["content"])])
+                    self._make_content(
+                        types_module,
+                        role="user",
+                        parts=[self._make_text_part(types_module, msg["content"])],
+                    )
                 )
 
             elif role == "assistant":
                 parts = []
                 if msg.get("content"):
-                    parts.append(types.Part.from_text(msg["content"]))
+                    parts.append(self._make_text_part(types_module, msg["content"]))
                 if msg.get("tool_calls"):
                     for tc in msg["tool_calls"]:
+                        tool_name_by_id[tc["id"]] = tc["name"]
                         parts.append(
-                            types.Part.from_function_call(
+                            self._make_function_call_part(
+                                types_module,
                                 name=tc["name"],
                                 args=tc["arguments"],
                             )
                         )
                 if parts:
-                    contents.append(types.Content(role="model", parts=parts))
+                    contents.append(self._make_content(types_module, role="model", parts=parts))
 
             elif role == "tool":
+                tool_name = (
+                    msg.get("name") or tool_name_by_id.get(msg.get("tool_call_id")) or "tool"
+                )
                 contents.append(
-                    types.Content(
+                    self._make_content(
+                        types_module,
                         role="user",
                         parts=[
-                            types.Part.from_function_response(
-                                name=msg.get("name", "tool"),
+                            self._make_function_response_part(
+                                types_module,
+                                name=tool_name,
                                 response={"result": msg["content"]},
                             )
                         ],
