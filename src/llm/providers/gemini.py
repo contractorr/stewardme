@@ -203,6 +203,7 @@ class GeminiProvider(LLMProvider):
         types_module = types_module or self._get_genai_types()
 
         contents = []
+        tool_name_by_id = {}
         for msg in messages:
             role = msg.get("role")
 
@@ -221,6 +222,7 @@ class GeminiProvider(LLMProvider):
                     parts.append(self._make_text_part(types_module, msg["content"]))
                 if msg.get("tool_calls"):
                     for tc in msg["tool_calls"]:
+                        tool_name_by_id[tc["id"]] = tc["name"]
                         parts.append(
                             self._make_function_call_part(
                                 types_module,
@@ -232,6 +234,7 @@ class GeminiProvider(LLMProvider):
                     contents.append(self._make_content(types_module, role="model", parts=parts))
 
             elif role == "tool":
+                tool_name = msg.get("name") or tool_name_by_id.get(msg.get("tool_call_id")) or "tool"
                 contents.append(
                     self._make_content(
                         types_module,
@@ -239,7 +242,7 @@ class GeminiProvider(LLMProvider):
                         parts=[
                             self._make_function_response_part(
                                 types_module,
-                                name=msg.get("name", "tool"),
+                                name=tool_name,
                                 response={"result": msg["content"]},
                             )
                         ],
