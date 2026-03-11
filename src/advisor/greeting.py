@@ -64,9 +64,9 @@ def generate_greeting(briefing_ctx: dict, cheap_llm) -> str:
     """Generate greeting via cheap LLM. Returns text or STATIC_FALLBACK on error."""
     try:
         user_prompt = _build_greeting_prompt(briefing_ctx)
-        response = cheap_llm.ask(
-            user_prompt,
-            system_prompt=GREETING_PROMPT_SYSTEM,
+        response = cheap_llm.generate(
+            messages=[{"role": "user", "content": user_prompt}],
+            system=GREETING_PROMPT_SYSTEM,
             max_tokens=200,
         )
         text = response.strip() if response else ""

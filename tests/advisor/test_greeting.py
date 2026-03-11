@@ -6,6 +6,7 @@ import pytest
 
 from advisor.context_cache import ContextCache
 from advisor.greeting import (
+    GREETING_PROMPT_SYSTEM,
     STATIC_FALLBACK,
     _build_greeting_prompt,
     cache_greeting,
@@ -52,21 +53,25 @@ class TestBuildGreetingPrompt:
 class TestGenerateGreeting:
     def test_success(self):
         llm = MagicMock()
-        llm.ask.return_value = "Great to see you back."
+        llm.generate.return_value = "Great to see you back."
         ctx = {"name": "Test"}
         result = generate_greeting(ctx, llm)
         assert result == "Great to see you back."
-        llm.ask.assert_called_once()
+        llm.generate.assert_called_once_with(
+            messages=[{"role": "user", "content": "User's name: Test"}],
+            system=GREETING_PROMPT_SYSTEM,
+            max_tokens=200,
+        )
 
     def test_llm_returns_empty(self):
         llm = MagicMock()
-        llm.ask.return_value = ""
+        llm.generate.return_value = ""
         result = generate_greeting({}, llm)
         assert result == STATIC_FALLBACK
 
     def test_llm_raises(self):
         llm = MagicMock()
-        llm.ask.side_effect = RuntimeError("API down")
+        llm.generate.side_effect = RuntimeError("API down")
         result = generate_greeting({}, llm)
         assert result == STATIC_FALLBACK
 
