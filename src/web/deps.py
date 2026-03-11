@@ -44,6 +44,7 @@ SECRET_KEY_FIELDS = [
     "llm_api_key_gemini",
     "tavily_api_key",
     "github_token",
+    "github_pat",
     "eventbrite_token",
 ]
 
@@ -182,6 +183,13 @@ def get_assumption_store(user_id: str):
     from advisor.assumptions import AssumptionStore
 
     return AssumptionStore(get_user_paths(user_id)["assumptions_db"])
+
+
+def get_github_repo_store():
+    """Construct the shared GitHub repo monitoring store."""
+    from intelligence.github_repo_store import GitHubRepoStore
+
+    return GitHubRepoStore(get_coach_paths()["intel_db"])
 
 
 def get_company_movement_store():
@@ -459,6 +467,8 @@ def get_settings_mask_for_user(user_id: str) -> dict:
         "tavily_api_key_hint": _hint(secrets.get("tavily_api_key")),
         "github_token_set": bool(secrets.get("github_token")),
         "github_token_hint": _hint(secrets.get("github_token")),
+        "github_pat_set": bool(secrets.get("github_pat")),
+        "github_pat_hint": _hint(secrets.get("github_pat")),
         "eventbrite_token_set": bool(secrets.get("eventbrite_token")),
         # Feature toggles
         "feature_extended_thinking": resolve_feature_toggle(
@@ -493,6 +503,9 @@ def get_settings_mask_for_user(user_id: str) -> dict:
         ),
         "feature_regulatory_signals_enabled": resolve_feature_toggle(
             secrets, "feature_regulatory_signals_enabled", config.regulatory.enabled
+        ),
+        "feature_github_monitoring": resolve_feature_toggle(
+            secrets, "feature_github_monitoring", config.github_monitoring.enabled
         ),
     }
 

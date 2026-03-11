@@ -310,6 +310,23 @@ class RegulatoryPipelineConfig(BaseModel):
         return validate_cron(v)
 
 
+class GitHubMonitoringConfig(BaseModel):
+    """GitHub project monitoring configuration."""
+
+    enabled: bool = False
+    poll_cron: str = "0 */4 * * *"
+    stale_threshold_days: int = 14
+    snapshot_retention_days: int = 90
+    velocity_change_threshold: float = 0.5
+    api_base_url: str = "https://api.github.com"
+    request_timeout_s: int = 15
+
+    @field_validator("poll_cron")
+    @classmethod
+    def validate_schedule(cls, v: str) -> str:
+        return validate_cron(v)
+
+
 class CoachConfig(BaseModel):
     """Main configuration model."""
 
@@ -331,6 +348,7 @@ class CoachConfig(BaseModel):
     company_movement: CompanyMovementConfig = Field(default_factory=CompanyMovementConfig)
     hiring: HiringPipelineConfig = Field(default_factory=HiringPipelineConfig)
     regulatory: RegulatoryPipelineConfig = Field(default_factory=RegulatoryPipelineConfig)
+    github_monitoring: GitHubMonitoringConfig = Field(default_factory=GitHubMonitoringConfig)
 
     @model_validator(mode="after")
     def expand_env_vars(self):

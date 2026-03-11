@@ -30,6 +30,7 @@ class AskContext:
     thoughts: str = ""
     documents: str = ""
     entity_context: str = ""
+    repo_context: str = ""
 
 
 class RAGRetriever:
@@ -94,6 +95,87 @@ class RAGRetriever:
             logger.debug("profile_load_skipped", error=str(e))
         return ""
 
+    def get_repo_context(self, query: str) -> str:
+        """Inject GitHub repo health data when query matches a monitored repo."""
+        if not self._user_id or not self.intel_db_path:
+            return ""
+        try:
+            from intelligence.github_repo_store import GitHubRepoStore
+
+            store = GitHubRepoStore(self.intel_db_path)
+            repos = store.list_repos(self._user_id)
+            if not repos:
+                return ""
+
+            query_tokens = set(query.lower().split())
+            max_chars = int(self.max_context_chars * 0.05)
+            blocks = []
+            chars_used = 0
+
+            for repo in repos:
+                # Check if query references this repo or its linked goal
+                repo_name = repo.repo_full_name.split("/")[-1].lower()
+                goal_tokens = set()
+                if repo.linked_goal_path:
+                    goal_title = (
+                        repo.linked_goal_path.rsplit("/", 1)[-1]
+                        .replace(".md", "")
+                        .replace("-", " ")
+                    )
+                    goal_tokens = set(goal_title.lower().split())
+
+                match_tokens = {repo_name} | goal_tokens
+                if not (query_tokens & match_tokens):
+                    continue
+
+                snapshot = store.get_latest_snapshot(repo.id)
+                if not snapshot:
+                    continue
+
+                # Compute trend from weekly commits
+                trend = "unknown"
+                wc = snapshot.weekly_commits
+                if len(wc) >= 8:
+                    recent = sum(wc[-4:]) / 4.0
+                    prior = sum(wc[-8:-4]) / 4.0
+                    if recent > prior * 1.2:
+                        trend = "increasing"
+                    elif recent < prior * 0.8:
+                        trend = "declining"
+                    else:
+                        trend = "steady"
+
+                goal_attr = ""
+                if repo.linked_goal_path:
+                    goal_title = (
+                        repo.linked_goal_path.rsplit("/", 1)[-1]
+                        .replace(".md", "")
+                        .replace("-", " ")
+                    )
+                    goal_attr = f' linked_goal="{goal_title}"'
+
+                pushed = (
+                    snapshot.pushed_at.strftime("%Y-%m-%d") if snapshot.pushed_at else "unknown"
+                )
+                block = (
+                    f'<github_project repo="{repo.repo_full_name}"{goal_attr}>\n'
+                    f"  Last commit: {pushed}\n"
+                    f"  Commits (30d): {snapshot.commits_30d} ({trend})\n"
+                    f"  Open issues: {snapshot.open_issues} | Open PRs: {snapshot.open_prs}\n"
+                    f"  CI: {snapshot.ci_status}\n"
+                    f"  Latest release: {snapshot.latest_release or 'none'}\n"
+                    f"</github_project>"
+                )
+                if chars_used + len(block) > max_chars:
+                    break
+                blocks.append(block)
+                chars_used += len(block)
+
+            return "\n".join(blocks)
+        except Exception as e:
+            logger.debug("repo_context_skipped", error=str(e))
+            return ""
+
     def build_context_for_ask(
         self,
         query: str,
@@ -127,6 +209,10 @@ class RAGRetriever:
         if cfg.get("inject_documents", False) or attachment_ids:
             documents_ctx = self.get_document_context(query, attachment_ids=attachment_ids)
 
+        repo_ctx = ""
+        if cfg.get("inject_repo_context", True):
+            repo_ctx = self.get_repo_context(query)
+
         return AskContext(
             journal=enhanced.journal,
             intel=enhanced.intel,
@@ -135,6 +221,7 @@ class RAGRetriever:
             thoughts=thoughts_ctx,
             documents=documents_ctx,
             entity_context=enhanced.entity_context,
+            repo_context=repo_ctx,
         )
 
     def get_document_context(

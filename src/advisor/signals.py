@@ -25,6 +25,10 @@ class SignalType(str, Enum):
     LEARNING_STALLED = "learning_stalled"
     RESEARCH_TRIGGER = "research_trigger"
     RECURRING_BLOCKER = "recurring_blocker"
+    REPO_STALE = "repo_stale"
+    REPO_VELOCITY_CHANGE = "repo_velocity_change"
+    REPO_ISSUE_SPIKE = "repo_issue_spike"
+    REPO_CI_FAILURE = "repo_ci_failure"
 
 
 @dataclass
@@ -155,11 +159,15 @@ class SignalStore:
 class SignalDetector:
     """Scans all data sources and produces prioritized signals."""
 
-    def __init__(self, journal_storage, db_path: Path, config: Optional[dict] = None):
+    def __init__(
+        self, journal_storage, db_path: Path, config: Optional[dict] = None, repo_store=None
+    ):
         self.storage = journal_storage
         self.db_path = Path(db_path).expanduser()
         self.config = config or {}
         self.agent_config = self.config.get("agent", {}).get("signals", {})
+        self.gh_config = self.config.get("github_monitoring", {})
+        self.repo_store = repo_store
         self.store = SignalStore(self.db_path)
 
         from advisor.insights import InsightStore
@@ -178,6 +186,15 @@ class SignalDetector:
             self._detect_research_triggers,
             self._detect_recurring_blockers,
         ]
+        if self.repo_store:
+            detectors.extend(
+                [
+                    self._detect_repo_stale,
+                    self._detect_repo_velocity_change,
+                    self._detect_repo_issue_spike,
+                    self._detect_repo_ci_failure,
+                ]
+            )
         for detector in detectors:
             try:
                 signals.extend(detector())
@@ -204,6 +221,10 @@ class SignalDetector:
             SignalType.LEARNING_STALLED: InsightType.LEARNING_STALLED,
             SignalType.RESEARCH_TRIGGER: InsightType.RESEARCH_TRIGGER,
             SignalType.RECURRING_BLOCKER: InsightType.RECURRING_BLOCKER,
+            SignalType.REPO_STALE: InsightType.GOAL_STALE,  # reuse closest type
+            SignalType.REPO_VELOCITY_CHANGE: InsightType.TOPIC_EMERGENCE,
+            SignalType.REPO_ISSUE_SPIKE: InsightType.TOPIC_EMERGENCE,
+            SignalType.REPO_CI_FAILURE: InsightType.DEADLINE_URGENT,
         }
         insight_type = type_map.get(signal.type)
         if not insight_type:
@@ -534,6 +555,141 @@ class SignalDetector:
                             "Consider seeking help or a different approach",
                         ],
                         evidence=occurrences[:5],
+                        expires_at=datetime.now() + timedelta(days=7),
+                    )
+                )
+        return signals
+
+    # --- Repo signal detectors ---
+
+    def _week_bucket(self) -> str:
+        return datetime.now().strftime("%Y-W%W")
+
+    def _detect_repo_stale(self) -> list[Signal]:
+        """Detect monitored repos with no commits past stale threshold."""
+        if not self.repo_store:
+            return []
+        threshold_days = self.gh_config.get("stale_threshold_days", 14)
+        signals = []
+        for user_id in self.repo_store.get_all_user_ids_with_repos():
+            for repo in self.repo_store.list_repos(user_id):
+                snapshot = self.repo_store.get_latest_snapshot(repo.id)
+                if not snapshot:
+                    continue
+                if snapshot.pushed_at:
+                    age = (datetime.now() - snapshot.pushed_at.replace(tzinfo=None)).days
+                    if age < threshold_days:
+                        continue
+                elif snapshot.commits_30d > 0:
+                    continue
+                severity = 6 if repo.linked_goal_path else 4
+                wb = self._week_bucket()
+                signals.append(
+                    Signal(
+                        type=SignalType.REPO_STALE,
+                        severity=severity,
+                        title=f"repo_stale|{repo.repo_full_name}|{wb}",
+                        detail=f"No commits in {threshold_days}+ days on {repo.repo_full_name}.",
+                        suggested_actions=[
+                            f"Check on {repo.repo_full_name}",
+                            "Update linked goal if project is paused",
+                        ],
+                        evidence=[repo.repo_full_name],
+                        expires_at=datetime.now() + timedelta(days=7),
+                    )
+                )
+        return signals
+
+    def _detect_repo_velocity_change(self) -> list[Signal]:
+        """Detect >50% change in commit velocity vs 4-week baseline."""
+        if not self.repo_store:
+            return []
+        threshold = self.gh_config.get("velocity_change_threshold", 0.5)
+        signals = []
+        for user_id in self.repo_store.get_all_user_ids_with_repos():
+            for repo in self.repo_store.list_repos(user_id):
+                snapshot = self.repo_store.get_latest_snapshot(repo.id)
+                if not snapshot or len(snapshot.weekly_commits) < 8:
+                    continue
+                wc = snapshot.weekly_commits
+                recent_mean = sum(wc[-4:]) / 4.0
+                prior_mean = sum(wc[-8:-4]) / 4.0
+                baseline = max(prior_mean, 1.0)
+                delta = (recent_mean - prior_mean) / baseline
+                if abs(delta) < threshold:
+                    continue
+                direction = "increased" if delta > 0 else "decreased"
+                severity = 5 if delta > 0 else (7 if repo.linked_goal_path else 5)
+                wb = self._week_bucket()
+                signals.append(
+                    Signal(
+                        type=SignalType.REPO_VELOCITY_CHANGE,
+                        severity=severity,
+                        title=f"repo_velocity|{repo.repo_full_name}|{wb}",
+                        detail=f"Commit velocity {direction} by {abs(delta):.0%} on {repo.repo_full_name} (recent {recent_mean:.1f}/wk vs prior {prior_mean:.1f}/wk).",
+                        suggested_actions=[
+                            f"Review activity on {repo.repo_full_name}",
+                        ],
+                        evidence=[repo.repo_full_name, f"delta={delta:+.0%}"],
+                        expires_at=datetime.now() + timedelta(days=7),
+                    )
+                )
+        return signals
+
+    def _detect_repo_issue_spike(self) -> list[Signal]:
+        """Detect >2x open issues vs previous snapshot."""
+        if not self.repo_store:
+            return []
+        signals = []
+        for user_id in self.repo_store.get_all_user_ids_with_repos():
+            for repo in self.repo_store.list_repos(user_id):
+                history = self.repo_store.get_snapshot_history(repo.id, days=30)
+                if len(history) < 2:
+                    continue
+                current = history[0]
+                previous = history[1]
+                if previous.open_issues == 0:
+                    continue
+                if current.open_issues > previous.open_issues * 2:
+                    wb = self._week_bucket()
+                    signals.append(
+                        Signal(
+                            type=SignalType.REPO_ISSUE_SPIKE,
+                            severity=5,
+                            title=f"repo_issue_spike|{repo.repo_full_name}|{wb}",
+                            detail=f"Open issues spiked from {previous.open_issues} to {current.open_issues} on {repo.repo_full_name}.",
+                            suggested_actions=[
+                                f"Triage open issues on {repo.repo_full_name}",
+                            ],
+                            evidence=[repo.repo_full_name],
+                            expires_at=datetime.now() + timedelta(days=7),
+                        )
+                    )
+        return signals
+
+    def _detect_repo_ci_failure(self) -> list[Signal]:
+        """Detect CI failure on latest snapshot."""
+        if not self.repo_store:
+            return []
+        signals = []
+        for user_id in self.repo_store.get_all_user_ids_with_repos():
+            for repo in self.repo_store.list_repos(user_id):
+                snapshot = self.repo_store.get_latest_snapshot(repo.id)
+                if not snapshot or snapshot.ci_status != "failure":
+                    continue
+                severity = 7 if repo.linked_goal_path else 5
+                wb = self._week_bucket()
+                signals.append(
+                    Signal(
+                        type=SignalType.REPO_CI_FAILURE,
+                        severity=severity,
+                        title=f"repo_ci_failure|{repo.repo_full_name}|{wb}",
+                        detail=f"CI is failing on {repo.repo_full_name}.",
+                        suggested_actions=[
+                            f"Fix CI on {repo.repo_full_name}",
+                            "Check latest workflow run for errors",
+                        ],
+                        evidence=[repo.repo_full_name],
                         expires_at=datetime.now() + timedelta(days=7),
                     )
                 )
