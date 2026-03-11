@@ -4,6 +4,7 @@ Strategy: mock get_components at each command module's import point to avoid
 touching real config/DB/API. Each test patches exactly what it needs.
 """
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -136,6 +137,22 @@ class TestJournalCommands:
         assert result.exit_code == 0
         assert "Exported" in result.output
 
+    def test_sync_skips_advisor_initialization(self, runner):
+        components = {
+            "search": MagicMock(sync_embeddings=MagicMock(return_value=(2, 0))),
+            "embeddings": MagicMock(count=MagicMock(return_value=5)),
+        }
+
+        def fake_get_components(skip_advisor=False):
+            assert skip_advisor is True
+            return components
+
+        with patch("cli.commands.journal.get_components", side_effect=fake_get_components):
+            result = runner.invoke(cli, ["journal", "sync"])
+
+        assert result.exit_code == 0
+        assert "Synced" in result.output
+
 
 # -- Advisor commands --
 
@@ -202,6 +219,77 @@ class TestMemoryCommands:
             result = runner.invoke(cli, ["memory", "status"])
         assert result.exit_code == 0
         assert "Active facts: 2" in result.output
+
+
+class TestResearchCommands:
+    def test_run_checks_enabled_before_scheduler_init(self, runner, tmp_path):
+        components = _make_components(tmp_path, skip_advisor=True)
+
+        def fake_get_components(skip_advisor=False):
+            assert skip_advisor is True
+            return components
+
+        with (
+            patch("cli.commands.research.get_components", side_effect=fake_get_components),
+            patch("cli.commands.research.IntelScheduler") as scheduler_cls,
+        ):
+            result = runner.invoke(cli, ["research", "run"])
+
+        assert result.exit_code == 0
+        assert "Research not enabled" in result.output
+        scheduler_cls.assert_not_called()
+
+
+class TestEvalCommands:
+    def test_run_full_initializes_advisor(self, runner, tmp_path):
+        components = _make_components(tmp_path)
+        seen = []
+
+        def fake_get_components(skip_advisor=False):
+            seen.append(skip_advisor)
+            return components
+
+        with (
+            patch("cli.utils.get_components", side_effect=fake_get_components),
+            patch("eval.runner.EvalRunner.run_all", return_value=SimpleNamespace(
+                retrieval_results=[],
+                response_results=[],
+                summary={},
+            )),
+        ):
+            result = runner.invoke(cli, ["eval", "run"])
+
+        assert result.exit_code == 0
+        assert seen == [False]
+
+    def test_radar_with_coherence_initializes_advisor(self, runner, tmp_path):
+        db_path = tmp_path / "intel.db"
+        db_path.write_text("")
+        components = _make_components(tmp_path)
+        seen = []
+        report = SimpleNamespace(
+            cross_source={"total_topics": 0, "violation_count": 0, "violations": []},
+            temporal={"age_hours": 1, "snapshot_fresh": True, "stale_topics": []},
+            personalization=None,
+            coherence_results=[],
+            summary={"passed": True},
+        )
+
+        def fake_get_components(skip_advisor=False):
+            seen.append(skip_advisor)
+            return components
+
+        with (
+            patch("cli.utils.get_components", side_effect=fake_get_components),
+            patch("eval.radar.run_radar_eval", return_value=report),
+        ):
+            result = runner.invoke(
+                cli,
+                ["eval", "radar", "--db", str(db_path), "--with-coherence"],
+            )
+
+        assert result.exit_code == 0
+        assert seen == [False]
 
 
 # -- Goals command --
