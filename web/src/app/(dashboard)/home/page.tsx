@@ -394,7 +394,7 @@ export default function HomePage() {
                       {timeGreeting()}{userName ? `, ${userName.split(" ")[0]}` : ""}
                     </h1>
                     {greeting ? (
-                      <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">{greeting}</p>
+                      <p className="text-sm leading-relaxed text-muted-foreground">{greeting}</p>
                     ) : null}
                   </div>
                   <StatsRow
