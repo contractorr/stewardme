@@ -263,7 +263,7 @@ export default function OnboardingPage() {
         setPhase("chat");
       } catch (e) {
         setTesting(false);
-        toast.error(`API key test failed: ${(e as Error).message}`);
+        toast.error("Could not connect — double-check your API key and try again.");
         // stay on welcome — don't advance
       }
     } catch (e) {
