@@ -1,5 +1,6 @@
 """Tests for DeepResearchAgent."""
 
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -292,3 +293,117 @@ async def test_async_scheduled_dossier_run_continues_after_failure(temp_dirs):
         },
     ]
     assert agent._run_dossier_async.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_async_topic_run_matches_sync_result_shape(temp_dirs, mock_search_results):
+    journal = JournalStorage(temp_dirs["journal_dir"])
+    intel = IntelStorage(temp_dirs["intel_db"])
+    embeddings = MagicMock(spec=EmbeddingManager)
+    sync_search = MagicMock()
+    sync_search.max_results = 8
+    sync_search.search.return_value = mock_search_results
+    sync_search.close = MagicMock()
+    async_search = MagicMock()
+    async_search.search = AsyncMock(return_value=mock_search_results)
+    async_search.close = AsyncMock()
+    synthesizer = MagicMock()
+    synthesizer.synthesize.return_value = "## Summary\nTest async parity"
+
+    sync_agent = DeepResearchAgent(
+        journal_storage=journal,
+        intel_storage=intel,
+        embeddings=embeddings,
+        search_client=sync_search,
+        synthesizer=synthesizer,
+    )
+    async_agent = AsyncDeepResearchAgent(
+        journal_storage=journal,
+        intel_storage=intel,
+        embeddings=embeddings,
+        search_client=async_search,
+        synthesizer=synthesizer,
+    )
+
+    sync_result = sync_agent.run(specific_topic="Parity Topic")[0]
+    async_result = await async_agent.run(specific_topic="Parity Topic")
+
+    assert set(async_result[0]) == set(sync_result)
+
+
+@pytest.mark.asyncio
+async def test_async_dossier_run_matches_sync_result_shape(temp_dirs, mock_search_results):
+    journal = JournalStorage(temp_dirs["journal_dir"])
+    intel = MagicMock(spec=IntelStorage)
+    embeddings = MagicMock(spec=EmbeddingManager)
+    dossier = {
+        "dossier_id": "dos-1",
+        "topic": "Parity Topic",
+        "content": "Tracked context",
+        "path": Path("/tmp/dossier.md"),
+        "latest_change_summary": "Previous summary",
+    }
+    refreshed = {**dossier, "content": "Updated dossier", "latest_change_summary": "Fresh change"}
+    search_sync = MagicMock()
+    search_sync.max_results = 8
+    search_sync.search.return_value = mock_search_results
+    search_sync.close = MagicMock()
+    search_async = MagicMock()
+    search_async.search = AsyncMock(return_value=mock_search_results)
+    search_async.close = AsyncMock()
+    synthesizer = MagicMock()
+    synthesizer.synthesize_dossier_update.return_value = """## What Changed
+- Fresh change
+
+## Why It Matters
+Important.
+
+## Evidence
+- Source
+
+## Confidence
+High - official source.
+
+## Recommended Actions
+- Follow up
+
+## Open Questions
+- Unknown
+
+## Sources
+- ML Guide: https://example.com/ml
+"""
+    dossiers_sync = MagicMock()
+    dossiers_sync.append_update.return_value = {
+        "title": "Research Update: Parity Topic",
+        "path": Path("/tmp/update-sync.md"),
+    }
+    dossiers_sync.get_dossier.return_value = refreshed
+    dossiers_async = MagicMock()
+    dossiers_async.append_update.return_value = {
+        "title": "Research Update: Parity Topic",
+        "path": Path("/tmp/update-async.md"),
+    }
+    dossiers_async.get_dossier.return_value = refreshed
+
+    sync_agent = DeepResearchAgent(
+        journal_storage=journal,
+        intel_storage=intel,
+        embeddings=embeddings,
+        search_client=search_sync,
+        synthesizer=synthesizer,
+        dossiers=dossiers_sync,
+    )
+    async_agent = AsyncDeepResearchAgent(
+        journal_storage=journal,
+        intel_storage=intel,
+        embeddings=embeddings,
+        search_client=search_async,
+        synthesizer=synthesizer,
+        dossiers=dossiers_async,
+    )
+
+    sync_result = sync_agent._run_dossier(dossier, run_source="manual")
+    async_result = await async_agent._run_dossier_async(dossier, run_source="manual")
+
+    assert set(async_result) == set(sync_result)

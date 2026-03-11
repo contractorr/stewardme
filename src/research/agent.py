@@ -513,7 +513,16 @@ class AsyncDeepResearchAgent(DeepResearchAgent):
                     {"type": "research", "topic": topic, "research_kind": "report"},
                 )
                 results.append(
-                    {"topic": topic, "filepath": filepath, "saved_path": filepath, "success": True}
+                    {
+                        "topic": topic,
+                        "title": f"Research: {topic}",
+                        "summary": report[:400],
+                        "content": report,
+                        "sources": [r.url for r in search_results],
+                        "saved_path": filepath,
+                        "filepath": filepath,
+                        "success": True,
+                    }
                 )
             except (IOError, ValueError, KeyError) as e:
                 logger.error("async_research_failed", topic=topic, error=str(e))
@@ -528,6 +537,7 @@ class AsyncDeepResearchAgent(DeepResearchAgent):
         if not search_results:
             return {
                 "topic": topic,
+                "title": f"Research Update: {topic}",
                 "dossier_id": dossier["dossier_id"],
                 "filepath": None,
                 "success": False,
@@ -575,9 +585,12 @@ class AsyncDeepResearchAgent(DeepResearchAgent):
             "topic": topic,
             "title": update["title"],
             "summary": metadata.get("change_summary", ""),
+            "content": report,
+            "sources": [r.url for r in search_results],
             "saved_path": update["path"],
             "filepath": update["path"],
             "dossier_id": dossier["dossier_id"],
+            "change_summary": metadata.get("change_summary", ""),
             "success": True,
         }
 
