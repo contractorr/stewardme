@@ -251,10 +251,10 @@ class TestToolExecution:
     def test_handler_failure_returns_result(self, mock_components):
         """Handler that fails should return result JSON, not crash."""
         registry = build_tool_registry(mock_components)
-        # Check in on nonexistent goal returns success: false
+        # Check in on out-of-root path returns structured error
         result = registry.execute("goals_check_in", {"goal_path": "/nonexistent/path.md"})
         parsed = json.loads(result)
-        assert parsed["success"] is False
+        assert parsed["error"] == "Invalid path"
 
 
 class TestToolResultTruncation:
@@ -358,3 +358,18 @@ class TestGoalNextStepsTool:
         result = registry.execute("goal_next_steps", {"goal_path": "../../etc/passwd"})
         parsed = json.loads(result)
         assert "error" in parsed
+
+    def test_goals_check_in_path_traversal_blocked(self, mock_components):
+        registry = build_tool_registry(mock_components)
+        result = registry.execute("goals_check_in", {"goal_path": "../../etc/passwd"})
+        parsed = json.loads(result)
+        assert parsed["error"] == "Invalid path"
+
+    def test_goals_update_status_path_traversal_blocked(self, mock_components):
+        registry = build_tool_registry(mock_components)
+        result = registry.execute(
+            "goals_update_status",
+            {"goal_path": "../../etc/passwd", "status": "completed"},
+        )
+        parsed = json.loads(result)
+        assert parsed["error"] == "Invalid path"
