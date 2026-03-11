@@ -12,9 +12,21 @@
 
 Your journal, goals, and 10 live intel sources feed a RAG pipeline that delivers personalized, explainable guidance — entirely self-hosted.
 
+![StewardMe dashboard](docs/screenshots/home.png)
+
 - **Scans the world for you** — HN, GitHub, arXiv, Reddit, Product Hunt, YC Jobs, Google Patents, RSS, and more
 - **Learns from your behaviour** — feedback loop adjusts recommendations, reasoning traces explain every suggestion
 - **Runs anywhere you want** — CLI, web app, MCP server for Claude Code, or Docker one-liner
+
+## Screenshots
+
+| Home | Focus | Radar |
+|:---:|:---:|:---:|
+| ![Home](docs/screenshots/home.png) | ![Focus](docs/screenshots/focus.png) | ![Radar](docs/screenshots/radar.png) |
+
+| Library | Journal | Guide |
+|:---:|:---:|:---:|
+| ![Library](docs/screenshots/library.png) | ![Journal](docs/screenshots/journal.png) | ![Guide](docs/screenshots/guide.png) |
 
 ## Why StewardMe?
 
