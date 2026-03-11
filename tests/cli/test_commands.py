@@ -101,6 +101,7 @@ def patch_components(tmp_path):
         "cli.commands.journal.get_components",
         "cli.commands.advisor.get_components",
         "cli.commands.intelligence.get_components",
+        "cli.commands.memory.get_components",
         "cli.commands.research.get_components",
         "cli.commands.recommend.get_components",
         "cli.commands.trends.get_components",
@@ -187,6 +188,20 @@ class TestIntelCommands:
         remove_result = runner.invoke(cli, ["watchlist", "remove", item_id])
         assert remove_result.exit_code == 0
         assert "Removed" in remove_result.output
+
+
+class TestMemoryCommands:
+    def test_status(self, runner, patch_components):
+        store = MagicMock()
+        store.get_stats.return_value = {
+            "total_active": 2,
+            "total_superseded": 1,
+            "by_category": {"skill": 2},
+        }
+        with patch("cli.commands.memory.get_memory_store", return_value=store):
+            result = runner.invoke(cli, ["memory", "status"])
+        assert result.exit_code == 0
+        assert "Active facts: 2" in result.output
 
 
 # -- Goals command --
