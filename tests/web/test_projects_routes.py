@@ -1,6 +1,7 @@
 """Tests for projects API routes."""
 
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 
 def test_get_issues_returns_normalized_matches(client, auth_headers):
@@ -53,3 +54,34 @@ def test_generate_ideas_requires_api_key(client, auth_headers):
 
     assert response.status_code == 400
     assert response.json() == {"detail": "No LLM API key configured"}
+
+
+def test_generate_ideas_uses_provider_messages_contract(client, auth_headers):
+    provider = MagicMock()
+    provider.generate.return_value = "Idea list"
+
+    def _call_llm(_rag, llm_caller):
+        return llm_caller("System prompt", "User prompt", max_tokens=321)
+
+    config = SimpleNamespace(llm=SimpleNamespace(provider="openai", model="gpt-test"))
+
+    with (
+        patch("web.routes.projects.get_api_key_for_user", return_value="sk-test"),
+        patch("web.routes.projects.get_config", return_value=config),
+        patch("journal.storage.JournalStorage"),
+        patch("journal.embeddings.EmbeddingManager"),
+        patch("journal.fts.JournalFTSIndex"),
+        patch("journal.search.JournalSearch"),
+        patch("advisor.rag.RAGRetriever"),
+        patch("llm.factory.create_llm_provider", return_value=provider),
+        patch("web.routes.projects.generate_project_ideas", side_effect=_call_llm),
+    ):
+        response = client.post("/api/projects/ideas", headers=auth_headers)
+
+    assert response.status_code == 200
+    assert response.json() == {"ideas": "Idea list"}
+    provider.generate.assert_called_once_with(
+        messages=[{"role": "user", "content": "User prompt"}],
+        system="System prompt",
+        max_tokens=321,
+    )
