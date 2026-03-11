@@ -8,6 +8,8 @@ Profile data powers onboarding personalization, greeting text, recommendation gr
 
 ## Key Modules
 
+- `src/web/routes/onboarding.py`
+- `src/user_state_store.py`
 - `src/web/routes/profile.py`
 - `src/web/routes/user.py`
 - `web/src/app/(dashboard)/onboarding/page.tsx`
@@ -15,6 +17,9 @@ Profile data powers onboarding personalization, greeting text, recommendation gr
 
 ## Interfaces
 
+- `POST /api/onboarding/start`
+- `POST /api/onboarding/chat`
+- `GET /api/onboarding/profile-status`
 - `GET/PATCH /api/user/me`
 - profile-dependent greeting and recommendation generation
 - Settings-based profile editing
@@ -23,3 +28,5 @@ Profile data powers onboarding personalization, greeting text, recommendation gr
 
 - Onboarding captures only the profile context needed to personalize Home quickly.
 - Additional profile refinement belongs in Settings, not the first-run flow.
+- Blank onboarding messages are rejected server-side before they are persisted or counted toward the turn limit.
+- Same-user onboarding requests are serialized in-process, and forced completion always clears the in-memory session even if the second LLM/save step fails.

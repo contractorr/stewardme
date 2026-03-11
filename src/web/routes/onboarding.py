@@ -1,8 +1,9 @@
-"""Onboarding chat — LLM-driven profile interview + goal creation."""
+"""Onboarding chat â€” LLM-driven profile interview + goal creation."""
 
 import asyncio
 import json
 import re
+import uuid
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException
@@ -43,13 +44,14 @@ router = APIRouter(prefix="/api/onboarding", tags=["onboarding"])
 
 # In-memory sessions keyed by user_id
 _sessions: dict[str, dict] = {}
+_session_locks: dict[str, asyncio.Lock] = {}
 
 MAX_TURNS = 15
 
 ONBOARDING_SYSTEM = """You are a warm, curious career coach onboarding a new user. Your goal is to deeply \
 understand who they are so you can give them exceptional, personalized guidance over time.
 
-Ask one clear question at a time. Follow up on interesting answers — if someone mentions a startup, ask about \
+Ask one clear question at a time. Follow up on interesting answers â€” if someone mentions a startup, ask about \
 stage and target market. If they mention a career transition, ask what's driving it.
 
 You need to learn:
@@ -127,6 +129,21 @@ def _extract_completion_json(text: str) -> dict | None:
             pass
 
     return None
+
+
+def _get_session_lock(user_id: str) -> asyncio.Lock:
+    lock = _session_locks.get(user_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _session_locks[user_id] = lock
+    return lock
+
+
+def _normalize_message(message: str) -> str:
+    normalized = message.strip()
+    if not normalized:
+        raise HTTPException(status_code=400, detail="Message cannot be blank")
+    return normalized
 
 
 def _make_llm_caller(user_id: str):
@@ -235,7 +252,7 @@ def _strip_json_block(text: str) -> str:
     """Remove JSON block from response text to get just the conversational part."""
     # Remove ```json...``` blocks (non-greedy across newlines)
     cleaned = re.sub(r"```(?:json)?\s*\{.*?\}\s*```", "", text, flags=re.DOTALL)
-    # Remove bare {"done": true...} blocks — match balanced braces greedily
+    # Remove bare {"done": true...} blocks â€” match balanced braces greedily
     cleaned = re.sub(r'\{\s*"done"\s*:\s*true.*', "", cleaned, flags=re.DOTALL)
     # Clean up leftover whitespace/newlines
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
@@ -249,34 +266,36 @@ async def start_onboarding(
 ):
     user_id = user["id"]
 
-    # Clear previous onboarding responses for re-onboarding
-    try:
-        clear_onboarding_responses(user_id)
-    except Exception as e:
-        logger.warning("onboarding.clear_failed", user_id=user_id, error=str(e))
+    async with _get_session_lock(user_id):
+        # Clear previous onboarding responses for re-onboarding
+        try:
+            clear_onboarding_responses(user_id)
+        except Exception as e:
+            logger.warning("onboarding.clear_failed", user_id=user_id, error=str(e))
 
-    try:
-        caller = _make_llm_caller(user_id)
-        response = await asyncio.to_thread(caller, ONBOARDING_SYSTEM, ONBOARDING_START)
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("onboarding.start_failed", user_id=user_id, error=str(e))
-        raise HTTPException(status_code=502, detail=f"LLM call failed: {e}")
+        try:
+            caller = _make_llm_caller(user_id)
+            response = await asyncio.to_thread(caller, ONBOARDING_SYSTEM, ONBOARDING_START)
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error("onboarding.start_failed", user_id=user_id, error=str(e))
+            raise HTTPException(status_code=502, detail=f"LLM call failed: {e}")
 
-    _sessions[user_id] = {
-        "messages": [("assistant", response)],
-        "caller": caller,
-        "turns": 0,
-    }
+        _sessions[user_id] = {
+            "id": uuid.uuid4().hex,
+            "messages": [("assistant", response)],
+            "caller": caller,
+            "turns": 0,
+        }
 
-    # Persist first assistant turn
-    try:
-        save_onboarding_turn(user_id, 0, "assistant", response)
-    except Exception as e:
-        logger.warning("onboarding.persist_failed", user_id=user_id, error=str(e))
+        # Persist first assistant turn
+        try:
+            save_onboarding_turn(user_id, 0, "assistant", response)
+        except Exception as e:
+            logger.warning("onboarding.persist_failed", user_id=user_id, error=str(e))
 
-    return OnboardingResponse(message=response, done=False, turn=0)
+        return OnboardingResponse(message=response, done=False, turn=0)
 
 
 @router.post("/chat", response_model=OnboardingResponse)
@@ -287,90 +306,107 @@ async def chat_onboarding(
 ):
     user_id = user["id"]
 
-    session = _sessions.get(user_id)
-    if not session:
-        raise HTTPException(
-            status_code=400, detail="No active onboarding session — call /start first"
+    async with _get_session_lock(user_id):
+        session = _sessions.get(user_id)
+        if not session:
+            raise HTTPException(
+                status_code=400, detail="No active onboarding session â€” call /start first"
+            )
+
+        message = _normalize_message(body.message)
+        session["messages"].append(("user", message))
+        session["turns"] += 1
+        turn = session["turns"]
+
+        # Persist user turn
+        try:
+            save_onboarding_turn(user_id, turn, "user", message)
+        except Exception as e:
+            logger.warning("onboarding.persist_failed", user_id=user_id, error=str(e))
+
+        # Build conversation history
+        history = "\n".join(
+            f"{'Coach' if role == 'assistant' else 'User'}: {msg}"
+            for role, msg in session["messages"]
         )
 
-    session["messages"].append(("user", body.message))
-    session["turns"] += 1
-    turn = session["turns"]
-
-    # Persist user turn
-    try:
-        save_onboarding_turn(user_id, turn, "user", body.message)
-    except Exception as e:
-        logger.warning("onboarding.persist_failed", user_id=user_id, error=str(e))
-
-    # Build conversation history
-    history = "\n".join(
-        f"{'Coach' if role == 'assistant' else 'User'}: {msg}" for role, msg in session["messages"]
-    )
-
-    force = session["turns"] >= MAX_TURNS
-    if force:
-        prompt = f"""Based on this interview, generate the profile and goals JSON now.
+        force = session["turns"] >= MAX_TURNS
+        if force:
+            prompt = f"""Based on this interview, generate the profile and goals JSON now.
 
 {history}
 
 Output the JSON block now with whatever information you have."""
-    else:
-        prompt = f"Interview so far:\n{history}\n\nContinue the interview or finalize if you have enough info."
+        else:
+            prompt = f"Interview so far:\n{history}\n\nContinue the interview or finalize if you have enough info."
 
-    caller = session["caller"]
-    try:
-        response = await asyncio.to_thread(caller, ONBOARDING_SYSTEM, prompt, max_tokens=2000)
-    except Exception as e:
-        logger.error("onboarding.chat_failed", user_id=user_id, error=str(e))
-        raise HTTPException(status_code=502, detail=f"LLM call failed: {e}")
-
-    # Check for completion JSON
-    completion = _extract_completion_json(response)
-    if completion:
+        caller = session["caller"]
         try:
-            goals_created = _save_results(user_id, completion)
+            response = await asyncio.to_thread(caller, ONBOARDING_SYSTEM, prompt, max_tokens=2000)
         except Exception as e:
-            logger.error("onboarding.save_failed", user_id=user_id, error=str(e))
-            goals_created = 0
-        _sessions.pop(user_id, None)
-        clean_msg = _strip_json_block(response)
-        if not clean_msg:
-            clean_msg = "Great, I've got everything I need! Your profile is set up and will continue to deepen over time."
-        log_event("onboarding_complete", user_id, {"goals_created": goals_created, "turns": turn})
-        return OnboardingResponse(
-            message=clean_msg, done=True, goals_created=goals_created, turn=turn
-        )
+            logger.error("onboarding.chat_failed", user_id=user_id, error=str(e))
+            raise HTTPException(status_code=502, detail=f"LLM call failed: {e}")
 
-    session["messages"].append(("assistant", response))
+        # Check for completion JSON
+        completion = _extract_completion_json(response)
+        if completion:
+            try:
+                goals_created = _save_results(user_id, completion)
+            except Exception as e:
+                logger.error("onboarding.save_failed", user_id=user_id, error=str(e))
+                goals_created = 0
+            _sessions.pop(user_id, None)
+            clean_msg = _strip_json_block(response)
+            if not clean_msg:
+                clean_msg = "Great, I've got everything I need! Your profile is set up and will continue to deepen over time."
+            log_event(
+                "onboarding_complete", user_id, {"goals_created": goals_created, "turns": turn}
+            )
+            return OnboardingResponse(
+                message=clean_msg, done=True, goals_created=goals_created, turn=turn
+            )
 
-    # Persist assistant turn
-    try:
-        save_onboarding_turn(user_id, turn, "assistant", response)
-    except Exception as e:
-        logger.warning("onboarding.persist_failed", user_id=user_id, error=str(e))
+        session["messages"].append(("assistant", response))
 
-    # Force extraction if we hit max turns and LLM didn't include JSON
-    if force:
-        force_prompt = f"""{history}
+        # Persist assistant turn
+        try:
+            save_onboarding_turn(user_id, turn, "assistant", response)
+        except Exception as e:
+            logger.warning("onboarding.persist_failed", user_id=user_id, error=str(e))
+
+        # Force extraction if we hit max turns and LLM didn't include JSON
+        if force:
+            force_prompt = f"""{history}
 
 Coach: {response}
 
 Now output ONLY the JSON block with profile and goals based on everything discussed."""
-        force_response = await asyncio.to_thread(
-            caller, ONBOARDING_SYSTEM, force_prompt, max_tokens=2000
-        )
-        completion = _extract_completion_json(force_response)
-        goals_created = 0
-        if completion:
-            goals_created = _save_results(user_id, completion)
-        _sessions.pop(user_id, None)
-        log_event("onboarding_complete", user_id, {"goals_created": goals_created, "turns": turn})
-        return OnboardingResponse(
-            message=response, done=True, goals_created=goals_created, turn=turn
-        )
+            goals_created = 0
+            try:
+                force_response = await asyncio.to_thread(
+                    caller, ONBOARDING_SYSTEM, force_prompt, max_tokens=2000
+                )
+                completion = _extract_completion_json(force_response)
+                if completion:
+                    try:
+                        goals_created = _save_results(user_id, completion)
+                    except Exception as e:
+                        logger.error("onboarding.save_failed", user_id=user_id, error=str(e))
+                else:
+                    logger.warning("onboarding.force_finalize_no_completion", user_id=user_id)
+            except Exception as e:
+                logger.error("onboarding.force_finalize_failed", user_id=user_id, error=str(e))
+            finally:
+                _sessions.pop(user_id, None)
 
-    return OnboardingResponse(message=response, done=False, turn=turn)
+            log_event(
+                "onboarding_complete", user_id, {"goals_created": goals_created, "turns": turn}
+            )
+            return OnboardingResponse(
+                message=response, done=True, goals_created=goals_created, turn=turn
+            )
+
+        return OnboardingResponse(message=response, done=False, turn=turn)
 
 
 @router.get("/feed-categories", response_model=list[FeedCategoryItem])

@@ -74,6 +74,16 @@ def init_db(db_path: Path | None = None) -> None:
                 FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
             );
             CREATE INDEX IF NOT EXISTS idx_msg_conv ON conversation_messages(conversation_id, created_at ASC);
+            CREATE TABLE IF NOT EXISTS conversation_message_attachments (
+                id TEXT PRIMARY KEY,
+                message_id TEXT NOT NULL,
+                library_item_id TEXT NOT NULL,
+                file_name TEXT,
+                mime_type TEXT,
+                created_at TIMESTAMP NOT NULL,
+                FOREIGN KEY (message_id) REFERENCES conversation_messages(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_msg_attachment_message ON conversation_message_attachments(message_id);
 
             CREATE TABLE IF NOT EXISTS onboarding_responses (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -130,7 +140,7 @@ def init_db(db_path: Path | None = None) -> None:
 
 
 def _migrate_secrets(conn: sqlite3.Connection, target_id: str, email: str) -> None:
-    """Move secrets from old user IDs (same email) to the new stable ID."""
+    """Copy secrets from old user IDs (same email) to the new stable ID."""
     old_users = conn.execute(
         "SELECT id FROM users WHERE email = ? AND id != ?",
         (email, target_id),
@@ -154,10 +164,6 @@ def _migrate_secrets(conn: sqlite3.Connection, target_id: str, email: str) -> No
                     (target_id, key, value),
                 )
                 migrated += 1
-        # Clean up old user's secrets and record
-        conn.execute("DELETE FROM user_secrets WHERE user_id = ?", (old_id,))
-        conn.execute("DELETE FROM conversations WHERE user_id = ?", (old_id,))
-        conn.execute("DELETE FROM users WHERE id = ?", (old_id,))
     if migrated:
         conn.commit()
         logger.info("user_store.secrets_migrated", target=target_id, migrated=migrated)
@@ -447,6 +453,54 @@ def log_event(
         conn.close()
     except Exception:
         pass
+
+
+def get_user_usage_stats(user_id: str, days: int = 30, db_path: Path | None = None) -> dict:
+    """Return per-user LLM cost/usage stats from usage_events metadata."""
+    conn = _get_conn(db_path)
+    window = f"-{days} days"
+    try:
+        rows = conn.execute(
+            """
+            SELECT
+                COALESCE(json_extract(metadata, '$.model'), 'unknown') as model,
+                COUNT(*) as query_count,
+                COALESCE(SUM(json_extract(metadata, '$.input_tokens')), 0) as input_tokens,
+                COALESCE(SUM(json_extract(metadata, '$.output_tokens')), 0) as output_tokens,
+                COALESCE(SUM(json_extract(metadata, '$.estimated_cost_usd')), 0.0) as estimated_cost_usd
+            FROM usage_events
+            WHERE event = 'chat_query'
+              AND user_id = ?
+              AND created_at >= datetime('now', ?)
+            GROUP BY model
+            """,
+            (user_id, window),
+        ).fetchall()
+
+        by_model = []
+        total_queries = 0
+        total_cost = 0.0
+        for r in rows:
+            by_model.append(
+                {
+                    "model": r["model"],
+                    "query_count": r["query_count"],
+                    "input_tokens": int(r["input_tokens"]),
+                    "output_tokens": int(r["output_tokens"]),
+                    "estimated_cost_usd": round(float(r["estimated_cost_usd"]), 6),
+                }
+            )
+            total_queries += r["query_count"]
+            total_cost += float(r["estimated_cost_usd"])
+
+        return {
+            "days": days,
+            "total_queries": total_queries,
+            "total_estimated_cost_usd": round(total_cost, 6),
+            "by_model": by_model,
+        }
+    finally:
+        conn.close()
 
 
 def get_usage_stats(days: int = 30, db_path: Path | None = None) -> dict:

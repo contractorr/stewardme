@@ -98,6 +98,54 @@ def test_chat_completes_with_json(client, auth_headers):
     mock_save.assert_called_once()
 
 
+def test_blank_chat_message_does_not_consume_turn(client, auth_headers):
+    with patch(_LLM_PATCH, return_value=_fake_caller("Welcome!")):
+        client.post("/api/onboarding/start", headers=auth_headers)
+
+    from web.routes.onboarding import _sessions
+
+    res = client.post(
+        "/api/onboarding/chat",
+        headers=auth_headers,
+        json={"message": "   "},
+    )
+
+    assert res.status_code == 400
+    assert _sessions["user-123"]["turns"] == 0
+    assert _sessions["user-123"]["messages"] == [("assistant", "Welcome!")]
+
+
+def test_force_finalize_clears_session_when_second_llm_call_fails(client, auth_headers):
+    with patch(_LLM_PATCH, return_value=_fake_caller("Starting!")):
+        client.post("/api/onboarding/start", headers=auth_headers)
+
+    from web.routes.onboarding import MAX_TURNS, _sessions
+
+    call_count = {"value": 0}
+
+    def flaky_force_caller(system, prompt, max_tokens=1500):
+        call_count["value"] += 1
+        if call_count["value"] == 1:
+            return "Let me wrap this up."
+        raise RuntimeError("force finalize failed")
+
+    _sessions["user-123"]["caller"] = flaky_force_caller
+    _sessions["user-123"]["turns"] = MAX_TURNS - 1
+
+    res = client.post(
+        "/api/onboarding/chat",
+        headers=auth_headers,
+        json={"message": "Final details"},
+    )
+
+    assert res.status_code == 200
+    assert res.json()["done"] is True
+    assert res.json()["goals_created"] == 0
+    assert res.json()["message"] == "Let me wrap this up."
+    assert call_count["value"] == 2
+    assert "user-123" not in _sessions
+
+
 # --- Feed category / selection tests ---
 
 
