@@ -12,7 +12,9 @@ from web.auth import get_current_user
 from web.deps import (
     get_assumption_store,
     get_config,
+    get_intel_storage,
     get_memory_store,
+    get_mind_map_store,
     get_receipt_store,
     get_thread_inbox_state_store,
     get_thread_store,
@@ -23,6 +25,8 @@ from web.models import (
     ExtractionReceiptEnvelope,
     JournalCreate,
     JournalEntry,
+    JournalMindMapEnvelope,
+    JournalMindMapResponse,
     JournalUpdate,
     QuickCapture,
 )
@@ -65,6 +69,26 @@ def _invalidate_greeting_cache(user_id: str, paths: dict) -> None:
         invalidate_greeting(user_id, cache)
     except Exception as exc:
         logger.warning("journal.greeting_invalidate_failed", error=str(exc), user=user_id)
+
+
+def _invalidate_mind_map(user_id: str, entry_path: str) -> None:
+    try:
+        get_mind_map_store(user_id).delete_by_entry(entry_path)
+    except Exception as exc:
+        logger.warning("journal.mind_map_invalidate_failed", error=str(exc), user=user_id)
+
+
+def _build_mind_map_generator(user_id: str, storage: JournalStorage):
+    from journal.mind_map import JournalMindMapGenerator
+    from web.user_store import get_default_db_path
+
+    return JournalMindMapGenerator(
+        get_mind_map_store(user_id),
+        journal_storage=storage,
+        intel_storage=get_intel_storage(),
+        user_id=user_id,
+        users_db_path=get_default_db_path(),
+    )
 
 
 async def _run_post_create_hooks(
@@ -315,6 +339,16 @@ async def _cleanup_deleted_entry_state(user_id: str, filepath: Path) -> None:
     except Exception as exc:
         logger.warning("journal.delete_memory_failed", error=str(exc), user=user_id, entry=entry_id)
 
+    try:
+        get_mind_map_store(user_id).delete_by_entry(entry_id)
+    except Exception as exc:
+        logger.warning(
+            "journal.delete_mind_map_failed",
+            error=str(exc),
+            user=user_id,
+            entry=entry_id,
+        )
+
     _invalidate_greeting_cache(user_id, paths)
 
 
@@ -465,6 +499,82 @@ async def get_entry_receipt(
     return ExtractionReceiptEnvelope(status=receipt.get("status") or "pending", receipt=receipt)
 
 
+@router.get("/{filepath:path}/mind-map", response_model=JournalMindMapEnvelope)
+async def get_entry_mind_map(
+    filepath: str,
+    user: dict = Depends(get_current_user),
+):
+    storage = _get_storage(user["id"])
+    resolved = _validate_journal_path(filepath, storage)
+    artifact = get_mind_map_store(user["id"]).get_by_entry(str(resolved))
+    if not artifact:
+        return JournalMindMapEnvelope(status="not_available", mind_map=None)
+    post = storage.read(resolved)
+    receipt = get_receipt_store(user["id"]).get_by_entry(str(resolved))
+    artifact = _build_mind_map_generator(user["id"], storage).generate_for_entry(
+        {
+            "path": str(resolved),
+            "title": post.get("title", resolved.stem),
+            "content": post.content,
+            "tags": post.get("tags", []),
+            "created": post.get("created"),
+        },
+        receipt=receipt,
+        force=False,
+    )
+    if not artifact:
+        return JournalMindMapEnvelope(status="not_available", mind_map=None)
+    return JournalMindMapEnvelope(
+        status="ready",
+        mind_map=JournalMindMapResponse(**artifact),
+    )
+
+
+@router.post("/{filepath:path}/mind-map", response_model=JournalMindMapEnvelope)
+async def generate_entry_mind_map(
+    filepath: str,
+    user: dict = Depends(get_current_user),
+):
+    storage = _get_storage(user["id"])
+    resolved = _validate_journal_path(filepath, storage)
+    post = storage.read(resolved)
+    receipt = get_receipt_store(user["id"]).get_by_entry(str(resolved))
+    generator = _build_mind_map_generator(user["id"], storage)
+    artifact = generator.generate_for_entry(
+        {
+            "path": str(resolved),
+            "title": post.get("title", resolved.stem),
+            "content": post.content,
+            "tags": post.get("tags", []),
+            "created": post.get("created"),
+        },
+        receipt=receipt,
+        force=True,
+    )
+    if not artifact:
+        return JournalMindMapEnvelope(status="insufficient_signal", mind_map=None)
+
+    log_event(
+        "journal_mind_map_generated",
+        user["id"],
+        {
+            "entry_path": str(resolved),
+            "node_count": len(artifact.get("nodes") or []),
+            "external_nodes": len(
+                [
+                    node
+                    for node in (artifact.get("nodes") or [])
+                    if node.get("kind") in {"research", "intel", "conversation"}
+                ]
+            ),
+        },
+    )
+    return JournalMindMapEnvelope(
+        status="ready",
+        mind_map=JournalMindMapResponse(**artifact),
+    )
+
+
 @router.get("/{filepath:path}", response_model=JournalEntry)
 async def read_entry(
     filepath: str,
@@ -495,6 +605,8 @@ async def update_entry(
         storage.update(resolved, content=body.content, metadata=body.metadata)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+    _invalidate_mind_map(user["id"], str(resolved))
 
     post = storage.read(resolved)
 

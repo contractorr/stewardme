@@ -1,6 +1,6 @@
 """Pydantic request/response schemas for the web API."""
 
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -133,6 +133,9 @@ class JournalMindMapNode(BaseModel):
     weight: float = 0.0
     confidence: float = 0.0
     is_root: bool = False
+    source_type: Optional[str] = None
+    source_label: str = ""
+    source_ref: str = ""
 
 
 class JournalMindMapEdge(BaseModel):
@@ -156,7 +159,7 @@ class JournalMindMapResponse(BaseModel):
 
 
 class JournalMindMapEnvelope(BaseModel):
-    status: str = "not_available"
+    status: Literal["ready", "not_available", "insufficient_signal"] = "not_available"
     mind_map: Optional[JournalMindMapResponse] = None
 
 

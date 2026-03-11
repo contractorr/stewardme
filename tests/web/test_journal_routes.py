@@ -66,6 +66,7 @@ def test_delete_entry_cleans_up_derived_state(client, auth_headers):
     from journal.embeddings import EmbeddingManager
     from journal.extraction_receipts import ReceiptBuilder
     from journal.fts import JournalFTSIndex
+    from journal.mind_map import JournalMindMapStore
     from memory.models import FactSource
     from web.deps import (
         get_receipt_store,
@@ -107,6 +108,29 @@ def test_delete_entry_cleans_up_derived_state(client, auth_headers):
     receipt_builder = ReceiptBuilder(get_receipt_store("user-123"))
     receipt_builder.seed_pending(path, "Delete Me")
 
+    mind_map_store = JournalMindMapStore(paths["mind_maps_db"])
+    mind_map_store.upsert(
+        {
+            "entry_path": path,
+            "entry_title": "Delete Me",
+            "source_hash": "delete-test",
+            "summary": "Delete summary",
+            "rationale": "Delete rationale",
+            "generator": "derived",
+            "nodes": [
+                {
+                    "id": "root",
+                    "label": "Delete Me",
+                    "kind": "entry",
+                    "weight": 1.0,
+                    "confidence": 1.0,
+                    "is_root": True,
+                }
+            ],
+            "edges": [],
+        }
+    )
+
     cache = ContextCache(paths["intel_db"].parent / "context_cache.db")
     cache_greeting("user-123", cache, "cached greeting")
     assert get_cached_greeting("user-123", cache) == "cached greeting"
@@ -116,6 +140,7 @@ def test_delete_entry_cleans_up_derived_state(client, auth_headers):
     assert asyncio.run(thread_store.get_threads_for_entry(path))
     assert inbox_state_store.get_state(thread.id) is not None
     assert get_receipt_store("user-123").get_by_entry(path) is not None
+    assert mind_map_store.get_by_entry(path) is not None
 
     with patch("web.routes.journal.get_memory_store", return_value=mock_memory_store):
         del_res = client.delete(f"/api/journal/{path}", headers=auth_headers)
@@ -133,6 +158,7 @@ def test_delete_entry_cleans_up_derived_state(client, auth_headers):
     assert asyncio.run(thread_store.get_thread(thread.id)) is None
     assert inbox_state_store.get_state(thread.id) is None
     assert get_receipt_store("user-123").get_by_entry(path) is None
+    assert mind_map_store.get_by_entry(path) is None
     assert get_cached_greeting("user-123", cache) is None
 
 
