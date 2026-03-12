@@ -145,12 +145,9 @@ class ObservationConsolidator:
             if not isinstance(observation_text, str):
                 raise ValueError("observation must be string")
             observation_text = observation_text.strip()
-            abstract_raw = parsed.get("abstract", "")
-            abstract_text = (
-                abstract_raw.strip()
-                if isinstance(abstract_raw, str) and abstract_raw.strip()
-                else None
-            )
+            abstract_raw = parsed.get("abstract")
+            abstract_text = abstract_raw.strip() if isinstance(abstract_raw, str) else None
+            abstract_text = abstract_text or None  # collapse empty string
         except (json.JSONDecodeError, KeyError, AttributeError, ValueError):
             observation_text = response
             abstract_text = None

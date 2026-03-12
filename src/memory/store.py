@@ -18,6 +18,7 @@ logger = structlog.get_logger()
 SCHEMA_VERSION = 4
 DEFAULT_REINFORCEMENT = 0.05
 DEFAULT_CONTRADICTION_DECAY = 0.15
+_MIN_ABSTRACT_WORDS = 3
 _SEARCH_STOPWORDS = {
     "a",
     "an",
@@ -972,7 +973,9 @@ class FactStore:
         try:
             cat = fact.category.value if isinstance(fact.category, FactCategory) else fact.category
             doc_text = (
-                fact.abstract if fact.abstract and len(fact.abstract.split()) >= 3 else fact.text
+                fact.abstract
+                if fact.abstract and len(fact.abstract.split()) >= _MIN_ABSTRACT_WORDS
+                else fact.text
             )
             coll.upsert(
                 ids=[fact.id],

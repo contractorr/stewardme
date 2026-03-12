@@ -591,9 +591,47 @@ class TestAbstract:
         reloaded = store.get(new.id)
         assert reloaded.abstract == "Rust preference migration systems programming"
 
-    def test_update_without_abstract_defaults_none(self, store):
+    def test_update_does_not_inherit_old_abstract(self, store):
         f = _fact(id="abs4")
         f.abstract = "old abstract"
         store.add(f)
         new = store.update("abs4", "User prefers Rust", "entry-2")
         assert new.abstract is None
+
+    def test_short_abstract_ignored_for_embedding(self, store, tmp_path):
+        """Abstracts shorter than _MIN_ABSTRACT_WORDS fall back to fact.text for ChromaDB."""
+        from unittest.mock import MagicMock
+
+        from memory.store import _MIN_ABSTRACT_WORDS
+
+        mock_coll = MagicMock()
+        f = _fact(id="short1", text="User prefers Python for backend development")
+        f.abstract = "Python"  # 1 word < _MIN_ABSTRACT_WORDS
+        store._collection = mock_coll
+
+        store._upsert_embedding(f)
+
+        call_args = mock_coll.upsert.call_args
+        assert call_args is not None
+        doc = call_args[1]["documents"][0] if "documents" in call_args[1] else call_args[0][0]
+        assert doc == f.text  # should fall back to full text
+        assert _MIN_ABSTRACT_WORDS == 3
+
+        store._collection = None  # cleanup
+
+    def test_valid_abstract_used_for_embedding(self, store):
+        """Abstracts meeting the min word threshold are used as the ChromaDB document."""
+        from unittest.mock import MagicMock
+
+        mock_coll = MagicMock()
+        f = _fact(id="valid1", text="User prefers Python for backend development")
+        f.abstract = "Python preference backend development"
+        store._collection = mock_coll
+
+        store._upsert_embedding(f)
+
+        call_args = mock_coll.upsert.call_args
+        assert call_args is not None
+        assert call_args[1]["documents"] == ["Python preference backend development"]
+
+        store._collection = None  # cleanup
