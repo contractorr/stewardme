@@ -48,7 +48,7 @@ class ConflictResolver:
         results = []
         accepted_candidates: list[StewardFact] = []
         for candidate in candidates:
-            similar = self.store.search(candidate.text, limit=3)
+            similar = self.store.search(candidate.text, limit=3, use_graph=False)
             # Filter out the candidate itself if it somehow got in
             similar = [s for s in similar if s.id != candidate.id]
             similar.extend(self._batch_similar(candidate, accepted_candidates))

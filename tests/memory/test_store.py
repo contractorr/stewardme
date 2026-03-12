@@ -214,6 +214,91 @@ class TestStats:
         assert stats["total_superseded"] == 1
 
 
+class TestGraphExpansion:
+    def test_entity_links_created_on_add(self, store):
+        store.add(_fact(id="e1", text="User uses Machine Learning with AWS"))
+        from db import wal_connect
+
+        with wal_connect(store.db_path) as conn:
+            links = conn.execute(
+                "SELECT * FROM fact_entity_links WHERE fact_id = ?", ("e1",)
+            ).fetchall()
+            entities = conn.execute("SELECT * FROM fact_entities").fetchall()
+        assert len(links) > 0
+        assert len(entities) > 0
+
+    def test_graph_expands_to_entity_neighbors(self, store):
+        # Two facts share "Python" entity
+        store.add(_fact(id="g1", text="User builds Django with Python"))
+        store.add(_fact(id="g2", text="User prefers Python over Ruby"))
+        # Search for Django — should also find g2 via shared Python entity
+        results = store.search("Django", limit=5, use_graph=True)
+        result_ids = {r.id for r in results}
+        assert "g1" in result_ids
+        assert "g2" in result_ids
+
+    def test_graph_disabled_with_use_graph_false(self, store):
+        store.add(_fact(id="g1", text="User builds Django with Python"))
+        store.add(_fact(id="g2", text="User prefers Python over Ruby"))
+        results = store.search("Django", limit=5, use_graph=False)
+        result_ids = {r.id for r in results}
+        assert "g1" in result_ids
+        # g2 should NOT appear — no keyword match for "Django"
+        assert "g2" not in result_ids
+
+    def test_entity_links_cleaned_on_delete(self, store):
+        store.add(_fact(id="d1", text="User uses AWS for ML projects"))
+        store.delete("d1", reason="test")
+        from db import wal_connect
+
+        with wal_connect(store.db_path) as conn:
+            links = conn.execute(
+                "SELECT * FROM fact_entity_links WHERE fact_id = ?", ("d1",)
+            ).fetchall()
+        assert len(links) == 0
+
+    def test_superseded_not_returned_as_neighbor(self, store):
+        store.add(_fact(id="s1", text="User uses Python for ML"))
+        store.add(_fact(id="s2", text="User builds Python APIs"))
+        # Supersede s2
+        store.update("s2", "User builds Rust APIs", "entry-3")
+        # Search for ML — s2 was superseded, should not appear as neighbor
+        results = store.search("ML", limit=5, use_graph=True)
+        result_ids = {r.id for r in results}
+        assert "s2" not in result_ids
+
+    def test_backfill_entity_links(self, store):
+        # Add facts, then manually clear entity links to simulate legacy state
+        store.add(_fact(id="b1", text="User uses AWS Lambda"))
+        store.add(_fact(id="b2", text="User prefers GCP Cloud"))
+        from db import wal_connect
+
+        with wal_connect(store.db_path) as conn:
+            conn.execute("DELETE FROM fact_entity_links")
+
+        # Backfill should re-index both
+        count = store.backfill_entity_links()
+        assert count == 2
+
+        with wal_connect(store.db_path) as conn:
+            links = conn.execute("SELECT * FROM fact_entity_links").fetchall()
+        assert len(links) > 0
+
+    def test_no_entities_in_text(self, store):
+        # All lowercase, no entities — should not crash
+        store.add(_fact(id="n1", text="user prefers simple tools"))
+        from db import wal_connect
+
+        with wal_connect(store.db_path) as conn:
+            links = conn.execute(
+                "SELECT * FROM fact_entity_links WHERE fact_id = ?", ("n1",)
+            ).fetchall()
+        assert len(links) == 0
+        # Search should still work
+        results = store.search("simple tools", limit=5)
+        assert len(results) >= 1
+
+
 class TestReset:
     def test_reset(self, store):
         store.add(_fact(id="a"))
@@ -221,3 +306,14 @@ class TestReset:
         count = store.reset()
         assert count == 2
         assert store.get_all_active() == []
+
+    def test_reset_clears_entity_tables(self, store):
+        store.add(_fact(id="a", text="User uses AWS for ML"))
+        store.reset()
+        from db import wal_connect
+
+        with wal_connect(store.db_path) as conn:
+            entities = conn.execute("SELECT COUNT(*) FROM fact_entities").fetchone()[0]
+            links = conn.execute("SELECT COUNT(*) FROM fact_entity_links").fetchone()[0]
+        assert entities == 0
+        assert links == 0

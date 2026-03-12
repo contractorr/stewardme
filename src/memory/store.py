@@ -10,11 +10,12 @@ import structlog
 
 from db import ensure_schema_version, wal_connect
 
+from .entity_extractor import extract_entities
 from .models import FactCategory, FactSource, StewardFact
 
 logger = structlog.get_logger()
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 DEFAULT_REINFORCEMENT = 0.05
 DEFAULT_CONTRADICTION_DECAY = 0.15
 _SEARCH_STOPWORDS = {
@@ -84,6 +85,33 @@ class FactStore:
                 CREATE INDEX IF NOT EXISTS idx_facts_category
                 ON steward_facts(category)
             """)
+            # Entity graph tables (v2)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS fact_entities (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    normalized TEXT NOT NULL UNIQUE
+                )
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_fact_entities_normalized
+                ON fact_entities(normalized)
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS fact_entity_links (
+                    entity_id INTEGER NOT NULL REFERENCES fact_entities(id),
+                    fact_id TEXT NOT NULL REFERENCES steward_facts(id),
+                    PRIMARY KEY (entity_id, fact_id)
+                )
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_fact_entity_links_fact
+                ON fact_entity_links(fact_id)
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_fact_entity_links_entity
+                ON fact_entity_links(entity_id)
+            """)
             ensure_schema_version(conn, SCHEMA_VERSION)
 
     @property
@@ -147,6 +175,7 @@ class FactStore:
             )
 
         self._upsert_embedding(fact)
+        self._index_entities(fact)
 
         return fact
 
@@ -240,6 +269,7 @@ class FactStore:
                 """,
                 (decayed_confidence, now.isoformat(), new_id, fact_id),
             )
+            conn.execute("DELETE FROM fact_entity_links WHERE fact_id = ?", (fact_id,))
 
         # Remove old from ChromaDB
         coll = self._chroma
@@ -282,6 +312,7 @@ class FactStore:
                 """,
                 (next_confidence, now.isoformat(), f"DELETED:{reason}", fact_id),
             )
+            conn.execute("DELETE FROM fact_entity_links WHERE fact_id = ?", (fact_id,))
 
         coll = self._chroma
         if coll:
@@ -304,11 +335,30 @@ class FactStore:
         query: str,
         limit: int = 10,
         categories: list[FactCategory] | None = None,
+        use_graph: bool = True,
+        graph_limit: int = 5,
     ) -> list[StewardFact]:
-        """Semantic search over active facts via ChromaDB."""
+        """Semantic search over active facts via ChromaDB, with optional graph expansion."""
         coll = self._chroma
         if not coll:
-            # Fallback to keyword search
+            seeds = self._keyword_search(query, limit, categories)
+        else:
+            seeds = self._chroma_search(query, limit, categories)
+
+        if not use_graph or not seeds:
+            return seeds[:limit]
+
+        return self._graph_expand_and_merge(seeds, limit, graph_limit, categories)
+
+    def _chroma_search(
+        self,
+        query: str,
+        limit: int,
+        categories: list[FactCategory] | None = None,
+    ) -> list[StewardFact]:
+        """Raw ChromaDB semantic search (no graph expansion)."""
+        coll = self._chroma
+        if not coll:
             return self._keyword_search(query, limit, categories)
 
         where = None
@@ -320,7 +370,6 @@ class FactStore:
                 where = {"category": {"$in": cat_values}}
 
         try:
-            # Get active fact IDs first
             active_ids = self._get_active_ids()
             if not active_ids:
                 return []
@@ -475,6 +524,8 @@ class FactStore:
         """Delete ALL facts. Returns count deleted."""
         with wal_connect(self.db_path) as conn:
             count = conn.execute("SELECT COUNT(*) FROM steward_facts").fetchone()[0]
+            conn.execute("DELETE FROM fact_entity_links")
+            conn.execute("DELETE FROM fact_entities")
             conn.execute("DELETE FROM steward_facts")
 
         coll = self._chroma
@@ -488,6 +539,135 @@ class FactStore:
                 pass
 
         return count
+
+    def backfill_entity_links(self) -> int:
+        """Index entities for all active facts missing entity links. One-time migration."""
+        with wal_connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute("""
+                SELECT f.* FROM steward_facts f
+                LEFT JOIN fact_entity_links l ON f.id = l.fact_id
+                WHERE f.superseded_by IS NULL AND l.fact_id IS NULL
+            """).fetchall()
+
+        count = 0
+        for row in rows:
+            fact = self._row_to_fact(row)
+            self._index_entities(fact)
+            count += 1
+        return count
+
+    def _index_entities(self, fact: StewardFact) -> None:
+        """Extract entities from fact text and store links."""
+        entities = extract_entities(fact.text)
+        if not entities:
+            return
+
+        with wal_connect(self.db_path) as conn:
+            for original, normalized in entities:
+                conn.execute(
+                    "INSERT OR IGNORE INTO fact_entities (name, normalized) VALUES (?, ?)",
+                    (original, normalized),
+                )
+                row = conn.execute(
+                    "SELECT id FROM fact_entities WHERE normalized = ?",
+                    (normalized,),
+                ).fetchone()
+                if row:
+                    conn.execute(
+                        "INSERT OR IGNORE INTO fact_entity_links (entity_id, fact_id) VALUES (?, ?)",
+                        (row[0], fact.id),
+                    )
+
+    def _get_entity_neighbors(
+        self, seed_ids: set[str], exclude_ids: set[str]
+    ) -> list[tuple[str, int]]:
+        """Find active facts sharing entities with seed facts.
+
+        Returns list of (fact_id, shared_entity_count) ordered by shared_count DESC.
+        """
+        if not seed_ids:
+            return []
+
+        placeholders = ",".join("?" for _ in seed_ids)
+        exclude_all = seed_ids | exclude_ids
+        exclude_ph = ",".join("?" for _ in exclude_all)
+
+        with wal_connect(self.db_path) as conn:
+            rows = conn.execute(
+                f"""
+                SELECT l2.fact_id, COUNT(DISTINCT l2.entity_id) as shared_count
+                FROM fact_entity_links l1
+                JOIN fact_entity_links l2 ON l1.entity_id = l2.entity_id
+                JOIN steward_facts f ON l2.fact_id = f.id
+                WHERE l1.fact_id IN ({placeholders})
+                  AND l2.fact_id NOT IN ({exclude_ph})
+                  AND f.superseded_by IS NULL
+                GROUP BY l2.fact_id
+                ORDER BY shared_count DESC
+                """,
+                list(seed_ids) + list(exclude_all),
+            ).fetchall()
+        return [(r[0], r[1]) for r in rows]
+
+    def _graph_expand_and_merge(
+        self,
+        seeds: list[StewardFact],
+        limit: int,
+        graph_limit: int,
+        categories: list[FactCategory] | None = None,
+    ) -> list[StewardFact]:
+        """Expand seed results via entity graph and merge with RRF."""
+        seed_ids = {f.id for f in seeds}
+        neighbors = self._get_entity_neighbors(seed_ids, set())
+
+        if not neighbors:
+            return seeds[:limit]
+
+        cat_values = None
+        if categories:
+            cat_values = {c.value if isinstance(c, FactCategory) else c for c in categories}
+
+        # RRF merge
+        k = 60
+        seed_weight, graph_weight = 0.8, 0.2
+        scores: dict[str, float] = {}
+        fact_map: dict[str, StewardFact] = {}
+
+        for i, fact in enumerate(seeds):
+            scores[fact.id] = scores.get(fact.id, 0.0) + seed_weight / (k + i + 1)
+            fact_map[fact.id] = fact
+
+        added = 0
+        for rank, (fact_id, shared_count) in enumerate(neighbors):
+            if added >= graph_limit:
+                break
+            # Filter by category if specified
+            if cat_values and fact_id not in fact_map:
+                fact = self.get(fact_id)
+                if not fact:
+                    continue
+                fact_cat = (
+                    fact.category.value
+                    if isinstance(fact.category, FactCategory)
+                    else fact.category
+                )
+                if fact_cat not in cat_values:
+                    continue
+                fact_map[fact_id] = fact
+                added += 1
+            elif fact_id not in fact_map:
+                fact = self.get(fact_id)
+                if not fact:
+                    continue
+                fact_map[fact_id] = fact
+                added += 1
+
+            boost = min(1.0, shared_count * 0.5)
+            scores[fact_id] = scores.get(fact_id, 0.0) + graph_weight * (1 + boost) / (k + rank + 1)
+
+        ranked = sorted(scores.keys(), key=lambda fid: scores[fid], reverse=True)
+        return [fact_map[fid] for fid in ranked if fid in fact_map][:limit]
 
     def _get_active_ids(self) -> set[str]:
         """Get set of active (non-superseded) fact IDs."""
