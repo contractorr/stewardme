@@ -44,10 +44,16 @@ _SEARCH_STOPWORDS = {
 class FactStore:
     """SQLite + ChromaDB persistence for distilled memory facts."""
 
-    def __init__(self, db_path: str | Path, chroma_dir: str | Path | None = None):
+    def __init__(
+        self,
+        db_path: str | Path,
+        chroma_dir: str | Path | None = None,
+        config: dict | None = None,
+    ):
         self.db_path = Path(db_path).expanduser()
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._chroma_dir = Path(chroma_dir).expanduser() if chroma_dir else None
+        self._config = config
         self._collection = None
         self._init_db()
 
@@ -99,9 +105,9 @@ class FactStore:
                 try:
                     from embeddings import create_embedding_function
 
-                    embedding_fn = create_embedding_function()
-                except Exception:
-                    pass  # ChromaDB will use its built-in default
+                    embedding_fn = create_embedding_function(config=self._config)
+                except Exception as e:
+                    logger.warning("embedding_factory_failed", error=str(e))
 
                 kwargs = {
                     "name": "steward_facts",

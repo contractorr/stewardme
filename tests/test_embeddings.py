@@ -33,26 +33,26 @@ class TestEmbeddingFactory:
         assert fn.dimensions == 512
 
     def test_auto_detects_gemini(self, monkeypatch):
-        """GOOGLE_API_KEY present → selects gemini."""
+        """GOOGLE_API_KEY present → auto selects gemini."""
         monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
         with patch("google.genai.Client"):
             from embeddings.factory import create_embedding_function
 
-            fn = create_embedding_function(provider="gemini")
+            fn = create_embedding_function()
             assert fn.provider_name == "gemini"
             assert fn.dimensions == 768
 
     def test_auto_detects_openai(self, monkeypatch):
-        """OPENAI_API_KEY present (no Google key) → selects openai."""
+        """OPENAI_API_KEY present (no Google key) → auto selects openai."""
         monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
 
         with patch("openai.OpenAI"):
             from embeddings.factory import create_embedding_function
 
-            fn = create_embedding_function(provider="openai")
+            fn = create_embedding_function()
             assert fn.provider_name == "openai"
             assert fn.dimensions == 1536
 

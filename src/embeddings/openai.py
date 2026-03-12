@@ -10,6 +10,8 @@ from .base import EmbeddingFunction
 
 logger = structlog.get_logger()
 
+_BATCH_LIMIT = 2048  # OpenAI practical max texts per request
+
 
 class OpenAIEmbeddingFunction(EmbeddingFunction):
     """Embedding via OpenAI ``embeddings.create`` API."""
@@ -36,9 +38,13 @@ class OpenAIEmbeddingFunction(EmbeddingFunction):
         if not texts:
             return []
 
-        response = self._client.embeddings.create(
-            model=self._model,
-            input=texts,
-            dimensions=self.dimensions,
-        )
-        return [item.embedding for item in response.data]
+        all_embeddings: list[list[float]] = []
+        for i in range(0, len(texts), _BATCH_LIMIT):
+            batch = texts[i : i + _BATCH_LIMIT]
+            response = self._client.embeddings.create(
+                model=self._model,
+                input=batch,
+                dimensions=self.dimensions,
+            )
+            all_embeddings.extend(item.embedding for item in response.data)
+        return all_embeddings

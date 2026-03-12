@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import math
 import re
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
 from typing import Iterable
+
+logger = logging.getLogger(__name__)
 
 
 def _tokenize(text: str) -> list[str]:
@@ -56,7 +60,8 @@ def build_embedding_function(config: dict | None = None):
         from embeddings import create_embedding_function
 
         return create_embedding_function(config=config)
-    except Exception:
+    except Exception as e:
+        logger.warning("embedding_factory_failed_fallback_to_hash: %s", e)
         return SimpleHashEmbeddingFunction()
 
 
@@ -68,7 +73,7 @@ class LocalCollection:
         base_dir: str | Path,
         name: str,
         metadata: dict | None = None,
-        embedding_function: SimpleHashEmbeddingFunction | None = None,
+        embedding_function: Callable[[Iterable[str]], list[list[float]]] | None = None,
     ):
         self.base_dir = Path(base_dir).expanduser()
         self.base_dir.mkdir(parents=True, exist_ok=True)
