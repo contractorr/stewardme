@@ -23,22 +23,24 @@ const SOURCE_ICONS = [
   { name: "RSS", icon: Rss },
 ];
 
-const STEPS = [
+const PILLARS = [
   {
-    number: "1",
-    title: "Sign up",
-    description: "Connect with GitHub or Google. No credit card.",
-  },
-  {
-    number: "2",
-    title: "Tell it what matters",
-    description: "Add topics, goals, enroll in a learning guide, or paste your first journal entry.",
-  },
-  {
-    number: "3",
-    title: "Learn and get briefed",
+    icon: BookOpen,
+    title: "Master new topics",
     description:
-      "Your tutor teaches via spaced repetition and Bloom's taxonomy quizzes while scanning live intel — then tells you what to do next.",
+      "50+ structured guides with quizzes that adapt to what you remember and what you forget.",
+  },
+  {
+    icon: Newspaper,
+    title: "Stay ahead",
+    description:
+      "Live intel from HN, arXiv, GitHub, Reddit and RSS — filtered to what matters to you.",
+  },
+  {
+    icon: MessageCircle,
+    title: "Reflect and grow",
+    description:
+      "Journal your thinking, set goals, and get advice grounded in your own context.",
   },
 ];
 
@@ -82,11 +84,11 @@ export default function Landing() {
           <Brain className="h-7 w-7 text-primary" />
         </div>
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-          Your AI tutor and steward
+          An e-bike for the mind
         </h1>
         <p className="mt-4 max-w-md text-lg text-muted-foreground">
-          Teaches what matters with spaced repetition, scans the world for live
-          intel, and gives personalized guidance grounded in your journal.
+          AI that guides you through new topics, professional growth and
+          personal reflection — grounded in live data, personalised to you.
         </p>
         <div className="mt-4 flex gap-2">
           <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
@@ -108,8 +110,23 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Three pillars */}
+      <section className="w-full max-w-3xl px-4 pt-2 pb-12">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+          {PILLARS.map(({ icon: Icon, title, description }) => (
+            <div key={title} className="flex flex-col items-center rounded-xl border bg-card p-6 text-center">
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                <Icon className="h-5 w-5 text-primary" />
+              </div>
+              <p className="text-sm font-semibold">{title}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* Source logos */}
-      <section className="flex flex-col items-center px-4 pt-2 pb-12">
+      <section className="flex flex-col items-center px-4 pb-16">
         <p className="mb-6 text-sm text-muted-foreground">
           Scans the sources you care about
         </p>
@@ -123,19 +140,26 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* How it works */}
-      <section className="w-full max-w-3xl px-4 py-16">
-        <h2 className="mb-8 text-center text-2xl font-semibold tracking-tight">
-          How it works
+      {/* Feature grid */}
+      <section className="w-full max-w-[700px] px-4 py-12">
+        <h2 className="mb-6 text-center text-2xl font-semibold tracking-tight">
+          Goes deeper
         </h2>
-        <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
-          {STEPS.map(({ number, title, description }) => (
-            <div key={number} className="flex flex-col items-center text-center">
-              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
-                {number}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {FEATURES.map(({ icon: Icon, title, description }) => (
+            <div
+              key={title}
+              className="flex gap-3 rounded-xl border bg-card p-4"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                <Icon className="h-4 w-4 text-primary" />
               </div>
-              <p className="text-sm font-semibold">{title}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+              <div>
+                <p className="text-sm font-medium">{title}</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                  {description}
+                </p>
+              </div>
             </div>
           ))}
         </div>
@@ -172,31 +196,6 @@ export default function Landing() {
               ))}
             </tbody>
           </table>
-        </div>
-      </section>
-
-      {/* Feature grid */}
-      <section className="w-full max-w-[700px] px-4 py-12">
-        <h2 className="mb-6 text-center text-2xl font-semibold tracking-tight">
-          What you get
-        </h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {FEATURES.map(({ icon: Icon, title, description }) => (
-            <div
-              key={title}
-              className="flex gap-3 rounded-xl border bg-card p-4"
-            >
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10">
-                <Icon className="h-4 w-4 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm font-medium">{title}</p>
-                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                  {description}
-                </p>
-              </div>
-            </div>
-          ))}
         </div>
       </section>
 

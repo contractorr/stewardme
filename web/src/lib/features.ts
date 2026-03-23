@@ -1,4 +1,4 @@
-import { BookOpen, GraduationCap, Newspaper, Sparkles, Target } from "lucide-react";
+import { Database, Search, Target, Wrench } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export interface Feature {
@@ -9,33 +9,27 @@ export interface Feature {
 
 export const FEATURES: Feature[] = [
   {
-    icon: Newspaper,
-    title: "Intelligence Radar",
-    description:
-      "Scans HN, GitHub, arXiv, Reddit & RSS — surfaces what matters, skips the noise.",
-  },
-  {
-    icon: GraduationCap,
-    title: "Personal Tutor",
-    description:
-      "50+ structured guides with spaced repetition, teach-back prompts, and Bloom's taxonomy quizzes.",
-  },
-  {
-    icon: Sparkles,
-    title: "AI Steward",
-    description:
-      "Personalized guidance grounded in your journal, learning progress, goals, and real-time intel.",
-  },
-  {
     icon: Target,
-    title: "Goal Tracking",
+    title: "Goal tracking",
     description:
-      "Track objectives with milestones. Get nudged when priorities should shift.",
+      "Set objectives with milestones. Get nudged when priorities should shift.",
   },
   {
-    icon: BookOpen,
-    title: "Journal",
+    icon: Search,
+    title: "Deep research",
     description:
-      "Capture reflections and decisions. Every entry sharpens your tutor's guidance.",
+      "Multi-source research reports synthesised and cited by AI on any topic.",
+  },
+  {
+    icon: Database,
+    title: "Memory",
+    description:
+      "Remembers your context across conversations — advice gets sharper over time.",
+  },
+  {
+    icon: Wrench,
+    title: "MCP server",
+    description:
+      "52 tools for Claude Code and other AI agents. Your data, programmable.",
   },
 ];
