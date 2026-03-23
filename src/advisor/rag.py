@@ -20,6 +20,8 @@ from journal.search import JournalSearch
 from services.tokens import count_tokens
 
 if TYPE_CHECKING:
+    from profile.storage import UserProfile
+
     from services.reranker import CrossEncoderReranker
 
 logger = structlog.get_logger()
@@ -86,6 +88,28 @@ class RAGRetriever:
         self.query_decomposer = query_decomposer
         self.entity_retriever = entity_retriever
         self.reranker = reranker
+        self._cached_profile: Optional[UserProfile] = None
+        self._cached_profile_mtime: float = 0.0
+
+    def _load_profile(self) -> UserProfile | None:
+        """Load profile with mtime-gated instance cache."""
+        path = Path(self._profile_path).expanduser()
+        try:
+            mtime = path.stat().st_mtime
+        except OSError:
+            return None
+        if self._cached_profile is not None and mtime == self._cached_profile_mtime:
+            return self._cached_profile
+        try:
+            from profile.storage import ProfileStorage
+
+            profile = ProfileStorage(self._profile_path).load()
+        except Exception as e:
+            logger.debug("profile_load_failed", error=str(e))
+            return None
+        self._cached_profile = profile
+        self._cached_profile_mtime = mtime
+        return profile
 
     def get_profile_context(self, structured: bool = False) -> str:
         """Load user profile summary for LLM context injection.
@@ -96,10 +120,7 @@ class RAGRetriever:
                         return compact one-line summary.
         """
         try:
-            from profile.storage import ProfileStorage
-
-            ps = ProfileStorage(self._profile_path)
-            profile = ps.load()
+            profile = self._load_profile()
             if profile:
                 if structured:
                     return f"\n{profile.structured_summary()}\n"
@@ -351,10 +372,7 @@ class RAGRetriever:
     def get_profile_keywords(self) -> list[str]:
         """Extract key terms from profile for intel query augmentation."""
         try:
-            from profile.storage import ProfileStorage
-
-            ps = ProfileStorage(self._profile_path)
-            profile = ps.load()
+            profile = self._load_profile()
             if not profile:
                 return []
 
@@ -606,9 +624,9 @@ class RAGRetriever:
 
     def _load_profile_terms(self):
         """Load profile and build ProfileTerms for intel filtering."""
-        from intelligence.search import load_profile_terms
+        from intelligence.search import build_profile_terms
 
-        return load_profile_terms(self._profile_path)
+        return build_profile_terms(self._load_profile())
 
     def get_filtered_intel_context(
         self,

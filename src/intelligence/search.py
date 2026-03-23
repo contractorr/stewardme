@@ -63,60 +63,55 @@ def _normalize_terms(terms: list[str]) -> set[str]:
     return result
 
 
-def load_profile_terms(profile_path: str | Path) -> "ProfileTerms":
-    """Load user profile and build ProfileTerms for relevance scoring.
+_GOAL_STOPWORDS = {
+    "the",
+    "and",
+    "for",
+    "that",
+    "with",
+    "this",
+    "from",
+    "have",
+    "will",
+    "are",
+    "was",
+    "been",
+    "being",
+    "would",
+    "could",
+    "should",
+    "into",
+    "about",
+    "more",
+    "some",
+    "than",
+    "also",
+    "just",
+    "over",
+    "such",
+    "want",
+    "like",
+    "get",
+    "make",
+    "see",
+    "know",
+    "take",
+    "next",
+    "year",
+    "years",
+    "month",
+    "months",
+    "within",
+    "achieve",
+}
 
-    Standalone version of RAGRetriever._load_profile_terms.
-    """
-    _GOAL_STOPWORDS = {
-        "the",
-        "and",
-        "for",
-        "that",
-        "with",
-        "this",
-        "from",
-        "have",
-        "will",
-        "are",
-        "was",
-        "been",
-        "being",
-        "would",
-        "could",
-        "should",
-        "into",
-        "about",
-        "more",
-        "some",
-        "than",
-        "also",
-        "just",
-        "over",
-        "such",
-        "want",
-        "like",
-        "get",
-        "make",
-        "see",
-        "know",
-        "take",
-        "next",
-        "year",
-        "years",
-        "month",
-        "months",
-        "within",
-        "achieve",
-    }
+
+def build_profile_terms(profile) -> "ProfileTerms":
+    """Build ProfileTerms from an already-loaded UserProfile (or None)."""
+    if not profile:
+        return ProfileTerms()
+
     try:
-        from profile.storage import ProfileStorage
-
-        ps = ProfileStorage(str(profile_path))
-        profile = ps.load()
-        if not profile:
-            return ProfileTerms()
-
         goal_keywords: list[str] = []
         for text in [profile.goals_short_term, profile.goals_long_term, profile.aspirations]:
             if text:
@@ -135,6 +130,18 @@ def load_profile_terms(profile_path: str | Path) -> "ProfileTerms":
             goal_keywords=goal_keywords[:20],
             project_keywords=project_keywords[:10],
         )
+    except Exception as e:
+        logger.debug("build_profile_terms_failed", error=str(e))
+        return ProfileTerms()
+
+
+def load_profile_terms(profile_path: str | Path) -> "ProfileTerms":
+    """Load profile from disk and build terms. Standalone convenience."""
+    try:
+        from profile.storage import ProfileStorage
+
+        ps = ProfileStorage(str(profile_path))
+        return build_profile_terms(ps.load())
     except Exception as e:
         logger.debug("load_profile_terms_failed", error=str(e))
         return ProfileTerms()

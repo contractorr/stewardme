@@ -430,3 +430,81 @@ class TestCaching:
 
         assert result == "intel result"
         cache.set.assert_called_once_with("k", "intel result")
+
+
+# ── profile caching ──────────────────────────────────────────────────
+
+
+class TestProfileCaching:
+    """Verify mtime-gated profile cache in RAGRetriever._load_profile()."""
+
+    def test_second_call_uses_cache(self, rag, tmp_path):
+        """Second get_profile_context() reuses cached profile — no second .load()."""
+        profile_file = tmp_path / "profile.yaml"
+        profile_file.write_text("name: test")
+        rag._profile_path = str(profile_file)
+
+        profile = MagicMock()
+        profile.summary.return_value = "cached"
+        ps_instance = MagicMock()
+        ps_instance.load.return_value = profile
+
+        with patch("profile.storage.ProfileStorage", return_value=ps_instance):
+            rag.get_profile_context()
+            rag.get_profile_context()
+
+        ps_instance.load.assert_called_once()
+
+    def test_mtime_change_triggers_reload(self, rag, tmp_path):
+        """Profile file change (new mtime) causes cache invalidation."""
+        import os
+        import time
+
+        profile_file = tmp_path / "profile.yaml"
+        profile_file.write_text("v1")
+        rag._profile_path = str(profile_file)
+
+        profile = MagicMock()
+        profile.summary.return_value = "s"
+        ps_instance = MagicMock()
+        ps_instance.load.return_value = profile
+
+        with patch("profile.storage.ProfileStorage", return_value=ps_instance):
+            rag.get_profile_context()
+            # Bump mtime
+            time.sleep(0.05)
+            profile_file.write_text("v2")
+            os.utime(profile_file, None)
+            rag.get_profile_context()
+
+        assert ps_instance.load.call_count == 2
+
+    def test_keywords_reuses_cached_profile(self, rag, tmp_path):
+        """get_profile_keywords() reuses profile cached by prior get_profile_context()."""
+        profile_file = tmp_path / "profile.yaml"
+        profile_file.write_text("name: test")
+        rag._profile_path = str(profile_file)
+
+        profile = MagicMock()
+        profile.summary.return_value = "s"
+        profile.skills = []
+        profile.languages_frameworks = ["Go"]
+        profile.technologies_watching = []
+        profile.industries_watching = []
+        profile.interests = []
+        profile.active_projects = []
+        ps_instance = MagicMock()
+        ps_instance.load.return_value = profile
+
+        with patch("profile.storage.ProfileStorage", return_value=ps_instance):
+            rag.get_profile_context()
+            kw = rag.get_profile_keywords()
+
+        # Only one .load() despite two method calls
+        ps_instance.load.assert_called_once()
+        assert "go" in kw
+
+    def test_missing_file_returns_none(self, rag):
+        """Missing profile file returns empty string, no error."""
+        rag._profile_path = "/nonexistent/profile.yaml"
+        assert rag.get_profile_context() == ""
