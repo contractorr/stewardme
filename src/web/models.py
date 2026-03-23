@@ -199,6 +199,11 @@ class AdvisorAsk(BaseModel):
     attachment_ids: list[str] = Field(default_factory=list)
 
 
+class DegradationItem(BaseModel):
+    component: str
+    message: str
+
+
 class AdvisorResponse(BaseModel):
     answer: str
     advice_type: str
@@ -208,6 +213,7 @@ class AdvisorResponse(BaseModel):
     council_providers: list[str] = Field(default_factory=list)
     council_failed_providers: list[str] = Field(default_factory=list)
     council_partial: bool = False
+    degradations: list[DegradationItem] = Field(default_factory=list)
 
 
 class TraceListItem(BaseModel):
@@ -348,6 +354,7 @@ class GreetingResponse(BaseModel):
     cached: bool = False
     stale: bool = False
     return_brief: Optional[dict] = None
+    degradations: list["DegradationItem"] = Field(default_factory=list)
 
 
 # --- Briefing ---
@@ -560,6 +567,7 @@ class BriefingResponse(BaseModel):
     hiring_signals: list["HiringSignalResponse"] = []
     regulatory_alerts: list["RegulatoryAlertResponse"] = []
     assumptions: list["AssumptionAlertResponse"] = []
+    degradations: list["DegradationItem"] = Field(default_factory=list)
 
 
 # --- Trends ---

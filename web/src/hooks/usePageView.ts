@@ -22,7 +22,7 @@ export function usePageView() {
   useEffect(() => {
     if (!token || !TRACKED.has(pathname) || pathname === prev.current) return;
     prev.current = pathname;
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/page-view`, {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/v1/page-view`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ path: pathname }),

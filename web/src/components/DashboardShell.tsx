@@ -31,7 +31,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!token) return;
     let cancelled = false;
-    apiFetch<{ name: string | null }>("/api/user/me", {}, token).then((user) => {
+    apiFetch<{ name: string | null }>("/api/v1/user/me", {}, token).then((user) => {
       if (!cancelled && user.name) setDisplayName(user.name);
     }).catch(() => {});
     return () => { cancelled = true; };
@@ -41,7 +41,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!token || skipGate) return;
     let cancelled = false;
-    apiFetch<{ llm_api_key_set: boolean; using_shared_key: boolean; has_profile: boolean }>("/api/settings", {}, token)
+    apiFetch<{ llm_api_key_set: boolean; using_shared_key: boolean; has_profile: boolean }>("/api/v1/settings", {}, token)
       .then((settings) => {
         if (cancelled) return;
         const hasAnyKey = settings.llm_api_key_set || settings.using_shared_key;
@@ -64,6 +64,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         onOpenSettings={() => setSettingsOpen(true)}
         onToggleSidebar={() => setSidebarOpen((v) => !v)}
         onOpenGuide={() => setGuideOpen(true)}
+        token={token}
       />
       <Sidebar open={sidebarOpen} onOpenChange={setSidebarOpen} displayName={displayName} disabled={skipGate} guideOpen={guideOpen} onGuideOpenChange={setGuideOpen} />
       {token && (

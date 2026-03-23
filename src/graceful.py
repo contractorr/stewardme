@@ -17,6 +17,13 @@ def _log_and_count(metric: str, log_level: str, qualname: str | None = None) -> 
             kw["qualname"] = qualname
         getattr(structlog.get_logger(), log_level)("graceful.caught", exc_info=True, **kw)
         metrics.counter(metric)
+        # Record for request-scoped UI degradation reporting
+        try:
+            from degradation_collector import record_degradation
+
+            record_degradation(metric)
+        except Exception:
+            pass
     except Exception:
         try:
             print(f"graceful: {metric} logging failed", file=sys.stderr)

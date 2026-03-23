@@ -22,7 +22,7 @@ export default function ReviewSessionPage() {
   useEffect(() => {
     if (!token) return;
     setLoading(true);
-    apiFetch<ReviewItem[]>("/api/curriculum/review/due?limit=20", {}, token)
+    apiFetch<ReviewItem[]>("/api/v1/curriculum/review/due?limit=20", {}, token)
       .then((data) => {
         setItems(data);
         if (data.length === 0) setDone(true);
@@ -39,7 +39,7 @@ export default function ReviewSessionPage() {
     if (!token) return;
     try {
       const result = await apiFetch<{ grade: number }>(
-        `/api/curriculum/review/${reviewId}/grade`,
+        `/api/v1/curriculum/review/${reviewId}/grade`,
         {
           method: "POST",
           body: JSON.stringify({

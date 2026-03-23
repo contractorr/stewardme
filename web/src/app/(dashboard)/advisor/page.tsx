@@ -57,7 +57,7 @@ export default function AdvisorPage() {
     if (!token) return;
     try {
       const list = await apiFetch<Conversation[]>(
-        "/api/advisor/conversations",
+        "/api/v1/advisor/conversations",
         {},
         token
       );
@@ -75,7 +75,7 @@ export default function AdvisorPage() {
           id: string;
           title: string;
           messages: (ChatMessage & { id?: string })[];
-        }>(`/api/advisor/conversations/${id}`, {}, token);
+        }>(`/api/v1/advisor/conversations/${id}`, {}, token);
         setMessages(conv.messages.map((m) => ({ ...m, id: m.id })));
         setConversationId(id);
         localStorage.setItem(CONV_KEY, id);
@@ -96,7 +96,7 @@ export default function AdvisorPage() {
     (async () => {
       let list: Conversation[] = [];
       try {
-        list = await apiFetch<Conversation[]>("/api/advisor/conversations", {}, token);
+        list = await apiFetch<Conversation[]>("/api/v1/advisor/conversations", {}, token);
         setConversations(list);
       } catch {
         // silent
@@ -149,7 +149,7 @@ export default function AdvisorPage() {
   const handleDeleteConversation = async (id: string) => {
     if (!token) return;
     try {
-      await apiFetch(`/api/advisor/conversations/${id}`, { method: "DELETE" }, token);
+      await apiFetch(`/api/v1/advisor/conversations/${id}`, { method: "DELETE" }, token);
       setConversations((prev) => prev.filter((c) => c.id !== id));
       if (conversationId === id) {
         handleNewChat();
@@ -183,7 +183,7 @@ export default function AdvisorPage() {
       clearAttachments();
 
       await apiFetchSSE(
-        "/api/advisor/ask/stream",
+        "/api/v1/advisor/ask/stream",
         {
           method: "POST",
           body: JSON.stringify({

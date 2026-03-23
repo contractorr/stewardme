@@ -82,12 +82,12 @@ export default function RadarPage() {
     setLoading(true);
     const [suggestionsRes, watchlistRes, threadsRes, escalationsRes, dossiersRes, followUpsRes] =
       await Promise.allSettled([
-        apiFetch<SuggestionItem[]>("/api/suggestions?limit=20", {}, token),
-        apiFetch<WatchlistTopic[]>("/api/intel/watchlist", {}, token),
-        apiFetch<ThreadInboxSummary[]>("/api/threads/inbox?limit=20", {}, token),
-        apiFetch<DossierEscalation[]>("/api/dossier-escalations", {}, token),
-        apiFetch<ResearchDossier[]>("/api/research/dossiers?limit=20", {}, token),
-        apiFetch<SavedFollowUp[]>("/api/intel/follow-ups", {}, token),
+        apiFetch<SuggestionItem[]>("/api/v1/suggestions?limit=20", {}, token),
+        apiFetch<WatchlistTopic[]>("/api/v1/intel/watchlist", {}, token),
+        apiFetch<ThreadInboxSummary[]>("/api/v1/threads/inbox?limit=20", {}, token),
+        apiFetch<DossierEscalation[]>("/api/v1/dossier-escalations", {}, token),
+        apiFetch<ResearchDossier[]>("/api/v1/research/dossiers?limit=20", {}, token),
+        apiFetch<SavedFollowUp[]>("/api/v1/intel/follow-ups", {}, token),
       ]);
 
     if (suggestionsRes.status === "fulfilled") setSuggestions(suggestionsRes.value);
@@ -139,7 +139,7 @@ export default function RadarPage() {
     if (!token) return;
     setRefreshing(true);
     try {
-      await apiFetch("/api/intel/scrape", { method: "POST" }, token);
+      await apiFetch("/api/v1/intel/scrape", { method: "POST" }, token);
       toast.success("Radar refreshed");
       await loadRadar();
     } catch (error) {
@@ -156,7 +156,7 @@ export default function RadarPage() {
       const escalationId = item.payload?.escalation_id;
       if (typeof escalationId === "string" && escalationId) {
         await withBusy(`suggestion-${escalationId}`, async () => {
-          await apiFetch(`/api/dossier-escalations/${encodeURIComponent(escalationId)}/accept`, { method: "POST" }, token);
+          await apiFetch(`/api/v1/dossier-escalations/${encodeURIComponent(escalationId)}/accept`, { method: "POST" }, token);
           toast.success("Dossier started");
         });
         return;
@@ -167,7 +167,7 @@ export default function RadarPage() {
     if (url) {
       await withBusy(`suggestion-save-${url}`, async () => {
         await apiFetch(
-          "/api/intel/follow-ups",
+          "/api/v1/intel/follow-ups",
           {
             method: "PUT",
             body: JSON.stringify({
@@ -199,7 +199,7 @@ export default function RadarPage() {
     await withBusy(key, async () => {
       if (action === "dismiss") {
         await apiFetch(
-          `/api/threads/${encodeURIComponent(threadId)}/state`,
+          `/api/v1/threads/${encodeURIComponent(threadId)}/state`,
           {
             method: "PATCH",
             body: JSON.stringify({ inbox_state: "dismissed", last_action: "dismissed" }),
@@ -211,19 +211,19 @@ export default function RadarPage() {
       }
 
       if (action === "goal") {
-        await apiFetch(`/api/threads/${encodeURIComponent(threadId)}/actions/make-goal`, { method: "POST" }, token);
+        await apiFetch(`/api/v1/threads/${encodeURIComponent(threadId)}/actions/make-goal`, { method: "POST" }, token);
         toast.success("Goal created from thread");
         return;
       }
 
       if (action === "research") {
-        await apiFetch(`/api/threads/${encodeURIComponent(threadId)}/actions/run-research`, { method: "POST" }, token);
+        await apiFetch(`/api/v1/threads/${encodeURIComponent(threadId)}/actions/run-research`, { method: "POST" }, token);
         toast.success("Research started");
         return;
       }
 
       if (action === "dossier") {
-        await apiFetch(`/api/threads/${encodeURIComponent(threadId)}/actions/start-dossier`, { method: "POST" }, token);
+        await apiFetch(`/api/v1/threads/${encodeURIComponent(threadId)}/actions/start-dossier`, { method: "POST" }, token);
         toast.success("Dossier started");
       }
     });
@@ -233,7 +233,7 @@ export default function RadarPage() {
     if (!token) return;
     await withBusy(`escalation-${escalationId}-${action}`, async () => {
       await apiFetch(
-        `/api/dossier-escalations/${encodeURIComponent(escalationId)}/${action}`,
+        `/api/v1/dossier-escalations/${encodeURIComponent(escalationId)}/${action}`,
         { method: "POST" },
         token
       );
@@ -245,12 +245,12 @@ export default function RadarPage() {
     if (!token) return;
     await withBusy(`dossier-${dossierId}-${action}`, async () => {
       if (action === "run") {
-        await apiFetch(`/api/research/run?dossier_id=${encodeURIComponent(dossierId)}`, { method: "POST" }, token);
+        await apiFetch(`/api/v1/research/run?dossier_id=${encodeURIComponent(dossierId)}`, { method: "POST" }, token);
         toast.success("Research refresh started");
         return;
       }
 
-      await apiFetch(`/api/research/dossiers/${encodeURIComponent(dossierId)}/archive`, { method: "POST" }, token);
+      await apiFetch(`/api/v1/research/dossiers/${encodeURIComponent(dossierId)}/archive`, { method: "POST" }, token);
       toast.success("Dossier archived");
     });
   };

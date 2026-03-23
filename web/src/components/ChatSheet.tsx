@@ -49,7 +49,7 @@ export function ChatSheet({
 
       try {
         await apiFetchSSE(
-          "/api/advisor/ask/stream",
+          "/api/v1/advisor/ask/stream",
           {
             method: "POST",
             body: JSON.stringify({

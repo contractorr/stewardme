@@ -50,7 +50,7 @@ export default function ChapterReaderPage() {
       lastSync.current = Date.now();
       try {
         await apiFetch(
-          "/api/curriculum/progress",
+          "/api/v1/curriculum/progress",
           {
             method: "POST",
             body: JSON.stringify({
@@ -76,7 +76,7 @@ export default function ChapterReaderPage() {
     readingStart.current = Date.now();
     lastSync.current = Date.now();
     apiFetch<ChapterDetail>(
-      `/api/curriculum/guides/${guideId}/chapters/${chapterId}`,
+      `/api/v1/curriculum/guides/${guideId}/chapters/${chapterId}`,
       {},
       token
     )
@@ -110,7 +110,7 @@ export default function ChapterReaderPage() {
         reflection_prompt?: string;
         memory_facts_extracted?: number;
       }>(
-        "/api/curriculum/progress",
+        "/api/v1/curriculum/progress",
         {
           method: "POST",
           body: JSON.stringify({
@@ -128,7 +128,7 @@ export default function ChapterReaderPage() {
       }
       // Refresh to get updated status
       const data = await apiFetch<ChapterDetail>(
-        `/api/curriculum/guides/${guideId}/chapters/${chapterId}`,
+        `/api/v1/curriculum/guides/${guideId}/chapters/${chapterId}`,
         {},
         token!
       );
@@ -145,7 +145,7 @@ export default function ChapterReaderPage() {
     setSavingReflection(true);
     try {
       await apiFetch(
-        "/api/journal",
+        "/api/v1/journal",
         {
           method: "POST",
           body: JSON.stringify({
@@ -171,7 +171,7 @@ export default function ChapterReaderPage() {
     setQuizLoading(true);
     try {
       const data = await apiFetch<{ questions: ReviewItem[] }>(
-        `/api/curriculum/quiz/${fullChapterId}/generate`,
+        `/api/v1/curriculum/quiz/${fullChapterId}/generate`,
         { method: "POST" },
         token
       );

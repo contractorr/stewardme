@@ -146,7 +146,7 @@ function HealthDashboard({ token }: { token: string }) {
   useEffect(() => {
     let cancelled = false;
 
-    apiFetch<{ scrapers: ScraperHealth[] }>("/api/intel/health", {}, token)
+    apiFetch<{ scrapers: ScraperHealth[] }>("/api/v1/intel/health", {}, token)
       .then((data) => {
         if (!cancelled) setHealth(data.scrapers);
       })
@@ -227,7 +227,7 @@ function TrendingTab({ token }: { token: string }) {
   useEffect(() => {
     let cancelled = false;
 
-    apiFetch<TrendingSnapshot>("/api/intel/trending", {}, token)
+    apiFetch<TrendingSnapshot>("/api/v1/intel/trending", {}, token)
       .then((data) => {
         if (!cancelled) setSnapshot(data);
       })
@@ -342,9 +342,9 @@ function PipelinesTab({ token }: { token: string }) {
     let cancelled = false;
 
     Promise.all([
-      apiFetch<CompanyMovement[]>("/api/intel/company-movements?limit=8", {}, token),
-      apiFetch<HiringSignal[]>("/api/intel/hiring-signals?limit=8", {}, token),
-      apiFetch<RegulatoryAlert[]>("/api/intel/regulatory-alerts?limit=8", {}, token),
+      apiFetch<CompanyMovement[]>("/api/v1/intel/company-movements?limit=8", {}, token),
+      apiFetch<HiringSignal[]>("/api/v1/intel/hiring-signals?limit=8", {}, token),
+      apiFetch<RegulatoryAlert[]>("/api/v1/intel/regulatory-alerts?limit=8", {}, token),
     ])
       .then(([movements, hiring, regulatory]) => {
         if (cancelled) return;
@@ -583,7 +583,7 @@ export default function IntelPage() {
       setLoading(false);
       return;
     }
-    apiFetch<IntelItem[]>("/api/intel/recent?limit=50", {}, token)
+    apiFetch<IntelItem[]>("/api/v1/intel/recent?limit=50", {}, token)
       .then((data) => { setItems(data); setVisibleCount(FEED_PAGE_SIZE); })
       .catch((e) => toast.error(e.message))
       .finally(() => setLoading(false));
@@ -605,7 +605,7 @@ export default function IntelPage() {
     setLoading(true);
     try {
       const results = await apiFetch<IntelItem[]>(
-        `/api/intel/search?q=${encodeURIComponent(query)}&limit=20`,
+        `/api/v1/intel/search?q=${encodeURIComponent(query)}&limit=20`,
         {},
         token
       );
@@ -622,7 +622,7 @@ export default function IntelPage() {
     if (!token) return;
     setScraping(true);
     try {
-      await apiFetch("/api/intel/scrape", { method: "POST" }, token);
+      await apiFetch("/api/v1/intel/scrape", { method: "POST" }, token);
       toast.success("Scrape completed");
       loadRecent();
       setTrendingKey((k) => k + 1);
@@ -637,7 +637,7 @@ export default function IntelPage() {
     if (!token) return;
     const watchlistIds = (item.watchlist_matches || []).map((match) => match.watchlist_id);
     const entry = await apiFetch<IntelItem["follow_up"]>(
-      "/api/intel/follow-ups",
+      "/api/v1/intel/follow-ups",
       {
         method: "PUT",
         body: JSON.stringify({

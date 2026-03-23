@@ -5,6 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { ChatAttachmentBadges, ChatPdfAttachmentPicker } from "@/components/ChatPdfAttachments";
 import { MessageRenderer } from "@/components/MessageRenderer";
+import { DegradationBanner } from "@/components/DegradationBanner";
 import { Brain, Send, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,6 +35,7 @@ export function EmbeddedAdvisor({
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [toolStatus, setToolStatus] = useState<string | null>(null);
+  const [degradations, setDegradations] = useState<{ component: string; message: string }[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -49,7 +51,7 @@ export function EmbeddedAdvisor({
         const conv = await apiFetch<{
           id: string;
           messages: ChatMessage[];
-        }>(`/api/advisor/conversations/${saved}`, {}, token);
+        }>(`/api/v1/advisor/conversations/${saved}`, {}, token);
         setConversationId(saved);
         // Show last 5 messages
         setMessages(conv.messages.slice(-5));
@@ -102,6 +104,7 @@ export function EmbeddedAdvisor({
     setInput("");
     setLoading(true);
     setToolStatus(attachments.length ? "Uploading PDFs..." : null);
+    setDegradations([]);
 
     try {
       const uploaded = await uploadPending();
@@ -119,7 +122,7 @@ export function EmbeddedAdvisor({
       ]);
 
       await apiFetchSSE(
-        "/api/advisor/ask/stream",
+        "/api/v1/advisor/ask/stream",
         {
           method: "POST",
           body: JSON.stringify({
@@ -143,6 +146,11 @@ export function EmbeddedAdvisor({
             setMessages((prev) => [
               ...prev,
               { role: "assistant", content: event.content as string },
+            ]);
+          } else if (type === "degradation") {
+            setDegradations((prev) => [
+              ...prev,
+              { component: event.component as string, message: event.message as string },
             ]);
           } else if (type === "error") {
             toast.error(event.detail as string);
@@ -228,6 +236,8 @@ export function EmbeddedAdvisor({
             </div>
           )}
         </div>
+
+        <DegradationBanner degradations={degradations} />
 
         {/* Input */}
         <div className="space-y-3">

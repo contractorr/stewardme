@@ -88,6 +88,9 @@ async def get_briefing(
     except Exception as e:
         logger.warning("briefing.daily_brief_error", error=str(e))
 
+    from degradation_collector import get_degradations
+    from web.models import DegradationItem
+
     return BriefingResponse(
         recommendations=[BriefingRecommendation(**r) for r in recommendations],
         stale_goals=[BriefingGoal(**g) for g in stale_goals],
@@ -101,4 +104,5 @@ async def get_briefing(
         hiring_signals=[HiringSignalResponse(**item) for item in hiring_signals],
         regulatory_alerts=[RegulatoryAlertResponse(**item) for item in regulatory_alerts],
         assumptions=[AssumptionAlertResponse(**item) for item in assumptions],
+        degradations=[DegradationItem(**d) for d in get_degradations()],
     )

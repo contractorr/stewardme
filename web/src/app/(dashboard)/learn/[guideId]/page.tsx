@@ -42,7 +42,7 @@ export default function GuideDetailPage() {
   useEffect(() => {
     if (!token || !guideId) return;
     setLoading(true);
-    apiFetch<GuideDetail>(`/api/curriculum/guides/${guideId}`, {}, token)
+    apiFetch<GuideDetail>(`/api/v1/curriculum/guides/${guideId}`, {}, token)
       .then(setGuide)
       .catch((e) => toast.error((e as Error).message))
       .finally(() => setLoading(false));
@@ -52,9 +52,9 @@ export default function GuideDetailPage() {
     if (!token) return;
     setEnrolling(true);
     try {
-      await apiFetch(`/api/curriculum/guides/${guideId}/enroll`, { method: "POST" }, token);
+      await apiFetch(`/api/v1/curriculum/guides/${guideId}/enroll`, { method: "POST" }, token);
       // Reload
-      const updated = await apiFetch<GuideDetail>(`/api/curriculum/guides/${guideId}`, {}, token);
+      const updated = await apiFetch<GuideDetail>(`/api/v1/curriculum/guides/${guideId}`, {}, token);
       setGuide(updated);
       toast.success("Enrolled!");
     } catch (e) {
@@ -71,7 +71,7 @@ export default function GuideDetailPage() {
     setPlacementAnswers({});
     try {
       const data = await apiFetch<{ questions: PlacementQuestion[] }>(
-        `/api/curriculum/guides/${guideId}/placement/generate`,
+        `/api/v1/curriculum/guides/${guideId}/placement/generate`,
         { method: "POST" },
         token,
       );
@@ -89,7 +89,7 @@ export default function GuideDetailPage() {
     setPlacementLoading(true);
     try {
       const result = await apiFetch<PlacementResult>(
-        `/api/curriculum/guides/${guideId}/placement/submit`,
+        `/api/v1/curriculum/guides/${guideId}/placement/submit`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -101,7 +101,7 @@ export default function GuideDetailPage() {
       if (result.passed) {
         toast.success("Placement passed — guide completed!");
         const updated = await apiFetch<GuideDetail>(
-          `/api/curriculum/guides/${guideId}`,
+          `/api/v1/curriculum/guides/${guideId}`,
           {},
           token,
         );

@@ -330,11 +330,11 @@ function ProfileField({
     setSaving(true);
     try {
       await apiFetch(
-        "/api/profile",
+        "/api/v1/profile",
         { method: "PATCH", body: JSON.stringify({ [config.key]: draft }) },
         token
       );
-      const updated = await apiFetch<ProfileData>("/api/profile", {}, token);
+      const updated = await apiFetch<ProfileData>("/api/v1/profile", {}, token);
       onUpdated(updated);
       setEditing(false);
       toast.success(`${config.label} updated`);
@@ -517,28 +517,28 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (!token) return;
-    apiFetch<Settings>("/api/settings", {}, token)
+    apiFetch<Settings>("/api/v1/settings", {}, token)
       .then(setSettings)
       .catch((e) => toast.error(e.message));
-    apiFetch<ProfileData>("/api/profile", {}, token)
+    apiFetch<ProfileData>("/api/v1/profile", {}, token)
       .then(setProfile)
       .catch(() => {}); // profile may not exist yet
-    apiFetch<UserMe>("/api/user/me", {}, token)
+    apiFetch<UserMe>("/api/v1/user/me", {}, token)
       .then((u) => { setUserMe(u); setNameDraft(u.name || ""); })
       .catch(() => {});
-    apiFetch<RSSFeed[]>("/api/intel/rss-feeds", {}, token)
+    apiFetch<RSSFeed[]>("/api/v1/intel/rss-feeds", {}, token)
       .then(setRssFeeds)
       .catch(() => {});
-    apiFetch<WatchlistItem[]>("/api/intel/watchlist", {}, token)
+    apiFetch<WatchlistItem[]>("/api/v1/intel/watchlist", {}, token)
       .then(setWatchlist)
       .catch(() => {});
-    apiFetch<UsageStats>("/api/settings/usage", {}, token)
+    apiFetch<UsageStats>("/api/v1/settings/usage", {}, token)
       .then(setUsageStats)
       .catch(() => {});
-    apiFetch<MemoryFact[]>("/api/memory/facts?limit=50", {}, token)
+    apiFetch<MemoryFact[]>("/api/v1/memory/facts?limit=50", {}, token)
       .then(setMemoryFacts)
       .catch(() => {});
-    apiFetch<MemoryStats>("/api/memory/stats", {}, token)
+    apiFetch<MemoryStats>("/api/v1/memory/stats", {}, token)
       .then(setMemoryStats)
       .catch(() => {});
   }, [token]);
@@ -565,7 +565,7 @@ export default function SettingsPage() {
     setSavingName(true);
     try {
       const updated = await apiFetch<UserMe>(
-        "/api/user/me",
+        "/api/v1/user/me",
         { method: "PATCH", body: JSON.stringify({ name: nameDraft.trim() }) },
         token
       );
@@ -588,7 +588,7 @@ export default function SettingsPage() {
         if (val) payload[key] = val;
       }
       const updated = await apiFetch<Settings>(
-        "/api/settings",
+        "/api/v1/settings",
         { method: "PUT", body: JSON.stringify(payload) },
         token
       );
@@ -610,7 +610,7 @@ export default function SettingsPage() {
     setTestingProvider(provider);
     try {
       const updated = await apiFetch<Settings>(
-        "/api/settings",
+        "/api/v1/settings",
         { method: "PUT", body: JSON.stringify({ llm_remove_providers: [provider] }) },
         token
       );
@@ -633,7 +633,7 @@ export default function SettingsPage() {
     setTestingProvider(provider);
     try {
       const result = await apiFetch<{ ok: boolean; provider: string }>(
-        `/api/settings/test-llm?provider=${encodeURIComponent(provider)}`,
+        `/api/v1/settings/test-llm?provider=${encodeURIComponent(provider)}`,
         { method: "POST" },
         token
       );
@@ -649,7 +649,7 @@ export default function SettingsPage() {
     if (!token) return;
     setDeletingFactId(factId);
     try {
-      await apiFetch(`/api/memory/facts/${encodeURIComponent(factId)}`, { method: "DELETE" }, token);
+      await apiFetch(`/api/v1/memory/facts/${encodeURIComponent(factId)}`, { method: "DELETE" }, token);
       setMemoryFacts((prev) => prev.filter((fact) => fact.id !== factId));
       setMemoryStats((prev) => {
         if (!prev) return prev;
@@ -677,7 +677,7 @@ export default function SettingsPage() {
     setRssAdding(true);
     try {
       const feed = await apiFetch<RSSFeed>(
-        "/api/intel/rss-feeds",
+        "/api/v1/intel/rss-feeds",
         { method: "POST", body: JSON.stringify({ url: rssUrl.trim() }) },
         token
       );
@@ -696,7 +696,7 @@ export default function SettingsPage() {
     setRssRemoving(url);
     try {
       await apiFetch(
-        "/api/intel/rss-feeds",
+        "/api/v1/intel/rss-feeds",
         { method: "DELETE", body: JSON.stringify({ url }) },
         token
       );
@@ -729,8 +729,8 @@ export default function SettingsPage() {
         geographies: splitCommaValues(watchGeographies),
       };
       const endpoint = editingWatchId
-        ? `/api/intel/watchlist/${editingWatchId}`
-        : "/api/intel/watchlist";
+        ? `/api/v1/intel/watchlist/${editingWatchId}`
+        : "/api/v1/intel/watchlist";
       const method = editingWatchId ? "PATCH" : "POST";
       const saved = await apiFetch<WatchlistItem>(
         endpoint,
@@ -771,7 +771,7 @@ export default function SettingsPage() {
     if (!token) return;
     setWatchRemoving(itemId);
     try {
-      await apiFetch(`/api/intel/watchlist/${itemId}`, { method: "DELETE" }, token);
+      await apiFetch(`/api/v1/intel/watchlist/${itemId}`, { method: "DELETE" }, token);
       setWatchlist((prev) => prev.filter((item) => item.id !== itemId));
       if (editingWatchId === itemId) resetWatchForm();
       toast.success("Watchlist item removed");
@@ -822,7 +822,7 @@ export default function SettingsPage() {
         };
       }
       const updated = await apiFetch<Settings>(
-        "/api/settings",
+        "/api/v1/settings",
         { method: "PUT", body: JSON.stringify(payload) },
         token
       );
@@ -849,7 +849,7 @@ export default function SettingsPage() {
     setTestingCustomProviderId(providerId);
     try {
       const updated = await apiFetch<Settings>(
-        "/api/settings",
+        "/api/v1/settings",
         { method: "PUT", body: JSON.stringify({ llm_custom_providers_remove: [providerId] }) },
         token
       );
@@ -868,7 +868,7 @@ export default function SettingsPage() {
     setTestingCustomProviderId(providerId);
     try {
       const result = await apiFetch<{ ok: boolean; provider: string }>(
-        `/api/settings/test-custom-provider?provider_id=${encodeURIComponent(providerId)}`,
+        `/api/v1/settings/test-custom-provider?provider_id=${encodeURIComponent(providerId)}`,
         { method: "POST" },
         token
       );

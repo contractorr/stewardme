@@ -67,7 +67,7 @@ export default function ProjectsPage() {
   const loadSettings = useCallback(async () => {
     if (!token) return;
     try {
-      const data = await apiFetch<SettingsSummary>("/api/settings", {}, token);
+      const data = await apiFetch<SettingsSummary>("/api/v1/settings", {}, token);
       setSettings(data);
     } catch {
       setSettings(null);
@@ -85,7 +85,7 @@ export default function ProjectsPage() {
       setIssuesError(null);
       try {
         const data = await apiFetch<ProjectIssue[]>(
-          `/api/projects/issues?limit=${limit}&days=${days}`,
+          `/api/v1/projects/issues?limit=${limit}&days=${days}`,
           {},
           token
         );
@@ -114,7 +114,7 @@ export default function ProjectsPage() {
     setIdeasError(null);
     try {
       const response = await apiFetch<{ ideas: string }>(
-        "/api/projects/ideas",
+        "/api/v1/projects/ideas",
         { method: "POST" },
         token
       );

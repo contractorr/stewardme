@@ -127,7 +127,7 @@ export default function GoalsPage() {
       setLoading(false);
       return;
     }
-    apiFetch<Goal[]>("/api/goals?include_inactive=true", {}, token)
+    apiFetch<Goal[]>("/api/v1/goals?include_inactive=true", {}, token)
       .then(setGoals)
       .catch((e) => toast.error(e.message))
       .finally(() => setLoading(false));
@@ -145,7 +145,7 @@ export default function GoalsPage() {
     if (!token) return;
     try {
       const recs = await apiFetch<BriefingRecommendation[]>(
-        `/api/recommendations?search=${encodeURIComponent(title)}&limit=3`,
+        `/api/v1/recommendations?search=${encodeURIComponent(title)}&limit=3`,
         {},
         token
       );
@@ -157,21 +157,21 @@ export default function GoalsPage() {
 
   const loadUnanchored = () => {
     if (!token) return;
-    apiFetch<BriefingRecommendation[]>("/api/recommendations?limit=3", {}, token)
+    apiFetch<BriefingRecommendation[]>("/api/v1/recommendations?limit=3", {}, token)
       .then(setUnanchored)
       .catch(() => {});
   };
 
   const loadActionItems = () => {
     if (!token) return;
-    apiFetch<TrackedRecommendationAction[]>("/api/recommendations/actions?limit=30", {}, token)
+    apiFetch<TrackedRecommendationAction[]>("/api/v1/recommendations/actions?limit=30", {}, token)
       .then(setActionItems)
       .catch(() => {});
   };
 
   const loadWeeklyPlan = () => {
     if (!token) return;
-    apiFetch<WeeklyPlanResponse>("/api/recommendations/weekly-plan", {}, token)
+    apiFetch<WeeklyPlanResponse>("/api/v1/recommendations/weekly-plan", {}, token)
       .then(setWeeklyPlan)
       .catch(() => {});
   };
@@ -202,7 +202,7 @@ export default function GoalsPage() {
     if (!token) return;
     try {
       const p = await apiFetch<Progress>(
-        `/api/goals/${encodeURIComponent(path)}/progress`,
+        `/api/v1/goals/${encodeURIComponent(path)}/progress`,
         {},
         token
       );
@@ -218,7 +218,7 @@ export default function GoalsPage() {
     setCreating(true);
     try {
       await apiFetch(
-        "/api/goals",
+        "/api/v1/goals",
         {
           method: "POST",
           body: JSON.stringify({
@@ -247,7 +247,7 @@ export default function GoalsPage() {
     const notes = (checkInInputs[path] || "").trim();
     try {
       await apiFetch(
-        `/api/goals/${encodeURIComponent(path)}/check-in`,
+        `/api/v1/goals/${encodeURIComponent(path)}/check-in`,
         { method: "POST", body: JSON.stringify({ notes: notes || null }) },
         token
       );
@@ -264,7 +264,7 @@ export default function GoalsPage() {
     if (!token) return;
     try {
       await apiFetch(
-        `/api/goals/${encodeURIComponent(path)}/status`,
+        `/api/v1/goals/${encodeURIComponent(path)}/status`,
         { method: "PUT", body: JSON.stringify({ status }) },
         token
       );
@@ -280,7 +280,7 @@ export default function GoalsPage() {
     if (!token || !title) return;
     try {
       await apiFetch(
-        `/api/goals/${encodeURIComponent(path)}/milestones`,
+        `/api/v1/goals/${encodeURIComponent(path)}/milestones`,
         { method: "POST", body: JSON.stringify({ title }) },
         token
       );
@@ -296,7 +296,7 @@ export default function GoalsPage() {
     if (!token) return;
     try {
       await apiFetch(
-        `/api/goals/${encodeURIComponent(path)}/milestones/complete`,
+        `/api/v1/goals/${encodeURIComponent(path)}/milestones/complete`,
         { method: "POST", body: JSON.stringify({ milestone_index: index }) },
         token
       );
@@ -313,7 +313,7 @@ export default function GoalsPage() {
     setSavingActionId(recId);
     try {
       await apiFetch(
-        `/api/recommendations/${encodeURIComponent(recId)}/action-item`,
+        `/api/v1/recommendations/${encodeURIComponent(recId)}/action-item`,
         {
           method: "POST",
           body: JSON.stringify({ goal_path: goal?.path ?? null }),
@@ -343,7 +343,7 @@ export default function GoalsPage() {
     setSavingActionId(recId);
     try {
       await apiFetch(
-        `/api/recommendations/${encodeURIComponent(recId)}/action-item`,
+        `/api/v1/recommendations/${encodeURIComponent(recId)}/action-item`,
         {
           method: "PUT",
           body: JSON.stringify(payload),
@@ -371,7 +371,7 @@ export default function GoalsPage() {
     setSavingFeedbackId(rec.id);
     try {
       const updated = await apiFetch<BriefingRecommendation>(
-        `/api/recommendations/${encodeURIComponent(rec.id)}/feedback`,
+        `/api/v1/recommendations/${encodeURIComponent(rec.id)}/feedback`,
         {
           method: "POST",
           body: JSON.stringify({ rating, comment: comment || null }),

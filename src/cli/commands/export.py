@@ -221,3 +221,79 @@ def _export_markdown(config_or_paths: dict, paths_or_output, output_path: Path |
                 continue
 
     output_path.write_text("\n".join(sections))
+
+
+@export.command("memory")
+@click.option("-o", "--output", default="-", help="Output path (- for stdout)")
+def export_memory(output: str):
+    """Export memory facts as JSON."""
+    from memory.store import FactStore
+
+    config = load_config()
+    paths = get_paths(config)
+    db_path = paths.get("data_dir", get_coach_home()) / "memory.db"
+    store = FactStore(db_path)
+    facts = store.get_all_active()
+    data = [
+        {
+            "id": str(getattr(f, "id", "")),
+            "category": getattr(f, "category", ""),
+            "content": getattr(f, "content", ""),
+            "confidence": getattr(f, "confidence", 0),
+            "source": getattr(f, "source", ""),
+            "created_at": str(getattr(f, "created_at", "")),
+        }
+        for f in facts
+    ]
+    text = json.dumps(data, indent=2, default=str)
+    if output == "-":
+        console.print(text)
+    else:
+        Path(output).write_text(text)
+        console.print(f"[green]Exported {len(data)} facts to {output}[/]")
+
+
+@export.command("goals")
+@click.option("-o", "--output", default="-", help="Output path (- for stdout)")
+def export_goals(output: str):
+    """Export all goals with milestones."""
+    from advisor.goals import GoalTracker
+    from journal.storage import JournalStorage
+
+    config = load_config()
+    paths = get_paths(config)
+    storage = JournalStorage(paths["journal_dir"])
+    tracker = GoalTracker(storage)
+    goals = tracker.get_goals(include_inactive=True)
+    text = json.dumps(goals, indent=2, default=str)
+    if output == "-":
+        console.print(text)
+    else:
+        Path(output).write_text(text)
+        console.print(f"[green]Exported {len(goals)} goals to {output}[/]")
+
+
+@export.command("curriculum")
+@click.option("-o", "--output", default="-", help="Output path (- for stdout)")
+def export_curriculum(output: str):
+    """Export curriculum enrollment, progress, and review stats."""
+    from curriculum.store import CurriculumStore
+
+    config = load_config()
+    paths = get_paths(config)
+    data_dir = paths.get("data_dir", get_coach_home())
+    store = CurriculumStore(Path(data_dir) / "curriculum.db")
+    # Use default user for CLI mode
+    user_id = "cli"
+    stats = store.get_stats(user_id)
+    enrollments = store.get_enrollments(user_id)
+    data = {
+        "stats": stats.model_dump() if hasattr(stats, "model_dump") else {},
+        "enrollments": enrollments,
+    }
+    text = json.dumps(data, indent=2, default=str)
+    if output == "-":
+        console.print(text)
+    else:
+        Path(output).write_text(text)
+        console.print(f"[green]Exported curriculum data to {output}[/]")

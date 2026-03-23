@@ -89,7 +89,7 @@ export function useChatPdfAttachments(token?: string) {
         formData.append("file", attachment.file);
         try {
           const result = await apiFetch<ChatAttachmentUpload>(
-            "/api/advisor/attachments",
+            "/api/v1/advisor/attachments",
             { method: "POST", body: formData },
             token,
           );

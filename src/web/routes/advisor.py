@@ -352,6 +352,9 @@ async def ask_advisor(
             model=result.get("model"),
         )
 
+        from degradation_collector import get_degradations
+        from web.models import DegradationItem
+
         return AdvisorResponse(
             answer=result["answer"],
             advice_type=body.advice_type,
@@ -361,6 +364,7 @@ async def ask_advisor(
             council_providers=result.get("council_providers", []),
             council_failed_providers=result.get("council_failed_providers", []),
             council_partial=result.get("council_partial", False),
+            degradations=[DegradationItem(**d) for d in get_degradations()],
         )
     except ConversationNotFoundError:
         raise HTTPException(status_code=404, detail="Conversation not found")

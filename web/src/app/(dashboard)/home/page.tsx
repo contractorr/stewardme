@@ -148,14 +148,14 @@ export default function HomePage() {
     if (!token) return;
     let cancelled = false;
 
-    apiFetch<GreetingResponse>("/api/greeting", {}, token)
+    apiFetch<GreetingResponse>("/api/v1/greeting", {}, token)
       .then((data) => {
         if (cancelled) return;
         applyGreetingResponse(data);
         if (data.stale && !retried.current) {
           retried.current = true;
           setTimeout(() => {
-            apiFetch<GreetingResponse>("/api/greeting", {}, token)
+            apiFetch<GreetingResponse>("/api/v1/greeting", {}, token)
               .then((fresh) => {
                 if (!cancelled && !fresh.stale) applyGreetingResponse(fresh);
               })
@@ -168,13 +168,13 @@ export default function HomePage() {
         if (!cancelled) setGreetingLoaded(true);
       });
 
-    apiFetch<{ name: string | null }>("/api/user/me", {}, token)
+    apiFetch<{ name: string | null }>("/api/v1/user/me", {}, token)
       .then((user) => {
         if (!cancelled && user.name) setUserName(user.name);
       })
       .catch(() => {});
 
-    apiFetch<SuggestionItem[]>("/api/suggestions?limit=3", {}, token)
+    apiFetch<SuggestionItem[]>("/api/v1/suggestions?limit=3", {}, token)
       .then((items) => {
         if (!cancelled) setNextSteps(items.slice(0, 3));
       })
@@ -215,7 +215,7 @@ export default function HomePage() {
 
       try {
         await apiFetchSSE(
-          "/api/advisor/ask/stream",
+          "/api/v1/advisor/ask/stream",
           {
             method: "POST",
             body: JSON.stringify({
@@ -312,7 +312,7 @@ export default function HomePage() {
     setInput("");
     try {
       const entry = await apiFetch<{ path: string; title: string }>(
-        "/api/journal/quick",
+        "/api/v1/journal/quick",
         { method: "POST", body: JSON.stringify({ content: text }) },
         token
       );

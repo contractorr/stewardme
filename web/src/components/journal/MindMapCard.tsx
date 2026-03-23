@@ -78,7 +78,7 @@ async function requestMindMap(
   method: "GET" | "POST" = "GET"
 ): Promise<JournalMindMapEnvelope> {
   return apiFetch<JournalMindMapEnvelope>(
-    `/api/journal/${encodeURIComponent(entryPath)}/mind-map`,
+    `/api/v1/journal/${encodeURIComponent(entryPath)}/mind-map`,
     { method },
     token
   );

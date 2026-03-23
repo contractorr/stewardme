@@ -62,9 +62,9 @@ export default function LearnPage() {
     setLoading(true);
     try {
       const [guidesData, statsData, nextData] = await Promise.all([
-        apiFetch<Guide[]>("/api/curriculum/guides", {}, token),
-        apiFetch<LearningStats>("/api/curriculum/stats", {}, token),
-        apiFetch<NextRecommendation>("/api/curriculum/next", {}, token),
+        apiFetch<Guide[]>("/api/v1/curriculum/guides", {}, token),
+        apiFetch<LearningStats>("/api/v1/curriculum/stats", {}, token),
+        apiFetch<NextRecommendation>("/api/v1/curriculum/next", {}, token),
       ]);
       setGuides(guidesData);
       setStats(statsData);
@@ -84,7 +84,7 @@ export default function LearnPage() {
     if (!token) return;
     setSyncing(true);
     try {
-      await apiFetch("/api/curriculum/sync", { method: "POST" }, token);
+      await apiFetch("/api/v1/curriculum/sync", { method: "POST" }, token);
       await loadData();
       toast.success("Content synced");
     } catch (e) {

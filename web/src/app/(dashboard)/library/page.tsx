@@ -91,7 +91,7 @@ export default function LibraryPage() {
       if (search.trim()) params.set("search", search.trim());
       if (statusFilter !== "all") params.set("status", statusFilter);
       const data = await apiFetch<LibraryReportListItem[]>(
-        `/api/library/reports${params.toString() ? `?${params.toString()}` : ""}`,
+        `/api/v1/library/reports${params.toString() ? `?${params.toString()}` : ""}`,
         {},
         token
       );
@@ -111,7 +111,7 @@ export default function LibraryPage() {
     if (!token) return;
     setLoadingDetail(true);
     try {
-      const report = await apiFetch<LibraryReport>(`/api/library/reports/${reportId}`, {}, token);
+      const report = await apiFetch<LibraryReport>(`/api/v1/library/reports/${reportId}`, {}, token);
       setSelectedReport(report);
     } catch (e) {
       toast.error((e as Error).message);
@@ -126,7 +126,7 @@ export default function LibraryPage() {
 
   useEffect(() => {
     if (!token) return;
-    apiFetch<ResearchDossier[]>("/api/research/dossiers?include_archived=true&limit=50", {}, token)
+    apiFetch<ResearchDossier[]>("/api/v1/research/dossiers?include_archived=true&limit=50", {}, token)
       .then((items) => {
         const archived = items.filter((item) => (item.status || "active") === "archived");
         setDossiers(archived);
@@ -165,7 +165,7 @@ export default function LibraryPage() {
 
     const loadPreview = async () => {
       try {
-        const res = await fetch(apiUrl(`/api/library/reports/${selectedReport.id}/file`), {
+        const res = await fetch(apiUrl(`/api/v1/library/reports/${selectedReport.id}/file`), {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) {
@@ -226,7 +226,7 @@ export default function LibraryPage() {
     setCreating(true);
     try {
       const created = await apiFetch<LibraryReport>(
-        "/api/library/reports",
+        "/api/v1/library/reports",
         {
           method: "POST",
           body: JSON.stringify({
@@ -255,7 +255,7 @@ export default function LibraryPage() {
     setSaving(true);
     try {
       const updated = await apiFetch<LibraryReport>(
-        `/api/library/reports/${selectedReport.id}`,
+        `/api/v1/library/reports/${selectedReport.id}`,
         {
           method: "PUT",
           body: JSON.stringify({
@@ -281,7 +281,7 @@ export default function LibraryPage() {
     setRefreshing(true);
     try {
       const refreshed = await apiFetch<LibraryReport>(
-        `/api/library/reports/${selectedReport.id}/refresh`,
+        `/api/v1/library/reports/${selectedReport.id}/refresh`,
         { method: "POST" },
         token
       );
@@ -300,7 +300,7 @@ export default function LibraryPage() {
     const endpoint = selectedReport.status === "archived" ? "restore" : "archive";
     try {
       const updated = await apiFetch<LibraryReport>(
-        `/api/library/reports/${selectedReport.id}/${endpoint}`,
+        `/api/v1/library/reports/${selectedReport.id}/${endpoint}`,
         { method: "POST" },
         token
       );

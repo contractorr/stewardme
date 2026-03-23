@@ -109,7 +109,7 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
         setSending(true);
         try {
           const res = await apiFetch<{ message: string; done: boolean; turn: number }>(
-            "/api/onboarding/start",
+            "/api/v1/onboarding/start",
             { method: "POST" },
             token
           );
@@ -145,7 +145,7 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
       return;
     }
     try {
-      await apiFetch("/api/user/me", { method: "PATCH", body: JSON.stringify({ name: trimmed }) }, token);
+      await apiFetch("/api/v1/user/me", { method: "PATCH", body: JSON.stringify({ name: trimmed }) }, token);
     } catch {
       // non-blocking — name save failure shouldn't block onboarding
     }
@@ -161,12 +161,12 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
     try {
       const payload: Record<string, string> = { llm_api_key: apiKey };
       if (provider !== "auto") payload.llm_provider = provider;
-      await apiFetch("/api/settings", { method: "PUT", body: JSON.stringify(payload) }, token);
+      await apiFetch("/api/v1/settings", { method: "PUT", body: JSON.stringify(payload) }, token);
 
       // Start onboarding chat
       setSending(true);
       const res = await apiFetch<{ message: string; done: boolean; turn: number }>(
-        "/api/onboarding/start",
+        "/api/v1/onboarding/start",
         { method: "POST" },
         token
       );
@@ -190,7 +190,7 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
 
     try {
       const res = await apiFetch<{ message: string; done: boolean; goals_created: number; turn: number }>(
-        "/api/onboarding/chat",
+        "/api/v1/onboarding/chat",
         { method: "POST", body: JSON.stringify({ message: text }) },
         token
       );
@@ -368,7 +368,7 @@ export function OnboardingDialog({ open, onClose, onComplete, token, startPhase 
                     setSending(true);
                     try {
                       const res = await apiFetch<{ message: string; done: boolean; turn: number }>(
-                        "/api/onboarding/start",
+                        "/api/v1/onboarding/start",
                         { method: "POST" },
                         token
                       );

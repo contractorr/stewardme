@@ -27,7 +27,7 @@ export function logEngagement(
 ): void {
   // Fire-and-forget — don't block UI
   apiFetch(
-    "/api/engagement",
+    "/api/v1/engagement",
     {
       method: "POST",
       body: JSON.stringify({

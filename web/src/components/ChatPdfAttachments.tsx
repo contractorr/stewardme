@@ -63,7 +63,7 @@ export function ChatAttachmentBadges({
       setSavingId(attachment.library_item_id);
       try {
         await apiFetch<ChatAttachmentUpload>(
-          `/api/advisor/attachments/${encodeURIComponent(attachment.library_item_id)}/save`,
+          `/api/v1/advisor/attachments/${encodeURIComponent(attachment.library_item_id)}/save`,
           { method: "POST" },
           token,
         );

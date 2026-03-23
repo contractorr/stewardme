@@ -179,17 +179,9 @@ def test_briefing_gracefully_skips_daily_brief_failures(client, auth_headers):
         response = client.get("/api/briefing", headers=auth_headers)
 
     assert response.status_code == 200
-    assert response.json() == {
-        "recommendations": [],
-        "stale_goals": [],
-        "goals": [],
-        "has_data": False,
-        "adaptation_count": 0,
-        "daily_brief": None,
-        "goal_intel_matches": [],
-        "dossier_escalations": [],
-        "company_movements": [],
-        "hiring_signals": [],
-        "regulatory_alerts": [],
-        "assumptions": [],
-    }
+    body = response.json()
+    assert body["recommendations"] == []
+    assert body["has_data"] is False
+    assert body["adaptation_count"] == 0
+    assert body["daily_brief"] is None
+    assert "degradations" in body

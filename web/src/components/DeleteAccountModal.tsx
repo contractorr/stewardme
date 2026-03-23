@@ -26,7 +26,7 @@ export function DeleteAccountModal({
     if (!confirmed || !token) return;
     setDeleting(true);
     try {
-      await apiFetch("/api/user/me", { method: "DELETE" }, token);
+      await apiFetch("/api/v1/user/me", { method: "DELETE" }, token);
       toast.success("Account deleted");
       signOut({ callbackUrl: "/login" });
     } catch (e) {

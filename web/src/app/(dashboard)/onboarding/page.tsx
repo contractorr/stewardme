@@ -191,13 +191,13 @@ export default function OnboardingPage() {
   // Check if user already has API key to skip welcome phase
   useEffect(() => {
     if (!token) return;
-    apiFetch<{ llm_api_key_set: boolean; using_shared_key: boolean }>("/api/settings", {}, token)
+    apiFetch<{ llm_api_key_set: boolean; using_shared_key: boolean }>("/api/v1/settings", {}, token)
       .then(async (s) => {
         setUsingSharedKey(s.using_shared_key);
         if (s.llm_api_key_set) {
           // Verify key still works before skipping welcome
           try {
-            await apiFetch("/api/settings/test-llm", { method: "POST" }, token);
+            await apiFetch("/api/v1/settings/test-llm", { method: "POST" }, token);
             setHasApiKey(true);
           } catch {
             setHasApiKey(false); // key invalid — force welcome phase
@@ -216,7 +216,7 @@ export default function OnboardingPage() {
       setSending(true);
       try {
         const res = await apiFetch<{ message: string; done: boolean; turn: number }>(
-          "/api/onboarding/start",
+          "/api/v1/onboarding/start",
           { method: "POST" },
           token
         );
@@ -256,7 +256,7 @@ export default function OnboardingPage() {
     if (!token || !name.trim()) return;
     try {
       await apiFetch(
-        "/api/user/me",
+        "/api/v1/user/me",
         { method: "PATCH", body: JSON.stringify({ name: name.trim() }) },
         token
       );
@@ -270,7 +270,7 @@ export default function OnboardingPage() {
     // Clear any stale personal key so backend falls through to shared key
     if (token) {
       try {
-        await apiFetch("/api/settings", {
+        await apiFetch("/api/v1/settings", {
           method: "PUT",
           body: JSON.stringify({
             llm_api_key: "",
@@ -299,7 +299,7 @@ export default function OnboardingPage() {
       const payload: Record<string, string> = { llm_api_key: apiKey };
       if (provider !== "auto") payload.llm_provider = provider;
       await apiFetch(
-        "/api/settings",
+        "/api/v1/settings",
         { method: "PUT", body: JSON.stringify(payload) },
         token
       );
@@ -308,7 +308,7 @@ export default function OnboardingPage() {
       setTesting(true);
       try {
         const result = await apiFetch<{ ok: boolean; provider: string }>(
-          "/api/settings/test-llm",
+          "/api/v1/settings/test-llm",
           { method: "POST" },
           token
         );
@@ -342,7 +342,7 @@ export default function OnboardingPage() {
         goals_created: number;
         turn: number;
       }>(
-        "/api/onboarding/chat",
+        "/api/v1/onboarding/chat",
         { method: "POST", body: JSON.stringify({ message: text }) },
         token
       );
@@ -378,7 +378,7 @@ export default function OnboardingPage() {
     (async () => {
       try {
         const cats = await apiFetch<FeedCategoryItem[]>(
-          "/api/onboarding/feed-categories",
+          "/api/v1/onboarding/feed-categories",
           {},
           token
         );
@@ -405,7 +405,7 @@ export default function OnboardingPage() {
     setSavingFeeds(true);
     try {
       const res = await apiFetch<{ feeds_added: number; categories: string[] }>(
-        "/api/onboarding/feeds",
+        "/api/v1/onboarding/feeds",
         {
           method: "POST",
           body: JSON.stringify({ selected_category_ids: [...selectedFeeds] }),

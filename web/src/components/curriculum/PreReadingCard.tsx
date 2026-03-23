@@ -24,7 +24,7 @@ export function PreReadingCard({ chapterId, isCompleted }: PreReadingCardProps) 
   useEffect(() => {
     if (!token || !chapterId) return;
     apiFetch<{ questions: PreReadingQuestion[] }>(
-      `/api/curriculum/chapters/${chapterId}/pre-reading`,
+      `/api/v1/curriculum/chapters/${chapterId}/pre-reading`,
       {},
       token
     )

@@ -39,9 +39,9 @@ export function useHomeStats(): HomeStats {
     const fetchAll = async () => {
       try {
         const [entries, goals, threads] = await Promise.all([
-          apiFetch<JournalEntryStub[]>("/api/journal?limit=200", {}, token).catch(() => []),
-          apiFetch<GoalStub[]>("/api/goals", {}, token).catch(() => []),
-          apiFetch<ThreadStub[]>("/api/threads/inbox?limit=50", {}, token).catch(() => []),
+          apiFetch<JournalEntryStub[]>("/api/v1/journal?limit=200", {}, token).catch(() => []),
+          apiFetch<GoalStub[]>("/api/v1/goals", {}, token).catch(() => []),
+          apiFetch<ThreadStub[]>("/api/v1/threads/inbox?limit=50", {}, token).catch(() => []),
         ]);
         if (cancelled) return;
         setJournalEntries(entries);

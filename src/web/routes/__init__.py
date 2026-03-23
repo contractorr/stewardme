@@ -8,6 +8,7 @@ from . import (
     curriculum,
     dossier_escalations,
     engagement,
+    export,
     github_repos,
     goals,
     greeting,
@@ -16,6 +17,7 @@ from . import (
     journal,
     library,
     memory,
+    notifications,
     onboarding,
     pageview,
     profile,
@@ -54,4 +56,6 @@ ROUTERS = (
     memory.router,
     threads.router,
     curriculum.router,
+    export.router,
+    notifications.router,
 )

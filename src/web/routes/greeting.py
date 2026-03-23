@@ -178,15 +178,28 @@ async def get_greeting(user: dict = Depends(get_current_user)):
     except Exception:
         return_brief = None
 
+    from degradation_collector import get_degradations
+    from web.models import DegradationItem
+
+    degs = [DegradationItem(**d) for d in get_degradations()]
+
     if cached_text:
         _schedule_heartbeat_eval(user["id"])
         return GreetingResponse(
-            text=cached_text, cached=True, stale=False, return_brief=return_brief
+            text=cached_text,
+            cached=True,
+            stale=False,
+            return_brief=return_brief,
+            degradations=degs,
         )
 
     # No cache — return fallback and generate in background
     _schedule_greeting_refresh(user["id"])
     _schedule_heartbeat_eval(user["id"])
     return GreetingResponse(
-        text=STATIC_FALLBACK, cached=False, stale=True, return_brief=return_brief
+        text=STATIC_FALLBACK,
+        cached=False,
+        stale=True,
+        return_brief=return_brief,
+        degradations=degs,
     )

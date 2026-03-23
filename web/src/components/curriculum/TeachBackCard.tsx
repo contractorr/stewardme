@@ -38,7 +38,7 @@ export function TeachBackCard({ chapterId }: TeachBackCardProps) {
   useEffect(() => {
     if (!token || !chapterId) return;
     apiFetch<TeachBackData>(
-      `/api/curriculum/teachback/${chapterId}/generate`,
+      `/api/v1/curriculum/teachback/${chapterId}/generate`,
       { method: "POST" },
       token
     )
@@ -52,7 +52,7 @@ export function TeachBackCard({ chapterId }: TeachBackCardProps) {
     setGrading(true);
     try {
       const res = await apiFetch<GradeResult>(
-        `/api/curriculum/teachback/${data.review_item_id}/grade`,
+        `/api/v1/curriculum/teachback/${data.review_item_id}/grade`,
         {
           method: "POST",
           body: JSON.stringify({ answer }),

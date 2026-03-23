@@ -56,7 +56,7 @@ export default function AdminStatsPage() {
   const loadStats = (d: number) => {
     if (!token) return;
     setLoading(true);
-    apiFetch<UsageStats>(`/api/admin/stats?days=${d}`, {}, token)
+    apiFetch<UsageStats>(`/api/v1/admin/stats?days=${d}`, {}, token)
       .then((data) => {
         setStats(data);
         setLastUpdated(new Date());

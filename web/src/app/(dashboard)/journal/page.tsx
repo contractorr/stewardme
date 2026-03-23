@@ -110,7 +110,7 @@ export default function JournalPage() {
       setLoading(false);
       return;
     }
-    apiFetch<JournalEntry[]>("/api/journal?limit=100", {}, token)
+    apiFetch<JournalEntry[]>("/api/v1/journal?limit=100", {}, token)
       .then(setEntries)
       .catch((e) => toast.error(e.message))
       .finally(() => setLoading(false));
@@ -125,7 +125,7 @@ export default function JournalPage() {
     setCreating(true);
     try {
       await apiFetch(
-        "/api/journal",
+        "/api/v1/journal",
         {
           method: "POST",
           body: JSON.stringify({
@@ -153,7 +153,7 @@ export default function JournalPage() {
   const handleDelete = async (path: string) => {
     if (!token) return;
     try {
-      await apiFetch(`/api/journal/${encodeURIComponent(path)}`, { method: "DELETE" }, token);
+      await apiFetch(`/api/v1/journal/${encodeURIComponent(path)}`, { method: "DELETE" }, token);
       toast.success("Deleted");
       setSelected(null);
       setDeletingPath(null);
@@ -167,7 +167,7 @@ export default function JournalPage() {
     if (!token) return;
     try {
       const entry = await apiFetch<JournalEntry>(
-        `/api/journal/${encodeURIComponent(path)}`,
+        `/api/v1/journal/${encodeURIComponent(path)}`,
         {},
         token
       );

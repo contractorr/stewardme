@@ -116,7 +116,7 @@ export function SkillTree() {
   useEffect(() => {
     if (!token) return;
     setLoading(true);
-    apiFetch<SkillTreeResponse>("/api/curriculum/tree", {}, token)
+    apiFetch<SkillTreeResponse>("/api/v1/curriculum/tree", {}, token)
       .then(setData)
       .catch((e) => toast.error((e as Error).message))
       .finally(() => setLoading(false));

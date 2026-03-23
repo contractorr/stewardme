@@ -1,5 +1,6 @@
 """Observability: metrics collection and run summary logging."""
 
+import re
 import threading
 import time
 from contextlib import contextmanager
@@ -97,12 +98,16 @@ class Metrics:
         timer_summary = {}
         for name, durations in timers.items():
             if durations:
+                sorted_d = sorted(durations)
                 timer_summary[name] = {
-                    "count": len(durations),
-                    "total": sum(durations),
-                    "avg": sum(durations) / len(durations),
-                    "min": min(durations),
-                    "max": max(durations),
+                    "count": len(sorted_d),
+                    "total": sum(sorted_d),
+                    "avg": sum(sorted_d) / len(sorted_d),
+                    "min": sorted_d[0],
+                    "max": sorted_d[-1],
+                    "p50": sorted_d[int(len(sorted_d) * 0.5)],
+                    "p95": sorted_d[min(int(len(sorted_d) * 0.95), len(sorted_d) - 1)],
+                    "p99": sorted_d[min(int(len(sorted_d) * 0.99), len(sorted_d) - 1)],
                 }
             else:
                 timer_summary[name] = {"count": 0}
@@ -135,6 +140,41 @@ class Metrics:
             self._counters.clear()
             self._timers.clear()
             self._tokens.clear()
+
+    @staticmethod
+    def _sanitize_name(name: str) -> str:
+        """Sanitize a metric name for Prometheus (alphanum + underscores)."""
+        return re.sub(r"[^a-zA-Z0-9_]", "_", name)
+
+    def prometheus_text(self) -> str:
+        """Return metrics in Prometheus exposition format."""
+        s = self.summary()
+        lines: list[str] = []
+
+        for name, value in s["counters"].items():
+            safe = self._sanitize_name(name)
+            lines.append(f"# TYPE coach_{safe} counter")
+            lines.append(f"coach_{safe} {value}")
+
+        for name, data in s["timers"].items():
+            safe = self._sanitize_name(name)
+            if data.get("count", 0) == 0:
+                continue
+            lines.append(f"# TYPE coach_{safe} summary")
+            for q in ("0.5", "0.95", "0.99"):
+                pkey = {"0.5": "p50", "0.95": "p95", "0.99": "p99"}[q]
+                lines.append(f'coach_{safe}{{quantile="{q}"}} {data[pkey]:.6f}')
+            lines.append(f"coach_{safe}_count {data['count']}")
+            lines.append(f"coach_{safe}_sum {data['total']:.6f}")
+
+        for model, usage in s["token_usage"].items():
+            safe_model = self._sanitize_name(model)
+            lines.append(f"# TYPE coach_token_{safe_model}_input gauge")
+            lines.append(f"coach_token_{safe_model}_input {usage['input_tokens']}")
+            lines.append(f"# TYPE coach_token_{safe_model}_output gauge")
+            lines.append(f"coach_token_{safe_model}_output {usage['output_tokens']}")
+
+        return "\n".join(lines) + "\n" if lines else ""
 
 
 # Module-level singleton

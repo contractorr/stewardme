@@ -3,15 +3,18 @@
 import { Brain, Menu, Settings, LogOut } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/NotificationBell";
 
 export function AppHeader({
   onOpenSettings,
   onToggleSidebar,
   onOpenGuide,
+  token,
 }: {
   onOpenSettings: () => void;
   onToggleSidebar: () => void;
   onOpenGuide?: () => void;
+  token?: string;
 }) {
   return (
     <header className="fixed inset-x-0 top-0 z-40 flex h-12 items-center justify-between border-b bg-background px-4 lg:left-60">
@@ -30,6 +33,7 @@ export function AppHeader({
         </button>
       </div>
       <div className="flex items-center gap-1">
+        {token && <NotificationBell token={token} />}
         <Button variant="ghost" size="icon" onClick={onOpenSettings} title="Settings">
           <Settings className="h-4 w-4" />
         </Button>

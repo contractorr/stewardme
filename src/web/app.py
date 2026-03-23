@@ -4,7 +4,7 @@ import os
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from crypto_utils import decrypt_value, encrypt_value
@@ -111,6 +111,10 @@ def _register_routes(app: FastAPI) -> None:
         app.include_router(router)
     app.add_api_route("/api/health", health, methods=["GET"])
 
+    from web.routes.metrics import get_metrics
+
+    app.add_api_route("/metrics", get_metrics, methods=["GET"])
+
 
 def create_app() -> FastAPI:
     """Create the FastAPI application with middleware and routes."""
@@ -121,6 +125,27 @@ def create_app() -> FastAPI:
     )
     _configure_cors(app)
     _register_routes(app)
+
+    @app.middleware("http")
+    async def degradation_collector_middleware(request: Request, call_next) -> Response:
+        from degradation_collector import clear_collector, init_collector
+
+        init_collector()
+        try:
+            return await call_next(request)
+        finally:
+            clear_collector()
+
+    @app.middleware("http")
+    async def api_version_rewrite(request: Request, call_next) -> Response:
+        path = request.scope["path"]
+        if path.startswith("/api/v1/"):
+            request.scope["path"] = "/api/" + path[8:]
+        response = await call_next(request)
+        if path.startswith("/api/") and not path.startswith("/api/v1/") and path != "/api/health":
+            response.headers["Deprecation"] = "true"
+        return response
+
     return app
 
 

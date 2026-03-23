@@ -19,7 +19,7 @@ export function RelatedChaptersCard({ chapterId }: RelatedChaptersCardProps) {
   useEffect(() => {
     if (!token || !chapterId) return;
     apiFetch<{ related: RelatedChapter[] }>(
-      `/api/curriculum/chapters/${chapterId}/related`,
+      `/api/v1/curriculum/chapters/${chapterId}/related`,
       {},
       token
     )

@@ -66,7 +66,7 @@ export function SettingsSheet({
 
   useEffect(() => {
     if (!open || !token) return;
-    apiFetch<Settings>("/api/settings", {}, token)
+    apiFetch<Settings>("/api/v1/settings", {}, token)
       .then(setSettings)
       .catch((e) => toast.error(e.message));
   }, [open, token]);
@@ -79,7 +79,7 @@ export function SettingsSheet({
         if (val) payload[key] = val;
       }
       const updated = await apiFetch<Settings>(
-        "/api/settings",
+        "/api/v1/settings",
         { method: "PUT", body: JSON.stringify(payload) },
         token
       );
@@ -100,7 +100,7 @@ export function SettingsSheet({
     setTestingProvider(provider);
     try {
       const updated = await apiFetch<Settings>(
-        "/api/settings",
+        "/api/v1/settings",
         { method: "PUT", body: JSON.stringify({ llm_remove_providers: [provider] }) },
         token
       );
@@ -122,7 +122,7 @@ export function SettingsSheet({
     setTestingProvider(provider);
     try {
       const result = await apiFetch<{ ok: boolean; provider: string }>(
-        `/api/settings/test-llm?provider=${encodeURIComponent(provider)}`,
+        `/api/v1/settings/test-llm?provider=${encodeURIComponent(provider)}`,
         { method: "POST" },
         token
       );
@@ -326,7 +326,7 @@ export function SettingsSheet({
         open={showOnboarding}
         onClose={() => setShowOnboarding(false)}
         onComplete={() => {
-          apiFetch<Settings>("/api/settings", {}, token)
+          apiFetch<Settings>("/api/v1/settings", {}, token)
             .then(setSettings)
             .catch(() => {});
         }}

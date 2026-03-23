@@ -11,7 +11,7 @@ export function useLiteMode(): boolean | null {
 
   useEffect(() => {
     if (!token) return;
-    apiFetch<{ using_shared_key: boolean }>("/api/settings", {}, token)
+    apiFetch<{ using_shared_key: boolean }>("/api/v1/settings", {}, token)
       .then((s) => setLite(s.using_shared_key))
       .catch(() => setLite(false));
   }, [token]);
