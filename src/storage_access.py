@@ -60,7 +60,7 @@ def create_profile_embedding_manager(paths: PathMap):
     """Construct the profile embedding manager from canonical paths."""
     from journal.embeddings import EmbeddingManager
 
-    return EmbeddingManager(_require_path(paths, "chroma_dir"), collection_name="profile")
+    return EmbeddingManager(_require_path(paths, "chroma_dir"), base_name="profile")
 
 
 def create_memory_store(paths: PathMap):

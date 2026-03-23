@@ -159,8 +159,18 @@ class FactStore:
                 except Exception as e:
                     logger.warning("embedding_factory_failed", error=str(e))
 
+                # Derive versioned collection name
+                coll_name = "steward_facts"
+                try:
+                    from embeddings.versioning import versioned_name
+
+                    if embedding_fn is not None:
+                        coll_name = versioned_name("steward_facts", embedding_fn)
+                except Exception:
+                    pass
+
                 kwargs = {
-                    "name": "steward_facts",
+                    "name": coll_name,
                     "metadata": {"hnsw:space": "cosine"},
                 }
                 if embedding_fn is not None:

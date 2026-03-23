@@ -6,6 +6,7 @@ from typing import Optional
 import structlog
 
 from chroma_utils import LocalCollection, build_embedding_function
+from embeddings.versioning import auto_migrate_collection, model_tag, versioned_name
 
 logger = structlog.get_logger()
 
@@ -14,19 +15,24 @@ class LibraryEmbeddingManager:
     """Manages vector embeddings for library documents."""
 
     def __init__(
-        self, chroma_dir: str | Path, collection_name: str = "library", config: dict | None = None
+        self, chroma_dir: str | Path, collection_name: str | None = None, config: dict | None = None
     ):
         self.chroma_dir = Path(chroma_dir).expanduser()
         self.chroma_dir.mkdir(parents=True, exist_ok=True)
-        self.collection_name = collection_name
         self.embedding_function = build_embedding_function(config=config)
 
-        model_name = getattr(self.embedding_function, "name", lambda: "unknown")()
+        if collection_name is not None:
+            self.collection_name = collection_name
+        else:
+            self.collection_name = versioned_name("library", self.embedding_function)
+            auto_migrate_collection(self.chroma_dir, "library", self.collection_name)
+
+        self._model_name = model_tag(self.embedding_function)
         self.collection = LocalCollection(
             base_dir=self.chroma_dir,
-            name=collection_name,
+            name=self.collection_name,
             embedding_function=self.embedding_function,
-            metadata={"hnsw:space": "cosine", "embedding_model": model_name},
+            metadata={"hnsw:space": "cosine", "embedding_model": self._model_name},
         )
 
     def add_item(

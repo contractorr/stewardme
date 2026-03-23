@@ -194,7 +194,7 @@ def _get_engine(user_id: str, use_tools: bool = False):
     journal_storage = JournalStorage(paths["journal_dir"])
     embeddings = EmbeddingManager(
         paths["chroma_dir"],
-        collection_name=f"journal_{safe_user_id(user_id)}",
+        user_id=safe_user_id(user_id),
     )
     intel_storage = get_intel_storage()
     fts_index = JournalFTSIndex(paths["journal_dir"])

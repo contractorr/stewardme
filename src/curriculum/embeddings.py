@@ -13,10 +13,11 @@ logger = structlog.get_logger()
 class ChapterEmbeddingManager:
     """Manages chapter embeddings for cross-guide similarity search."""
 
-    def __init__(self, chroma_dir: str | Path):
+    def __init__(self, chroma_dir: str | Path, config: dict | None = None):
         self._emb = EmbeddingManager(
             chroma_dir=chroma_dir,
-            collection_name="curriculum_chapters",
+            base_name="curriculum_chapters",
+            config=config,
         )
 
     def upsert_chapter(

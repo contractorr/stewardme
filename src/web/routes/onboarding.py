@@ -173,7 +173,7 @@ def _embed_profile(user_id: str, profile) -> None:
     """Embed profile summary + narrative into ChromaDB for RAG retrieval."""
     try:
         paths = get_user_paths(user_id)
-        em = EmbeddingManager(paths["chroma_dir"], collection_name="profile")
+        em = EmbeddingManager(paths["chroma_dir"], base_name="profile")
 
         # Build narrative from profile fields
         parts = [profile.summary()]

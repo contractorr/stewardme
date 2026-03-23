@@ -6,31 +6,36 @@ from typing import Optional
 import structlog
 
 from chroma_utils import LocalCollection, build_embedding_function
+from embeddings.versioning import auto_migrate_collection, model_tag, versioned_name
 
 logger = structlog.get_logger()
-
-# Default embedding model used by ChromaDB
-DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 
 
 class IntelEmbeddingManager:
     """Manages vector embeddings for intelligence items."""
 
     def __init__(
-        self, chroma_dir: str | Path, default_results: int = 5, similarity_threshold: float = 0.85
+        self,
+        chroma_dir: str | Path,
+        default_results: int = 5,
+        similarity_threshold: float = 0.85,
+        config: dict | None = None,
     ):
         self.chroma_dir = Path(chroma_dir).expanduser()
         self.chroma_dir.mkdir(parents=True, exist_ok=True)
         self.default_results = default_results
         self.similarity_threshold = similarity_threshold
-        self.collection_name = "intel"
-        self.embedding_function = build_embedding_function()
+        self.embedding_function = build_embedding_function(config=config)
 
+        self.collection_name = versioned_name("intel", self.embedding_function)
+        auto_migrate_collection(self.chroma_dir, "intel", self.collection_name)
+
+        self._model_name = model_tag(self.embedding_function)
         self.collection = LocalCollection(
             base_dir=self.chroma_dir,
             name=self.collection_name,
             embedding_function=self.embedding_function,
-            metadata={"hnsw:space": "cosine", "embedding_model": DEFAULT_EMBEDDING_MODEL},
+            metadata={"hnsw:space": "cosine", "embedding_model": self._model_name},
         )
 
     def add_item(
@@ -183,7 +188,7 @@ class IntelEmbeddingManager:
             base_dir=self.chroma_dir,
             name=self.collection_name,
             embedding_function=self.embedding_function,
-            metadata={"hnsw:space": "cosine", "embedding_model": DEFAULT_EMBEDDING_MODEL},
+            metadata={"hnsw:space": "cosine", "embedding_model": self._model_name},
         )
 
     def find_similar(

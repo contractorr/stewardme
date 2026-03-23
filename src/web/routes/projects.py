@@ -68,7 +68,7 @@ async def generate_ideas(
         journal_storage = JournalStorage(paths["journal_dir"])
         embeddings = EmbeddingManager(
             paths["chroma_dir"],
-            collection_name=f"journal_{safe_user_id(user_id)}",
+            user_id=safe_user_id(user_id),
         )
         fts_index = JournalFTSIndex(paths["journal_dir"])
         journal_search = JournalSearch(journal_storage, embeddings, fts_index=fts_index)

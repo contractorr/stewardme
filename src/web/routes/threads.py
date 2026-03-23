@@ -195,9 +195,7 @@ async def reindex_threads(
     paths = get_user_paths(user["id"])
     config = get_config()
     threads_cfg = config.threads
-    embeddings = EmbeddingManager(
-        paths["chroma_dir"], collection_name=f"journal_{safe_user_id(user['id'])}"
-    )
+    embeddings = EmbeddingManager(paths["chroma_dir"], user_id=safe_user_id(user["id"]))
     store = get_thread_store(user["id"])
     detector = ThreadDetector(
         embeddings,

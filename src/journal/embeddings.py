@@ -6,27 +6,41 @@ from typing import Optional
 import structlog
 
 from chroma_utils import LocalCollection, build_embedding_function
+from embeddings.versioning import auto_migrate_collection, model_tag, versioned_name
 
 logger = structlog.get_logger()
-
-# Default embedding model used by ChromaDB
-DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 
 
 class EmbeddingManager:
     """Manages vector embeddings for journal entries."""
 
-    def __init__(self, chroma_dir: str | Path, collection_name: str = "journal"):
+    def __init__(
+        self,
+        chroma_dir: str | Path,
+        collection_name: str | None = None,
+        base_name: str = "journal",
+        user_id: str | None = None,
+        config: dict | None = None,
+    ):
         self.chroma_dir = Path(chroma_dir).expanduser()
         self.chroma_dir.mkdir(parents=True, exist_ok=True)
-        self.collection_name = collection_name
-        self.embedding_function = build_embedding_function()
+        self.embedding_function = build_embedding_function(config=config)
 
+        if collection_name is not None:
+            # Legacy explicit name — use as-is for backward compat
+            self.collection_name = collection_name
+        else:
+            self.collection_name = versioned_name(base_name, self.embedding_function, user_id)
+            # Auto-migrate unversioned predecessor
+            old_name = f"{base_name}_{user_id}" if user_id else base_name
+            auto_migrate_collection(self.chroma_dir, old_name, self.collection_name)
+
+        self._model_name = model_tag(self.embedding_function)
         self.collection = LocalCollection(
             base_dir=self.chroma_dir,
-            name=collection_name,
+            name=self.collection_name,
             embedding_function=self.embedding_function,
-            metadata={"hnsw:space": "cosine", "embedding_model": DEFAULT_EMBEDDING_MODEL},
+            metadata={"hnsw:space": "cosine", "embedding_model": self._model_name},
         )
 
     def add_entry(
@@ -165,5 +179,5 @@ class EmbeddingManager:
             base_dir=self.chroma_dir,
             name=self.collection_name,
             embedding_function=self.embedding_function,
-            metadata={"hnsw:space": "cosine", "embedding_model": DEFAULT_EMBEDDING_MODEL},
+            metadata={"hnsw:space": "cosine", "embedding_model": self._model_name},
         )

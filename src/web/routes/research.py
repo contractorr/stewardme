@@ -39,7 +39,7 @@ def _get_agent(user_id: str):
     journal_storage = JournalStorage(paths["journal_dir"])
     embeddings = EmbeddingManager(
         paths["chroma_dir"],
-        collection_name=f"journal_{safe_user_id(user_id)}",
+        user_id=safe_user_id(user_id),
     )
     intel_storage = get_intel_storage()
 
