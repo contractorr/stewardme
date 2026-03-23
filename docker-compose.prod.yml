@@ -33,10 +33,10 @@ services:
       - web
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
-      interval: 30s
+      interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 10s
+      retries: 5
+      start_period: 30s
     deploy:
       resources:
         limits:
@@ -57,10 +57,10 @@ services:
       - web
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000',r=>{r.resume();process.exit(r.statusCode<500?0:1)}).on('error',()=>process.exit(1))"]
-      interval: 30s
+      interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 10s
+      retries: 5
+      start_period: 30s
     depends_on:
       backend:
         condition: service_healthy
