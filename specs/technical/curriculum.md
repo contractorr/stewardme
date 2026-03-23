@@ -49,7 +49,7 @@ Returns `(guides: list[Guide], chapters: list[Chapter])` sorted by guide order.
 
 #### Behavior
 - Constructor: `__init__(db_path: str | Path)` — creates SQLite DB with WAL mode.
-- Schema version 2: tables `guides`, `chapters`, `user_guide_enrollment`, `user_chapter_progress`, `review_items` (v2 adds `item_type` column).
+- Schema version 3: tables `guides`, `chapters`, `user_guide_enrollment`, `user_chapter_progress`, `review_items` (v2 adds `item_type` column, v3 adds `track` column to guides).
 - `sync_catalog(guides, chapters)` — bulk upsert via `ON CONFLICT DO UPDATE`. Single transaction.
 - `update_progress(...)` — upserts chapter progress, accumulates reading time (not replaces), auto-marks guide complete when all non-glossary chapters done.
 - `grade_review(review_id, grade)` — applies SM-2 algorithm, updates `next_review`, `easiness_factor`, `interval_days`, `repetitions`.
@@ -59,7 +59,7 @@ Returns `(guides: list[Guide], chapters: list[Chapter])` sorted by guide order.
 
 | Table | Primary Key | Key Columns |
 |-------|-------------|-------------|
-| `guides` | `id TEXT` | title, category, difficulty, chapter_count, total_word_count, prerequisites (JSON) |
+| `guides` | `id TEXT` | title, category, difficulty, chapter_count, total_word_count, prerequisites (JSON), track |
 | `chapters` | `id TEXT` | guide_id (FK), title, filename, order, word_count, content_hash, is_glossary |
 | `user_guide_enrollment` | `(user_id, guide_id)` | enrolled_at, completed_at, linked_goal_id |
 | `user_chapter_progress` | `(user_id, chapter_id)` | guide_id, status, reading_time_seconds, scroll_position, started_at, completed_at |
@@ -141,6 +141,38 @@ Returns `(guides: list[Guide], chapters: list[Chapter])` sorted by guide order.
 
 ---
 
+### Skill Tree Manifest
+
+**File:** `content/curriculum/skill_tree.yaml`
+
+#### Behavior
+- Hand-authored YAML mapping guides to tracks with curated prerequisites.
+- `load_skill_tree(content_dir: Path) -> tuple[dict, dict, dict] | None` — returns `(guide_prereqs, guide_tracks, track_metadata)` or `None` on missing/invalid file.
+- Scanner loads manifest in `__init__`, stores as `self._skill_tree`.
+- `_build_guide()` uses manifest prereqs/track when available; falls back to auto-inferred linear chain.
+- `get_track_metadata() -> dict[str, dict]` exposes track titles/descriptions/colors.
+
+#### Track model
+`Track`: `id, title, description, color, guide_count, guides_completed, average_mastery, completion_pct, guide_ids`.
+
+#### Mastery formula
+```
+mastery_score = completion_pct * 0.4 + review_score * 0.6
+  completion_pct = chapters_completed / chapters_total * 100
+  review_score = clamp((avg_easiness_factor - 1.3) / 1.2 * 100, 0, 100)
+  If no reviews: mastery = completion_pct * 0.4
+  If no progress: mastery = 0
+```
+
+#### Schema v3 migration
+- `ALTER TABLE guides ADD COLUMN track TEXT NOT NULL DEFAULT ''`
+- `upsert_guide()` and `sync_catalog()` include `track` in column lists.
+- `list_guides()` and `get_guide()` compute `mastery_score` per guide.
+- `list_tracks(user_id, track_metadata)` groups guides by track, returns aggregate stats.
+- `get_stats()` adds `mastery_by_track` computation.
+
+---
+
 ## Routes
 
 **File:** `src/web/routes/curriculum.py`
@@ -163,6 +195,7 @@ Returns `(guides: list[Guide], chapters: list[Chapter])` sorted by guide order.
 | `/api/curriculum/teachback/{review_id}/grade` | POST | Grade teach-back response |
 | `/api/curriculum/chapters/{chapter_id}/pre-reading` | GET | Get/generate pre-reading questions |
 | `/api/curriculum/chapters/{chapter_id}/related` | GET | Find related chapters from other guides |
+| `/api/curriculum/tracks` | GET | List tracks with per-track guide counts and mastery |
 
 Content resolution: `_content_dirs()` resolves repo-relative `content/curriculum/` + any `config.curriculum.extra_content_dirs`. `_chapter_content_path()` handles both regular and industry guide ID formats.
 
@@ -254,4 +287,4 @@ New method on `RAGRetriever` that lazily imports `CurriculumStore`, constructs i
 - Scanner: discovers guides/chapters from temp dir structure, handles Industries/, infers categories/difficulty, detects diagrams, handles missing dirs.
 - Store: CRUD for catalog, enrollment, progress tracking, reading time accumulation, guide auto-completion, review item lifecycle, SM-2 scheduling, stats aggregation.
 - SM-2: perfect/fail/boundary grades, EF floor 1.3, interval progression, reset on fail.
-- Tests: `tests/curriculum/` — 34 tests covering scanner, store, and SM-2.
+- Tests: `tests/curriculum/` — 47+ tests covering scanner (incl. skill tree), store (incl. mastery, tracks), and SM-2.

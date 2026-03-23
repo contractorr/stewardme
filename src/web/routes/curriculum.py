@@ -78,6 +78,23 @@ def _chapter_content_path(chapter_id: str) -> Path | None:
 # --- Endpoints ---
 
 
+@router.get("/tracks")
+async def list_tracks(
+    user: dict = Depends(get_current_user),
+):
+    user_id = user["id"]
+    store = _get_store(user_id)
+    scanner = CurriculumScanner(_content_dirs())
+    track_meta = scanner.get_track_metadata()
+    if not track_meta:
+        return []
+    # Ensure catalog is populated
+    guides = store.list_guides()
+    if not guides:
+        _sync_catalog(store)
+    return store.list_tracks(user_id, track_meta)
+
+
 @router.get("/guides")
 async def list_guides(
     category: str | None = Query(None),

@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 
 import structlog
+import yaml
 
 from .models import Chapter, DifficultyLevel, Guide, GuideCategory
 
@@ -145,11 +146,59 @@ def _guide_order(dir_name: str) -> int:
     return int(m.group(1)) if m else 99
 
 
+def load_skill_tree(
+    content_dir: Path,
+) -> tuple[dict[str, list[str]], dict[str, str], dict[str, dict]] | None:
+    """Load skill_tree.yaml from content_dir.
+
+    Returns (guide_prereqs, guide_tracks, track_metadata) or None.
+    """
+    manifest = content_dir / "skill_tree.yaml"
+    if not manifest.is_file():
+        return None
+    try:
+        data = yaml.safe_load(manifest.read_text(encoding="utf-8"))
+    except Exception:
+        logger.warning("skill_tree.invalid_yaml", path=str(manifest))
+        return None
+    if not isinstance(data, dict) or "tracks" not in data:
+        return None
+
+    guide_prereqs: dict[str, list[str]] = {}
+    guide_tracks: dict[str, str] = {}
+    track_metadata: dict[str, dict] = {}
+
+    for track_id, track_data in data["tracks"].items():
+        track_metadata[track_id] = {
+            "title": track_data.get("title", track_id),
+            "description": track_data.get("description", ""),
+            "color": track_data.get("color", "#6b7280"),
+        }
+        for entry in track_data.get("guides", []):
+            gid = entry["id"]
+            guide_prereqs[gid] = entry.get("prerequisites", [])
+            guide_tracks[gid] = track_id
+
+    return guide_prereqs, guide_tracks, track_metadata
+
+
 class CurriculumScanner:
     """Walks content directories and discovers guides + chapters."""
 
     def __init__(self, content_dirs: list[Path]):
         self.content_dirs = [Path(d).expanduser().resolve() for d in content_dirs]
+        self._skill_tree: tuple[dict[str, list[str]], dict[str, str], dict[str, dict]] | None = None
+        for d in self.content_dirs:
+            result = load_skill_tree(d)
+            if result is not None:
+                self._skill_tree = result
+                break
+
+    def get_track_metadata(self) -> dict[str, dict]:
+        """Return track id -> {title, description, color} from manifest."""
+        if self._skill_tree is None:
+            return {}
+        return self._skill_tree[2]
 
     def scan(self) -> tuple[list[Guide], list[Chapter]]:
         """Scan all content dirs and return (guides, chapters)."""
@@ -269,15 +318,19 @@ class CurriculumScanner:
 
         reading_time = sum(c.reading_time_minutes for c in guide_chapters)
 
-        # Infer prerequisites from ordering
-        prereqs: list[str] = []
-        if order > 1 and not is_industry:
-            # Previous numbered guide is a soft prereq
-            prev = f"{order - 1:02d}-"
-            for d in (guide_dir.parent).iterdir():
-                if d.is_dir() and d.name.startswith(prev):
-                    prereqs.append(d.name)
-                    break
+        # Prereqs + track from manifest, fallback to auto-inferred ordering
+        if self._skill_tree and guide_id in self._skill_tree[0]:
+            prereqs = self._skill_tree[0][guide_id]
+            track = self._skill_tree[1].get(guide_id, "")
+        else:
+            prereqs = []
+            track = ""
+            if order > 1 and not is_industry:
+                prev = f"{order - 1:02d}-"
+                for d in (guide_dir.parent).iterdir():
+                    if d.is_dir() and d.name.startswith(prev):
+                        prereqs.append(d.name)
+                        break
 
         guide = Guide(
             id=guide_id,
@@ -290,5 +343,6 @@ class CurriculumScanner:
             total_reading_time_minutes=reading_time,
             has_glossary=has_glossary,
             prerequisites=prereqs,
+            track=track,
         )
         return guide, guide_chapters

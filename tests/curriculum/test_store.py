@@ -441,3 +441,138 @@ def test_pre_reading_excluded_from_due_reviews(store, sample_guide, sample_chapt
     assert "quiz-due" in due_ids
     assert "tb-due" in due_ids
     assert "pr-not-due" not in due_ids
+
+
+# --- Skill tree / mastery tests ---
+
+
+def test_schema_v3_track_column(store, sample_guide, sample_chapters):
+    """v3 migration adds track column."""
+    sample_guide.track = "foundations"
+    store.sync_catalog([sample_guide], sample_chapters)
+    guides = store.list_guides()
+    assert guides[0]["track"] == "foundations"
+
+
+def test_list_guides_includes_track_and_mastery(store, sample_guide, sample_chapters):
+    sample_guide.track = "foundations"
+    store.sync_catalog([sample_guide], sample_chapters)
+    user_id = "test-user"
+    guides = store.list_guides(user_id=user_id)
+    assert "track" in guides[0]
+    assert "mastery_score" in guides[0]
+
+
+def test_mastery_score_no_reviews(store, sample_guide, sample_chapters):
+    """Mastery = completion_pct * 0.4 when no reviews."""
+    store.sync_catalog([sample_guide], sample_chapters)
+    user_id = "test-user"
+    store.enroll(user_id, "01-philosophy-guide")
+
+    # Complete 1 of 3 chapters
+    store.update_progress(
+        user_id=user_id,
+        chapter_id="01-philosophy-guide/01-introduction",
+        guide_id="01-philosophy-guide",
+        status="completed",
+    )
+
+    guides = store.list_guides(user_id=user_id)
+    g = guides[0]
+    # completion_pct = 1/3 * 100 = 33.33, mastery = 33.33 * 0.4 = 13.3
+    assert 13.0 <= g["mastery_score"] <= 14.0
+
+
+def test_mastery_score_with_reviews(store, sample_guide, sample_chapters):
+    """Blended mastery from completion + review EF."""
+    store.sync_catalog([sample_guide], sample_chapters)
+    user_id = "test-user"
+
+    # Complete all non-glossary chapters
+    for ch_id in ["01-philosophy-guide/01-introduction", "01-philosophy-guide/02-logic"]:
+        store.update_progress(
+            user_id=user_id,
+            chapter_id=ch_id,
+            guide_id="01-philosophy-guide",
+            status="completed",
+        )
+
+    # Add review with good EF (2.5 default, graded well)
+    now = datetime.utcnow()
+    items = [
+        ReviewItem(
+            id="mastery-q1",
+            user_id=user_id,
+            chapter_id="01-philosophy-guide/01-introduction",
+            guide_id="01-philosophy-guide",
+            question="Q1",
+            expected_answer="A1",
+            bloom_level=BloomLevel.REMEMBER,
+            next_review=now,
+            created_at=now,
+        ),
+    ]
+    store.add_review_items(items)
+    store.grade_review("mastery-q1", 5)
+
+    guides = store.list_guides(user_id=user_id)
+    g = guides[0]
+    assert g["mastery_score"] > 0
+
+
+def test_mastery_score_no_progress(store, sample_guide, sample_chapters):
+    store.sync_catalog([sample_guide], sample_chapters)
+    user_id = "test-user"
+    guides = store.list_guides(user_id=user_id)
+    assert guides[0]["mastery_score"] == 0.0
+
+
+def test_list_tracks(store, sample_chapters):
+    """Track aggregation works."""
+    guide1 = Guide(
+        id="01-philosophy-guide",
+        title="Philosophy",
+        category=GuideCategory.HUMANITIES,
+        difficulty=DifficultyLevel.INTRODUCTORY,
+        chapter_count=3,
+        prerequisites=[],
+        track="foundations",
+    )
+    guide2 = Guide(
+        id="02-economics-guide",
+        title="Economics",
+        category=GuideCategory.BUSINESS,
+        difficulty=DifficultyLevel.INTERMEDIATE,
+        chapter_count=1,
+        prerequisites=[],
+        track="business_economics",
+    )
+    econ_chapter = Chapter(
+        id="02-economics-guide/01-introduction",
+        guide_id="02-economics-guide",
+        title="Intro Econ",
+        filename="01-introduction.md",
+        order=0,
+        word_count=1000,
+    )
+    store.sync_catalog([guide1, guide2], sample_chapters + [econ_chapter])
+
+    track_meta = {
+        "foundations": {"title": "Foundations", "description": "Core", "color": "#6366f1"},
+        "business_economics": {"title": "Business", "description": "Biz", "color": "#3b82f6"},
+    }
+    tracks = store.list_tracks("test-user", track_meta)
+    assert len(tracks) == 2
+
+    foundations = next(t for t in tracks if t["id"] == "foundations")
+    assert foundations["guide_count"] == 1
+    assert "01-philosophy-guide" in foundations["guide_ids"]
+
+
+def test_list_tracks_uncategorized(store, sample_guide, sample_chapters):
+    """Guides without track grouped into _uncategorized."""
+    store.sync_catalog([sample_guide], sample_chapters)  # sample_guide has track=""
+    tracks = store.list_tracks("test-user", {})
+    uncategorized = next((t for t in tracks if t["id"] == "_uncategorized"), None)
+    assert uncategorized is not None
+    assert uncategorized["guide_count"] == 1

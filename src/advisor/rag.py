@@ -218,9 +218,10 @@ class RAGRetriever:
                         prog = store.get_chapter_progress(self._user_id, ch["id"])
                         if prog and prog.get("status") == "completed":
                             completed += 1
+                track_attr = f' track="{guide.get("track", "")}"' if guide.get("track") else ""
                 lines.append(
                     f'  <guide id="{guide["id"]}" title="{guide["title"]}" '
-                    f'progress="{completed}/{total}" />'
+                    f'progress="{completed}/{total}"{track_attr} />'
                 )
             lines.append("</curriculum_progress>")
             result = "\n".join(lines)

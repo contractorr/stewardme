@@ -19,7 +19,7 @@ from .spaced_repetition import sm2_update
 
 logger = structlog.get_logger()
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 class CurriculumStore:
@@ -43,7 +43,8 @@ class CurriculumStore:
                     total_word_count INTEGER NOT NULL DEFAULT 0,
                     total_reading_time_minutes INTEGER NOT NULL DEFAULT 0,
                     has_glossary INTEGER NOT NULL DEFAULT 0,
-                    prerequisites TEXT NOT NULL DEFAULT '[]'
+                    prerequisites TEXT NOT NULL DEFAULT '[]',
+                    track TEXT NOT NULL DEFAULT ''
                 )
             """)
             conn.execute("""
@@ -134,6 +135,13 @@ class CurriculumStore:
                     "CREATE INDEX IF NOT EXISTS idx_review_type ON review_items(item_type)"
                 )
 
+            # --- v2 → v3 migration: add track column to guides ---
+            if current_ver < 3:
+                try:
+                    conn.execute("ALTER TABLE guides ADD COLUMN track TEXT NOT NULL DEFAULT ''")
+                except sqlite3.OperationalError:
+                    pass  # column already exists
+
             ensure_schema_version(conn, SCHEMA_VERSION)
             conn.commit()
 
@@ -146,8 +154,8 @@ class CurriculumStore:
             conn.execute(
                 """INSERT INTO guides (id, title, category, difficulty, source_dir,
                    chapter_count, total_word_count, total_reading_time_minutes,
-                   has_glossary, prerequisites)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   has_glossary, prerequisites, track)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT(id) DO UPDATE SET
                    title=excluded.title, category=excluded.category,
                    difficulty=excluded.difficulty, source_dir=excluded.source_dir,
@@ -155,7 +163,8 @@ class CurriculumStore:
                    total_word_count=excluded.total_word_count,
                    total_reading_time_minutes=excluded.total_reading_time_minutes,
                    has_glossary=excluded.has_glossary,
-                   prerequisites=excluded.prerequisites""",
+                   prerequisites=excluded.prerequisites,
+                   track=excluded.track""",
                 (
                     guide.id,
                     guide.title,
@@ -167,6 +176,7 @@ class CurriculumStore:
                     guide.total_reading_time_minutes,
                     int(guide.has_glossary),
                     json.dumps(guide.prerequisites),
+                    guide.track,
                 ),
             )
             conn.commit()
@@ -211,8 +221,8 @@ class CurriculumStore:
                 conn.execute(
                     """INSERT INTO guides (id, title, category, difficulty, source_dir,
                        chapter_count, total_word_count, total_reading_time_minutes,
-                       has_glossary, prerequisites)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                       has_glossary, prerequisites, track)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                        ON CONFLICT(id) DO UPDATE SET
                        title=excluded.title, category=excluded.category,
                        difficulty=excluded.difficulty, source_dir=excluded.source_dir,
@@ -220,7 +230,8 @@ class CurriculumStore:
                        total_word_count=excluded.total_word_count,
                        total_reading_time_minutes=excluded.total_reading_time_minutes,
                        has_glossary=excluded.has_glossary,
-                       prerequisites=excluded.prerequisites""",
+                       prerequisites=excluded.prerequisites,
+                       track=excluded.track""",
                     (
                         g.id,
                         g.title,
@@ -232,6 +243,7 @@ class CurriculumStore:
                         g.total_reading_time_minutes,
                         int(g.has_glossary),
                         json.dumps(g.prerequisites),
+                        g.track,
                     ),
                 )
             for c in chapters:
@@ -303,11 +315,16 @@ class CurriculumStore:
                     d["chapters_total"] = total
                     d["chapters_completed"] = completed
                     d["progress_pct"] = round(completed / total * 100, 1) if total > 0 else 0.0
+
+                    d["mastery_score"] = self._compute_mastery(
+                        conn, user_id, d["id"], completed, total
+                    )
                 else:
                     d["enrolled"] = False
                     d["chapters_completed"] = 0
                     d["chapters_total"] = d["chapter_count"]
                     d["progress_pct"] = 0.0
+                    d["mastery_score"] = 0.0
 
                 results.append(d)
             return results
@@ -362,11 +379,15 @@ class CurriculumStore:
                 d["progress_pct"] = (
                     round(completed / len(d["chapters"]) * 100, 1) if d["chapters"] else 0.0
                 )
+                d["mastery_score"] = self._compute_mastery(
+                    conn, user_id, guide_id, completed, len(d["chapters"])
+                )
             else:
                 d["enrolled"] = False
                 d["chapters_completed"] = 0
                 d["chapters_total"] = len(d["chapters"])
                 d["progress_pct"] = 0.0
+                d["mastery_score"] = 0.0
 
             return d
 
@@ -746,6 +767,31 @@ class CurriculumStore:
                 elif i > 0:
                     break
 
+            # Mastery by track
+            mastery_track: dict[str, float] = {}
+            track_rows = conn.execute(
+                "SELECT DISTINCT track FROM guides WHERE track != ''"
+            ).fetchall()
+            for tr in track_rows:
+                tid = dict(tr)["track"]
+                track_guides = conn.execute(
+                    "SELECT id FROM guides WHERE track=?", (tid,)
+                ).fetchall()
+                track_scores = []
+                for tg in track_guides:
+                    gid = dict(tg)["id"]
+                    t_total = conn.execute(
+                        "SELECT COUNT(*) FROM chapters WHERE guide_id=?", (gid,)
+                    ).fetchone()[0]
+                    t_done = conn.execute(
+                        "SELECT COUNT(*) FROM user_chapter_progress WHERE user_id=? AND guide_id=? AND status='completed'",
+                        (user_id, gid),
+                    ).fetchone()[0]
+                    track_scores.append(self._compute_mastery(conn, user_id, gid, t_done, t_total))
+                mastery_track[tid] = (
+                    round(sum(track_scores) / len(track_scores), 1) if track_scores else 0.0
+                )
+
             return LearningStats(
                 guides_enrolled=enrolled,
                 guides_completed=guide_completed,
@@ -757,8 +803,109 @@ class CurriculumStore:
                 current_streak_days=streak,
                 reviews_due=due,
                 mastery_by_category=mastery,
+                mastery_by_track=mastery_track,
                 daily_activity=daily,
             )
+
+    @staticmethod
+    def _compute_mastery(
+        conn: sqlite3.Connection,
+        user_id: str,
+        guide_id: str,
+        chapters_completed: int,
+        chapters_total: int,
+    ) -> float:
+        """Compute mastery score for a guide.
+
+        mastery = completion_pct * 0.4 + review_score * 0.6
+        """
+        if chapters_total == 0:
+            return 0.0
+        completion_pct = chapters_completed / chapters_total * 100
+
+        avg_ef_row = conn.execute(
+            """SELECT AVG(easiness_factor) FROM review_items
+               WHERE user_id=? AND guide_id=? AND last_reviewed IS NOT NULL
+               AND item_type != 'pre_reading'""",
+            (user_id, guide_id),
+        ).fetchone()
+        avg_ef = avg_ef_row[0] if avg_ef_row and avg_ef_row[0] is not None else None
+
+        if avg_ef is None:
+            return round(completion_pct * 0.4, 1)
+
+        review_score = max(0.0, min(100.0, (avg_ef - 1.3) / 1.2 * 100))
+        return round(completion_pct * 0.4 + review_score * 0.6, 1)
+
+    def list_tracks(self, user_id: str, track_metadata: dict[str, dict]) -> list[dict]:
+        """List tracks with aggregate stats."""
+        with wal_connect(self.db_path, row_factory=True) as conn:
+            rows = conn.execute("SELECT * FROM guides ORDER BY id").fetchall()
+
+            tracks: dict[str, dict] = {}
+            # Init from metadata
+            for tid, meta in track_metadata.items():
+                tracks[tid] = {
+                    "id": tid,
+                    "title": meta.get("title", tid),
+                    "description": meta.get("description", ""),
+                    "color": meta.get("color", "#6b7280"),
+                    "guide_count": 0,
+                    "guides_completed": 0,
+                    "mastery_scores": [],
+                    "guide_ids": [],
+                }
+
+            for row in rows:
+                d = dict(row)
+                track_id = d.get("track", "") or ""
+                if not track_id:
+                    track_id = "_uncategorized"
+                if track_id not in tracks:
+                    tracks[track_id] = {
+                        "id": track_id,
+                        "title": track_id.replace("_", " ").title(),
+                        "description": "",
+                        "color": "#6b7280",
+                        "guide_count": 0,
+                        "guides_completed": 0,
+                        "mastery_scores": [],
+                        "guide_ids": [],
+                    }
+
+                t = tracks[track_id]
+                t["guide_count"] += 1
+                t["guide_ids"].append(d["id"])
+
+                if user_id:
+                    total = conn.execute(
+                        "SELECT COUNT(*) FROM chapters WHERE guide_id=?", (d["id"],)
+                    ).fetchone()[0]
+                    completed = conn.execute(
+                        "SELECT COUNT(*) FROM user_chapter_progress WHERE user_id=? AND guide_id=? AND status='completed'",
+                        (user_id, d["id"]),
+                    ).fetchone()[0]
+                    mastery = self._compute_mastery(conn, user_id, d["id"], completed, total)
+                    t["mastery_scores"].append(mastery)
+
+                    enrollment = conn.execute(
+                        "SELECT completed_at FROM user_guide_enrollment WHERE user_id=? AND guide_id=?",
+                        (user_id, d["id"]),
+                    ).fetchone()
+                    if enrollment and dict(enrollment).get("completed_at"):
+                        t["guides_completed"] += 1
+
+            result = []
+            for t in tracks.values():
+                scores = t.pop("mastery_scores")
+                t["average_mastery"] = round(sum(scores) / len(scores), 1) if scores else 0.0
+                t["completion_pct"] = (
+                    round(t["guides_completed"] / t["guide_count"] * 100, 1)
+                    if t["guide_count"] > 0
+                    else 0.0
+                )
+                result.append(t)
+            return result
 
     def get_next_chapter(self, user_id: str, guide_id: str) -> dict | None:
         """Get next unread chapter in a guide."""

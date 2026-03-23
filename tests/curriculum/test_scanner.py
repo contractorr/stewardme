@@ -5,7 +5,13 @@ from pathlib import Path
 import pytest
 
 from curriculum.models import GuideCategory
-from curriculum.scanner import CurriculumScanner, _detect_diagrams, _extract_title, _infer_category
+from curriculum.scanner import (
+    CurriculumScanner,
+    _detect_diagrams,
+    _extract_title,
+    _infer_category,
+    load_skill_tree,
+)
 
 
 @pytest.fixture
@@ -133,3 +139,99 @@ def test_content_hash_deterministic(content_dir):
 
     for c1, c2 in zip(chapters1, chapters2):
         assert c1.content_hash == c2.content_hash
+
+
+# --- Skill tree tests ---
+
+
+@pytest.fixture
+def content_dir_with_manifest(content_dir):
+    """Add a skill_tree.yaml to content_dir."""
+    manifest = content_dir / "skill_tree.yaml"
+    manifest.write_text(
+        """version: 1
+tracks:
+  foundations:
+    title: "Foundations"
+    description: "Core frameworks"
+    color: "#6366f1"
+    guides:
+      - id: "01-philosophy-guide"
+        prerequisites: []
+      - id: "02-economics-guide"
+        prerequisites: ["01-philosophy-guide"]
+  industry:
+    title: "Industry"
+    description: "Sector deep dives"
+    color: "#ef4444"
+    guides:
+      - id: "industry-healthcare"
+        prerequisites: ["01-philosophy-guide"]
+"""
+    )
+    return content_dir
+
+
+def test_skill_tree_loaded(content_dir_with_manifest):
+    """Manifest overrides auto-inferred prereqs."""
+    scanner = CurriculumScanner([content_dir_with_manifest])
+    guides, _ = scanner.scan()
+
+    econ = next(g for g in guides if g.id == "02-economics-guide")
+    assert econ.prerequisites == ["01-philosophy-guide"]
+
+    phil = next(g for g in guides if g.id == "01-philosophy-guide")
+    assert phil.prerequisites == []
+
+
+def test_skill_tree_sets_track(content_dir_with_manifest):
+    scanner = CurriculumScanner([content_dir_with_manifest])
+    guides, _ = scanner.scan()
+
+    phil = next(g for g in guides if g.id == "01-philosophy-guide")
+    assert phil.track == "foundations"
+
+    hc = next(g for g in guides if g.id == "industry-healthcare")
+    assert hc.track == "industry"
+
+
+def test_skill_tree_missing_fallback(content_dir):
+    """No manifest = auto-inferred prereqs, empty track."""
+    scanner = CurriculumScanner([content_dir])
+    guides, _ = scanner.scan()
+
+    econ = next(g for g in guides if g.id == "02-economics-guide")
+    assert "01-philosophy-guide" in econ.prerequisites
+    assert econ.track == ""
+
+
+def test_skill_tree_guide_not_in_manifest(content_dir_with_manifest):
+    """Guide not listed in manifest gets empty track/prereqs."""
+    # Add a guide not in the manifest
+    extra = content_dir_with_manifest / "99-unknown-guide"
+    extra.mkdir()
+    (extra / "01-intro.md").write_text("# Unknown\n\nContent.\n")
+
+    scanner = CurriculumScanner([content_dir_with_manifest])
+    guides, _ = scanner.scan()
+
+    unknown = next(g for g in guides if g.id == "99-unknown-guide")
+    assert unknown.track == ""
+    assert unknown.prerequisites == []
+
+
+def test_load_skill_tree_invalid_yaml(tmp_path):
+    manifest = tmp_path / "skill_tree.yaml"
+    manifest.write_text("{{invalid yaml content")
+    result = load_skill_tree(tmp_path)
+    assert result is None
+
+
+def test_get_track_metadata(content_dir_with_manifest):
+    scanner = CurriculumScanner([content_dir_with_manifest])
+    meta = scanner.get_track_metadata()
+
+    assert "foundations" in meta
+    assert meta["foundations"]["title"] == "Foundations"
+    assert meta["foundations"]["color"] == "#6366f1"
+    assert "industry" in meta

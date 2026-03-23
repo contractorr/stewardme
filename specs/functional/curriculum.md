@@ -129,6 +129,35 @@ Learn is a structured study workspace that turns a corpus of markdown guides int
 | Glossary chapter | No pre-reading or teach-back generated |
 | Hash-based fallback embedder | Higher distance threshold (0.5) for related chapters |
 
+### Skill tree
+
+- `/learn` organizes guides into **tracks** — thematic groupings with curated prerequisite chains.
+- 6 tracks: Foundations, Natural Sciences, Human Sciences, Business & Economics, Technology, Industry.
+- Each guide belongs to exactly one track. Prerequisites are hand-curated per guide (not auto-inferred from directory numbering).
+- A **mastery score** (0-100) is computed per guide from completion + review performance. Displayed on guide cards and aggregated per track.
+- Tracks and prerequisites are **informational only** — no gating or locking. Users can start any guide regardless of prerequisite completion.
+- Track view shows aggregate stats: guides completed, average mastery, completion percentage.
+- MCP `curriculum_list_guides` accepts optional `track` filter.
+
+#### Acceptance Criteria (Skill Tree)
+
+- [ ] Every guide belongs to exactly one track
+- [ ] Guide cards show mastery score
+- [ ] `/api/curriculum/tracks` returns 6 tracks with aggregate stats
+- [ ] Prerequisites come from curated manifest, not directory numbering
+- [ ] Incomplete prerequisites do not block enrollment or reading
+- [ ] MCP tool filters by track
+
+#### Edge Cases (Skill Tree)
+
+| Scenario | Expected Behavior |
+|----------|-------------------|
+| Guide not in manifest | Empty track, empty prerequisites, mastery still computed |
+| Manifest file missing | Falls back to auto-inferred prereqs from directory ordering |
+| Duplicate guides (34-game-theory, 35-engineering) | Each appears in its natural track with appropriate prereqs |
+| No reviews for a guide | Mastery = completion_pct * 0.4 |
+| No progress at all | Mastery = 0 |
+
 ## Out of Scope
 
 - Cross-domain synthesis questions — requires 3+ active guides

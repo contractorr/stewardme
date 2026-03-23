@@ -73,6 +73,19 @@ class Guide(BaseModel):
     total_reading_time_minutes: int = 0
     has_glossary: bool = False
     prerequisites: list[str] = Field(default_factory=list)  # guide IDs
+    track: str = ""
+
+
+class Track(BaseModel):
+    id: str
+    title: str
+    description: str = ""
+    color: str = "#6b7280"
+    guide_count: int = 0
+    guides_completed: int = 0
+    average_mastery: float = 0.0
+    completion_pct: float = 0.0
+    guide_ids: list[str] = Field(default_factory=list)
 
 
 # --- User progress models ---
@@ -148,6 +161,7 @@ class LearningStats(BaseModel):
     current_streak_days: int = 0
     reviews_due: int = 0
     mastery_by_category: dict[str, float] = Field(default_factory=dict)
+    mastery_by_track: dict[str, float] = Field(default_factory=dict)
     daily_activity: dict[str, int] = Field(default_factory=dict)  # date -> count
 
 

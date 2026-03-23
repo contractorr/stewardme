@@ -1,0 +1,139 @@
+version: 1
+tracks:
+  foundations:
+    title: "Foundations"
+    description: "Core reasoning, mathematics, and formal frameworks"
+    color: "#6366f1"
+    guides:
+      - id: "01-philosophy-guide"
+        prerequisites: []
+      - id: "02-epistemology-decision-theory-guide"
+        prerequisites: ["01-philosophy-guide"]
+      - id: "03-mathematics-pure-applied-guide"
+        prerequisites: []
+      - id: "04-statistics-probability-guide"
+        prerequisites: ["03-mathematics-pure-applied-guide"]
+      - id: "05-game-theory-strategic-interaction-guide"
+        prerequisites: ["03-mathematics-pure-applied-guide", "04-statistics-probability-guide"]
+      - id: "08-information-theory-complex-systems-guide"
+        prerequisites: ["03-mathematics-pure-applied-guide"]
+      - id: "19-linguistics-language-guide"
+        prerequisites: ["01-philosophy-guide"]
+      - id: "20-history-of-science-guide"
+        prerequisites: ["01-philosophy-guide"]
+
+  natural_sciences:
+    title: "Natural Sciences"
+    description: "Physics, chemistry, biology, earth sciences, and medicine"
+    color: "#10b981"
+    guides:
+      - id: "06-physics-fundamentals-guide"
+        prerequisites: ["03-mathematics-pure-applied-guide"]
+      - id: "07-chemistry-biochemistry-guide"
+        prerequisites: ["06-physics-fundamentals-guide"]
+      - id: "09-geology-earth-science-guide"
+        prerequisites: ["06-physics-fundamentals-guide", "07-chemistry-biochemistry-guide"]
+      - id: "10-oceanography-marine-systems-guide"
+        prerequisites: ["09-geology-earth-science-guide"]
+      - id: "11-energy-materials-guide"
+        prerequisites: ["06-physics-fundamentals-guide", "07-chemistry-biochemistry-guide"]
+      - id: "12-climate-earth-systems-guide"
+        prerequisites: ["09-geology-earth-science-guide", "10-oceanography-marine-systems-guide"]
+      - id: "13-evolutionary-biology-guide"
+        prerequisites: ["07-chemistry-biochemistry-guide"]
+      - id: "14-genetics-biotech-guide"
+        prerequisites: ["13-evolutionary-biology-guide"]
+      - id: "15-ecology-biodiversity-guide"
+        prerequisites: ["13-evolutionary-biology-guide"]
+      - id: "16-cognitive-neuroscience-guide"
+        prerequisites: ["07-chemistry-biochemistry-guide"]
+      - id: "17-medicine-human-physiology-guide"
+        prerequisites: ["07-chemistry-biochemistry-guide", "16-cognitive-neuroscience-guide"]
+      - id: "33-agriculture-food-systems-guide"
+        prerequisites: ["13-evolutionary-biology-guide", "15-ecology-biodiversity-guide"]
+
+  human_sciences:
+    title: "Human Sciences"
+    description: "Psychology, sociology, demography, religion, and history"
+    color: "#f59e0b"
+    guides:
+      - id: "18-behavioral-psychology-guide"
+        prerequisites: ["16-cognitive-neuroscience-guide"]
+      - id: "21-religion-comparative-theology-guide"
+        prerequisites: ["01-philosophy-guide"]
+      - id: "22-world-history-civilizational-dynamics-guide"
+        prerequisites: ["20-history-of-science-guide"]
+      - id: "23-sociology-institutional-design-guide"
+        prerequisites: ["18-behavioral-psychology-guide"]
+      - id: "34-demography-urbanization-infrastructure-guide"
+        prerequisites: ["23-sociology-institutional-design-guide", "04-statistics-probability-guide"]
+
+  business_economics:
+    title: "Business & Economics"
+    description: "Economics, finance, accounting, and business strategy"
+    color: "#3b82f6"
+    guides:
+      - id: "26-economics-guide"
+        prerequisites: ["03-mathematics-pure-applied-guide", "04-statistics-probability-guide"]
+      - id: "27-economic-history-guide"
+        prerequisites: ["26-economics-guide"]
+      - id: "28-accounting"
+        prerequisites: []
+      - id: "29-personal-finance-guide"
+        prerequisites: ["28-accounting"]
+      - id: "30-mba-curriculum"
+        prerequisites: ["26-economics-guide", "28-accounting"]
+      - id: "31-private-markets-curriculum"
+        prerequisites: ["30-mba-curriculum"]
+      - id: "34-game-theory-strategic-interaction-guide"
+        prerequisites: ["05-game-theory-strategic-interaction-guide", "26-economics-guide"]
+
+  technology:
+    title: "Technology"
+    description: "Computer science, AI/ML, cybersecurity, and engineering"
+    color: "#8b5cf6"
+    guides:
+      - id: "36-computer-science-algorithms-guide"
+        prerequisites: ["03-mathematics-pure-applied-guide"]
+      - id: "37-ai-ml-fundamentals-guide"
+        prerequisites: ["36-computer-science-algorithms-guide", "04-statistics-probability-guide"]
+      - id: "38-cybersecurity-guide"
+        prerequisites: ["36-computer-science-algorithms-guide"]
+      - id: "32-engineering-guide"
+        prerequisites: ["06-physics-fundamentals-guide", "03-mathematics-pure-applied-guide"]
+      - id: "35-engineering-guide"
+        prerequisites: ["32-engineering-guide"]
+      - id: "35-geopolitics-guide"
+        prerequisites: ["24-government-politics-guide", "22-world-history-civilizational-dynamics-guide"]
+
+  industry:
+    title: "Industry"
+    description: "Sector-specific deep dives and applied knowledge"
+    color: "#ef4444"
+    guides:
+      - id: "24-government-politics-guide"
+        prerequisites: ["23-sociology-institutional-design-guide"]
+      - id: "25-law-legal-systems-guide"
+        prerequisites: ["24-government-politics-guide"]
+      - id: "industry-accounting"
+        prerequisites: ["28-accounting"]
+      - id: "industry-construction"
+        prerequisites: ["32-engineering-guide"]
+      - id: "industry-energy"
+        prerequisites: ["11-energy-materials-guide"]
+      - id: "industry-financialservices"
+        prerequisites: ["30-mba-curriculum"]
+      - id: "industry-government"
+        prerequisites: ["24-government-politics-guide"]
+      - id: "industry-healthcare"
+        prerequisites: ["17-medicine-human-physiology-guide"]
+      - id: "industry-hr"
+        prerequisites: ["23-sociology-institutional-design-guide"]
+      - id: "industry-insurance"
+        prerequisites: ["04-statistics-probability-guide", "25-law-legal-systems-guide"]
+      - id: "industry-legal"
+        prerequisites: ["25-law-legal-systems-guide"]
+      - id: "industry-realestate"
+        prerequisites: ["26-economics-guide"]
+      - id: "industry-supplychain"
+        prerequisites: ["26-economics-guide", "32-engineering-guide"]

@@ -45,7 +45,10 @@ def _read_chapter_content(chapter_id: str) -> str | None:
 def _list_guides(args: dict) -> dict:
     store = _get_store()
     category = args.get("category")
+    track = args.get("track")
     guides = store.list_guides(category=category)
+    if track:
+        guides = [g for g in guides if g.get("track") == track]
     return {"guides": guides, "count": len(guides)}
 
 
@@ -108,6 +111,18 @@ TOOLS = [
                         "industry",
                         "social_science",
                         "professional",
+                    ],
+                },
+                "track": {
+                    "type": "string",
+                    "description": "Filter by skill tree track",
+                    "enum": [
+                        "foundations",
+                        "natural_sciences",
+                        "human_sciences",
+                        "business_economics",
+                        "technology",
+                        "industry",
                     ],
                 },
             },

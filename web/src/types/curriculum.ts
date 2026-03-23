@@ -32,12 +32,14 @@ export interface Guide {
   total_reading_time_minutes: number;
   has_glossary: boolean;
   prerequisites: string[];
+  track?: string;
   // Progress (present when user_id provided)
   enrolled?: boolean;
   enrollment_completed_at?: string | null;
   chapters_total?: number;
   chapters_completed?: number;
   progress_pct?: number;
+  mastery_score?: number;
 }
 
 export interface Chapter {
@@ -125,6 +127,7 @@ export interface LearningStats {
   current_streak_days: number;
   reviews_due: number;
   mastery_by_category: Record<string, number>;
+  mastery_by_track?: Record<string, number>;
   daily_activity: Record<string, number>;
 }
 
@@ -133,6 +136,18 @@ export interface NextRecommendation {
   guide_title?: string;
   chapter: Chapter | null;
   reason: string;
+}
+
+export interface Track {
+  id: string;
+  title: string;
+  description: string;
+  color: string;
+  guide_count: number;
+  guides_completed: number;
+  average_mastery: number;
+  completion_pct: number;
+  guide_ids: string[];
 }
 
 export interface RelatedChapter {
