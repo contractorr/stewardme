@@ -29,10 +29,8 @@ class TestGetProfileContext:
     def test_structured_output(self, rag):
         profile = MagicMock()
         profile.structured_summary.return_value = "STRUCTURED"
-        ps_instance = MagicMock()
-        ps_instance.load.return_value = profile
 
-        with patch("profile.storage.ProfileStorage", return_value=ps_instance):
+        with patch.object(rag._profile, "load", return_value=profile):
             result = rag.get_profile_context(structured=True)
 
         assert "STRUCTURED" in result
@@ -40,24 +38,19 @@ class TestGetProfileContext:
     def test_compact_output(self, rag):
         profile = MagicMock()
         profile.summary.return_value = "compact summary"
-        ps_instance = MagicMock()
-        ps_instance.load.return_value = profile
 
-        with patch("profile.storage.ProfileStorage", return_value=ps_instance):
+        with patch.object(rag._profile, "load", return_value=profile):
             result = rag.get_profile_context(structured=False)
 
         assert "USER PROFILE" in result
         assert "compact summary" in result
 
     def test_no_profile_returns_empty(self, rag):
-        ps_instance = MagicMock()
-        ps_instance.load.return_value = None
-
-        with patch("profile.storage.ProfileStorage", return_value=ps_instance):
+        with patch.object(rag._profile, "load", return_value=None):
             assert rag.get_profile_context() == ""
 
     def test_exception_returns_empty(self, rag):
-        with patch("profile.storage.ProfileStorage", side_effect=ImportError("no module")):
+        with patch.object(rag._profile, "load", side_effect=ImportError("no module")):
             assert rag.get_profile_context() == ""
 
 
@@ -78,24 +71,19 @@ class TestGetProfileKeywords:
         profile.industries_watching = ["fintech"]
         profile.interests = ["compilers"]
         profile.active_projects = ["AI Coach"]
-        ps_instance = MagicMock()
-        ps_instance.load.return_value = profile
 
-        with patch("profile.storage.ProfileStorage", return_value=ps_instance):
+        with patch.object(rag._profile, "load", return_value=profile):
             kw = rag.get_profile_keywords()
 
         assert "python" in kw
         assert "fastapi" in kw
 
     def test_empty_profile_returns_empty(self, rag):
-        ps_instance = MagicMock()
-        ps_instance.load.return_value = None
-
-        with patch("profile.storage.ProfileStorage", return_value=ps_instance):
+        with patch.object(rag._profile, "load", return_value=None):
             assert rag.get_profile_keywords() == []
 
     def test_exception_returns_empty(self, rag):
-        with patch("profile.storage.ProfileStorage", side_effect=Exception("boom")):
+        with patch.object(rag._profile, "load", side_effect=Exception("boom")):
             assert rag.get_profile_keywords() == []
 
 
@@ -116,10 +104,8 @@ class TestLoadProfileTerms:
         profile.goals_short_term = "learn distributed systems"
         profile.goals_long_term = "become staff engineer"
         profile.aspirations = "open source maintainer"
-        ps_instance = MagicMock()
-        ps_instance.load.return_value = profile
 
-        with patch("profile.storage.ProfileStorage", return_value=ps_instance):
+        with patch.object(rag._profile, "load", return_value=profile):
             terms = rag._load_profile_terms()
 
         assert (
@@ -130,16 +116,14 @@ class TestLoadProfileTerms:
         assert any("fastapi" in t.lower() for t in terms.tech)
 
     def test_no_profile_returns_empty_terms(self, rag):
-        ps_instance = MagicMock()
-        ps_instance.load.return_value = None
-
-        with patch("profile.storage.ProfileStorage", return_value=ps_instance):
+        with patch.object(rag._profile, "load", return_value=None):
             terms = rag._load_profile_terms()
 
         assert terms.is_empty
 
-    def test_exception_returns_empty_terms(self, rag):
-        with patch("profile.storage.ProfileStorage", side_effect=Exception("x")):
+    def test_load_failure_returns_empty_terms(self, rag):
+        """When profile load() returns None, terms are empty."""
+        with patch.object(rag._profile, "load", return_value=None):
             terms = rag._load_profile_terms()
         assert terms.is_empty
 
