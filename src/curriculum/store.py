@@ -968,6 +968,92 @@ class CurriculumStore:
                 )
             return results
 
+    def get_ready_guides(self, user_id: str) -> list[dict]:
+        """Return guides where ALL prereqs are completed and guide is NOT enrolled.
+
+        Entry-point guides (no prereqs) are excluded.
+        """
+        import json
+
+        with wal_connect(self.db_path, row_factory=True) as conn:
+            rows = conn.execute("SELECT * FROM guides ORDER BY id").fetchall()
+            results = []
+            for row in rows:
+                d = dict(row)
+                prereqs = json.loads(d.get("prerequisites", "[]"))
+                if not prereqs:
+                    continue  # skip entry points
+
+                # Check not enrolled
+                enrollment = conn.execute(
+                    "SELECT 1 FROM user_guide_enrollment WHERE user_id=? AND guide_id=?",
+                    (user_id, d["id"]),
+                ).fetchone()
+                if enrollment:
+                    continue
+
+                # Check ALL prereqs have completed enrollment
+                all_met = True
+                for prereq_id in prereqs:
+                    prereq_enrollment = conn.execute(
+                        "SELECT completed_at FROM user_guide_enrollment WHERE user_id=? AND guide_id=?",
+                        (user_id, prereq_id),
+                    ).fetchone()
+                    if not prereq_enrollment or dict(prereq_enrollment).get("completed_at") is None:
+                        all_met = False
+                        break
+
+                if all_met:
+                    results.append(
+                        {
+                            "id": d["id"],
+                            "title": d["title"],
+                            "track": d.get("track", ""),
+                            "category": d["category"],
+                            "difficulty": d["difficulty"],
+                            "chapter_count": d["chapter_count"],
+                            "prerequisites": prereqs,
+                        }
+                    )
+            return results
+
+    def complete_guide_placement(self, user_id: str, guide_id: str) -> dict:
+        """Auto-enroll + mark all chapters completed + complete guide in one transaction."""
+        now = datetime.utcnow().isoformat()
+        with wal_connect(self.db_path) as conn:
+            # Auto-enroll
+            conn.execute(
+                """INSERT INTO user_guide_enrollment (user_id, guide_id, enrolled_at, completed_at)
+                   VALUES (?, ?, ?, ?)
+                   ON CONFLICT(user_id, guide_id) DO UPDATE SET completed_at=excluded.completed_at""",
+                (user_id, guide_id, now, now),
+            )
+
+            # Mark all non-glossary chapters completed
+            chapters = conn.execute(
+                'SELECT id FROM chapters WHERE guide_id=? AND is_glossary=0 ORDER BY "order"',
+                (guide_id,),
+            ).fetchall()
+            for ch in chapters:
+                ch_id = ch[0]
+                conn.execute(
+                    """INSERT INTO user_chapter_progress
+                       (user_id, chapter_id, guide_id, status, reading_time_seconds,
+                        scroll_position, started_at, completed_at, updated_at)
+                       VALUES (?, ?, ?, 'completed', 0, 1.0, ?, ?, ?)
+                       ON CONFLICT(user_id, chapter_id) DO UPDATE SET
+                       status='completed', completed_at=excluded.completed_at,
+                       updated_at=excluded.updated_at""",
+                    (user_id, ch_id, guide_id, now, now, now),
+                )
+
+            conn.commit()
+            return {
+                "guide_id": guide_id,
+                "chapters_marked": len(chapters),
+                "completed_at": now,
+            }
+
     def get_next_chapter(self, user_id: str, guide_id: str) -> dict | None:
         """Get next unread chapter in a guide."""
         with wal_connect(self.db_path, row_factory=True) as conn:

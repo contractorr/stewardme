@@ -1,5 +1,6 @@
-"""Curriculum / Learn routes — guides, chapters, progress, reviews, quizzes."""
+"""Curriculum / Learn routes — guides, chapters, progress, reviews, quizzes, placement."""
 
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import structlog
@@ -779,17 +780,27 @@ async def sync_content(user: dict = Depends(get_current_user)):
     return {"synced_guides": count}
 
 
+@router.get("/ready")
+async def get_ready_guides(
+    user: dict = Depends(get_current_user),
+):
+    """Return guides whose prerequisites are all completed but not yet enrolled."""
+    store = _get_store(user["id"])
+    return store.get_ready_guides(user["id"])
+
+
 @router.get("/next")
 async def get_next_recommendation(
     user: dict = Depends(get_current_user),
 ):
-    """Get advisor-recommended next chapter to study."""
-    store = _get_store(user["id"])
+    """Get advisor-recommended next chapter/guide to study (DAG-aware)."""
+    user_id = user["id"]
+    store = _get_store(user_id)
 
-    # Simple heuristic: continue last read guide, or suggest enrolled guide with most progress
-    last = store.get_last_read_chapter(user["id"])
+    # 1. Continue last-read guide
+    last = store.get_last_read_chapter(user_id)
     if last:
-        next_ch = store.get_next_chapter(user["id"], last["guide_id"])
+        next_ch = store.get_next_chapter(user_id, last["guide_id"])
         if next_ch:
             return {
                 "guide_id": last["guide_id"],
@@ -798,12 +809,12 @@ async def get_next_recommendation(
                 "reason": "Continue where you left off",
             }
 
-    # Check enrolled guides
-    enrollments = store.get_enrollments(user["id"])
+    # 2. Next enrolled incomplete guide
+    enrollments = store.get_enrollments(user_id)
     for enrollment in enrollments:
         if enrollment.get("completed_at"):
             continue
-        next_ch = store.get_next_chapter(user["id"], enrollment["guide_id"])
+        next_ch = store.get_next_chapter(user_id, enrollment["guide_id"])
         if next_ch:
             guide = store.get_guide(enrollment["guide_id"])
             return {
@@ -813,10 +824,194 @@ async def get_next_recommendation(
                 "reason": "Continue enrolled guide",
             }
 
+    # 3. Ready-to-start guide (all prereqs completed, not enrolled)
+    ready = store.get_ready_guides(user_id)
+    if ready:
+        g = ready[0]
+        return {
+            "guide_id": g["id"],
+            "guide_title": g["title"],
+            "chapter": None,
+            "reason": "Prerequisites complete — ready to start",
+            "action": "enroll",
+        }
+
+    # 4. Entry-point guide (no prereqs, not enrolled)
+    import json
+
+    all_guides = store.list_guides()
+    for g in all_guides:
+        prereqs = g.get("prerequisites", [])
+        if isinstance(prereqs, str):
+            prereqs = json.loads(prereqs)
+        if prereqs:
+            continue
+        if not store.is_enrolled(user_id, g["id"]):
+            return {
+                "guide_id": g["id"],
+                "guide_title": g["title"],
+                "chapter": None,
+                "reason": "Suggested entry point — no prerequisites",
+                "action": "enroll",
+            }
+
     return {
         "guide_id": None,
         "chapter": None,
         "reason": "No active guides — enroll in one to get started",
+    }
+
+
+# --- Placement bypass (test-out) ---
+
+_placement_cache: dict[tuple[str, str], dict] = {}
+_PLACEMENT_TTL = timedelta(hours=1)
+
+
+@router.post("/guides/{guide_id}/placement/generate")
+async def generate_placement(
+    guide_id: str,
+    user: dict = Depends(get_current_user),
+):
+    """Generate placement quiz for testing out of a guide."""
+    config = get_config()
+    if not config.curriculum.placement_enabled:
+        raise HTTPException(status_code=400, detail="Placement bypass disabled")
+
+    user_id = user["id"]
+    store = _get_store(user_id)
+    guide = store.get_guide(guide_id, user_id=user_id)
+    if not guide:
+        raise HTTPException(status_code=404, detail="Guide not found")
+
+    # Reject if already completed
+    if guide.get("enrollment_completed_at"):
+        raise HTTPException(status_code=400, detail="Guide already completed")
+
+    chapters = [c for c in guide.get("chapters", []) if not c.get("is_glossary")]
+    if not chapters:
+        raise HTTPException(status_code=400, detail="No assessable chapters")
+
+    gen = QuestionGenerator()
+    all_questions: list[dict] = []
+    max_q = config.curriculum.placement_max_questions
+    per_ch = config.curriculum.placement_questions_per_chapter
+
+    for ch in chapters:
+        if len(all_questions) >= max_q:
+            break
+        content_path = _chapter_content_path(ch["id"])
+        if not content_path:
+            continue
+        content = content_path.read_text(encoding="utf-8")
+        guide_title = guide["title"]
+        remaining = max_q - len(all_questions)
+        count = min(per_ch, remaining)
+
+        questions = await gen.generate_placement_questions(
+            content=content,
+            chapter_title=ch["title"],
+            guide_title=guide_title,
+            count=count,
+        )
+        for q in questions:
+            q["chapter_id"] = ch["id"]
+        all_questions.extend(questions)
+
+    if not all_questions:
+        raise HTTPException(status_code=500, detail="Failed to generate placement questions")
+
+    # Cache with answers server-side
+    _placement_cache[(user_id, guide_id)] = {
+        "questions": all_questions,
+        "created_at": datetime.utcnow(),
+    }
+
+    # Return without expected_answer
+    client_questions = [
+        {
+            "id": q["id"],
+            "chapter_id": q.get("chapter_id", ""),
+            "question": q["question"],
+            "bloom_level": q.get("bloom_level", "apply"),
+        }
+        for q in all_questions
+    ]
+
+    log_event(
+        "placement_generated", user_id, {"guide_id": guide_id, "count": len(client_questions)}
+    )
+    return {"questions": client_questions, "guide_id": guide_id}
+
+
+@router.post("/guides/{guide_id}/placement/submit")
+async def submit_placement(
+    guide_id: str,
+    body: QuizSubmission,
+    user: dict = Depends(get_current_user),
+):
+    """Submit placement answers and grade them."""
+    config = get_config()
+    user_id = user["id"]
+
+    cache_key = (user_id, guide_id)
+    cached = _placement_cache.get(cache_key)
+    if not cached:
+        raise HTTPException(status_code=410, detail="Placement session expired or not found")
+
+    if datetime.utcnow() - cached["created_at"] > _PLACEMENT_TTL:
+        _placement_cache.pop(cache_key, None)
+        raise HTTPException(status_code=410, detail="Placement session expired")
+
+    questions_by_id = {q["id"]: q for q in cached["questions"]}
+    gen = QuestionGenerator()
+    results = []
+
+    for question_id, answer in body.answers.items():
+        q = questions_by_id.get(question_id)
+        if not q:
+            continue
+        bloom_str = q.get("bloom_level", "apply")
+        try:
+            bloom = BloomLevel(bloom_str)
+        except ValueError:
+            bloom = BloomLevel.APPLY
+
+        grade_result = await gen.grade_answer(
+            question=q["question"],
+            expected_answer=q.get("expected_answer", ""),
+            student_answer=answer,
+            bloom_level=bloom,
+        )
+        results.append(
+            {
+                "question_id": question_id,
+                "grade": grade_result.grade,
+                "feedback": grade_result.feedback,
+                "correct_points": grade_result.correct_points,
+                "missing_points": grade_result.missing_points,
+            }
+        )
+
+    avg_grade = sum(r["grade"] for r in results) / len(results) if results else 0
+    threshold = config.curriculum.placement_pass_threshold
+    passed = avg_grade >= threshold
+
+    completion = None
+    if passed:
+        store = _get_store(user_id)
+        completion = store.complete_guide_placement(user_id, guide_id)
+        _placement_cache.pop(cache_key, None)
+        log_event("placement_passed", user_id, {"guide_id": guide_id, "avg_grade": avg_grade})
+    else:
+        log_event("placement_failed", user_id, {"guide_id": guide_id, "avg_grade": avg_grade})
+
+    return {
+        "results": results,
+        "average_grade": round(avg_grade, 2),
+        "passed": passed,
+        "threshold": threshold,
+        "completion": completion,
     }
 
 

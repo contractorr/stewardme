@@ -152,6 +152,12 @@ Learn is a structured study workspace that turns a corpus of markdown guides int
 - [ ] Entry-point guides have `is_entry_point: true` and `depth: 0`
 - [ ] Cross-track prerequisite edges are included
 - [ ] Layout positions computed via topological sort (longest path from root)
+- [ ] `/learn` page has Grid/Tree tabs; Grid tab shows existing guide grid, Tree tab shows DAG view
+- [ ] Tree view groups nodes by depth tier with SVG edges connecting prerequisites
+- [ ] Track filter badges in tree view filter nodes by track
+- [ ] Node cards show status (color-coded), mastery, progress, and track color border
+- [ ] Clicking a tree node navigates to guide detail page
+- [ ] Tree view scrolls horizontally on narrow screens
 
 #### Edge Cases (Skill Tree)
 
@@ -163,6 +169,65 @@ Learn is a structured study workspace that turns a corpus of markdown guides int
 | No reviews for a guide | Mastery = completion_pct * 0.4 |
 | No progress at all | Mastery = 0 |
 
+### Enhanced recommendations (DAG-aware)
+
+- `/api/curriculum/next` uses DAG-aware priority: (1) continue last-read, (2) next enrolled incomplete, (3) ready-to-start guide (all prereqs completed, not yet enrolled), (4) entry-point guide (no prereqs, not enrolled), (5) fallback message.
+- Ready-to-start suggestions return `action: "enroll"` so the frontend can offer one-click enrollment.
+- `/api/curriculum/ready` returns all guides whose prerequisites are fully completed but the guide itself is not enrolled.
+- MCP `curriculum_skill_tree` tool returns tree data + edges for Claude Code integration.
+- MCP `curriculum_recommend_next` uses same DAG-aware priority as web route.
+
+#### Acceptance Criteria (Enhanced Recommendations)
+
+- [ ] `/next` returns a ready-to-start guide when no active reading exists but prereqs are met
+- [ ] `/next` returns an entry-point guide when no enrolled or ready guides exist
+- [ ] Ready-to-start suggestions include `action: "enroll"` field
+- [ ] `/ready` returns guides with all prereqs completed, excludes already-enrolled
+- [ ] MCP `curriculum_skill_tree` returns nodes and edges matching web `/tree` endpoint
+- [ ] MCP `curriculum_recommend_next` suggests DAG-aware guides
+
+#### Edge Cases (Enhanced Recommendations)
+
+| Scenario | Expected Behavior |
+|----------|-------------------|
+| No prereqs completed | `/ready` returns empty list; `/next` suggests entry points |
+| All guides enrolled | `/ready` returns empty; `/next` uses enrolled-incomplete logic |
+| Circular prereqs (shouldn't exist) | Guide never appears in ready list |
+| Guide prereq points to nonexistent guide | Guide excluded from ready list |
+
+### Placement bypass (test-out)
+
+- Advanced users can "test out" of a guide by taking a placement quiz covering all chapters.
+- Placement generates 2 questions per non-glossary chapter (capped at 15 total) at APPLY/ANALYZE/EVALUATE Bloom's levels.
+- Questions are ephemeral — never stored in review_items or SM-2 cycle.
+- Server caches questions for 1 hour; client never sees expected answers.
+- If average grade >= threshold (default 3.5/5): guide auto-completed (all chapters + guide marked done).
+- If average grade < threshold: user sees per-question grades and a "Start reading instead" CTA.
+- "Test out" button visible on guide detail when guide is NOT completed.
+- Toggled via `curriculum.placement_enabled` (default true).
+
+#### Acceptance Criteria (Placement Bypass)
+
+- [ ] "Test out" button visible on guide detail for non-completed guides
+- [ ] Placement generates questions at APPLY+ Bloom's levels, not REMEMBER/UNDERSTAND
+- [ ] Client receives questions without expected answers
+- [ ] Passing placement marks all chapters + guide as completed in one transaction
+- [ ] Failing placement does NOT modify any progress
+- [ ] Cached questions expire after 1 hour (410 on stale submit)
+- [ ] `placement_enabled=false` config disables the feature (400 response)
+- [ ] Placement-completed guide shows as completed in tree view and stats
+
+#### Edge Cases (Placement Bypass)
+
+| Scenario | Expected Behavior |
+|----------|-------------------|
+| Guide already completed | Generate endpoint rejects (400) |
+| Guide has 1 chapter | 2 questions generated, cap doesn't apply |
+| Guide has 20 chapters | Capped at 15 questions total |
+| All glossary chapters | No questions generated, endpoint returns error |
+| Cache expired on submit | 410 Gone response |
+| No LLM available | 500 with error message |
+
 ## Out of Scope
 
 - Cross-domain synthesis questions — requires 3+ active guides
@@ -173,8 +238,8 @@ Learn is a structured study workspace that turns a corpus of markdown guides int
 - `web/src/app/(dashboard)/learn/[guideId]/page.tsx` — guide detail
 - `web/src/app/(dashboard)/learn/[guideId]/[chapterId]/page.tsx` — chapter reader
 - `web/src/app/(dashboard)/learn/review/page.tsx` — review session
-- `web/src/components/curriculum/` — GuideCard, ChapterList, CurriculumRenderer, ReviewCard, etc.
-- `src/web/routes/curriculum.py` — 16 API endpoints
+- `web/src/components/curriculum/` — GuideCard, ChapterList, CurriculumRenderer, ReviewCard, SkillTree, SkillTreeNode, SkillTreeEdges, etc.
+- `src/web/routes/curriculum.py` — 21 API endpoints
 - `src/curriculum/` — scanner, store, spaced_repetition, question_generator, models
-- `src/coach_mcp/tools/curriculum.py` — 5 MCP tools
+- `src/coach_mcp/tools/curriculum.py` — 6 MCP tools
 - `content/curriculum/` — 327 markdown chapters

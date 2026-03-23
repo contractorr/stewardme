@@ -95,6 +95,24 @@ Output JSON with fields:
 
 Output ONLY valid JSON, no other text."""
 
+_PLACEMENT_PROMPT = """Generate {count} placement assessment questions for this chapter content.
+These questions test whether someone ALREADY knows the material (not whether they can recall after studying).
+
+Chapter: {chapter_title}
+Guide: {guide_title}
+
+Target Bloom's levels: APPLY, ANALYZE, EVALUATE (higher-order thinking only).
+
+Content:
+{content}
+
+For each question, output JSON array of objects with fields:
+- "question": the question text (practical application or analysis, not memorization)
+- "expected_answer": a concise model answer (2-4 sentences)
+- "bloom_level": one of "apply", "analyze", "evaluate"
+
+Output ONLY valid JSON array, no other text."""
+
 _GRADING_PROMPT = """Grade this answer to a study question.
 
 Question: {question}
@@ -242,6 +260,40 @@ class QuestionGenerator:
                 )
                 quiz_count += 1
         return items
+
+    async def generate_placement_questions(
+        self,
+        content: str,
+        chapter_title: str,
+        guide_title: str,
+        count: int = 2,
+    ) -> list[dict]:
+        """Generate placement (test-out) questions. Returns raw dicts, not ReviewItems."""
+        if not self.cheap_llm:
+            logger.warning("curriculum.placement.no_llm")
+            return []
+
+        words = content.split()
+        if len(words) > 4000:
+            content = " ".join(words[:4000]) + "\n...[truncated]"
+
+        prompt = _PLACEMENT_PROMPT.format(
+            count=count,
+            chapter_title=chapter_title,
+            guide_title=guide_title,
+            content=content,
+        )
+
+        try:
+            response = await self.cheap_llm.generate(prompt)
+            questions = self._parse_questions(response)
+            # Assign IDs
+            for q in questions:
+                q["id"] = uuid.uuid4().hex[:16]
+            return questions[:count]
+        except Exception:
+            logger.exception("curriculum.placement.generation_failed")
+            return []
 
     async def grade_answer(
         self,

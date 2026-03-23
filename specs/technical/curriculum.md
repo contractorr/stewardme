@@ -249,7 +249,61 @@ On chapter completion (`status == COMPLETED`):
 
 **File:** `src/coach_mcp/tools/curriculum.py`
 
-5 tools: `curriculum_list_guides`, `curriculum_get_chapter`, `curriculum_progress`, `curriculum_due_reviews`, `curriculum_recommend_next`. Follow the standard `TOOLS = [(name, schema, handler)]` pattern.
+6 tools: `curriculum_list_guides`, `curriculum_get_chapter`, `curriculum_progress`, `curriculum_due_reviews`, `curriculum_recommend_next`, `curriculum_skill_tree`. Follow the standard `TOOLS = [(name, schema, handler)]` pattern.
+
+### curriculum_skill_tree
+
+Returns skill tree DAG data: nodes with progress/mastery/status + edges from prerequisites. Calls `store.get_tree_data("")` and builds edges from each guide's prerequisites list.
+
+### curriculum_recommend_next (updated)
+
+DAG-aware priority: (1) continue last-read, (2) next enrolled incomplete, (3) first ready-to-start guide from `store.get_ready_guides("")`, (4) first entry-point guide (no prereqs, not enrolled), (5) fallback.
+
+---
+
+### CurriculumStore — new methods
+
+#### `get_ready_guides(user_id: str) -> list[dict]`
+
+Returns guides where ALL prerequisites have `completed_at IS NOT NULL` on enrollment, AND the guide itself is NOT enrolled. Entry-point guides (no prereqs) are excluded. Each result dict has `id, title, track, category, difficulty, chapter_count, prerequisites`.
+
+Uses a single query joining guides → user_guide_enrollment for prereqs, filtering by prereq completion.
+
+#### `complete_guide_placement(user_id: str, guide_id: str) -> dict`
+
+Single transaction: (1) auto-enroll via `ON CONFLICT DO NOTHING`, (2) mark all non-glossary chapters as completed, (3) mark guide enrollment as completed. Returns `{guide_id, chapters_marked, completed_at}`.
+
+---
+
+### QuestionGenerator — new method
+
+#### `generate_placement_questions(content, chapter_title, guide_title, count=2) -> list[dict]`
+
+Uses `_PLACEMENT_PROMPT` targeting APPLY/ANALYZE/EVALUATE Bloom's levels. Returns raw dicts `{question, expected_answer, bloom_level, chapter_id}` — NOT ReviewItems (ephemeral, never stored).
+
+---
+
+### Placement Routes
+
+#### `POST /api/curriculum/guides/{guide_id}/placement/generate`
+
+Rejects if placement disabled or guide already completed. Loops non-glossary chapters, calls `generate_placement_questions(count=2)` per chapter, caps at `placement_max_questions`. Caches full questions (with answers) server-side in `_placement_cache[(user_id, guide_id)]` with 1hr TTL. Returns questions WITHOUT `expected_answer`.
+
+#### `POST /api/curriculum/guides/{guide_id}/placement/submit`
+
+Body: `QuizSubmission` (dict of question_id → answer). Looks up cached questions (410 if expired). Grades each answer via `gen.grade_answer()`. If avg grade >= threshold: calls `store.complete_guide_placement()`, clears cache. Returns `{results, average_grade, passed, threshold, completion}`.
+
+#### `GET /api/curriculum/ready`
+
+Returns `store.get_ready_guides(user_id)`.
+
+#### `GET /api/curriculum/next` (updated)
+
+Priority: (1) continue last-read, (2) next enrolled incomplete, (3) first from `get_ready_guides()` with `action: "enroll"`, (4) first entry-point with `action: "enroll"`, (5) fallback.
+
+### Placement cache design
+
+Module-level dict: `_placement_cache: dict[tuple[str, str], dict]` keyed by `(user_id, guide_id)`. Value: `{questions: list[dict], created_at: datetime}`. TTL: 1 hour. Checked on submit; stale entries return 410.
 
 ---
 
@@ -269,6 +323,10 @@ On chapter completion (`status == COMPLETED`):
 | `curriculum.pre_reading_enabled` | `true` | Enable pre-reading priming questions |
 | `curriculum.pre_reading_count` | `3` | Number of pre-reading questions per chapter |
 | `curriculum.cross_guide_connections` | `true` | Enable cross-guide chapter connections |
+| `curriculum.placement_enabled` | `true` | Enable placement bypass (test-out) |
+| `curriculum.placement_pass_threshold` | `3.5` | Min avg grade to pass placement |
+| `curriculum.placement_questions_per_chapter` | `2` | Placement questions per non-glossary chapter |
+| `curriculum.placement_max_questions` | `15` | Hard cap on total placement questions |
 
 ---
 
@@ -309,9 +367,45 @@ New method on `RAGRetriever` that lazily imports `CurriculumStore`, constructs i
 
 ---
 
+### Skill Tree View (`web/src/components/curriculum/`)
+
+#### SkillTree.tsx
+Main tree view component. Fetches `GET /api/curriculum/tree` via `apiFetch`. State: `selectedTracks: Set<string>` (empty = all), loading, error.
+
+Data flow: fetch → filter nodes/edges by selected tracks → group nodes by `position.depth` → render depth rows → measure node DOM positions via refs → draw SVG edges.
+
+Track filter bar: `Badge` toggles per track, colored with `track.color`. "All" shown when no tracks selected. Same pattern as category badges on grid view.
+
+Container: `overflow-x-auto` for horizontal scroll on narrow screens. `position: relative` to layer SVG behind nodes.
+
+#### SkillTreeNode.tsx
+Compact card (~160px wide). Props: `node: SkillTreeNode`, `trackColor: string`.
+
+Visual: 4px left border in track color. Status-based styling:
+- `not_started`: `bg-muted text-muted-foreground`
+- `enrolled`: `bg-background ring-1 ring-blue-200 border-blue-300`
+- `in_progress`: `bg-background ring-1 ring-amber-200 border-amber-300`
+- `completed`: `bg-green-50 border-green-300 dark:bg-green-950/30`
+
+Shows: truncated title, mastery score (if > 0), thin progress bar (if enrolled), entry-point diamond icon. Click → `router.push(/learn/${node.id})`.
+
+Ref forwarded for edge measurement.
+
+#### SkillTreeEdges.tsx
+SVG overlay. Props: `edges`, `nodePositions: Map<string, DOMRect>`, `containerRect: DOMRect`, `trackColor: (nodeId) => string`.
+
+Per edge: cubic bezier from source center-bottom to target center-top.
+`M sx,sy C sx,mid tx,mid tx,ty` where mid = (sy+ty)/2.
+Stroke = source track color at 60% opacity, 1.5px width.
+
+Uses ResizeObserver on container for re-measurement.
+
+---
+
 ## Test Expectations
 
 - Scanner: discovers guides/chapters from temp dir structure, handles Industries/, infers categories/difficulty, detects diagrams, handles missing dirs.
-- Store: CRUD for catalog, enrollment, progress tracking, reading time accumulation, guide auto-completion, review item lifecycle, SM-2 scheduling, stats aggregation.
+- Store: CRUD for catalog, enrollment, progress tracking, reading time accumulation, guide auto-completion, review item lifecycle, SM-2 scheduling, stats aggregation, get_ready_guides, complete_guide_placement.
 - SM-2: perfect/fail/boundary grades, EF floor 1.3, interval progression, reset on fail.
-- Tests: `tests/curriculum/` — 47+ tests covering scanner (incl. skill tree), store (incl. mastery, tracks), and SM-2.
+- Routes: `/ready` returns ready guides, `/next` DAG-aware suggestions, placement generate/submit flow, placement cache expiry (410).
+- Tests: `tests/curriculum/` — 47+ tests covering scanner (incl. skill tree), store (incl. mastery, tracks), and SM-2. `tests/web/test_curriculum_routes.py` covers route-level behavior.

@@ -11,6 +11,8 @@ import {
   Search,
   Flame,
   ArrowRight,
+  LayoutGrid,
+  GitFork,
 } from "lucide-react";
 import { WorkspacePageHeader } from "@/components/WorkspacePageHeader";
 import { useToken } from "@/hooks/useToken";
@@ -19,7 +21,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GuideCard } from "@/components/curriculum/GuideCard";
+import { SkillTree } from "@/components/curriculum/SkillTree";
 import type { Guide, LearningStats, NextRecommendation } from "@/types/curriculum";
 
 type CategoryFilter = string | "all";
@@ -234,70 +238,89 @@ export default function LearnPage() {
         )}
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search guides..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 h-9 text-sm"
-          />
-        </div>
-        <div className="flex flex-wrap gap-1">
-          {categories.map((cat) => (
-            <Badge
-              key={cat}
-              variant={category === cat ? "default" : "outline"}
-              className="cursor-pointer text-xs"
-              onClick={() => setCategory(cat)}
-            >
-              {categoryLabels[cat] ?? cat}
-            </Badge>
-          ))}
-        </div>
-        <select
-          value={sort}
-          onChange={(e) => setSort(e.target.value as SortMode)}
-          className="h-9 rounded-md border bg-background px-2 text-xs"
-        >
-          <option value="recommended">Recommended</option>
-          <option value="alpha">A-Z</option>
-          <option value="progress">Progress</option>
-          <option value="difficulty">Difficulty</option>
-        </select>
-      </div>
+      <Tabs defaultValue="grid">
+        <TabsList variant="line">
+          <TabsTrigger value="grid">
+            <LayoutGrid className="mr-1.5 h-3.5 w-3.5" />
+            Grid
+          </TabsTrigger>
+          <TabsTrigger value="tree">
+            <GitFork className="mr-1.5 h-3.5 w-3.5" />
+            Tree
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Guide grid */}
-      {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i} className="animate-pulse">
-              <CardHeader className="pb-2">
-                <div className="h-5 w-3/4 rounded bg-muted" />
-              </CardHeader>
-              <CardContent>
-                <div className="h-3 w-1/2 rounded bg-muted" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-8 text-center">
-          <GraduationCap className="mx-auto h-10 w-10 text-muted-foreground/40" />
-          <p className="mt-2 text-sm text-muted-foreground">No guides found</p>
-          <Button size="sm" variant="outline" className="mt-3" onClick={handleSync}>
-            Sync content
-          </Button>
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((guide) => (
-            <GuideCard key={guide.id} guide={guide} />
-          ))}
-        </div>
-      )}
+        <TabsContent value="grid" className="space-y-4">
+          {/* Filters */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[200px] max-w-sm">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search guides..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 h-9 text-sm"
+              />
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {categories.map((cat) => (
+                <Badge
+                  key={cat}
+                  variant={category === cat ? "default" : "outline"}
+                  className="cursor-pointer text-xs"
+                  onClick={() => setCategory(cat)}
+                >
+                  {categoryLabels[cat] ?? cat}
+                </Badge>
+              ))}
+            </div>
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortMode)}
+              className="h-9 rounded-md border bg-background px-2 text-xs"
+            >
+              <option value="recommended">Recommended</option>
+              <option value="alpha">A-Z</option>
+              <option value="progress">Progress</option>
+              <option value="difficulty">Difficulty</option>
+            </select>
+          </div>
+
+          {/* Guide grid */}
+          {loading ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Card key={i} className="animate-pulse">
+                  <CardHeader className="pb-2">
+                    <div className="h-5 w-3/4 rounded bg-muted" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-3 w-1/2 rounded bg-muted" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="rounded-lg border border-dashed p-8 text-center">
+              <GraduationCap className="mx-auto h-10 w-10 text-muted-foreground/40" />
+              <p className="mt-2 text-sm text-muted-foreground">No guides found</p>
+              <Button size="sm" variant="outline" className="mt-3" onClick={handleSync}>
+                Sync content
+              </Button>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {filtered.map((guide) => (
+                <GuideCard key={guide.id} guide={guide} />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="tree">
+          <SkillTree />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

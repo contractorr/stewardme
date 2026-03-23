@@ -136,6 +136,38 @@ export interface NextRecommendation {
   guide_title?: string;
   chapter: Chapter | null;
   reason: string;
+  action?: "enroll";
+}
+
+export interface ReadyGuide {
+  id: string;
+  title: string;
+  track: string;
+  category: GuideCategory;
+  difficulty: DifficultyLevel;
+  chapter_count: number;
+  prerequisites: string[];
+}
+
+export interface PlacementQuestion {
+  id: string;
+  chapter_id: string;
+  question: string;
+  bloom_level: BloomLevel;
+}
+
+export interface PlacementResult {
+  results: {
+    question_id: string;
+    grade: number;
+    feedback: string;
+    correct_points: string[];
+    missing_points: string[];
+  }[];
+  average_grade: number;
+  passed: boolean;
+  threshold: number;
+  completion: { guide_id: string; chapters_marked: number; completed_at: string } | null;
 }
 
 export interface Track {

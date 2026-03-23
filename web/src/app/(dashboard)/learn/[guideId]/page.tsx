@@ -4,16 +4,17 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeft, BookOpen, Clock, Play } from "lucide-react";
+import { ArrowLeft, BookOpen, Clock, GraduationCap, Play } from "lucide-react";
 import { useToken } from "@/hooks/useToken";
 import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { ChapterList } from "@/components/curriculum/ChapterList";
 import { DifficultyBadge } from "@/components/curriculum/DifficultyBadge";
 import { ProgressRing } from "@/components/curriculum/ProgressRing";
-import type { GuideDetail } from "@/types/curriculum";
+import type { GuideDetail, PlacementQuestion, PlacementResult } from "@/types/curriculum";
 
 function formatTime(minutes: number): string {
   if (minutes < 60) return `${minutes}m`;
@@ -30,6 +31,13 @@ export default function GuideDetailPage() {
   const [guide, setGuide] = useState<GuideDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState(false);
+
+  // Placement state
+  const [showPlacement, setShowPlacement] = useState(false);
+  const [placementQuestions, setPlacementQuestions] = useState<PlacementQuestion[]>([]);
+  const [placementAnswers, setPlacementAnswers] = useState<Record<string, string>>({});
+  const [placementResult, setPlacementResult] = useState<PlacementResult | null>(null);
+  const [placementLoading, setPlacementLoading] = useState(false);
 
   useEffect(() => {
     if (!token || !guideId) return;
@@ -56,6 +64,57 @@ export default function GuideDetailPage() {
     }
   };
 
+  const handleStartPlacement = async () => {
+    if (!token) return;
+    setPlacementLoading(true);
+    setPlacementResult(null);
+    setPlacementAnswers({});
+    try {
+      const data = await apiFetch<{ questions: PlacementQuestion[] }>(
+        `/api/curriculum/guides/${guideId}/placement/generate`,
+        { method: "POST" },
+        token,
+      );
+      setPlacementQuestions(data.questions);
+      setShowPlacement(true);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setPlacementLoading(false);
+    }
+  };
+
+  const handleSubmitPlacement = async () => {
+    if (!token) return;
+    setPlacementLoading(true);
+    try {
+      const result = await apiFetch<PlacementResult>(
+        `/api/curriculum/guides/${guideId}/placement/submit`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ answers: placementAnswers }),
+        },
+        token,
+      );
+      setPlacementResult(result);
+      if (result.passed) {
+        toast.success("Placement passed — guide completed!");
+        const updated = await apiFetch<GuideDetail>(
+          `/api/curriculum/guides/${guideId}`,
+          {},
+          token,
+        );
+        setGuide(updated);
+      }
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setPlacementLoading(false);
+    }
+  };
+
+  const isGuideCompleted = !!guide?.enrollment_completed_at;
   const firstUnread = guide?.chapters?.find((c) => c.status !== "completed");
 
   if (loading) {
@@ -116,6 +175,16 @@ export default function GuideDetailPage() {
                 {enrolling ? "Enrolling..." : "Enroll"}
               </Button>
             )}
+            {!isGuideCompleted && (
+              <Button
+                variant="outline"
+                onClick={handleStartPlacement}
+                disabled={placementLoading}
+              >
+                <GraduationCap className="mr-1.5 h-3.5 w-3.5" />
+                {placementLoading ? "Generating..." : "Test out"}
+              </Button>
+            )}
             {firstUnread && (
               <Link href={`/learn/${guideId}/${firstUnread.id.split("/").pop()}`}>
                 <Button>
@@ -127,6 +196,84 @@ export default function GuideDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Placement quiz */}
+      {showPlacement && placementQuestions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <GraduationCap className="h-4 w-4" />
+              Placement Quiz
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {placementResult ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Badge variant={placementResult.passed ? "default" : "destructive"}>
+                    {placementResult.passed ? "Passed" : "Not passed"}
+                  </Badge>
+                  <span className="text-sm text-muted-foreground">
+                    Average: {placementResult.average_grade.toFixed(1)} / 5
+                    (need {placementResult.threshold})
+                  </span>
+                </div>
+                {placementResult.results.map((r, i) => (
+                  <div key={r.question_id} className="rounded border p-3 text-sm space-y-1">
+                    <p className="font-medium">Q{i + 1}: {placementQuestions[i]?.question}</p>
+                    <p className="text-muted-foreground">
+                      Grade: {r.grade}/5 — {r.feedback}
+                    </p>
+                  </div>
+                ))}
+                {!placementResult.passed && (
+                  <div className="flex gap-2">
+                    {firstUnread && (
+                      <Link href={`/learn/${guideId}/${firstUnread.id.split("/").pop()}`}>
+                        <Button>Start reading instead</Button>
+                      </Link>
+                    )}
+                    <Button variant="ghost" onClick={() => setShowPlacement(false)}>
+                      Dismiss
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                {placementQuestions.map((q, i) => (
+                  <div key={q.id} className="space-y-1.5">
+                    <label className="text-sm font-medium">
+                      {i + 1}. {q.question}
+                    </label>
+                    <Input
+                      placeholder="Your answer..."
+                      value={placementAnswers[q.id] ?? ""}
+                      onChange={(e) =>
+                        setPlacementAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
+                      }
+                    />
+                  </div>
+                ))}
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleSubmitPlacement}
+                    disabled={
+                      placementLoading ||
+                      Object.keys(placementAnswers).length < placementQuestions.length
+                    }
+                  >
+                    {placementLoading ? "Grading..." : "Submit"}
+                  </Button>
+                  <Button variant="ghost" onClick={() => setShowPlacement(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Chapter list */}
       <Card>

@@ -340,6 +340,10 @@ class CurriculumConfig(BaseModel):
     pre_reading_enabled: bool = True
     pre_reading_count: int = 3
     cross_guide_connections: bool = True
+    placement_enabled: bool = True
+    placement_pass_threshold: float = 3.5
+    placement_questions_per_chapter: int = 2
+    placement_max_questions: int = 15
 
     @field_validator("interleaving_ratio")
     @classmethod

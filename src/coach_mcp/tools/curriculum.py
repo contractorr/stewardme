@@ -80,7 +80,10 @@ def _due_reviews(args: dict) -> dict:
 
 
 def _recommend_next(args: dict) -> dict:
+    import json
+
     store = _get_store()
+    # 1. Continue last-read
     last = store.get_last_read_chapter("")
     if last:
         next_ch = store.get_next_chapter("", last["guide_id"])
@@ -90,7 +93,62 @@ def _recommend_next(args: dict) -> dict:
                 "chapter": next_ch,
                 "reason": "Continue where you left off",
             }
+
+    # 2. Next enrolled incomplete
+    enrollments = store.get_enrollments("")
+    for enrollment in enrollments:
+        if enrollment.get("completed_at"):
+            continue
+        next_ch = store.get_next_chapter("", enrollment["guide_id"])
+        if next_ch:
+            guide = store.get_guide(enrollment["guide_id"])
+            return {
+                "guide_id": enrollment["guide_id"],
+                "guide_title": guide["title"] if guide else "",
+                "chapter": next_ch,
+                "reason": "Continue enrolled guide",
+            }
+
+    # 3. Ready-to-start (prereqs completed)
+    ready = store.get_ready_guides("")
+    if ready:
+        g = ready[0]
+        return {
+            "guide_id": g["id"],
+            "guide_title": g["title"],
+            "chapter": None,
+            "reason": "Prerequisites complete — ready to start",
+            "action": "enroll",
+        }
+
+    # 4. Entry-point (no prereqs)
+    all_guides = store.list_guides()
+    for g in all_guides:
+        prereqs = g.get("prerequisites", [])
+        if isinstance(prereqs, str):
+            prereqs = json.loads(prereqs)
+        if prereqs:
+            continue
+        if not store.is_enrolled("", g["id"]):
+            return {
+                "guide_id": g["id"],
+                "guide_title": g["title"],
+                "chapter": None,
+                "reason": "Suggested entry point — no prerequisites",
+                "action": "enroll",
+            }
+
     return {"chapter": None, "reason": "No active reading session"}
+
+
+def _skill_tree(args: dict) -> dict:
+    store = _get_store()
+    tree_data = store.get_tree_data("")
+    edges = []
+    for g in tree_data:
+        for prereq_id in g.get("prerequisites", []):
+            edges.append({"source": prereq_id, "target": g["id"]})
+    return {"nodes": tree_data, "edges": edges}
 
 
 TOOLS = [
@@ -174,11 +232,21 @@ TOOLS = [
     (
         "curriculum_recommend_next",
         {
-            "description": "Get a recommendation for what to study next based on current progress and enrollment.",
+            "description": "Get a recommendation for what to study next based on current progress, enrollment, and prerequisite completion.",
             "type": "object",
             "properties": {},
             "required": [],
         },
         _recommend_next,
+    ),
+    (
+        "curriculum_skill_tree",
+        {
+            "description": "Get the skill tree DAG: nodes (guides with progress/mastery/status) and edges (prerequisite relationships).",
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+        _skill_tree,
     ),
 ]
