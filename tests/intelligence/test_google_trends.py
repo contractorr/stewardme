@@ -3,11 +3,12 @@
 import sys
 from unittest.mock import MagicMock, patch
 
-import pandas as pd
 import pytest
 
-from intelligence.sources.google_trends import GoogleTrendsScraper
-from shared_types import IntelSource
+pd = pytest.importorskip("pandas", reason="pandas required for Google Trends tests")
+
+from intelligence.sources.google_trends import GoogleTrendsScraper  # noqa: E402
+from shared_types import IntelSource  # noqa: E402
 
 
 class TestGoogleTrendsScraper:
