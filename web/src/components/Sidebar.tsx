@@ -7,6 +7,7 @@ import {
   BookOpen,
   Brain,
   FileText,
+  GraduationCap,
   HelpCircle,
   Home,
   Newspaper,
@@ -32,6 +33,7 @@ const primaryNav = [
   { href: "/focus", label: "Focus", icon: Target },
   { href: "/radar", label: "Radar", icon: Newspaper },
   { href: "/library", label: "Library", icon: FileText },
+  { href: "/learn", label: "Learn", icon: GraduationCap },
   { href: "/journal", label: "Journal", icon: BookOpen },
 ];
 

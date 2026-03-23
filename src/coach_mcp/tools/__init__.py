@@ -10,6 +10,7 @@ from services.tool_registry import ToolRegistry
 
 from . import (
     brief,
+    curriculum,
     goals,
     insights,
     intelligence,
@@ -36,6 +37,7 @@ TOOL_MODULES = (
     brief,
     memory,
     threads,
+    curriculum,
 )
 
 logger = structlog.get_logger()

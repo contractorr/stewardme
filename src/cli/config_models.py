@@ -327,6 +327,24 @@ class GitHubMonitoringConfig(BaseModel):
         return validate_cron(v)
 
 
+class CurriculumConfig(BaseModel):
+    """Curriculum / learn feature configuration."""
+
+    enabled: bool = True
+    extra_content_dirs: list[str] = Field(default_factory=list)
+    questions_per_chapter: int = 5
+    review_session_size: int = 20
+    cross_domain_questions: bool = True
+    interleaving_ratio: float = 0.3
+
+    @field_validator("interleaving_ratio")
+    @classmethod
+    def validate_interleaving(cls, v: float) -> float:
+        if not 0.0 <= v <= 1.0:
+            raise ValueError(f"interleaving_ratio must be 0-1, got {v}")
+        return v
+
+
 class CoachConfig(BaseModel):
     """Main configuration model."""
 
@@ -349,6 +367,7 @@ class CoachConfig(BaseModel):
     hiring: HiringPipelineConfig = Field(default_factory=HiringPipelineConfig)
     regulatory: RegulatoryPipelineConfig = Field(default_factory=RegulatoryPipelineConfig)
     github_monitoring: GitHubMonitoringConfig = Field(default_factory=GitHubMonitoringConfig)
+    curriculum: CurriculumConfig = Field(default_factory=CurriculumConfig)
 
     @model_validator(mode="after")
     def expand_env_vars(self):

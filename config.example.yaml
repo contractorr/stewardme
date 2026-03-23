@@ -208,6 +208,15 @@ heartbeat:
   llm_budget_on_demand: 5          # LLM eval triggered on home page load
   notification_cooldown_hours: 4
 
+# --- Curriculum / Learn ---
+curriculum:
+  enabled: true
+  extra_content_dirs: []  # additional markdown guide directories
+  questions_per_chapter: 5
+  review_session_size: 20
+  cross_domain_questions: true
+  interleaving_ratio: 0.3
+
 # --- Agentic Coaching ---
 agent:
   enabled: true

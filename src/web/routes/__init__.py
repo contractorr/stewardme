@@ -5,6 +5,7 @@ from . import (
     advisor,
     assumptions,
     briefing,
+    curriculum,
     dossier_escalations,
     engagement,
     github_repos,
@@ -52,4 +53,5 @@ ROUTERS = (
     suggestions.router,
     memory.router,
     threads.router,
+    curriculum.router,
 )

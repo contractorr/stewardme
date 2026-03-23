@@ -15,7 +15,8 @@ export type TargetType =
   | "research"
   | "insight"
   | "suggestion"
-  | "advisor";
+  | "advisor"
+  | "curriculum";
 
 export function logEngagement(
   token: string,

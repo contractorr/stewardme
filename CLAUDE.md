@@ -58,8 +58,9 @@ RAG-based personal AI advisor. Journal entries + external intelligence scrapers 
 - **memory/** — Standalone memory package for persistent user memory (facts, context)
 - **library/** — Content library management
 - **services/** — Shared service layer
-- **web/** — FastAPI backend: JWT auth (python-jose), Fernet-encrypted secret storage, per-user data isolation at `~/coach/users/{safe_user_id}/`. Global intel DB stays shared. 23 route modules. `get_or_create_user()` auto-registers on first request
-- **coach_mcp/** — 47 MCP tools across 12 modules (journal, goals, intel, recommendations, research, reflect, profile, projects, insights, brief, memory, threads)
+- **web/** — FastAPI backend: JWT auth (python-jose), Fernet-encrypted secret storage, per-user data isolation at `~/coach/users/{safe_user_id}/`. Global intel DB stays shared. 24 route modules. `get_or_create_user()` auto-registers on first request
+- **curriculum/** — Structured learning system: content scanner, SQLite store, SM-2 spaced repetition, LLM question generation, Bloom's taxonomy grading
+- **coach_mcp/** — 52 MCP tools across 13 modules (journal, goals, intel, recommendations, research, reflect, profile, projects, insights, brief, memory, threads, curriculum)
 
 ### Advisor deep dive
 
@@ -106,7 +107,7 @@ Never skip steps or reorder. Even small changes must flow: functional spec → t
 ## Feature Status
 
 Core (stable): journal, intelligence scrapers, RAG retrieval, advisor Q&A, recommendations, conversation storage, library (reports + PDF uploads)
-Experimental (enabled by default): goal tracking, deep research, trend clustering, memory, threads, insights, suggestions, signals, engagement scoring, nudges (CLI), trending radar, goal-intel matching, AI capabilities KB, capability horizon model, query analysis/decomposition, thread inbox state machine
+Experimental (enabled by default): goal tracking, deep research, trend clustering, memory, threads, insights, suggestions, signals, engagement scoring, nudges (CLI), trending radar, goal-intel matching, AI capabilities KB, capability horizon model, query analysis/decomposition, thread inbox state machine, curriculum/learn (SM-2 spaced repetition, Bloom's taxonomy quizzes, 327 chapters across 50 guides)
 Infrastructure: heartbeat (invisible), pageview tracking, feed catalog, user deletion, onboarding feeds, attachments
 Removed: mood analysis, burnout detection, momentum detection, predictions, skill gap analyzer (merged into advisor prompt mode)
 Legacy config present: `learning_paths` key in config.example.yaml + migration file (`advisor/migrate_learning_paths.py`) — feature merged into goal milestones
@@ -119,7 +120,7 @@ Legacy config present: `learning_paths` key in config.example.yaml + migration f
 
 ## MCP Server
 
-`src/coach_mcp/` exposes 46 tools across 12 modules. Claude Code does the reasoning; MCP server provides data + context retrieval only — no LLM calls in the MCP layer. Tool convention: `TOOLS = [(name, schema_dict, handler_fn), ...]` per module, loaded lazily and cached in `server.py`.
+`src/coach_mcp/` exposes 52 tools across 13 modules. Claude Code does the reasoning; MCP server provides data + context retrieval only — no LLM calls in the MCP layer. Tool convention: `TOOLS = [(name, schema_dict, handler_fn), ...]` per module, loaded lazily and cached in `server.py`.
 
 ```bash
 python -m coach_mcp  # stdio transport, configured in .mcp.json for auto-discovery

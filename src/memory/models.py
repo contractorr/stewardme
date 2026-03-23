@@ -23,6 +23,7 @@ class FactSource(str, Enum):
     DOCUMENT = "document"
     ASSUMPTION = "assumption"
     CONSOLIDATION = "consolidation"
+    CURRICULUM = "curriculum"
 
 
 @dataclass
