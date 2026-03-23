@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 from uuid import uuid4
 
 import frontmatter
@@ -48,11 +47,11 @@ class ResearchDossierStore:
         self,
         topic: str,
         scope: str = "",
-        core_questions: Optional[list[str]] = None,
-        assumptions: Optional[list[str]] = None,
-        related_goals: Optional[list[str]] = None,
-        tracked_subtopics: Optional[list[str]] = None,
-        open_questions: Optional[list[str]] = None,
+        core_questions: list[str] | None = None,
+        assumptions: list[str] | None = None,
+        related_goals: list[str] | None = None,
+        tracked_subtopics: list[str] | None = None,
+        open_questions: list[str] | None = None,
         status: str = "active",
     ) -> dict:
         dossier_id = uuid4().hex[:12]

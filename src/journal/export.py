@@ -3,7 +3,6 @@
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from .storage import JournalStorage
 
@@ -17,9 +16,9 @@ class JournalExporter:
     def export_json(
         self,
         output_path: Path,
-        entry_type: Optional[str] = None,
-        days: Optional[int] = None,
-        limit: Optional[int] = None,
+        entry_type: str | None = None,
+        days: int | None = None,
+        limit: int | None = None,
     ) -> int:
         """Export entries to JSON.
 
@@ -51,9 +50,9 @@ class JournalExporter:
     def export_markdown(
         self,
         output_path: Path,
-        entry_type: Optional[str] = None,
-        days: Optional[int] = None,
-        limit: Optional[int] = None,
+        entry_type: str | None = None,
+        days: int | None = None,
+        limit: int | None = None,
     ) -> int:
         """Export entries to Markdown.
 
@@ -102,9 +101,9 @@ class JournalExporter:
 
     def _get_entries(
         self,
-        entry_type: Optional[str] = None,
-        days: Optional[int] = None,
-        limit: Optional[int] = None,
+        entry_type: str | None = None,
+        days: int | None = None,
+        limit: int | None = None,
     ) -> list[dict]:
         """Get filtered entries with content."""
         entries = self.storage.list_entries(

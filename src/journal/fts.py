@@ -3,7 +3,6 @@
 import re
 import sqlite3
 from pathlib import Path
-from typing import Optional
 
 import structlog
 
@@ -75,7 +74,7 @@ class JournalFTSIndex:
         self,
         query: str,
         limit: int = 20,
-        entry_type: Optional[str] = None,
+        entry_type: str | None = None,
     ) -> list[dict]:
         """BM25-ranked full-text search.
 

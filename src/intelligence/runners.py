@@ -5,7 +5,7 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 
@@ -58,7 +58,7 @@ class ResearchRunner:
             logger.error("Failed to import research agent: %s", e)
             return None
 
-    def run(self, topic: Optional[str] = None, dossier_id: Optional[str] = None) -> list[dict]:
+    def run(self, topic: str | None = None, dossier_id: str | None = None) -> list[dict]:
         agent = self._init_agent()
         if not agent:
             logger.warning("Research agent not available")

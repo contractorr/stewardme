@@ -4,7 +4,6 @@ import csv
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from .scraper import IntelStorage
 
@@ -18,9 +17,9 @@ class IntelExporter:
     def export_json(
         self,
         output_path: Path,
-        days: Optional[int] = None,
-        source: Optional[str] = None,
-        limit: Optional[int] = None,
+        days: int | None = None,
+        source: str | None = None,
+        limit: int | None = None,
     ) -> int:
         """Export intel items to JSON.
 
@@ -52,9 +51,9 @@ class IntelExporter:
     def export_csv(
         self,
         output_path: Path,
-        days: Optional[int] = None,
-        source: Optional[str] = None,
-        limit: Optional[int] = None,
+        days: int | None = None,
+        source: str | None = None,
+        limit: int | None = None,
     ) -> int:
         """Export intel items to CSV.
 
@@ -85,9 +84,9 @@ class IntelExporter:
     def export_markdown(
         self,
         output_path: Path,
-        days: Optional[int] = None,
-        source: Optional[str] = None,
-        limit: Optional[int] = None,
+        days: int | None = None,
+        source: str | None = None,
+        limit: int | None = None,
     ) -> int:
         """Export intel items to Markdown.
 
@@ -145,9 +144,9 @@ class IntelExporter:
 
     def _get_items(
         self,
-        days: Optional[int] = None,
-        source: Optional[str] = None,
-        limit: Optional[int] = None,
+        days: int | None = None,
+        source: str | None = None,
+        limit: int | None = None,
     ) -> list[dict]:
         """Get filtered intel items."""
         items = self.storage.get_recent(

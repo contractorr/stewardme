@@ -2,7 +2,6 @@
 
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Optional
 
 import numpy as np
 import structlog
@@ -216,7 +215,7 @@ Summarize:
 
         return result
 
-    def _get_embedding(self, entry) -> Optional[np.ndarray]:
+    def _get_embedding(self, entry) -> np.ndarray | None:
         """Get embedding vector for an entry from ChromaDB."""
         if not self.search.embeddings:
             return None

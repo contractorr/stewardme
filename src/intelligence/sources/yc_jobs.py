@@ -2,7 +2,6 @@
 
 import asyncio
 from datetime import datetime
-from typing import Optional
 
 import httpx
 import structlog
@@ -48,7 +47,7 @@ class YCJobsScraper(BaseScraper):
         logger.info("yc_jobs.scraped", count=len(items))
         return items
 
-    async def _fetch_job(self, semaphore: asyncio.Semaphore, job_id: int) -> Optional[IntelItem]:
+    async def _fetch_job(self, semaphore: asyncio.Semaphore, job_id: int) -> IntelItem | None:
         async with semaphore:
             try:
                 response = await self.client.get(f"{HN_API}/item/{job_id}.json")

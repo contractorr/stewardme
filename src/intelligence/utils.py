@@ -1,7 +1,5 @@
 """Shared utilities for intelligence module."""
 
-from typing import Optional
-
 import structlog
 
 logger = structlog.get_logger()
@@ -18,7 +16,7 @@ TOPIC_KEYWORDS = {
 }
 
 
-def detect_tags(title: str, prefixes: Optional[dict[str, str]] = None) -> list[str]:
+def detect_tags(title: str, prefixes: dict[str, str] | None = None) -> list[str]:
     """Detect tags from title patterns.
 
     Args:

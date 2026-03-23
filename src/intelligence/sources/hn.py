@@ -2,7 +2,6 @@
 
 import asyncio
 from datetime import datetime
-from typing import Optional
 
 import httpx
 import structlog
@@ -59,12 +58,12 @@ class HackerNewsScraper(BaseScraper):
 
     async def _fetch_story_limited(
         self, semaphore: asyncio.Semaphore, story_id: int
-    ) -> Optional[IntelItem]:
+    ) -> IntelItem | None:
         """Fetch story with rate limiting."""
         async with semaphore:
             return await self._fetch_story(story_id)
 
-    async def _fetch_story(self, story_id: int) -> Optional[IntelItem]:
+    async def _fetch_story(self, story_id: int) -> IntelItem | None:
         """Fetch single story details."""
         try:
             response = await self.client.get(f"{self.API_BASE}/item/{story_id}.json")

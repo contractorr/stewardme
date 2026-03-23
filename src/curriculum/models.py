@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -98,17 +97,17 @@ class UserChapterProgress(BaseModel):
     status: ChapterStatus = ChapterStatus.NOT_STARTED
     reading_time_seconds: int = 0
     scroll_position: float = 0.0
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class UserGuideEnrollment(BaseModel):
     user_id: str = ""
     guide_id: str = ""
-    enrolled_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    linked_goal_id: Optional[str] = None
+    enrolled_at: datetime | None = None
+    completed_at: datetime | None = None
+    linked_goal_id: str | None = None
 
 
 # --- Review / quiz models ---
@@ -126,10 +125,10 @@ class ReviewItem(BaseModel):
     easiness_factor: float = 2.5
     interval_days: int = 1
     repetitions: int = 0
-    next_review: Optional[datetime] = None
-    last_reviewed: Optional[datetime] = None
+    next_review: datetime | None = None
+    last_reviewed: datetime | None = None
     content_hash: str = ""
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
 
 
 class ReviewGradeResult(BaseModel):
@@ -171,14 +170,14 @@ class LearningStats(BaseModel):
 class ProgressUpdate(BaseModel):
     chapter_id: str
     guide_id: str
-    status: Optional[ChapterStatus] = None
-    reading_time_seconds: Optional[int] = None
-    scroll_position: Optional[float] = None
+    status: ChapterStatus | None = None
+    reading_time_seconds: int | None = None
+    scroll_position: float | None = None
 
 
 class ReviewGradeRequest(BaseModel):
     answer: str
-    self_grade: Optional[int] = None  # 0-5 override
+    self_grade: int | None = None  # 0-5 override
 
 
 class QuizSubmission(BaseModel):

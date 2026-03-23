@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 import structlog
 
@@ -45,7 +44,7 @@ class Insight:
     evidence: list[str] = field(default_factory=list)
     source_url: str = ""
     created_at: datetime = field(default_factory=datetime.now)
-    expires_at: Optional[datetime] = None
+    expires_at: datetime | None = None
     insight_hash: str = ""
 
     def compute_hash(self) -> str:
@@ -171,7 +170,7 @@ class InsightStore:
 
     def get_active(
         self,
-        insight_type: Optional[str] = None,
+        insight_type: str | None = None,
         min_severity: int = 1,
         limit: int = 20,
     ) -> list[dict]:

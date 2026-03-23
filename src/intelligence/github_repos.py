@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Optional
 
 import httpx
 import structlog
@@ -20,17 +19,17 @@ class RepoSummary:
     private: bool
     archived: bool
     default_branch: str
-    pushed_at: Optional[str]
+    pushed_at: str | None
     open_issues_count: int
-    language: Optional[str]
+    language: str | None
     html_url: str
 
 
 @dataclass
 class CIStatus:
     state: str  # success/failure/pending/none
-    updated_at: Optional[str] = None
-    workflow_name: Optional[str] = None
+    updated_at: str | None = None
+    workflow_name: str | None = None
 
 
 @dataclass
@@ -40,10 +39,10 @@ class RepoSnapshot:
     commits_30d: int = 0
     open_issues: int = 0
     open_prs: int = 0
-    latest_release: Optional[str] = None
+    latest_release: str | None = None
     ci_status: str = "none"
     contributors_30d: int = 0
-    pushed_at: Optional[datetime] = None
+    pushed_at: datetime | None = None
     weekly_commits: list[int] = field(default_factory=list)
 
 
@@ -54,10 +53,10 @@ class MonitoredRepo:
     repo_full_name: str
     html_url: str
     is_private: bool = False
-    linked_goal_path: Optional[str] = None
+    linked_goal_path: str | None = None
     poll_tier: str = "moderate"
-    last_polled_at: Optional[str] = None
-    added_at: Optional[str] = None
+    last_polled_at: str | None = None
+    added_at: str | None = None
 
 
 class GitHubRepoClient:
@@ -65,7 +64,7 @@ class GitHubRepoClient:
 
     def __init__(
         self,
-        token: Optional[str] = None,
+        token: str | None = None,
         base_url: str = "https://api.github.com",
         timeout: int = 15,
     ):
@@ -77,7 +76,7 @@ class GitHubRepoClient:
         if token:
             headers["Authorization"] = f"Bearer {token}"
         self._client = httpx.AsyncClient(base_url=base_url, headers=headers, timeout=timeout)
-        self._rate_limit_remaining: Optional[int] = None
+        self._rate_limit_remaining: int | None = None
         self._rate_limited = False
 
     def _update_rate_limit(self, response: httpx.Response) -> None:
@@ -179,7 +178,7 @@ class GitHubRepoClient:
             workflow_name=run.get("name"),
         )
 
-    async def get_repo_stats(self, owner: str, repo: str) -> Optional[RepoSnapshot]:
+    async def get_repo_stats(self, owner: str, repo: str) -> RepoSnapshot | None:
         """Aggregate repo info + commit activity + CI into a snapshot."""
         # Get repo info
         resp = await self._client.get(f"/repos/{owner}/{repo}")

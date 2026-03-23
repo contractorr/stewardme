@@ -3,7 +3,7 @@
 import hashlib
 import sqlite3
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import structlog
 
@@ -32,10 +32,10 @@ class RecommendationScorer:
     def __init__(
         self,
         min_threshold: float = 6.0,
-        users_db_path: Optional[Path] = None,
-        user_id: Optional[str] = None,
-        intel_db_path: Optional[Path] = None,
-        rec_storage: Optional["RecommendationStorage"] = None,
+        users_db_path: Path | None = None,
+        user_id: str | None = None,
+        intel_db_path: Path | None = None,
+        rec_storage: "RecommendationStorage | None" = None,
         outcome_store=None,
         **_kwargs,
     ):
@@ -45,10 +45,10 @@ class RecommendationScorer:
         self._intel_db_path = intel_db_path
         self._rec_storage = rec_storage
         self._outcome_store = outcome_store
-        self._category_boosts: Optional[dict[str, float]] = None
-        self._rating_boosts: Optional[dict[str, float]] = None
-        self._execution_boosts: Optional[dict[str, float]] = None
-        self._outcome_boosts: Optional[dict[str, float]] = None
+        self._category_boosts: dict[str, float] | None = None
+        self._rating_boosts: dict[str, float] | None = None
+        self._execution_boosts: dict[str, float] | None = None
+        self._outcome_boosts: dict[str, float] | None = None
 
     def passes_threshold(self, score: float) -> bool:
         """Check if score meets minimum threshold."""

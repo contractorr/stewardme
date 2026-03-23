@@ -1,7 +1,6 @@
 """Reddit scraper for career and startup subreddits."""
 
 from datetime import datetime
-from typing import Optional
 
 import httpx
 import structlog
@@ -28,7 +27,7 @@ class RedditScraper(BaseScraper):
     def __init__(
         self,
         storage: IntelStorage,
-        subreddits: Optional[list[str]] = None,
+        subreddits: list[str] | None = None,
         limit: int = 25,
         timeframe: str = "day",
     ):
@@ -81,7 +80,7 @@ class RedditScraper(BaseScraper):
 
         return items
 
-    def _parse_post(self, post: dict, subreddit: str) -> Optional[IntelItem]:
+    def _parse_post(self, post: dict, subreddit: str) -> IntelItem | None:
         """Parse single Reddit post."""
         try:
             title = post.get("title", "")

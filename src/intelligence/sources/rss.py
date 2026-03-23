@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from time import mktime
-from typing import Optional
 from urllib.parse import urlparse
 
 import feedparser
@@ -53,10 +52,10 @@ class RSSFeedScraper(BaseScraper):
         self,
         storage: IntelStorage,
         feed_url: str,
-        name: Optional[str] = None,
-        source_tag: Optional[str] = None,
+        name: str | None = None,
+        source_tag: str | None = None,
         feed_health_tracker=None,
-        default_user_id: Optional[str] = None,
+        default_user_id: str | None = None,
     ):
         super().__init__(storage, default_user_id=default_user_id)
         self.feed_url = feed_url

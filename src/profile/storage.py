@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import structlog
 import yaml
@@ -44,9 +43,9 @@ class UserProfile(BaseModel):
     constraints: dict = Field(default_factory=dict)  # time_per_week, geography, budget_sensitivity
     fears_risks: list[str] = Field(default_factory=list)
     active_projects: list[str] = Field(default_factory=list)
-    github_username: Optional[str] = None
+    github_username: str | None = None
     intel_preferences: IntelPreferences = Field(default_factory=IntelPreferences)
-    updated_at: Optional[str] = None
+    updated_at: str | None = None
 
     def is_stale(self, days: int = 90) -> bool:
         if not self.updated_at:
@@ -199,7 +198,7 @@ class ProfileStorage:
     def exists(self) -> bool:
         return self.path.exists()
 
-    def load(self) -> Optional[UserProfile]:
+    def load(self) -> UserProfile | None:
         if not self.path.exists():
             return None
         try:

@@ -5,7 +5,6 @@ import sqlite3
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 import structlog
 
@@ -71,7 +70,7 @@ class GitHubRepoStore:
         repo_full_name: str,
         html_url: str,
         is_private: bool = False,
-        linked_goal_path: Optional[str] = None,
+        linked_goal_path: str | None = None,
     ) -> str:
         repo_id = uuid.uuid4().hex
         with wal_connect(self.db_path) as conn:
@@ -104,7 +103,7 @@ class GitHubRepoStore:
             ).fetchall()
         return [self._row_to_monitored_repo(row) for row in rows]
 
-    def get_repo(self, user_id: str, repo_id: str) -> Optional[MonitoredRepo]:
+    def get_repo(self, user_id: str, repo_id: str) -> MonitoredRepo | None:
         with wal_connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             row = conn.execute(
@@ -154,7 +153,7 @@ class GitHubRepoStore:
                 (datetime.now(timezone.utc).isoformat(), repo_id),
             )
 
-    def get_latest_snapshot(self, repo_id: str) -> Optional[RepoSnapshot]:
+    def get_latest_snapshot(self, repo_id: str) -> RepoSnapshot | None:
         with wal_connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             row = conn.execute(

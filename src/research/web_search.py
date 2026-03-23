@@ -2,7 +2,6 @@
 
 import os
 from dataclasses import dataclass
-from typing import Optional
 
 import httpx
 import structlog
@@ -27,7 +26,7 @@ class WebSearchClient:
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         provider: str = "tavily",
         max_results: int = 8,
         max_content_chars: int = 3000,
@@ -171,7 +170,7 @@ class AsyncWebSearchClient:
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         provider: str = "tavily",
         max_results: int = 8,
         max_content_chars: int = 3000,

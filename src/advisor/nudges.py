@@ -1,7 +1,6 @@
 """Behavioral nudges — lightweight checks surfaced during CLI interactions."""
 
 from datetime import datetime, timedelta
-from typing import Optional
 
 import structlog
 
@@ -17,7 +16,7 @@ class NudgeEngine:
         self,
         journal_storage=None,
         profile_storage=None,
-        config: Optional[dict] = None,
+        config: dict | None = None,
         **kwargs,
     ):
         self.journal_storage = journal_storage

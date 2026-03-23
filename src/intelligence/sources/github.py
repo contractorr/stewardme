@@ -2,7 +2,6 @@
 
 import re
 from datetime import datetime
-from typing import Optional
 
 import httpx
 from bs4 import BeautifulSoup
@@ -20,7 +19,7 @@ class GitHubTrendingScraper(BaseScraper):
     def __init__(
         self,
         storage: IntelStorage,
-        languages: Optional[list[str]] = None,
+        languages: list[str] | None = None,
         timeframe: str = "daily",
     ):
         super().__init__(storage)
@@ -63,7 +62,7 @@ class GitHubTrendingScraper(BaseScraper):
 
         return items
 
-    def _parse_repo(self, article, language: str) -> Optional[IntelItem]:
+    def _parse_repo(self, article, language: str) -> IntelItem | None:
         """Parse single repo article into IntelItem."""
         try:
             # Repo name and URL

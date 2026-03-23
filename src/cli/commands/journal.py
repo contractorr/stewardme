@@ -3,7 +3,6 @@
 import asyncio
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import click
 import structlog
@@ -17,7 +16,7 @@ console = Console()
 logger = structlog.get_logger()
 
 
-def resolve_journal_path(journal_dir: Path, filename: str) -> Optional[Path]:
+def resolve_journal_path(journal_dir: Path, filename: str) -> Path | None:
     """Resolve and validate a journal file path.
 
     Returns resolved Path if valid and found, None otherwise.

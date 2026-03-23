@@ -1,7 +1,6 @@
 """Configuration loading and management."""
 
 from pathlib import Path
-from typing import Optional
 
 import structlog
 
@@ -22,7 +21,7 @@ DEFAULTS = LimitsConfig().model_dump()
 DEFAULT_CONFIG = CoachConfig().to_dict()
 
 
-def find_config() -> Optional[Path]:
+def find_config() -> Path | None:
     """Find config file in standard locations."""
     locations = [
         Path.cwd() / "config.yaml",
@@ -35,7 +34,7 @@ def find_config() -> Optional[Path]:
     return None
 
 
-def load_config(config_path: Optional[Path] = None) -> dict:
+def load_config(config_path: Path | None = None) -> dict:
     """Load configuration from file or defaults.
 
     Returns dict for backwards compatibility. Use load_config_model() for typed access.
@@ -43,7 +42,7 @@ def load_config(config_path: Optional[Path] = None) -> dict:
     return _load_config(config_path)
 
 
-def load_config_model(config_path: Optional[Path] = None) -> CoachConfig:
+def load_config_model(config_path: Path | None = None) -> CoachConfig:
     """Load configuration as Pydantic model with validation."""
     return _load_config_model(config_path)
 

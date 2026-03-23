@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from advisor.context_assembler import AskContext, ContextAssembler
 from advisor.retrievers.intel import IntelRetriever
@@ -31,17 +31,17 @@ class RAGRetriever:
     def __init__(
         self,
         journal_search: JournalSearch,
-        intel_db_path: Optional[Path] = None,
-        intel_search: Optional[IntelSearch] = None,
+        intel_db_path: Path | None = None,
+        intel_search: IntelSearch | None = None,
         max_context_chars: int = 8000,
         max_context_tokens: int | None = None,
         journal_weight: float = 0.7,
-        profile_path: Optional[str] = None,
-        users_db_path: Optional[Path] = None,
-        user_id: Optional[str] = None,
+        profile_path: str | None = None,
+        users_db_path: Path | None = None,
+        user_id: str | None = None,
         cache=None,
         fact_store=None,
-        memory_config: Optional[dict] = None,
+        memory_config: dict | None = None,
         thread_store=None,
         library_index=None,
         entity_store: EntityStore | None = None,

@@ -3,7 +3,6 @@
 import os
 import re
 from pathlib import Path
-from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -14,8 +13,8 @@ class LLMConfig(BaseModel):
     """LLM provider configuration."""
 
     provider: str = "auto"
-    model: Optional[str] = None  # None = use provider default
-    api_key: Optional[str] = None
+    model: str | None = None  # None = use provider default
+    api_key: str | None = None
     extended_thinking: bool = True
     max_tokens: int = 16000
     cheap_max_tokens: int = 4000
@@ -83,7 +82,7 @@ class ResearchConfig(BaseModel):
 
     enabled: bool = False
     max_topics: int = 3
-    tavily_api_key: Optional[str] = None
+    tavily_api_key: str | None = None
     schedule: str = "0 21 * * 0"
 
     @field_validator("schedule")
@@ -237,7 +236,7 @@ class MemoryConfig(BaseModel):
     """Distilled memory configuration."""
 
     enabled: bool = True
-    model_override: Optional[str] = None
+    model_override: str | None = None
     max_facts_per_entry: int = 5
     similarity_threshold: float = 0.7
     auto_noop_threshold: float = 0.95

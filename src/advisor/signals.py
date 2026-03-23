@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 import structlog
 
@@ -40,7 +39,7 @@ class Signal:
     suggested_actions: list[str]
     evidence: list[str] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.now)
-    expires_at: Optional[datetime] = None
+    expires_at: datetime | None = None
     acknowledged: bool = False
 
     def signal_hash(self) -> str:
@@ -120,7 +119,7 @@ class SignalStore:
 
     def get_active(
         self,
-        signal_type: Optional[str] = None,
+        signal_type: str | None = None,
         min_severity: int = 1,
         limit: int = 20,
     ) -> list[dict]:
@@ -159,9 +158,7 @@ class SignalStore:
 class SignalDetector:
     """Scans all data sources and produces prioritized signals."""
 
-    def __init__(
-        self, journal_storage, db_path: Path, config: Optional[dict] = None, repo_store=None
-    ):
+    def __init__(self, journal_storage, db_path: Path, config: dict | None = None, repo_store=None):
         self.storage = journal_storage
         self.db_path = Path(db_path).expanduser()
         self.config = config or {}

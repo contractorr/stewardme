@@ -1,4 +1,8 @@
-"""Retry utilities with exponential backoff."""
+"""Retry utilities with exponential backoff.
+
+Single implementation with named presets. ``http_retry`` and ``llm_retry``
+are thin wrappers around ``with_retry`` kept for backwards compatibility.
+"""
 
 import logging
 
@@ -13,27 +17,47 @@ from tenacity import (
 
 logger = structlog.stdlib.get_logger(__name__)
 
+# Named presets: (max_attempts, min_wait, max_wait)
+_PRESETS: dict[str, tuple[int, float, float]] = {
+    "http": (3, 2.0, 10.0),
+    "llm": (3, 2.0, 30.0),
+}
 
-def http_retry(
+
+def with_retry(
     max_attempts: int = 3,
     min_wait: float = 2.0,
     max_wait: float = 10.0,
     exceptions: tuple = (Exception,),
+    preset: str | None = None,
 ):
-    """Retry decorator for HTTP/scraper operations.
+    """Retry decorator with exponential backoff.
 
-    Args:
-        max_attempts: Max retry attempts
-        min_wait: Min wait between retries (seconds)
-        max_wait: Max wait between retries (seconds)
-        exceptions: Exception types to retry on
+    Use ``preset`` for common defaults ("http", "llm") or pass explicit
+    parameters for full control.
     """
+    if preset and preset in _PRESETS:
+        max_attempts, min_wait, max_wait = _PRESETS[preset]
+
     return retry(
         stop=stop_after_attempt(max_attempts),
         wait=wait_exponential(multiplier=1, min=min_wait, max=max_wait),
         retry=retry_if_exception_type(exceptions),
         before_sleep=before_sleep_log(logger, logging.WARNING),
         reraise=True,
+    )
+
+
+# Convenience aliases (backwards-compatible)
+def http_retry(
+    max_attempts: int = 3,
+    min_wait: float = 2.0,
+    max_wait: float = 10.0,
+    exceptions: tuple = (Exception,),
+):
+    """Retry preset for HTTP/scraper operations."""
+    return with_retry(
+        max_attempts=max_attempts, min_wait=min_wait, max_wait=max_wait, exceptions=exceptions
     )
 
 
@@ -43,58 +67,14 @@ def llm_retry(
     max_wait: float = 30.0,
     exceptions: tuple = (Exception,),
 ):
-    """Retry decorator for LLM API calls.
-
-    Uses longer max_wait for rate limiting scenarios.
-
-    Args:
-        max_attempts: Max retry attempts
-        min_wait: Min wait between retries (seconds)
-        max_wait: Max wait between retries (seconds)
-        exceptions: Exception types to retry on
-    """
-    return retry(
-        stop=stop_after_attempt(max_attempts),
-        wait=wait_exponential(multiplier=1, min=min_wait, max=max_wait),
-        retry=retry_if_exception_type(exceptions),
-        before_sleep=before_sleep_log(logger, logging.WARNING),
-        reraise=True,
-    )
-
-
-def with_retry(
-    max_attempts: int = 3,
-    min_wait: float = 2.0,
-    max_wait: float = 10.0,
-    exceptions: tuple = (Exception,),
-):
-    """Generic retry decorator.
-
-    Args:
-        max_attempts: Max retry attempts
-        min_wait: Min wait between retries (seconds)
-        max_wait: Max wait between retries (seconds)
-        exceptions: Exception types to retry on
-    """
-    return retry(
-        stop=stop_after_attempt(max_attempts),
-        wait=wait_exponential(multiplier=1, min=min_wait, max=max_wait),
-        retry=retry_if_exception_type(exceptions),
-        before_sleep=before_sleep_log(logger, logging.WARNING),
-        reraise=True,
+    """Retry preset for LLM API calls (longer max_wait for rate limits)."""
+    return with_retry(
+        max_attempts=max_attempts, min_wait=min_wait, max_wait=max_wait, exceptions=exceptions
     )
 
 
 def retry_from_config(config: dict, retry_type: str = "http"):
-    """Create retry decorator from config dict.
-
-    Args:
-        config: Config dict with retry section
-        retry_type: "http" or "llm"
-
-    Returns:
-        Configured retry decorator
-    """
+    """Create retry decorator from config dict."""
     retry_config = config.get("retry", {})
 
     max_attempts = retry_config.get("max_attempts", 3)
@@ -105,8 +85,4 @@ def retry_from_config(config: dict, retry_type: str = "http"):
     else:
         max_wait = retry_config.get("max_wait", 10.0)
 
-    return with_retry(
-        max_attempts=max_attempts,
-        min_wait=min_wait,
-        max_wait=max_wait,
-    )
+    return with_retry(max_attempts=max_attempts, min_wait=min_wait, max_wait=max_wait)

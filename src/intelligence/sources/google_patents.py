@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from time import mktime
-from typing import Optional
 
 import feedparser
 import httpx
@@ -29,7 +28,7 @@ class GooglePatentsScraper(BaseScraper):
     def __init__(
         self,
         storage: IntelStorage,
-        feeds: Optional[list[str]] = None,
+        feeds: list[str] | None = None,
         max_per_feed: int = 15,
     ):
         super().__init__(storage)

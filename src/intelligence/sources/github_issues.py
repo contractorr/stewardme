@@ -2,7 +2,6 @@
 
 import asyncio
 from datetime import datetime
-from typing import Optional
 
 import structlog
 
@@ -20,9 +19,9 @@ class GitHubIssuesScraper(BaseScraper):
     def __init__(
         self,
         storage: IntelStorage,
-        languages: Optional[list[str]] = None,
-        labels: Optional[list[str]] = None,
-        token: Optional[str] = None,
+        languages: list[str] | None = None,
+        labels: list[str] | None = None,
+        token: str | None = None,
         embedding_manager=None,
     ):
         super().__init__(storage, embedding_manager)

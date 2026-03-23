@@ -5,7 +5,7 @@ import json
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable
 
 import structlog
 import structlog.contextvars
@@ -43,7 +43,7 @@ from .watchlist_pipeline import (
 logger = structlog.get_logger().bind(source="scheduler")
 
 
-def _parse_cron(expr: str, defaults: Optional[dict] = None) -> CronTrigger:
+def _parse_cron(expr: str, defaults: dict | None = None) -> CronTrigger:
     """Parse cron expression string into CronTrigger."""
     d = defaults or {"minute": "0", "hour": "6", "day": "*", "month": "*", "day_of_week": "*"}
     parts = expr.split()
@@ -62,11 +62,11 @@ class IntelScheduler:
     def __init__(
         self,
         storage: IntelStorage,
-        config: Optional[dict] = None,
+        config: dict | None = None,
         journal_storage=None,
         embeddings=None,
-        full_config: Optional[dict] = None,
-        on_error: Optional[Callable] = None,
+        full_config: dict | None = None,
+        on_error: Callable | None = None,
     ):
         self.storage = storage
         self.config = config or {}
@@ -327,7 +327,7 @@ class IntelScheduler:
     # --- Research + recommendation delegates ---
 
     def run_research_now(
-        self, topic: Optional[str] = None, dossier_id: Optional[str] = None
+        self, topic: str | None = None, dossier_id: str | None = None
     ) -> list[dict]:
         return self._research.run(topic=topic, dossier_id=dossier_id)
 

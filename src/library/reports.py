@@ -4,7 +4,6 @@ import re
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import frontmatter
 
@@ -283,14 +282,14 @@ class ReportStore:
         self,
         report_id: str,
         *,
-        title: Optional[str] = None,
-        content: Optional[str] = None,
-        collection: Optional[str] = None,
-        status: Optional[str] = None,
-        last_generated_at: Optional[str] = None,
-        extraction_status: Optional[str] = None,
-        visibility_state: Optional[str] = None,
-        index_status: Optional[str] = None,
+        title: str | None = None,
+        content: str | None = None,
+        collection: str | None = None,
+        status: str | None = None,
+        last_generated_at: str | None = None,
+        extraction_status: str | None = None,
+        visibility_state: str | None = None,
+        index_status: str | None = None,
     ) -> dict | None:
         for path in self.library_dir.glob("*.md"):
             try:

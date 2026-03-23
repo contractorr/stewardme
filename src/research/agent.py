@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import structlog
 
@@ -63,7 +62,7 @@ class DeepResearchAgent:
         journal_storage: JournalStorage,
         intel_storage: IntelStorage,
         embeddings: EmbeddingManager,
-        config: Optional[dict] = None,
+        config: dict | None = None,
         topic_selector: TopicSelector | None = None,
         search_client: WebSearchClient | None = None,
         synthesizer: ResearchSynthesizer | None = None,
@@ -111,11 +110,11 @@ class DeepResearchAgent:
         self,
         topic: str,
         scope: str = "",
-        core_questions: Optional[list[str]] = None,
-        assumptions: Optional[list[str]] = None,
-        related_goals: Optional[list[str]] = None,
-        tracked_subtopics: Optional[list[str]] = None,
-        open_questions: Optional[list[str]] = None,
+        core_questions: list[str] | None = None,
+        assumptions: list[str] | None = None,
+        related_goals: list[str] | None = None,
+        tracked_subtopics: list[str] | None = None,
+        open_questions: list[str] | None = None,
     ) -> dict:
         return self.dossiers.create_dossier(
             topic=topic,
@@ -135,8 +134,8 @@ class DeepResearchAgent:
 
     def run(
         self,
-        specific_topic: Optional[str] = None,
-        dossier_id: Optional[str] = None,
+        specific_topic: str | None = None,
+        dossier_id: str | None = None,
     ) -> list[dict]:
         """Run deep research on standalone topics or persistent dossiers."""
         if dossier_id:
@@ -433,7 +432,7 @@ class AsyncDeepResearchAgent(DeepResearchAgent):
         journal_storage: JournalStorage,
         intel_storage: IntelStorage,
         embeddings: EmbeddingManager,
-        config: Optional[dict] = None,
+        config: dict | None = None,
         topic_selector: TopicSelector | None = None,
         search_client: AsyncWebSearchClient | None = None,
         synthesizer: ResearchSynthesizer | None = None,
@@ -459,8 +458,8 @@ class AsyncDeepResearchAgent(DeepResearchAgent):
 
     async def run(
         self,
-        specific_topic: Optional[str] = None,
-        dossier_id: Optional[str] = None,
+        specific_topic: str | None = None,
+        dossier_id: str | None = None,
     ) -> list[dict]:
         if dossier_id:
             dossier = self.dossiers.get_dossier(dossier_id)

@@ -3,7 +3,6 @@
 import asyncio
 import re
 from pathlib import Path
-from typing import Optional
 
 import structlog
 
@@ -548,11 +547,11 @@ class RecommendationEngine:
         rag: RAGRetriever,
         llm_caller,
         storage: RecommendationStorage,
-        config: Optional[dict] = None,
-        users_db_path: Optional[Path] = None,
-        user_id: Optional[str] = None,
+        config: dict | None = None,
+        users_db_path: Path | None = None,
+        user_id: str | None = None,
         cheap_llm_caller=None,
-        intel_db_path: Optional[Path] = None,
+        intel_db_path: Path | None = None,
     ):
         self.rag = rag
         self.llm_caller = llm_caller

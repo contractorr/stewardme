@@ -1,7 +1,6 @@
 """Vector embedding operations using ChromaDB."""
 
 from pathlib import Path
-from typing import Optional
 
 import structlog
 
@@ -59,7 +58,7 @@ class EmbeddingManager:
         self,
         entry_id: str,
         content: str,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> None:
         """Add or update entry embedding."""
         if not self.is_available:
@@ -95,7 +94,7 @@ class EmbeddingManager:
         self,
         query_text: str,
         n_results: int = 5,
-        where: Optional[dict] = None,
+        where: dict | None = None,
     ) -> list[dict]:
         """Query similar entries.
 

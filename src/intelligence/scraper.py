@@ -7,7 +7,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 from urllib.parse import urlparse
 
 import httpx
@@ -50,11 +49,11 @@ class IntelItem:
     title: str
     url: str
     summary: str
-    content: Optional[str] = None
-    published: Optional[datetime] = None
-    tags: Optional[list[str]] = None
-    content_hash: Optional[str] = None
-    user_id: Optional[str] = None  # None=shared/global, str=user-specific
+    content: str | None = None
+    published: datetime | None = None
+    tags: list[str] | None = None
+    content_hash: str | None = None
+    user_id: str | None = None  # None=shared/global, str=user-specific
 
     def compute_hash(self) -> str:
         """Compute content hash for deduplication."""
@@ -421,7 +420,7 @@ class BaseScraper(ABC):
         """Scrape and return intel items."""
         pass
 
-    async def fetch_html(self, url: str) -> Optional[BeautifulSoup]:
+    async def fetch_html(self, url: str) -> BeautifulSoup | None:
         """Fetch and parse HTML asynchronously."""
         try:
             logger.debug("Fetching %s", url)

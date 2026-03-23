@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import structlog
 
@@ -18,7 +18,7 @@ class ProfileRetriever:
 
     def __init__(self, profile_path: str = "~/coach/profile.yaml"):
         self._profile_path = profile_path
-        self._cached_profile: Optional[UserProfile] = None
+        self._cached_profile: UserProfile | None = None
         self._cached_profile_mtime: float = 0.0
 
     def load(self) -> UserProfile | None:

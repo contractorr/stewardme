@@ -1,7 +1,6 @@
 """Vector embeddings for intelligence items using ChromaDB."""
 
 from pathlib import Path
-from typing import Optional
 
 import structlog
 
@@ -54,7 +53,7 @@ class IntelEmbeddingManager:
         self,
         item_id: str,
         content: str,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> None:
         """Add or update intel item embedding."""
         if not self.is_available:
@@ -106,7 +105,7 @@ class IntelEmbeddingManager:
         self,
         query_text: str,
         n_results: int = 10,
-        where: Optional[dict] = None,
+        where: dict | None = None,
     ) -> list[dict]:
         """Query similar intel items.
 

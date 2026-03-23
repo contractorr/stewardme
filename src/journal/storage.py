@@ -4,7 +4,6 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import frontmatter
 
@@ -83,9 +82,9 @@ class JournalStorage:
         self,
         content: str,
         entry_type: str = "daily",
-        title: Optional[str] = None,
-        tags: Optional[list[str]] = None,
-        metadata: Optional[dict] = None,
+        title: str | None = None,
+        tags: list[str] | None = None,
+        metadata: dict | None = None,
     ) -> Path:
         """Create new journal entry.
 
@@ -148,8 +147,8 @@ class JournalStorage:
     def update(
         self,
         filepath: str | Path,
-        content: Optional[str] = None,
-        metadata: Optional[dict] = None,
+        content: str | None = None,
+        metadata: dict | None = None,
     ) -> Path:
         """Update existing entry."""
         filepath = self._resolve_entry_path(filepath)
@@ -180,8 +179,8 @@ class JournalStorage:
 
     def list_entries(
         self,
-        entry_type: Optional[str] = None,
-        tags: Optional[list[str]] = None,
+        entry_type: str | None = None,
+        tags: list[str] | None = None,
         limit: int = 50,
     ) -> list[dict]:
         """List journal entries with optional filtering."""

@@ -7,7 +7,7 @@ import re
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import structlog
 
@@ -192,7 +192,7 @@ class ContextAssembler:
     def get_combined_context(
         self,
         query: str,
-        journal_weight: Optional[float] = None,
+        journal_weight: float | None = None,
     ) -> tuple[str, str]:
         """Get both journal and intel context."""
         weight = self._resolve_journal_weight(query, journal_weight)
@@ -231,7 +231,7 @@ class ContextAssembler:
     def _resolve_journal_weight(
         self,
         query: str = "",
-        journal_weight: Optional[float] = None,
+        journal_weight: float | None = None,
     ) -> float:
         if journal_weight is not None:
             return journal_weight
@@ -243,7 +243,7 @@ class ContextAssembler:
         self,
         query: str,
         total_chars: int,
-        journal_weight: Optional[float] = None,
+        journal_weight: float | None = None,
     ) -> tuple[str, str]:
         weight = self._resolve_journal_weight(query, journal_weight)
         journal_chars = int(total_chars * weight)
@@ -395,7 +395,7 @@ class ContextAssembler:
 
     # ── Dynamic weighting ────────────────────────────────────────────
 
-    def compute_dynamic_weight(self, user_id: Optional[str] = None, query: str = "") -> float:
+    def compute_dynamic_weight(self, user_id: str | None = None, query: str = "") -> float:
         """Compute journal_weight from engagement data."""
         uid = user_id or self._user_id
         if not uid or not self._users_db_path:

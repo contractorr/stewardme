@@ -2,7 +2,6 @@
 
 import json
 from datetime import datetime
-from typing import Optional
 
 import httpx
 import structlog
@@ -97,7 +96,7 @@ class AICapabilitiesScraper(BaseScraper):
     def __init__(
         self,
         storage: IntelStorage,
-        sources: Optional[list[str]] = None,
+        sources: list[str] | None = None,
         max_items_per_source: int = 10,
     ):
         super().__init__(storage)
@@ -488,7 +487,7 @@ class FrontierEvalsGitHubScraper(BaseScraper):
     ]
     MAX_PER_REPO = 20
 
-    def __init__(self, storage: IntelStorage, token: Optional[str] = None):
+    def __init__(self, storage: IntelStorage, token: str | None = None):
         super().__init__(storage)
         self.set_client_headers(Accept="application/vnd.github.v3+json")
         if token:

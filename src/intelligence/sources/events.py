@@ -3,7 +3,6 @@
 import asyncio
 import json
 from datetime import datetime
-from typing import Optional
 
 import structlog
 
@@ -22,9 +21,9 @@ class EventScraper(BaseScraper):
     def __init__(
         self,
         storage: IntelStorage,
-        topics: Optional[list[str]] = None,
-        location_filter: Optional[str] = None,
-        rss_feeds: Optional[list[str]] = None,
+        topics: list[str] | None = None,
+        location_filter: str | None = None,
+        rss_feeds: list[str] | None = None,
         embedding_manager=None,
     ):
         super().__init__(storage, embedding_manager)
@@ -70,7 +69,7 @@ class EventScraper(BaseScraper):
                     logger.debug("confs_tech_fetch_failed", topic=topic, year=year, error=str(e))
         return items
 
-    def _parse_confs_tech_event(self, event: dict, topic: str) -> Optional[IntelItem]:
+    def _parse_confs_tech_event(self, event: dict, topic: str) -> IntelItem | None:
         """Parse a confs.tech event into IntelItem."""
         name = event.get("name", "")
         url = event.get("url", "")

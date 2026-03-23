@@ -1,7 +1,5 @@
 """Research report synthesis using LLM."""
 
-from typing import Optional
-
 import structlog
 
 from llm import LLMError, LLMRateLimitError, create_llm_provider
@@ -88,9 +86,9 @@ Focus on what is new or changed. If little changed, say that explicitly."""
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
-        model: Optional[str] = None,
-        provider: Optional[str] = None,
+        api_key: str | None = None,
+        model: str | None = None,
+        provider: str | None = None,
         client=None,
     ):
         self.llm = create_llm_provider(

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 import structlog
 
 from journal.search import JournalSearch
@@ -28,7 +26,7 @@ class JournalRetriever:
         query: str,
         max_entries: int = 5,
         max_chars: int = 6000,
-        entry_type: Optional[str] = None,
+        entry_type: str | None = None,
     ) -> str:
         """Get relevant journal entries for query."""
         if self.cache:

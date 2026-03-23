@@ -3,7 +3,6 @@
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 import structlog
 
@@ -75,12 +74,12 @@ class AdvisorEngine:
     def __init__(
         self,
         rag: RAGRetriever,
-        api_key: Optional[str] = None,
-        model: Optional[str] = None,
-        provider: Optional[str] = None,
+        api_key: str | None = None,
+        model: str | None = None,
+        provider: str | None = None,
         client=None,  # Dependency injection for testing
         use_tools: bool = False,
-        components: Optional[dict] = None,
+        components: dict | None = None,
         rag_config: dict | None = None,
         council_members: list[CouncilMember] | None = None,
         council_enabled: bool = True,
@@ -427,7 +426,7 @@ class AdvisorEngine:
 
         return self._call_llm(PromptTemplates.SYSTEM, prompt)
 
-    def analyze_goals(self, specific_goal: Optional[str] = None) -> str:
+    def analyze_goals(self, specific_goal: str | None = None) -> str:
         """Analyze goal progress."""
         query = specific_goal or "goals objectives targets plans"
         journal_ctx = self.rag.get_journal_context(query, max_chars=6000)
@@ -517,7 +516,7 @@ class AdvisorEngine:
         """Lazy init recommendation storage."""
         return RecommendationStorage(rec_path)
 
-    def _get_rec_engine(self, db_path: Path, config: Optional[dict] = None):
+    def _get_rec_engine(self, db_path: Path, config: dict | None = None):
         """Lazy init recommendation engine."""
         storage = self._get_rec_storage(db_path)
         return RecommendationEngine(
@@ -533,7 +532,7 @@ class AdvisorEngine:
         self,
         category: str,
         db_path: Path,
-        config: Optional[dict] = None,
+        config: dict | None = None,
         max_items: int = 3,
     ) -> list:
         """Generate recommendations for a category.

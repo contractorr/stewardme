@@ -1,7 +1,6 @@
 """Vector embedding operations for Library items using ChromaDB."""
 
 from pathlib import Path
-from typing import Optional
 
 import structlog
 
@@ -51,7 +50,7 @@ class LibraryEmbeddingManager:
         self,
         item_id: str,
         content: str,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> None:
         """Add or update a library item embedding."""
         if not self.is_available:
@@ -85,7 +84,7 @@ class LibraryEmbeddingManager:
         self,
         query_text: str,
         n_results: int = 5,
-        where: Optional[dict] = None,
+        where: dict | None = None,
     ) -> list[dict]:
         """Query similar library items."""
         if not self.is_available:

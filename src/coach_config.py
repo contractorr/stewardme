@@ -1,7 +1,7 @@
 """Shared configuration loading helpers used across surfaces and domains."""
 
 from pathlib import Path
-from typing import Optional, TypedDict
+from typing import TypedDict
 
 import structlog
 import yaml
@@ -35,7 +35,7 @@ def _deep_merge(base: dict, override: dict) -> dict:
     return result
 
 
-def find_config() -> Optional[Path]:
+def find_config() -> Path | None:
     """Find config file in standard locations."""
     locations = [
         Path.cwd() / "config.yaml",
@@ -48,7 +48,7 @@ def find_config() -> Optional[Path]:
     return None
 
 
-def load_config(config_path: Optional[Path] = None) -> dict:
+def load_config(config_path: Path | None = None) -> dict:
     """Load configuration from file or defaults as a dict."""
     path = config_path or find_config()
     base_config = {}
@@ -64,7 +64,7 @@ def load_config(config_path: Optional[Path] = None) -> dict:
     return _deep_merge(base_config, validated)
 
 
-def load_config_model(config_path: Optional[Path] = None) -> CoachConfig:
+def load_config_model(config_path: Path | None = None) -> CoachConfig:
     """Load configuration as a validated model."""
     base_config = {}
 

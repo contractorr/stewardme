@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import structlog
 
@@ -25,8 +24,8 @@ class ActionBriefGenerator:
         llm_caller,
         rec_storage: RecommendationStorage,
         journal_storage=None,
-        config: Optional[dict] = None,
-        rec_engine: Optional[RecommendationEngine] = None,
+        config: dict | None = None,
+        rec_engine: RecommendationEngine | None = None,
     ):
         self.rag = rag
         self.llm_caller = llm_caller
@@ -109,7 +108,7 @@ class ActionBriefGenerator:
         self,
         max_items: int = 5,
         min_score: float = 6.0,
-    ) -> Optional[Path]:
+    ) -> Path | None:
         """Generate brief and save as journal entry."""
         if not self.journal_storage:
             logger.warning("Journal storage not configured, cannot save brief")

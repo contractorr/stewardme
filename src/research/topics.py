@@ -3,7 +3,6 @@
 import re
 from collections import Counter
 from datetime import datetime, timedelta
-from typing import Optional
 
 import structlog
 
@@ -31,7 +30,7 @@ class TopicSelector:
         self.min_mentions = min_mentions
         self.skip_researched_days = skip_researched_days
 
-    def get_topics(self, researched_topics: Optional[list[str]] = None) -> list[dict]:
+    def get_topics(self, researched_topics: list[str] | None = None) -> list[dict]:
         """Get ranked list of topics to research.
 
         Args:

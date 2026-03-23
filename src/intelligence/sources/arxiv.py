@@ -2,7 +2,6 @@
 
 import xml.etree.ElementTree as ET
 from datetime import datetime
-from typing import Optional
 from urllib.parse import urlencode
 
 import httpx
@@ -27,7 +26,7 @@ class ArxivScraper(BaseScraper):
     def __init__(
         self,
         storage: IntelStorage,
-        categories: Optional[list[str]] = None,
+        categories: list[str] | None = None,
         max_results: int = 30,
     ):
         super().__init__(storage)
@@ -83,7 +82,7 @@ class ArxivScraper(BaseScraper):
 
         return items
 
-    def _parse_entry(self, entry, ns: dict) -> Optional[IntelItem]:
+    def _parse_entry(self, entry, ns: dict) -> IntelItem | None:
         """Parse single arXiv entry."""
         try:
             title_elem = entry.find("atom:title", ns)

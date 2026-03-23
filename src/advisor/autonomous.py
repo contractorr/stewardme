@@ -3,7 +3,6 @@
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 import structlog
 
@@ -16,7 +15,7 @@ logger = structlog.get_logger()
 @dataclass
 class ActionResult:
     action_type: str
-    signal_id: Optional[int]
+    signal_id: int | None
     success: bool
     detail: str
 
@@ -44,7 +43,7 @@ class ActionLog:
                 CREATE INDEX IF NOT EXISTS idx_action_type ON action_log(action_type)
             """)
 
-    def log(self, result: ActionResult, context: Optional[dict] = None) -> int:
+    def log(self, result: ActionResult, context: dict | None = None) -> int:
         with wal_connect(self.db_path) as conn:
             cursor = conn.execute(
                 """INSERT INTO action_log (action_type, signal_id, context_json, result_json)
@@ -86,7 +85,7 @@ class AutonomousActionEngine:
         self,
         journal_storage,
         db_path: Path,
-        config: Optional[dict] = None,
+        config: dict | None = None,
         embeddings=None,
     ):
         self.storage = journal_storage
@@ -134,7 +133,7 @@ class AutonomousActionEngine:
 
         return results
 
-    def _handle_research_trigger(self, signal: Signal) -> Optional[ActionResult]:
+    def _handle_research_trigger(self, signal: Signal) -> ActionResult | None:
         """Queue deep research on a frequently mentioned topic."""
         if not self.agent_config.get("auto_research", True):
             return None
@@ -162,7 +161,7 @@ class AutonomousActionEngine:
                 detail=f"Research failed for '{topic}': {e}",
             )
 
-    def _handle_goal_complete(self, signal: Signal) -> Optional[ActionResult]:
+    def _handle_goal_complete(self, signal: Signal) -> ActionResult | None:
         """Mark goal as completed when all milestones done."""
         from advisor.goals import GoalTracker
 
@@ -193,7 +192,7 @@ class AutonomousActionEngine:
             else "Failed to update goal",
         )
 
-    def _handle_topic_emergence(self, signal: Signal) -> Optional[ActionResult]:
+    def _handle_topic_emergence(self, signal: Signal) -> ActionResult | None:
         """Create draft goal suggestion as insight entry."""
         if not self.agent_config.get("auto_goal_suggestions", True):
             return None
@@ -218,7 +217,7 @@ class AutonomousActionEngine:
             detail=f"Created insight entry for emerging topic '{topic}'",
         )
 
-    def _handle_stale_goal_reminder(self, signal: Signal) -> Optional[ActionResult]:
+    def _handle_stale_goal_reminder(self, signal: Signal) -> ActionResult | None:
         """Create check-in reminder entry for stale goals."""
         if not self.agent_config.get("auto_check_in_reminders", True):
             return None
@@ -245,7 +244,7 @@ class AutonomousActionEngine:
             detail=f"Created check-in reminder for '{goal_title}'",
         )
 
-    def _handle_deadline_urgent(self, signal: Signal) -> Optional[ActionResult]:
+    def _handle_deadline_urgent(self, signal: Signal) -> ActionResult | None:
         """Bump recommendation priority for urgent deadlines (metadata-only action)."""
         # This is a lightweight metadata action — just log that we flagged it
         return ActionResult(

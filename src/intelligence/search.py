@@ -4,7 +4,6 @@ import re
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import structlog
 
@@ -234,8 +233,8 @@ class IntelSearch:
     def __init__(
         self,
         storage: IntelStorage,
-        embedding_manager: Optional[IntelEmbeddingManager] = None,
-        user_id: Optional[str] = None,
+        embedding_manager: IntelEmbeddingManager | None = None,
+        user_id: str | None = None,
     ):
         self.storage = storage
         self.embeddings = embedding_manager
@@ -252,7 +251,7 @@ class IntelSearch:
         self,
         query: str,
         n_results: int = 10,
-        source_filter: Optional[str] = None,
+        source_filter: str | None = None,
     ) -> list[dict]:
         """Search using vector similarity.
 
@@ -293,7 +292,7 @@ class IntelSearch:
         self,
         query: str,
         limit: int = 20,
-        source_filter: Optional[str] = None,
+        source_filter: str | None = None,
     ) -> list[dict]:
         """Keyword search — uses FTS5 when available, else LIKE fallback."""
         try:
@@ -583,7 +582,7 @@ class IntelSearch:
 
         return self.embeddings.sync_from_storage(items)
 
-    def _get_item_by_id(self, item_id: int) -> Optional[dict]:
+    def _get_item_by_id(self, item_id: int) -> dict | None:
         """Fetch single item by ID."""
         try:
             with wal_connect(self.storage.db_path) as conn:

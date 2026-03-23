@@ -6,7 +6,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import frontmatter
 
@@ -17,16 +17,16 @@ from shared_types import ActionItemStatus, RecommendationStatus
 class Recommendation:
     """A single recommendation."""
 
-    id: Optional[str] = None
+    id: str | None = None
     category: str = ""
     title: str = ""
     description: str = ""
     rationale: str = ""
     score: float = 0.0
-    created_at: Optional[str] = None
+    created_at: str | None = None
     status: str = RecommendationStatus.SUGGESTED
-    metadata: Optional[dict] = None
-    embedding_hash: Optional[str] = None
+    metadata: dict | None = None
+    embedding_hash: str | None = None
 
 
 @dataclass
@@ -38,7 +38,7 @@ class RecommendationAction:
     category: str
     score: float
     recommendation_status: str
-    created_at: Optional[str] = None
+    created_at: str | None = None
     action_item: dict[str, Any] = field(default_factory=dict)
 
 
@@ -62,19 +62,19 @@ def _slug(text: str) -> str:
     return re.sub(r"[\s_]+", "-", s)[:40]
 
 
-def _normalize_effort(value: Optional[str]) -> str:
+def _normalize_effort(value: str | None) -> str:
     if value in ACTION_ITEM_EFFORTS:
         return str(value)
     return "medium"
 
 
-def _normalize_due_window(value: Optional[str]) -> str:
+def _normalize_due_window(value: str | None) -> str:
     if value in ACTION_ITEM_DUE_WINDOWS:
         return str(value)
     return "this_week"
 
 
-def _normalize_action_status(value: Optional[str]) -> str:
+def _normalize_action_status(value: str | None) -> str:
     if value in ACTION_ITEM_STATUSES:
         return str(value)
     return ActionItemStatus.ACCEPTED.value
@@ -88,7 +88,7 @@ def _clean_markdown_line(line: str) -> str:
     return cleaned
 
 
-def _first_meaningful_line(*chunks: Optional[str]) -> str:
+def _first_meaningful_line(*chunks: str | None) -> str:
     for chunk in chunks:
         if not chunk:
             continue
@@ -99,7 +99,7 @@ def _first_meaningful_line(*chunks: Optional[str]) -> str:
     return ""
 
 
-def _extract_success_criteria(action_plan: Optional[str], rationale: str, description: str) -> str:
+def _extract_success_criteria(action_plan: str | None, rationale: str, description: str) -> str:
     if action_plan:
         lines = [_clean_markdown_line(line) for line in action_plan.splitlines()]
         meaningful = [line for line in lines if line]
@@ -111,14 +111,14 @@ def _extract_success_criteria(action_plan: Optional[str], rationale: str, descri
 
 def _derive_action_item(
     rec: Recommendation,
-    goal_path: Optional[str] = None,
-    goal_title: Optional[str] = None,
-    objective: Optional[str] = None,
-    next_step: Optional[str] = None,
-    effort: Optional[str] = None,
-    due_window: Optional[str] = None,
-    blockers: Optional[list[str]] = None,
-    success_criteria: Optional[str] = None,
+    goal_path: str | None = None,
+    goal_title: str | None = None,
+    objective: str | None = None,
+    next_step: str | None = None,
+    effort: str | None = None,
+    due_window: str | None = None,
+    blockers: list[str] | None = None,
+    success_criteria: str | None = None,
 ) -> dict[str, Any]:
     action_plan = (rec.metadata or {}).get("action_plan") if rec.metadata else None
     derived_next_step = next_step or _first_meaningful_line(
@@ -190,7 +190,7 @@ class RecommendationStorage:
         filepath.write_text(frontmatter.dumps(post))
         return rec_id
 
-    def get(self, rec_id) -> Optional[Recommendation]:
+    def get(self, rec_id) -> Recommendation | None:
         """Get recommendation by id."""
         rec_id = str(rec_id)
         for f in self.dir.glob("*.md"):
@@ -214,15 +214,15 @@ class RecommendationStorage:
         self,
         rec_id,
         *,
-        goal_path: Optional[str] = None,
-        goal_title: Optional[str] = None,
-        objective: Optional[str] = None,
-        next_step: Optional[str] = None,
-        effort: Optional[str] = None,
-        due_window: Optional[str] = None,
-        blockers: Optional[list[str]] = None,
-        success_criteria: Optional[str] = None,
-    ) -> Optional[dict[str, Any]]:
+        goal_path: str | None = None,
+        goal_title: str | None = None,
+        objective: str | None = None,
+        next_step: str | None = None,
+        effort: str | None = None,
+        due_window: str | None = None,
+        blockers: list[str] | None = None,
+        success_criteria: str | None = None,
+    ) -> dict[str, Any] | None:
         """Create a structured action item for a recommendation if one doesn't exist."""
         rec = self.get(rec_id)
         if not rec:
@@ -256,16 +256,16 @@ class RecommendationStorage:
         self,
         rec_id,
         *,
-        status: Optional[str] = None,
-        effort: Optional[str] = None,
-        due_window: Optional[str] = None,
-        blockers: Optional[list[str]] = None,
-        review_notes: Optional[str] = None,
-        next_step: Optional[str] = None,
-        success_criteria: Optional[str] = None,
-        goal_path: Optional[str] = None,
-        goal_title: Optional[str] = None,
-    ) -> Optional[dict[str, Any]]:
+        status: str | None = None,
+        effort: str | None = None,
+        due_window: str | None = None,
+        blockers: list[str] | None = None,
+        review_notes: str | None = None,
+        next_step: str | None = None,
+        success_criteria: str | None = None,
+        goal_path: str | None = None,
+        goal_title: str | None = None,
+    ) -> dict[str, Any] | None:
         """Update an existing action item for a recommendation."""
         rec = self.get(rec_id)
         if not rec or not rec.metadata or not rec.metadata.get("action_item"):
@@ -311,7 +311,7 @@ class RecommendationStorage:
         return action_item
 
     def list_by_category(
-        self, category: str, status: Optional[str] = None, limit: int = 10
+        self, category: str, status: str | None = None, limit: int = 10
     ) -> list[Recommendation]:
         """List recommendations by category."""
         recs = [r for r in self._all() if r.category == category]
@@ -321,7 +321,7 @@ class RecommendationStorage:
         return recs[:limit]
 
     def list_recent(
-        self, days: int = 7, status: Optional[str] = None, limit: int = 20
+        self, days: int = 7, status: str | None = None, limit: int = 20
     ) -> list[Recommendation]:
         """List recent recommendations."""
         cutoff = (datetime.now() - timedelta(days=days)).isoformat()
@@ -344,7 +344,7 @@ class RecommendationStorage:
         self,
         min_score: float = 6.0,
         limit: int = 5,
-        exclude_status: Optional[list[str]] = None,
+        exclude_status: list[str] | None = None,
     ) -> list[Recommendation]:
         """Get top recommendations by score."""
         exclude = set(exclude_status or [])
@@ -352,7 +352,7 @@ class RecommendationStorage:
         recs.sort(key=lambda r: r.score, reverse=True)
         return recs[:limit]
 
-    def add_feedback(self, rec_id, rating: int, comment: Optional[str] = None) -> bool:
+    def add_feedback(self, rec_id, rating: int, comment: str | None = None) -> bool:
         """Add user feedback to recommendation."""
         rec_id = str(rec_id)
         for f in self.dir.glob("*.md"):
@@ -368,7 +368,7 @@ class RecommendationStorage:
                 return True
         return False
 
-    def get_feedback_stats(self, category: Optional[str] = None, days: int = 90) -> dict:
+    def get_feedback_stats(self, category: str | None = None, days: int = 90) -> dict:
         """Get feedback statistics."""
         cutoff = (datetime.now() - timedelta(days=days)).isoformat()
         ratings_by_cat: dict[str, list] = {}
@@ -394,7 +394,7 @@ class RecommendationStorage:
             "by_category": by_category,
         }
 
-    def get_action_item(self, rec_id) -> Optional[RecommendationAction]:
+    def get_action_item(self, rec_id) -> RecommendationAction | None:
         """Return a tracked action item with source recommendation context."""
         rec = self.get(rec_id)
         if not rec or not rec.metadata or not rec.metadata.get("action_item"):
@@ -411,8 +411,8 @@ class RecommendationStorage:
 
     def list_action_items(
         self,
-        status: Optional[str] = None,
-        goal_path: Optional[str] = None,
+        status: str | None = None,
+        goal_path: str | None = None,
         limit: int = 20,
     ) -> list[RecommendationAction]:
         """List tracked action items across recommendations."""
@@ -453,7 +453,7 @@ class RecommendationStorage:
     def build_weekly_plan(
         self,
         capacity_points: int = 6,
-        goal_path: Optional[str] = None,
+        goal_path: str | None = None,
     ) -> dict[str, Any]:
         """Select a small set of accepted actions that fit within a weekly budget."""
         selected: list[RecommendationAction] = []
@@ -479,7 +479,7 @@ class RecommendationStorage:
             "generated_at": datetime.now().isoformat(),
         }
 
-    def get_execution_stats(self, category: Optional[str] = None, days: int = 90) -> dict:
+    def get_execution_stats(self, category: str | None = None, days: int = 90) -> dict:
         """Aggregate action-item outcome stats for ranking feedback."""
         cutoff = (datetime.now() - timedelta(days=days)).isoformat()
         by_category: dict[str, dict[str, Any]] = {}
@@ -547,7 +547,7 @@ class RecommendationStorage:
                 return True
         return False
 
-    def _read_file(self, path: Path) -> Optional[Recommendation]:
+    def _read_file(self, path: Path) -> Recommendation | None:
         """Parse a recommendation markdown file."""
         try:
             post = frontmatter.load(path)

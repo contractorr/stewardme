@@ -1,6 +1,6 @@
 """Pydantic request/response schemas for the web API."""
 
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -16,49 +16,49 @@ class CustomProviderCreate(BaseModel):
 
 class CustomProviderUpdate(BaseModel):
     id: str = Field(..., min_length=1)
-    display_name: Optional[str] = Field(None, min_length=1, max_length=100)
-    base_url: Optional[str] = Field(None, min_length=1, max_length=500)
-    api_key: Optional[str] = Field(None, min_length=1)
-    model: Optional[str] = Field(None, min_length=1, max_length=200)
+    display_name: str | None = Field(None, min_length=1, max_length=100)
+    base_url: str | None = Field(None, min_length=1, max_length=500)
+    api_key: str | None = Field(None, min_length=1)
+    model: str | None = Field(None, min_length=1, max_length=200)
 
 
 class SettingsUpdate(BaseModel):
     """Update user settings / API keys."""
 
-    llm_provider: Optional[str] = None
-    llm_model: Optional[str] = None
-    llm_council_enabled: Optional[bool] = None
-    llm_api_key: Optional[str] = None
-    llm_api_key_claude: Optional[str] = None
-    llm_api_key_openai: Optional[str] = None
-    llm_api_key_gemini: Optional[str] = None
+    llm_provider: str | None = None
+    llm_model: str | None = None
+    llm_council_enabled: bool | None = None
+    llm_api_key: str | None = None
+    llm_api_key_claude: str | None = None
+    llm_api_key_openai: str | None = None
+    llm_api_key_gemini: str | None = None
     llm_remove_providers: list[str] = Field(default_factory=list)
-    llm_custom_provider_add: Optional[CustomProviderCreate] = None
-    llm_custom_provider_update: Optional[CustomProviderUpdate] = None
+    llm_custom_provider_add: CustomProviderCreate | None = None
+    llm_custom_provider_update: CustomProviderUpdate | None = None
     llm_custom_providers_remove: list[str] = Field(default_factory=list)
-    tavily_api_key: Optional[str] = None
-    github_token: Optional[str] = None
-    github_pat: Optional[str] = None
-    eventbrite_token: Optional[str] = None
+    tavily_api_key: str | None = None
+    github_token: str | None = None
+    github_pat: str | None = None
+    eventbrite_token: str | None = None
     # Feature toggles
-    feature_extended_thinking: Optional[bool] = None
-    feature_memory_enabled: Optional[bool] = None
-    feature_threads_enabled: Optional[bool] = None
-    feature_recommendations_enabled: Optional[bool] = None
-    feature_research_enabled: Optional[bool] = None
-    feature_entity_extraction_enabled: Optional[bool] = None
-    feature_trending_radar_enabled: Optional[bool] = None
-    feature_heartbeat_enabled: Optional[bool] = None
-    feature_company_movement_enabled: Optional[bool] = None
-    feature_hiring_signals_enabled: Optional[bool] = None
-    feature_regulatory_signals_enabled: Optional[bool] = None
-    feature_github_monitoring: Optional[bool] = None
+    feature_extended_thinking: bool | None = None
+    feature_memory_enabled: bool | None = None
+    feature_threads_enabled: bool | None = None
+    feature_recommendations_enabled: bool | None = None
+    feature_research_enabled: bool | None = None
+    feature_entity_extraction_enabled: bool | None = None
+    feature_trending_radar_enabled: bool | None = None
+    feature_heartbeat_enabled: bool | None = None
+    feature_company_movement_enabled: bool | None = None
+    feature_hiring_signals_enabled: bool | None = None
+    feature_regulatory_signals_enabled: bool | None = None
+    feature_github_monitoring: bool | None = None
 
 
 class LLMProviderKeyStatus(BaseModel):
     provider: str
     configured: bool = False
-    hint: Optional[str] = None
+    hint: str | None = None
     council_eligible: bool = False
 
 
@@ -72,23 +72,23 @@ class CustomProviderInfo(BaseModel):
 class SettingsResponse(BaseModel):
     """Settings with bool mask for secrets (never raw keys)."""
 
-    llm_provider: Optional[str] = None
-    llm_model: Optional[str] = None
+    llm_provider: str | None = None
+    llm_model: str | None = None
     llm_council_enabled: bool = True
     llm_council_ready: bool = False
     llm_provider_keys: list[LLMProviderKeyStatus] = Field(default_factory=list)
     llm_custom_providers: list[CustomProviderInfo] = Field(default_factory=list)
     llm_api_key_set: bool = False
-    llm_api_key_hint: Optional[str] = None
+    llm_api_key_hint: str | None = None
     has_profile: bool = False
     using_shared_key: bool = False
     has_own_key: bool = False
     tavily_api_key_set: bool = False
-    tavily_api_key_hint: Optional[str] = None
+    tavily_api_key_hint: str | None = None
     github_token_set: bool = False
-    github_token_hint: Optional[str] = None
+    github_token_hint: str | None = None
     github_pat_set: bool = False
-    github_pat_hint: Optional[str] = None
+    github_pat_hint: str | None = None
     eventbrite_token_set: bool = False
     # Feature toggles (default = global config fallback)
     feature_extended_thinking: bool = True
@@ -133,23 +133,23 @@ class QuickCapture(BaseModel):
 class JournalCreate(BaseModel):
     content: str = Field(..., max_length=100_000)
     entry_type: str = "daily"
-    title: Optional[str] = None
-    tags: Optional[list[str]] = None
+    title: str | None = None
+    tags: list[str] | None = None
 
 
 class JournalUpdate(BaseModel):
-    content: Optional[str] = Field(None, max_length=100_000)
-    metadata: Optional[dict] = None
+    content: str | None = Field(None, max_length=100_000)
+    metadata: dict | None = None
 
 
 class JournalEntry(BaseModel):
     path: str
     title: str
     type: str
-    created: Optional[str] = None
+    created: str | None = None
     tags: list[str] = []
     preview: str = ""
-    content: Optional[str] = None
+    content: str | None = None
 
 
 class JournalMindMapNode(BaseModel):
@@ -159,7 +159,7 @@ class JournalMindMapNode(BaseModel):
     weight: float = 0.0
     confidence: float = 0.0
     is_root: bool = False
-    source_type: Optional[str] = None
+    source_type: str | None = None
     source_label: str = ""
     source_ref: str = ""
 
@@ -186,7 +186,7 @@ class JournalMindMapResponse(BaseModel):
 
 class JournalMindMapEnvelope(BaseModel):
     status: Literal["ready", "not_available", "insufficient_signal"] = "not_available"
-    mind_map: Optional[JournalMindMapResponse] = None
+    mind_map: JournalMindMapResponse | None = None
 
 
 # --- Advisor ---
@@ -261,11 +261,11 @@ class ConversationDetail(BaseModel):
 class GoalCreate(BaseModel):
     title: str = Field(..., max_length=200)
     content: str = Field("", max_length=10_000)
-    tags: Optional[list[str]] = None
+    tags: list[str] | None = None
 
 
 class GoalCheckIn(BaseModel):
-    notes: Optional[str] = Field(None, max_length=5000)
+    notes: str | None = Field(None, max_length=5000)
 
 
 class GoalStatusUpdate(BaseModel):
@@ -288,7 +288,7 @@ class IntelItem(BaseModel):
     title: str
     url: str
     summary: str
-    published: Optional[str] = None
+    published: str | None = None
     tags: list[str] = []
 
 
@@ -296,7 +296,7 @@ class IntelItem(BaseModel):
 
 
 class ResearchRun(BaseModel):
-    topic: Optional[str] = None
+    topic: str | None = None
 
 
 class ResearchTopic(BaseModel):
@@ -353,7 +353,7 @@ class GreetingResponse(BaseModel):
     text: str
     cached: bool = False
     stale: bool = False
-    return_brief: Optional[dict] = None
+    return_brief: dict | None = None
     degradations: list["DegradationItem"] = Field(default_factory=list)
 
 
@@ -370,7 +370,7 @@ class InsightResponse(BaseModel):
     evidence: list[str] = []
     source_url: str = ""
     created_at: str = ""
-    expires_at: Optional[str] = None
+    expires_at: str | None = None
     insight_hash: str = ""
     watchlist_evidence: list[str] = []
 
@@ -389,8 +389,8 @@ class CriticData(BaseModel):
     confidence_rationale: str = ""
     critic_challenge: str = ""
     missing_context: str = ""
-    alternative: Optional[str] = None
-    intel_contradictions: Optional[str] = None
+    alternative: str | None = None
+    intel_contradictions: str | None = None
 
 
 class BriefingRecommendation(BaseModel):
@@ -400,15 +400,15 @@ class BriefingRecommendation(BaseModel):
     description: str = ""
     score: float = 0.0
     status: str = ""
-    reasoning_trace: Optional[ReasoningTrace] = None
-    critic: Optional[CriticData] = None
+    reasoning_trace: ReasoningTrace | None = None
+    critic: CriticData | None = None
     watchlist_evidence: list[str] = []
-    action_item: Optional["RecommendationActionItem"] = None
-    user_rating: Optional[int] = Field(None, ge=1, le=5)
-    feedback_comment: Optional[str] = None
-    feedback_at: Optional[str] = None
+    action_item: "RecommendationActionItem | None" = None
+    user_rating: int | None = Field(None, ge=1, le=5)
+    feedback_comment: str | None = None
+    feedback_at: str | None = None
     why_now: list[dict] = []
-    harvested_outcome: Optional[dict] = None
+    harvested_outcome: dict | None = None
 
 
 class RecommendationActionItem(BaseModel):
@@ -419,39 +419,37 @@ class RecommendationActionItem(BaseModel):
     blockers: list[str] = Field(default_factory=list)
     success_criteria: str = ""
     status: str = Field("accepted", pattern=r"^(accepted|deferred|blocked|completed|abandoned)$")
-    review_notes: Optional[str] = None
-    goal_path: Optional[str] = None
-    goal_title: Optional[str] = None
+    review_notes: str | None = None
+    goal_path: str | None = None
+    goal_title: str | None = None
     created_at: str = ""
     updated_at: str = ""
 
 
 class RecommendationActionCreate(BaseModel):
-    goal_path: Optional[str] = None
-    objective: Optional[str] = Field(None, max_length=200)
-    next_step: Optional[str] = Field(None, max_length=500)
-    effort: Optional[str] = Field(None, pattern=r"^(small|medium|large)$")
-    due_window: Optional[str] = Field(None, pattern=r"^(today|this_week|later)$")
-    blockers: Optional[list[str]] = None
-    success_criteria: Optional[str] = Field(None, max_length=500)
+    goal_path: str | None = None
+    objective: str | None = Field(None, max_length=200)
+    next_step: str | None = Field(None, max_length=500)
+    effort: str | None = Field(None, pattern=r"^(small|medium|large)$")
+    due_window: str | None = Field(None, pattern=r"^(today|this_week|later)$")
+    blockers: list[str] | None = None
+    success_criteria: str | None = Field(None, max_length=500)
 
 
 class RecommendationActionUpdate(BaseModel):
-    status: Optional[str] = Field(
-        None, pattern=r"^(accepted|deferred|blocked|completed|abandoned)$"
-    )
-    effort: Optional[str] = Field(None, pattern=r"^(small|medium|large)$")
-    due_window: Optional[str] = Field(None, pattern=r"^(today|this_week|later)$")
-    blockers: Optional[list[str]] = None
-    review_notes: Optional[str] = Field(None, max_length=5000)
-    next_step: Optional[str] = Field(None, max_length=500)
-    success_criteria: Optional[str] = Field(None, max_length=500)
-    goal_path: Optional[str] = None
+    status: str | None = Field(None, pattern=r"^(accepted|deferred|blocked|completed|abandoned)$")
+    effort: str | None = Field(None, pattern=r"^(small|medium|large)$")
+    due_window: str | None = Field(None, pattern=r"^(today|this_week|later)$")
+    blockers: list[str] | None = None
+    review_notes: str | None = Field(None, max_length=5000)
+    next_step: str | None = Field(None, max_length=500)
+    success_criteria: str | None = Field(None, max_length=500)
+    goal_path: str | None = None
 
 
 class RecommendationFeedbackRequest(BaseModel):
     rating: int = Field(..., ge=1, le=5)
-    comment: Optional[str] = Field(None, max_length=2000)
+    comment: str | None = Field(None, max_length=2000)
 
 
 class TrackedRecommendationAction(BaseModel):
@@ -536,8 +534,8 @@ class SuggestionItem(BaseModel):
     action: str = ""
     priority: int = 0
     score: float = 0.0
-    why_now: Optional[list[dict]] = None
-    payload: Optional[dict] = None
+    why_now: list[dict] | None = None
+    payload: dict | None = None
 
 
 class GoalIntelMatch(BaseModel):
@@ -560,7 +558,7 @@ class BriefingResponse(BaseModel):
     goals: list[BriefingGoal] = []
     has_data: bool = False
     adaptation_count: int = 0
-    daily_brief: Optional[DailyBrief] = None
+    daily_brief: DailyBrief | None = None
     goal_intel_matches: list[GoalIntelMatch] = []
     dossier_escalations: list["DossierEscalationResponse"] = []
     company_movements: list["CompanyMovementResponse"] = []
@@ -629,8 +627,8 @@ class ThreadSummary(BaseModel):
 
 class ThreadInboxSummary(ThreadSummary):
     inbox_state: str = "active"
-    linked_goal_path: Optional[str] = None
-    linked_dossier_id: Optional[str] = None
+    linked_goal_path: str | None = None
+    linked_dossier_id: str | None = None
     last_action: str = ""
     recent_snippets: list[str] = []
 
@@ -653,8 +651,8 @@ class ThreadInboxDetail(ThreadDetail):
     last_date: str = ""
     status: str = "active"
     inbox_state: str = "active"
-    linked_goal_path: Optional[str] = None
-    linked_dossier_id: Optional[str] = None
+    linked_goal_path: str | None = None
+    linked_dossier_id: str | None = None
     last_action: str = ""
     recent_snippets: list[str] = []
     available_actions: dict = {}
@@ -664,8 +662,8 @@ class ThreadInboxStateUpdate(BaseModel):
     inbox_state: str = Field(
         ..., pattern=r"^(active|dismissed|goal_created|research_started|dossier_started|dormant)$"
     )
-    linked_goal_path: Optional[str] = None
-    linked_dossier_id: Optional[str] = None
+    linked_goal_path: str | None = None
+    linked_dossier_id: str | None = None
     last_action: str = ""
 
 
@@ -679,7 +677,7 @@ class EngagementEvent(BaseModel):
     )
     target_type: str = Field(..., max_length=50)
     target_id: str = Field(..., max_length=200)
-    metadata: Optional[dict] = None
+    metadata: dict | None = None
 
 
 class EngagementStats(BaseModel):
@@ -692,12 +690,12 @@ class EngagementStats(BaseModel):
 
 
 class UserMe(BaseModel):
-    name: Optional[str] = None
-    email: Optional[str] = None
+    name: str | None = None
+    email: str | None = None
 
 
 class UserMeUpdate(BaseModel):
-    name: Optional[str] = Field(None, max_length=100)
+    name: str | None = Field(None, max_length=100)
 
 
 # --- Profile ---
@@ -720,28 +718,28 @@ class ProfileResponse(BaseModel):
     constraints: dict = {}
     fears_risks: list[str] = []
     active_projects: list[str] = []
-    updated_at: Optional[str] = None
+    updated_at: str | None = None
     summary: str = ""
     is_stale: bool = False
 
 
 class ProfileUpdate(BaseModel):
-    current_role: Optional[str] = None
-    career_stage: Optional[str] = None
-    skills: Optional[list[dict]] = None
-    interests: Optional[list[str]] = None
-    aspirations: Optional[str] = None
-    location: Optional[str] = None
-    languages_frameworks: Optional[list[str]] = None
-    learning_style: Optional[str] = None
-    weekly_hours_available: Optional[int] = None
-    goals_short_term: Optional[str] = None
-    goals_long_term: Optional[str] = None
-    industries_watching: Optional[list[str]] = None
-    technologies_watching: Optional[list[str]] = None
-    constraints: Optional[dict] = None
-    fears_risks: Optional[list[str]] = None
-    active_projects: Optional[list[str]] = None
+    current_role: str | None = None
+    career_stage: str | None = None
+    skills: list[dict] | None = None
+    interests: list[str] | None = None
+    aspirations: str | None = None
+    location: str | None = None
+    languages_frameworks: list[str] | None = None
+    learning_style: str | None = None
+    weekly_hours_available: int | None = None
+    goals_short_term: str | None = None
+    goals_long_term: str | None = None
+    industries_watching: list[str] | None = None
+    technologies_watching: list[str] | None = None
+    constraints: dict | None = None
+    fears_risks: list[str] | None = None
+    active_projects: list[str] | None = None
 
 
 # --- Library ---
@@ -752,14 +750,14 @@ class LibraryReportCreate(BaseModel):
     report_type: str = Field(
         "custom", pattern=r"^(crash_course|overview|memo|plan|custom|document)$"
     )
-    title: Optional[str] = Field(None, max_length=200)
-    collection: Optional[str] = Field(None, max_length=100)
+    title: str | None = Field(None, max_length=200)
+    collection: str | None = Field(None, max_length=100)
 
 
 class LibraryReportUpdate(BaseModel):
-    title: Optional[str] = Field(None, max_length=200)
-    content: Optional[str] = Field(None, max_length=100_000)
-    collection: Optional[str] = Field(None, max_length=100)
+    title: str | None = Field(None, max_length=200)
+    content: str | None = Field(None, max_length=100_000)
+    collection: str | None = Field(None, max_length=100)
 
 
 class LibraryReportListItem(BaseModel):
@@ -767,22 +765,22 @@ class LibraryReportListItem(BaseModel):
     title: str
     report_type: str
     status: str
-    collection: Optional[str] = None
+    collection: str | None = None
     prompt: str = ""
     source_kind: str = "generated"
     created: str = ""
     updated: str = ""
     last_generated_at: str = ""
     preview: str = ""
-    file_name: Optional[str] = None
-    file_size: Optional[int] = None
-    mime_type: Optional[str] = None
+    file_name: str | None = None
+    file_size: int | None = None
+    mime_type: str | None = None
     has_attachment: bool = False
-    extraction_status: Optional[str] = None
+    extraction_status: str | None = None
     has_extracted_text: bool = False
     origin_surface: str = "library"
     visibility_state: str = "saved"
-    index_status: Optional[str] = None
+    index_status: str | None = None
     extracted_chars: int = 0
 
 
@@ -792,17 +790,17 @@ class LibraryReportResponse(LibraryReportListItem):
 
 class ChatAttachmentResponse(BaseModel):
     attachment_id: str
-    file_name: Optional[str] = None
-    mime_type: Optional[str] = None
+    file_name: str | None = None
+    mime_type: str | None = None
     index_status: str = "ready"
     visibility_state: str = "hidden"
     extracted_chars: int = 0
-    warning: Optional[str] = None
+    warning: str | None = None
 
 
 class ExtractionReceiptEnvelope(BaseModel):
     status: str = "pending"
-    receipt: Optional[dict] = None
+    receipt: dict | None = None
 
 
 class DossierEscalationResponse(BaseModel):
@@ -815,13 +813,13 @@ class DossierEscalationResponse(BaseModel):
     payload: dict = {}
     created_at: str = ""
     updated_at: str = ""
-    snoozed_until: Optional[str] = None
-    dismissed_at: Optional[str] = None
-    accepted_dossier_id: Optional[str] = None
+    snoozed_until: str | None = None
+    dismissed_at: str | None = None
+    accepted_dossier_id: str | None = None
 
 
 class DossierEscalationSnoozeRequest(BaseModel):
-    until: Optional[str] = None
+    until: str | None = None
 
 
 class RecommendationOutcomeOverrideRequest(BaseModel):
@@ -873,7 +871,7 @@ class RegulatoryAlertResponse(BaseModel):
     change_type: str = ""
     urgency: str = ""
     relevance: float = 0.0
-    effective_date: Optional[str] = None
+    effective_date: str | None = None
     source_url: str = ""
     observed_at: str = ""
     metadata: dict = {}
@@ -884,7 +882,7 @@ class AssumptionAlertResponse(BaseModel):
     title: str = ""
     detail: str = ""
     status: str = "active"
-    updated_at: Optional[str] = None
+    updated_at: str | None = None
 
 
 class AssumptionCreate(BaseModel):
@@ -894,17 +892,17 @@ class AssumptionCreate(BaseModel):
     )
     source_type: str = "manual"
     source_id: str = "manual"
-    extraction_confidence: Optional[float] = None
-    linked_goal_path: Optional[str] = None
-    linked_dossier_id: Optional[str] = None
+    extraction_confidence: float | None = None
+    linked_goal_path: str | None = None
+    linked_dossier_id: str | None = None
     linked_entities: list[str] = []
 
 
 class AssumptionUpdate(BaseModel):
-    status: Optional[str] = Field(
+    status: str | None = Field(
         None, pattern=r"^(suggested|active|confirmed|invalidated|resolved|archived)$"
     )
-    latest_evidence_summary: Optional[str] = Field(None, max_length=500)
+    latest_evidence_summary: str | None = Field(None, max_length=500)
 
 
 class AssumptionResponse(BaseModel):
@@ -913,12 +911,12 @@ class AssumptionResponse(BaseModel):
     status: str = "active"
     source_type: str = "manual"
     source_id: str = ""
-    extraction_confidence: Optional[float] = None
-    linked_goal_path: Optional[str] = None
-    linked_dossier_id: Optional[str] = None
+    extraction_confidence: float | None = None
+    linked_goal_path: str | None = None
+    linked_dossier_id: str | None = None
     linked_entities: list[str] = []
     latest_evidence_summary: str = ""
-    last_evaluated_at: Optional[str] = None
+    last_evaluated_at: str | None = None
     created_at: str = ""
     updated_at: str = ""
     evidence: list[dict] = []
@@ -941,12 +939,12 @@ class RepoSnapshotResponse(BaseModel):
     commits_30d: int = 0
     open_issues: int = 0
     open_prs: int = 0
-    latest_release: Optional[str] = None
+    latest_release: str | None = None
     ci_status: str = "none"
     contributors_30d: int = 0
-    pushed_at: Optional[str] = None
+    pushed_at: str | None = None
     weekly_commits: list[int] = Field(default_factory=list)
-    snapshot_at: Optional[str] = None
+    snapshot_at: str | None = None
 
 
 class MonitoredRepoResponse(BaseModel):
@@ -954,11 +952,11 @@ class MonitoredRepoResponse(BaseModel):
     repo_full_name: str = ""
     html_url: str = ""
     is_private: bool = False
-    linked_goal_path: Optional[str] = None
+    linked_goal_path: str | None = None
     poll_tier: str = "moderate"
-    last_polled_at: Optional[str] = None
+    last_polled_at: str | None = None
     added_at: str = ""
-    latest_snapshot: Optional[RepoSnapshotResponse] = None
+    latest_snapshot: RepoSnapshotResponse | None = None
 
 
 class RepoSummaryResponse(BaseModel):
@@ -966,6 +964,6 @@ class RepoSummaryResponse(BaseModel):
     full_name: str = ""
     private: bool = False
     html_url: str = ""
-    language: Optional[str] = None
-    pushed_at: Optional[str] = None
+    language: str | None = None
+    pushed_at: str | None = None
     open_issues_count: int = 0

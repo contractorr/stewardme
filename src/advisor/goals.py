@@ -2,7 +2,6 @@
 
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
 
 import frontmatter
 import structlog
@@ -79,7 +78,7 @@ class GoalTracker:
             reverse=True,
         )
 
-    def get_stale_goals(self, days_threshold: Optional[int] = None) -> list[dict]:
+    def get_stale_goals(self, days_threshold: int | None = None) -> list[dict]:
         """Get goals that haven't been checked in recently.
 
         Args:
@@ -96,7 +95,7 @@ class GoalTracker:
     def check_in_goal(
         self,
         goal_path: Path,
-        notes: Optional[str] = None,
+        notes: str | None = None,
     ) -> bool:
         """Record a check-in for a goal.
 
@@ -247,7 +246,7 @@ class GoalTracker:
         completed = sum(1 for m in milestones if m.get("completed"))
         return int(completed / len(milestones) * 100)
 
-    def _days_since(self, iso_date: Optional[str]) -> Optional[int]:
+    def _days_since(self, iso_date: str | None) -> int | None:
         """Calculate days since ISO date string."""
         if not iso_date:
             return None

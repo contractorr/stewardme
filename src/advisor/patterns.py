@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Optional
 
 import structlog
 
@@ -22,7 +21,7 @@ class PatternDetector:
     """Detects high-level behavioral patterns from journal + goals data."""
 
     def __init__(
-        self, journal_storage, embeddings=None, config: Optional[dict] = None, insight_store=None
+        self, journal_storage, embeddings=None, config: dict | None = None, insight_store=None
     ):
         self.storage = journal_storage
         self.embeddings = embeddings
@@ -73,7 +72,7 @@ class PatternDetector:
         except Exception as e:
             logger.debug("pattern_to_insight_error", error=str(e))
 
-    def _detect_blind_spots(self, lookback_days: int) -> Optional[Pattern]:
+    def _detect_blind_spots(self, lookback_days: int) -> Pattern | None:
         """Active goals with zero related journal entries (low embedding similarity)."""
         if not self.embeddings:
             return None
@@ -125,7 +124,7 @@ class PatternDetector:
             "Are these goals still relevant? If so, what's one step you could take this week?",
         )
 
-    def _detect_blocker_cycle(self, lookback_days: int) -> Optional[Pattern]:
+    def _detect_blocker_cycle(self, lookback_days: int) -> Pattern | None:
         """Same negative keywords across 3+ entries in 14 days."""
         try:
             import re

@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import frontmatter
 
@@ -20,7 +19,7 @@ class JournalSearch:
         self,
         storage: JournalStorage,
         embeddings: EmbeddingManager,
-        fts_index: Optional[JournalFTSIndex] = None,
+        fts_index: JournalFTSIndex | None = None,
     ):
         self.storage = storage
         self.embeddings = embeddings
@@ -30,7 +29,7 @@ class JournalSearch:
         self,
         query: str,
         n_results: int = 5,
-        entry_type: Optional[str] = None,
+        entry_type: str | None = None,
     ) -> list[dict]:
         """Search using semantic similarity.
 
@@ -75,7 +74,7 @@ class JournalSearch:
     def keyword_search(
         self,
         keyword: str,
-        entry_type: Optional[str] = None,
+        entry_type: str | None = None,
         limit: int = 20,
     ) -> list[dict]:
         """Keyword search — delegates to FTS5 when available, else in-memory scan."""
@@ -86,7 +85,7 @@ class JournalSearch:
     def _keyword_search_fts(
         self,
         keyword: str,
-        entry_type: Optional[str] = None,
+        entry_type: str | None = None,
         limit: int = 20,
     ) -> list[dict]:
         """FTS5-backed keyword search with BM25 ranking."""
@@ -116,7 +115,7 @@ class JournalSearch:
     def _keyword_search_fallback(
         self,
         keyword: str,
-        entry_type: Optional[str] = None,
+        entry_type: str | None = None,
         limit: int = 20,
     ) -> list[dict]:
         """In-memory keyword scan (legacy fallback)."""
@@ -154,7 +153,7 @@ class JournalSearch:
         query: str,
         n_results: int = 5,
         semantic_weight: float = 0.7,
-        entry_type: Optional[str] = None,
+        entry_type: str | None = None,
     ) -> list[dict]:
         """Combine semantic + keyword search with reciprocal rank fusion (k=60)."""
         semantic_results = self.semantic_search(
@@ -171,8 +170,8 @@ class JournalSearch:
     def temporal_search(
         self,
         query: str,
-        start: Optional[datetime] = None,
-        end: Optional[datetime] = None,
+        start: datetime | None = None,
+        end: datetime | None = None,
         n_results: int = 5,
     ) -> list[dict]:
         """Hybrid search filtered by entry created date.
