@@ -2,12 +2,12 @@
 
 import pytest
 
-import coach_mcp.bootstrap
+from coach_mcp.bootstrap import _components_var
 
 
 @pytest.fixture(autouse=True)
 def reset_bootstrap():
-    """Reset the bootstrap singleton between tests."""
-    coach_mcp.bootstrap._components = None
+    """Reset the bootstrap ContextVar between tests."""
+    token = _components_var.set(None)
     yield
-    coach_mcp.bootstrap._components = None
+    _components_var.reset(token)

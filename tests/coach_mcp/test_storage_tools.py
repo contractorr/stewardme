@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 import coach_mcp.bootstrap
+from coach_mcp.bootstrap import reset_components, set_components
 from journal.thread_store import ThreadStore
 from memory.models import FactCategory, FactSource, StewardFact
 from memory.store import FactStore
@@ -35,9 +36,9 @@ def mock_components(tmp_path):
         "rag": MagicMock(),
         "advisor": None,
     }
-    coach_mcp.bootstrap._components = components
+    token = set_components(components)
     yield components
-    coach_mcp.bootstrap._components = None
+    reset_components(token)
 
 
 def test_bootstrap_storage_paths_use_single_user_root_and_profile_override(

@@ -19,11 +19,10 @@ The `coach_mcp` package exposes 40 tools across 12 modules via a stdio-transport
 
 #### Behavior
 
-- Creates a single `Server("stewardme")` instance at module load time.
-- Two module-level cache globals: `_tool_defs: list[Tool] | None` and `_handlers: dict | None`, both `None` until first use.
-- `_load_tools()` imports 12 tool modules in this order: `journal, goals, intelligence, recommendations, research, reflect, profile, projects, insights, brief, memory, threads`. For each module it iterates `TOOLS` (a list of `(name, schema, handler)` tuples) and builds a `Tool(name=name, description=schema["description"], inputSchema=schema)` object plus a `handlers[name] = handler` entry.
-- `list_tools()` — async, `@app.list_tools()` decorated. Calls `_load_tools()` on first invocation; returns cached `_tool_defs` subsequently.
-- `call_tool(name, arguments)` — async, `@app.call_tool()` decorated. Triggers lazy load if `_handlers` is `None`. Dispatches to `handler(arguments)` synchronously. Serializes result with `json.dumps(result, default=str)`. Returns `list[TextContent]`.
+- Creates a single `Server("stewardme", lifespan=_lifespan)` instance at module load time.
+- `_lifespan(server)` — async context manager. Calls `get_components()` then `build_tool_registry(components)`, yields `{"registry": registry}` as the lifespan context. No module-level mutable globals.
+- `list_tools()` — async, `@app.list_tools()` decorated. Reads registry from `app.request_context.lifespan_context["registry"]`.
+- `call_tool(name, arguments)` — async, `@app.call_tool()` decorated. Reads registry from lifespan context. Dispatches to `registry.execute(name, arguments)` synchronously. Returns `list[TextContent]`.
 - `run()` — async. Opens stdio streams via `stdio_server()`, runs `app.run(read_stream, write_stream, app.create_initialization_options())`.
 - `main()` — sync entry point, calls `asyncio.run(run())`. Invoked by `python -m coach_mcp` and the `coach_mcp` CLI entrypoint.
 
@@ -34,7 +33,7 @@ The `coach_mcp` package exposes 40 tools across 12 modules via a stdio-transport
 
 #### Invariants
 
-- Tool loading is lazy and cached — `_load_tools()` is called at most once per process lifetime (unless `_tool_defs` is reset).
+- Registry is built once per MCP session inside the lifespan context manager — no module-level mutable globals.
 - All tool responses are JSON strings wrapped in `list[TextContent]` — never raw Python objects.
 - Handler exceptions are caught and returned as error JSON — the MCP connection is never dropped due to a handler crash.
 - Tool dispatch is synchronous — no async handlers exist in any tool module.
@@ -43,7 +42,7 @@ The `coach_mcp` package exposes 40 tools across 12 modules via a stdio-transport
 #### Error Handling
 
 - **Unknown tool**: returns `[TextContent(type="text", text='{"error": "Unknown tool: <name>"}')]` immediately without raising.
-- **Handler exception**: caught in `call_tool`, logs `logger.error("tool_error", tool=name, error=str(e))`, returns `{"error": str(e), "traceback": traceback.format_exc()}` as JSON text.
+- **Handler exception**: caught in `call_tool` via `ToolRegistry.execute()`, returns `{"error": "<tool_name>: <message>"}` as JSON text. Tracebacks are not leaked.
 
 #### Configuration
 
@@ -56,8 +55,10 @@ None — server name `"stewardme"` is hard-coded. Transport is always stdio.
 
 #### Behavior
 
-- Single module-level global `_components = None`.
-- `get_components() -> dict` — lazy singleton. On first call logs `"mcp_bootstrap_init"` then calls `cli.utils.get_components(skip_advisor=True)`. Subsequent calls return the cached dict.
+- Uses `contextvars.ContextVar[dict | None]` (`_components_var`, default `None`) instead of a module-level mutable global.
+- `set_components(components) -> Token` — explicitly sets components (used by MCP lifespan and tests). Returns a `contextvars.Token` for later reset.
+- `reset_components(token)` — resets to the previous value via `ContextVar.reset()`.
+- `get_components() -> dict` — reads from the ContextVar. If unset (`None`), lazy-inits via `cli.utils.get_components(skip_advisor=True)` and stores in the ContextVar. Logs `"mcp_bootstrap_init"` on first init.
 - `skip_advisor=True` skips LLM provider and `AdvisorEngine` initialization. This is the architectural enforcement of the no-LLM-in-MCP-layer rule.
 
 #### Inputs / Outputs
@@ -78,9 +79,9 @@ Returns a dict with keys:
 
 #### Invariants
 
-- `get_components()` is a true singleton — returns the same dict reference on every call after initialization.
+- `get_components()` returns the same dict reference within a single context (ContextVar scope).
 - `skip_advisor=True` is hardcoded — the MCP layer can never access the `AdvisorEngine` through bootstrap.
-- The only way to reset the singleton in tests is `bootstrap._components = None` — no public reset method.
+- Tests use `set_components()` / `reset_components()` — no direct access to the ContextVar or module internals needed.
 - Bootstrap failure is fatal — the MCP server cannot start without successful component initialization.
 
 #### Error Handling
@@ -89,7 +90,7 @@ Any exception from `cli.utils.get_components()` propagates uncaught — bootstra
 
 #### Configuration
 
-- **Test reset pattern**: tests set `bootstrap._components = None` directly to reset the singleton between runs. No dedicated reset function exists in the module.
+- **Test reset pattern**: conftest autouse fixture calls `_components_var.set(None)` and resets via token. Individual test fixtures use `set_components(mock_dict)` / `reset_components(token)`.
 
 ---
 
@@ -311,7 +312,8 @@ min_entries_for_thread = 2
 The rule is enforced architecturally in `bootstrap.py`:
 
 ```python
-_components = _get(skip_advisor=True)
+c = _get(skip_advisor=True)
+_components_var.set(c)
 ```
 
 `skip_advisor=True` causes `cli.utils.get_components` to skip all LLM provider and `AdvisorEngine` initialization. No LLM instance is available to any tool handler.
@@ -382,12 +384,13 @@ Tools marked `[Experimental]` carry the prefix in their MCP description string. 
 
 ## Test Expectations
 
-- `server.call_tool()`: verify unknown tool returns `{"error": "Unknown tool: ..."}` (not exception); verify handler exception returns `{"error": ..., "traceback": ...}`.
-- `bootstrap.get_components()`: verify singleton — second call returns same dict without re-initializing; verify `_components = None` reset pattern works in tests.
+- `server.call_tool()`: verify unknown tool returns `{"error": "Unknown tool: ..."}` (not exception); verify handler exception returns `{"error": "<name>: <msg>"}` without traceback.
+- `bootstrap.get_components()`: verify ContextVar-based isolation — `set_components()` / `reset_components()` token pattern; conftest autouse fixture resets between tests.
 - `journal_read` / `journal_delete`: verify path traversal check rejects `../` paths; verify "Entry not found" on missing file.
 - `journal_create`: mock cheap LLM for title generation; verify thread detection failure doesn't prevent entry creation.
 - `memory_list_facts`: verify invalid category returns `{"error": "Invalid category: ..."}`.
 - `profile_update_field`: verify `ValueError` on unknown field returns `{"success": False, "error": ...}`.
 - `research_run`: this is the one tool that calls an LLM transitively — mock `IntelScheduler.run_research_now`.
-- All tests: reset `bootstrap._components = None` between runs (conftest fixture).
+- All tests: conftest autouse fixture resets `_components_var` via ContextVar token between runs. Individual fixtures use `set_components()` / `reset_components()`.
+- Server handler tests (`list_tools`, `call_tool`): mock `app.request_context` as `PropertyMock` returning `SimpleNamespace(lifespan_context={"registry": ...})` since handlers are called directly without MCP transport.
 - Mocks required: all storage backends, LLM providers, filesystem.

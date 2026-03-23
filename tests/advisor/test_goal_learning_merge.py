@@ -387,9 +387,9 @@ class TestRemovals:
 
     def test_mcp_tool_count_decreased(self):
         """Verify learning tools removed from MCP server."""
-        from coach_mcp.server import _load_tools
+        from coach_mcp.tools import build_tool_registry
 
-        registry = _load_tools()
+        registry = build_tool_registry()
         tool_names = [t.name for t in registry.get_mcp_definitions()]
         assert "learning_gaps" not in tool_names
         assert "learning_paths_list" not in tool_names

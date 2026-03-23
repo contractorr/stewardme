@@ -2,12 +2,13 @@
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock
+from types import SimpleNamespace
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
-import coach_mcp.bootstrap
-import coach_mcp.server
+from coach_mcp.bootstrap import reset_components, set_components
+from coach_mcp.tools import build_tool_registry
 
 
 @pytest.fixture
@@ -29,16 +30,18 @@ def mock_components():
         "rag": MagicMock(),
         "advisor": None,
     }
-    coach_mcp.bootstrap._components = components
-    coach_mcp.server._registry = None
+    token = set_components(components)
     yield components
+    reset_components(token)
+
+
+def _build_registry(components):
+    return build_tool_registry(components)
 
 
 def test_load_tools_returns_20(mock_components):
     """Server should register exactly 47 tools."""
-    from coach_mcp.server import _load_tools
-
-    registry = _load_tools()
+    registry = _build_registry(mock_components)
     tools = registry.get_mcp_definitions()
     assert len(tools) == 53
     assert len(registry.get_definitions()) == 53
@@ -46,9 +49,7 @@ def test_load_tools_returns_20(mock_components):
 
 def test_load_tools_names(mock_components):
     """All expected tool names should be present."""
-    from coach_mcp.server import _load_tools
-
-    tools = _load_tools().get_mcp_definitions()
+    tools = _build_registry(mock_components).get_mcp_definitions()
     names = {t.name for t in tools}
 
     expected = {
@@ -111,27 +112,21 @@ def test_load_tools_names(mock_components):
 
 def test_tools_have_descriptions(mock_components):
     """Every tool must have a non-empty description."""
-    from coach_mcp.server import _load_tools
-
-    tools = _load_tools().get_mcp_definitions()
+    tools = _build_registry(mock_components).get_mcp_definitions()
     for tool in tools:
         assert tool.description, f"Tool {tool.name} missing description"
 
 
 def test_tools_have_input_schemas(mock_components):
     """Every tool must have an inputSchema with type=object."""
-    from coach_mcp.server import _load_tools
-
-    tools = _load_tools().get_mcp_definitions()
+    tools = _build_registry(mock_components).get_mcp_definitions()
     for tool in tools:
         assert tool.inputSchema["type"] == "object", f"Tool {tool.name} bad schema type"
 
 
 def test_recommendation_tools_publish_string_rec_ids(mock_components):
     """Recommendation MCP schemas should consistently expose string recommendation IDs."""
-    from coach_mcp.server import _load_tools
-
-    tools = {tool.name: tool for tool in _load_tools().get_mcp_definitions()}
+    tools = {tool.name: tool for tool in _build_registry(mock_components).get_mcp_definitions()}
 
     assert (
         tools["recommendations_action_create"].inputSchema["properties"]["rec_id"]["type"]
@@ -148,14 +143,22 @@ def test_recommendation_tools_publish_string_rec_ids(mock_components):
     assert tools["recommendations_rate"].inputSchema["properties"]["rec_id"]["type"] == "string"
 
 
+def _mock_request_context(registry):
+    """Return a context manager that patches app.request_context for direct handler calls."""
+    from coach_mcp.server import app
+
+    ctx = SimpleNamespace(lifespan_context={"registry": registry})
+    return patch.object(type(app), "request_context", new_callable=PropertyMock, return_value=ctx)
+
+
 @pytest.mark.asyncio
 async def test_call_unknown_tool(mock_components):
     """Calling unknown tool should return error JSON."""
-    coach_mcp.server._registry = None
-
     from coach_mcp.server import call_tool
 
-    result = await call_tool("nonexistent_tool", {})
+    registry = _build_registry(mock_components)
+    with _mock_request_context(registry):
+        result = await call_tool("nonexistent_tool", {})
     assert len(result) == 1
     data = json.loads(result[0].text)
     assert "error" in data
@@ -165,6 +168,7 @@ async def test_call_unknown_tool(mock_components):
 @pytest.mark.asyncio
 async def test_call_tool_omits_traceback(mock_components):
     """Tool failures should not leak tracebacks back to MCP clients."""
+    from coach_mcp.server import call_tool
     from services.tool_registry import ToolRegistry
 
     registry = ToolRegistry()
@@ -175,11 +179,9 @@ async def test_call_tool_omits_traceback(mock_components):
         schema={"type": "object", "properties": {}, "required": []},
         handler=lambda _args: (_ for _ in ()).throw(ValueError("boom")),
     )
-    coach_mcp.server._registry = registry
 
-    from coach_mcp.server import call_tool
-
-    result = await call_tool("broken_tool", {})
+    with _mock_request_context(registry):
+        result = await call_tool("broken_tool", {})
     data = json.loads(result[0].text)
     assert data == {"error": "broken_tool: boom"}
 
@@ -187,9 +189,9 @@ async def test_call_tool_omits_traceback(mock_components):
 @pytest.mark.asyncio
 async def test_list_tools_async(mock_components):
     """list_tools should return Tool objects."""
-    coach_mcp.server._registry = None
-
     from coach_mcp.server import list_tools
 
-    tools = await list_tools()
+    registry = _build_registry(mock_components)
+    with _mock_request_context(registry):
+        tools = await list_tools()
     assert len(tools) == 53

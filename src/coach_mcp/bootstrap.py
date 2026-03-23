@@ -1,5 +1,6 @@
 """Lazy component initialization for MCP server."""
 
+import contextvars
 from pathlib import Path
 
 import structlog
@@ -17,21 +18,31 @@ from storage_paths import StoragePaths, get_coach_home, get_single_user_paths
 
 logger = structlog.get_logger()
 
-_components = None
+_components_var: contextvars.ContextVar[dict | None] = contextvars.ContextVar(
+    "mcp_components", default=None
+)
+
+
+def set_components(components: dict) -> contextvars.Token:
+    """Set components explicitly (MCP lifespan / tests)."""
+    return _components_var.set(components)
+
+
+def reset_components(token: contextvars.Token) -> None:
+    """Reset to previous value."""
+    _components_var.reset(token)
 
 
 def get_components() -> dict:
-    """Lazy singleton wrapping cli.utils.get_components(skip_advisor=True).
-
-    Returns the same dict as cli/utils.py but skips LLM/advisor init.
-    """
-    global _components
-    if _components is None:
+    """Get from context; lazy-init if unset (CLI compat)."""
+    c = _components_var.get()
+    if c is None:
         logger.info("mcp_bootstrap_init")
         from cli.utils import get_components as _get
 
-        _components = _get(skip_advisor=True)
-    return _components
+        c = _get(skip_advisor=True)
+        _components_var.set(c)
+    return c
 
 
 def _resolve_profile_path(components: dict) -> Path | None:

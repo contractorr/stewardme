@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import coach_mcp.bootstrap
+from coach_mcp.bootstrap import reset_components, set_components
 
 
 @pytest.fixture
@@ -29,8 +29,9 @@ def mock_components(tmp_path):
         "rag": MagicMock(),
         "advisor": None,
     }
-    coach_mcp.bootstrap._components = components
+    token = set_components(components)
     yield components
+    reset_components(token)
 
 
 def test_list_goals(mock_components):

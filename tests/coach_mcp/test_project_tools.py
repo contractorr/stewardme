@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import coach_mcp.bootstrap
+from coach_mcp.bootstrap import reset_components, set_components
 
 
 @pytest.fixture
@@ -21,9 +21,9 @@ def mock_components():
         "rag": MagicMock(),
         "advisor": None,
     }
-    coach_mcp.bootstrap._components = components
+    token = set_components(components)
     yield components
-    coach_mcp.bootstrap._components = None
+    reset_components(token)
 
 
 def test_projects_discover_uses_shared_service(mock_components):
