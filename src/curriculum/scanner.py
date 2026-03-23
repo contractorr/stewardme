@@ -182,6 +182,67 @@ def load_skill_tree(
     return guide_prereqs, guide_tracks, track_metadata
 
 
+def build_tree_layout(
+    skill_tree: tuple[dict[str, list[str]], dict[str, str], dict[str, dict]] | None,
+) -> dict[str, dict]:
+    """Compute layout positions for skill tree DAG via topological sort.
+
+    Returns dict[guide_id -> {x, y, depth}].
+    Uses longest-path-from-root to assign depth, then indexes within each tier for x.
+    """
+    if skill_tree is None:
+        return {}
+
+    guide_prereqs, guide_tracks, _ = skill_tree
+
+    if not guide_prereqs:
+        return {}
+
+    all_guides = set(guide_prereqs.keys())
+
+    # Compute depth = longest path from any root (entry point)
+    depth: dict[str, int] = {}
+
+    # Build children adjacency: prereq -> list of dependents
+    children: dict[str, list[str]] = {gid: [] for gid in all_guides}
+    for gid, prereqs in guide_prereqs.items():
+        for p in prereqs:
+            if p in children:
+                children[p].append(gid)
+
+    # BFS computing longest path (process each node, relax edges)
+    # Initialize entry points (no prereqs) at depth 0
+    from collections import deque
+
+    for gid, prereqs in guide_prereqs.items():
+        valid_prereqs = [p for p in prereqs if p in all_guides]
+        if not valid_prereqs:
+            depth[gid] = 0
+
+    # Relax: BFS from depth-0 nodes, always taking max depth
+    queue = deque(gid for gid in depth)
+    while queue:
+        gid = queue.popleft()
+        for child in children[gid]:
+            new_depth = depth[gid] + 1
+            if child not in depth or new_depth > depth[child]:
+                depth[child] = new_depth
+                queue.append(child)
+
+    # Assign x = index within same depth tier
+    tiers: dict[int, list[str]] = {}
+    for gid, d in depth.items():
+        tiers.setdefault(d, []).append(gid)
+
+    positions: dict[str, dict] = {}
+    for d, guides in tiers.items():
+        guides.sort()  # deterministic ordering
+        for x, gid in enumerate(guides):
+            positions[gid] = {"x": x, "y": d, "depth": d}
+
+    return positions
+
+
 class CurriculumScanner:
     """Walks content directories and discovers guides + chapters."""
 

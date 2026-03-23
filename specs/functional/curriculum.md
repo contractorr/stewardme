@@ -147,6 +147,11 @@ Learn is a structured study workspace that turns a corpus of markdown guides int
 - [ ] Prerequisites come from curated manifest, not directory numbering
 - [ ] Incomplete prerequisites do not block enrollment or reading
 - [ ] MCP tool filters by track
+- [ ] `GET /api/curriculum/tree` returns full DAG: tracks, nodes (with position hints), and edges
+- [ ] Each node includes status, mastery, progress, and layout position (x, y, depth)
+- [ ] Entry-point guides have `is_entry_point: true` and `depth: 0`
+- [ ] Cross-track prerequisite edges are included
+- [ ] Layout positions computed via topological sort (longest path from root)
 
 #### Edge Cases (Skill Tree)
 

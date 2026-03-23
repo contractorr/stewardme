@@ -576,3 +576,77 @@ def test_list_tracks_uncategorized(store, sample_guide, sample_chapters):
     uncategorized = next((t for t in tracks if t["id"] == "_uncategorized"), None)
     assert uncategorized is not None
     assert uncategorized["guide_count"] == 1
+
+
+# --- get_tree_data tests ---
+
+
+def test_get_tree_data_basic(store, sample_guide, sample_chapters):
+    """Returns all guides with expected fields."""
+    store.sync_catalog([sample_guide], sample_chapters)
+    data = store.get_tree_data("test-user")
+    assert len(data) == 1
+    node = data[0]
+    assert node["id"] == "01-philosophy-guide"
+    assert node["title"] == "Philosophy"
+    assert "status" in node
+    assert "mastery_score" in node
+    assert "prerequisites" in node
+    assert node["status"] == "not_started"
+
+
+def test_get_tree_data_with_progress(store, sample_guide, sample_chapters):
+    """Status transitions: enrolled → in_progress → completed."""
+    store.sync_catalog([sample_guide], sample_chapters)
+    user_id = "test-user"
+
+    # Not enrolled → not_started
+    data = store.get_tree_data(user_id)
+    assert data[0]["status"] == "not_started"
+
+    # Enroll → enrolled
+    store.enroll(user_id, "01-philosophy-guide")
+    data = store.get_tree_data(user_id)
+    assert data[0]["status"] == "enrolled"
+    assert data[0]["enrolled"]
+
+    # Complete one chapter → in_progress
+    store.update_progress(
+        user_id=user_id,
+        chapter_id="01-philosophy-guide/01-introduction",
+        guide_id="01-philosophy-guide",
+        status="completed",
+    )
+    data = store.get_tree_data(user_id)
+    assert data[0]["status"] == "in_progress"
+    assert data[0]["chapters_completed"] == 1
+
+    # Complete all non-glossary → completed
+    store.update_progress(
+        user_id=user_id,
+        chapter_id="01-philosophy-guide/02-logic",
+        guide_id="01-philosophy-guide",
+        status="completed",
+    )
+    data = store.get_tree_data(user_id)
+    assert data[0]["status"] == "completed"
+
+
+def test_get_tree_data_mastery(store, sample_guide, sample_chapters):
+    """Mastery computed per node."""
+    store.sync_catalog([sample_guide], sample_chapters)
+    user_id = "test-user"
+
+    # No progress → 0
+    data = store.get_tree_data(user_id)
+    assert data[0]["mastery_score"] == 0.0
+
+    # Partial progress → mastery > 0
+    store.update_progress(
+        user_id=user_id,
+        chapter_id="01-philosophy-guide/01-introduction",
+        guide_id="01-philosophy-guide",
+        status="completed",
+    )
+    data = store.get_tree_data(user_id)
+    assert data[0]["mastery_score"] > 0

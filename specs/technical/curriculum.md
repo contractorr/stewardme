@@ -196,6 +196,33 @@ mastery_score = completion_pct * 0.4 + review_score * 0.6
 | `/api/curriculum/chapters/{chapter_id}/pre-reading` | GET | Get/generate pre-reading questions |
 | `/api/curriculum/chapters/{chapter_id}/related` | GET | Find related chapters from other guides |
 | `/api/curriculum/tracks` | GET | List tracks with per-track guide counts and mastery |
+| `/api/curriculum/tree` | GET | Full DAG: tracks, nodes with layout positions, edges |
+
+### GET /api/curriculum/tree
+
+Returns `SkillTreeResponse` with full DAG for frontend visualization.
+
+**Response schema:**
+```json
+{
+  "tracks": { "<track_id>": { "title": "...", "description": "...", "color": "#..." } },
+  "nodes": [SkillTreeNode],
+  "edges": [{ "source": "guide_id", "target": "guide_id" }]
+}
+```
+
+**SkillTreeNode fields:** `id, title, track, category, difficulty, chapter_count, prerequisites, is_entry_point, status (not_started|enrolled|in_progress|completed), enrolled, progress_pct, mastery_score, chapters_completed, chapters_total, position: {x, y, depth}`.
+
+**Layout algorithm (build_tree_layout):**
+1. Build adjacency list from guide_prereqs (prereq → dependents).
+2. Entry points = guides with no prerequisites within the DAG.
+3. BFS from all entry points computing `depth` = longest path from any root.
+4. Within each depth tier, assign `x` = index (left-to-right).
+5. `y` = depth. Frontend uses these as relative hints.
+
+**Edge derivation:** For each guide with prerequisites, emit `{source: prereq_id, target: guide_id}`.
+
+**Status derivation:** not_started (no enrollment) → enrolled (enrolled, 0 chapters done) → in_progress (partial) → completed (all non-glossary done).
 
 Content resolution: `_content_dirs()` resolves repo-relative `content/curriculum/` + any `config.curriculum.extra_content_dirs`. `_chapter_content_path()` handles both regular and industry guide ID formats.
 

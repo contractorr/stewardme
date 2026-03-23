@@ -157,3 +157,36 @@ export interface RelatedChapter {
   guide_title: string;
   distance: number;
 }
+
+// --- Skill tree DAG types ---
+
+export type GuideStatus = "not_started" | "enrolled" | "in_progress" | "completed";
+
+export interface SkillTreeNode {
+  id: string;
+  title: string;
+  track: string;
+  category: GuideCategory;
+  difficulty: DifficultyLevel;
+  chapter_count: number;
+  prerequisites: string[];
+  is_entry_point: boolean;
+  status: GuideStatus;
+  enrolled: boolean;
+  progress_pct: number;
+  mastery_score: number;
+  chapters_completed: number;
+  chapters_total: number;
+  position: { x: number; y: number; depth: number };
+}
+
+export interface SkillTreeEdge {
+  source: string;
+  target: string;
+}
+
+export interface SkillTreeResponse {
+  tracks: Record<string, Track>;
+  nodes: SkillTreeNode[];
+  edges: SkillTreeEdge[];
+}

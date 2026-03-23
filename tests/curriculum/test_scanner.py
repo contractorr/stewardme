@@ -10,6 +10,7 @@ from curriculum.scanner import (
     _detect_diagrams,
     _extract_title,
     _infer_category,
+    build_tree_layout,
     load_skill_tree,
 )
 
@@ -235,3 +236,47 @@ def test_get_track_metadata(content_dir_with_manifest):
     assert meta["foundations"]["title"] == "Foundations"
     assert meta["foundations"]["color"] == "#6366f1"
     assert "industry" in meta
+
+
+# --- build_tree_layout tests ---
+
+
+def test_build_tree_layout_basic():
+    """Entry points at depth 0, dependents at depth 1."""
+    skill_tree = (
+        {
+            "A": [],
+            "B": ["A"],
+            "C": ["A"],
+        },
+        {"A": "t1", "B": "t1", "C": "t1"},
+        {"t1": {"title": "Track 1", "description": "", "color": "#000"}},
+    )
+    positions = build_tree_layout(skill_tree)
+    assert positions["A"]["depth"] == 0
+    assert positions["B"]["depth"] == 1
+    assert positions["C"]["depth"] == 1
+
+
+def test_build_tree_layout_diamond():
+    """A→B, A→C, B→D, C→D — D should be at depth 2."""
+    skill_tree = (
+        {
+            "A": [],
+            "B": ["A"],
+            "C": ["A"],
+            "D": ["B", "C"],
+        },
+        {"A": "t1", "B": "t1", "C": "t1", "D": "t1"},
+        {"t1": {"title": "Track 1", "description": "", "color": "#000"}},
+    )
+    positions = build_tree_layout(skill_tree)
+    assert positions["A"]["depth"] == 0
+    assert positions["B"]["depth"] == 1
+    assert positions["C"]["depth"] == 1
+    assert positions["D"]["depth"] == 2
+
+
+def test_build_tree_layout_no_manifest():
+    """None skill_tree returns empty dict."""
+    assert build_tree_layout(None) == {}

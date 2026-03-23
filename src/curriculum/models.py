@@ -183,3 +183,37 @@ class ReviewGradeRequest(BaseModel):
 
 class QuizSubmission(BaseModel):
     answers: dict[str, str]  # question_id -> answer text
+
+
+# --- Skill tree DAG models ---
+
+
+class SkillTreeNode(BaseModel):
+    id: str
+    title: str
+    track: str
+    category: str
+    difficulty: str
+    chapter_count: int = 0
+    prerequisites: list[str] = Field(default_factory=list)
+    is_entry_point: bool = False
+    # User progress
+    status: str = "not_started"  # not_started | enrolled | in_progress | completed
+    enrolled: bool = False
+    progress_pct: float = 0.0
+    mastery_score: float = 0.0
+    chapters_completed: int = 0
+    chapters_total: int = 0
+    # Layout hints
+    position: dict = Field(default_factory=dict)  # {x, y, depth}
+
+
+class SkillTreeEdge(BaseModel):
+    source: str  # prerequisite guide_id
+    target: str  # dependent guide_id
+
+
+class SkillTreeResponse(BaseModel):
+    tracks: dict[str, dict]  # track_id -> {title, description, color}
+    nodes: list[SkillTreeNode]
+    edges: list[SkillTreeEdge]

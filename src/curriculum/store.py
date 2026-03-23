@@ -907,6 +907,67 @@ class CurriculumStore:
                 result.append(t)
             return result
 
+    def get_tree_data(self, user_id: str) -> list[dict]:
+        """Return per-guide data for skill tree: progress, mastery, status."""
+        import json
+
+        with wal_connect(self.db_path, row_factory=True) as conn:
+            rows = conn.execute("SELECT * FROM guides ORDER BY id").fetchall()
+            results = []
+            for row in rows:
+                d = dict(row)
+                gid = d["id"]
+                prereqs = json.loads(d.get("prerequisites", "[]"))
+
+                total = conn.execute(
+                    "SELECT COUNT(*) FROM chapters WHERE guide_id=?", (gid,)
+                ).fetchone()[0]
+                completed = conn.execute(
+                    "SELECT COUNT(*) FROM user_chapter_progress WHERE user_id=? AND guide_id=? AND status='completed'",
+                    (user_id, gid),
+                ).fetchone()[0]
+
+                enrollment = conn.execute(
+                    "SELECT * FROM user_guide_enrollment WHERE user_id=? AND guide_id=?",
+                    (user_id, gid),
+                ).fetchone()
+                enrolled = enrollment is not None
+                guide_completed = (
+                    dict(enrollment).get("completed_at") is not None if enrollment else False
+                )
+
+                progress_pct = round(completed / total * 100, 1) if total > 0 else 0.0
+                mastery = self._compute_mastery(conn, user_id, gid, completed, total)
+
+                # Determine status
+                if not enrolled:
+                    status = "not_started"
+                elif guide_completed:
+                    status = "completed"
+                elif completed > 0:
+                    status = "in_progress"
+                else:
+                    status = "enrolled"
+
+                results.append(
+                    {
+                        "id": gid,
+                        "title": d["title"],
+                        "track": d.get("track", ""),
+                        "category": d["category"],
+                        "difficulty": d["difficulty"],
+                        "chapter_count": d["chapter_count"],
+                        "prerequisites": prereqs,
+                        "enrolled": enrolled,
+                        "chapters_completed": completed,
+                        "chapters_total": total,
+                        "progress_pct": progress_pct,
+                        "mastery_score": mastery,
+                        "status": status,
+                    }
+                )
+            return results
+
     def get_next_chapter(self, user_id: str, guide_id: str) -> dict | None:
         """Get next unread chapter in a guide."""
         with wal_connect(self.db_path, row_factory=True) as conn:

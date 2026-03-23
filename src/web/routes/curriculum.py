@@ -14,7 +14,7 @@ from curriculum.models import (
     ReviewItemType,
 )
 from curriculum.question_generator import QuestionGenerator
-from curriculum.scanner import CurriculumScanner
+from curriculum.scanner import CurriculumScanner, build_tree_layout
 from curriculum.store import CurriculumStore
 from web.auth import get_current_user
 from web.deps import get_config, get_user_paths
@@ -93,6 +93,60 @@ async def list_tracks(
     if not guides:
         _sync_catalog(store)
     return store.list_tracks(user_id, track_meta)
+
+
+@router.get("/tree")
+async def get_skill_tree(
+    user: dict = Depends(get_current_user),
+):
+    """Return full DAG: tracks, nodes with layout positions, edges."""
+    user_id = user["id"]
+    store = _get_store(user_id)
+    scanner = CurriculumScanner(_content_dirs())
+
+    # Ensure catalog populated
+    guides_check = store.list_guides()
+    if not guides_check:
+        _sync_catalog(store)
+
+    track_meta = scanner.get_track_metadata()
+    skill_tree = scanner._skill_tree
+    positions = build_tree_layout(skill_tree)
+
+    tree_data = store.get_tree_data(user_id)
+
+    from curriculum.models import SkillTreeEdge, SkillTreeNode, SkillTreeResponse
+
+    nodes = []
+    edges = []
+    for g in tree_data:
+        prereqs = g["prerequisites"]
+        is_entry = len(prereqs) == 0
+        pos = positions.get(g["id"], {"x": 0, "y": 0, "depth": 0})
+
+        nodes.append(
+            SkillTreeNode(
+                id=g["id"],
+                title=g["title"],
+                track=g["track"],
+                category=g["category"],
+                difficulty=g["difficulty"],
+                chapter_count=g["chapter_count"],
+                prerequisites=prereqs,
+                is_entry_point=is_entry,
+                status=g["status"],
+                enrolled=g["enrolled"],
+                progress_pct=g["progress_pct"],
+                mastery_score=g["mastery_score"],
+                chapters_completed=g["chapters_completed"],
+                chapters_total=g["chapters_total"],
+                position=pos,
+            )
+        )
+        for prereq_id in prereqs:
+            edges.append(SkillTreeEdge(source=prereq_id, target=g["id"]))
+
+    return SkillTreeResponse(tracks=track_meta, nodes=nodes, edges=edges)
 
 
 @router.get("/guides")
