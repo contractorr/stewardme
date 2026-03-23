@@ -6,27 +6,14 @@
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-green.svg)](LICENSE)
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-**An open-source AI steward that scans the world, learns from your journal, and guides you through what's next.**
+**An e-bike for the mind** — AI that guides you through new topics, professional growth and personal reflection, grounded in live data, personalised to you.
 
-**[Try the live demo at StewardMe.ai](https://stewardme.ai)** — sign in with GitHub or Google.
+**Try the live demo at [StewardMe.ai](https://stewardme.ai)**
 
-Your journal, goals, and 10 live intel sources feed a RAG pipeline that delivers personalized, explainable guidance — entirely self-hosted.
-
-![StewardMe dashboard](docs/screenshots/home.png)
-
-- **Scans the world for you** — HN, GitHub, arXiv, Reddit, Product Hunt, YC Jobs, Google Patents, RSS, and more
-- **Learns from your behaviour** — feedback loop adjusts recommendations, reasoning traces explain every suggestion
-- **Runs anywhere you want** — CLI, web app, MCP server for Claude Code, or Docker one-liner
-
-## Screenshots
-
-| Home | Focus | Radar |
-|:---:|:---:|:---:|
-| ![Home](docs/screenshots/home.png) | ![Focus](docs/screenshots/focus.png) | ![Radar](docs/screenshots/radar.png) |
-
-| Library | Journal | Guide |
-|:---:|:---:|:---:|
-| ![Library](docs/screenshots/library.png) | ![Journal](docs/screenshots/journal.png) | ![Guide](docs/screenshots/guide.png) |
+- **Master new topics** — 50+ structured guides with spaced repetition, Bloom's taxonomy quizzes, and teach-back prompts. Add your own material. 
+- **Stay ahead** — 19 scrapers (HN, GitHub, arXiv, Reddit, Product Hunt, YC Jobs, Google Patents, RSS, and more) filtered to what matters to you
+- **Reflect and grow** — journal your thinking, set goals, get advice grounded in your own context
+- **Runs anywhere** — CLI, web app, MCP server (52 tools for Claude Code), or Docker one-liner
 
 ## Why StewardMe?
 
@@ -44,7 +31,7 @@ Journaling forces reflection. Writing things down also creates a signal that can
 | | ChatGPT / Copilot | Notion AI | StewardMe |
 |---|---|---|---|
 | **Your data stays local** | No | No | Yes — SQLite + markdown files |
-| **Scans live sources for you** | No | No | Yes — 10 async scrapers (HN, arXiv, GitHub, Reddit, RSS, ...) |
+| **Scans live sources for you** | No | No | Yes — 19 scrapers (HN, arXiv, GitHub, Reddit, RSS, ...) |
 | **Learns from your feedback** | No | No | Yes — per-category scoring adjusts over time |
 | **Self-hosted** | No | No | Yes — Docker one-liner or bare metal |
 | **Multi-provider LLM** | GPT only | GPT only | Claude, OpenAI, Gemini (auto-detect) |
@@ -52,18 +39,17 @@ Journaling forces reflection. Writing things down also creates a signal that can
 
 ## What it does
 
-- **Journal + semantic search** — markdown entries with YAML frontmatter, embedded in ChromaDB, quick capture from the dashboard
-- **Intelligence radar** — 10 async scrapers, SQLite storage with URL + content-hash dedup, no API keys needed
-- **AI advisor** — RAG retrieval (dynamic journal/intel blend from engagement data) fed to Claude, OpenAI, or Gemini
-- **Goal tracking** — milestones, check-ins, staleness detection
-- **Proactive recommendations** — learning, career, entrepreneurial, investment opportunities with structured reasoning traces
-- **Behavioural learning** — feedback buttons on every recommendation, per-category scoring adjusts over time
-- **Deep research** — topic selection from your context, web search, LLM synthesis
-- **Trend detection** — KMeans clustering on journal embeddings to surface emerging/declining topics
-- **Agentic coaching** — signal detection, burnout alerts, deadline warnings, autonomous actions
+- **Curriculum & learn** — 50+ guides (327 chapters), SM-2 spaced repetition, Bloom's taxonomy quizzes, teach-back prompts, cross-guide connections via ChromaDB
+- **Journal + semantic search** — markdown entries with YAML frontmatter, ChromaDB embeddings, sentiment analysis, trend detection
+- **Intelligence radar** — 19 scrapers across 14 source files, SQLite storage with URL + content-hash dedup
+- **AI advisor** — RAG retrieval (dynamic journal/intel blend from engagement data) fed to Claude, OpenAI, or Gemini. Agentic + classic modes
+- **Goal tracking** — milestones, check-ins, staleness detection, nudges
+- **Deep research** — topic selection from your context, web search (Tavily or DuckDuckGo), LLM synthesis → reports
+- **Memory & threads** — persistent user memory (facts, context), thread inbox with state machine
+- **Behavioural learning** — feedback on every recommendation, per-category scoring adjusts over time
 - **Rich onboarding** — first-run wizard with LLM connectivity test, conversational profile interview
 
-Works as a CLI (`coach`), web app (FastAPI + Next.js), or MCP server for Claude Code.
+Works as a CLI (`coach`), web app (FastAPI + Next.js), or MCP server (52 tools) for Claude Code.
 
 ## Quick start
 
@@ -129,25 +115,30 @@ See [SETUP.md](SETUP.md) for full instructions including secret generation and p
 
 ```
 src/
-├── journal/        # Markdown storage, ChromaDB embeddings, semantic search, trends
-├── advisor/        # LLM orchestration, RAG retrieval, recommendations, goals
-├── intelligence/   # 10 async scrapers, SQLite storage, APScheduler
-├── research/       # Deep research agent, topic selection, web search, synthesis
+├── advisor/        # LLM orchestration, RAG retrieval, recommendations, agentic + classic modes
+├── journal/        # Markdown storage, ChromaDB embeddings, semantic search, sentiment, trends
+├── intelligence/   # 19 scrapers (14 source files), SQLite storage, APScheduler
+├── curriculum/     # 50+ guides, SM-2 spaced repetition, Bloom's quizzes, teach-back
+├── research/       # Deep research — topic selection, web search, LLM synthesis
+├── memory/         # Persistent user memory (facts, context)
 ├── llm/            # Provider factory — Claude, OpenAI, Gemini (auto-detect from env)
-├── profile/        # User profile management
-├── coach_mcp/      # MCP server (22 tools for Claude Code integration)
-├── web/            # FastAPI backend — auth, encrypted key storage, REST API
+├── profile/        # User profile, LLM-driven onboarding interview
+├── library/        # Content library management (reports, PDF uploads)
+├── services/       # Shared service layer
+├── coach_mcp/      # MCP server — 52 tools across 13 modules
+├── web/            # FastAPI backend — JWT auth, Fernet encryption, 24 route modules
 ├── cli/            # Click CLI, Pydantic config, structlog, retry, rate limiting
-web/                # Next.js frontend — OAuth, chat-first UI, dashboard
+web/                # Next.js 16 + React 19 + Tailwind v4 + shadcn/ui
 ```
 
 **Data flow:**
 
 1. Journal entries → markdown files + ChromaDB embeddings + sentiment analysis
 2. Scrapers → SQLite with URL + content-hash dedup
-3. Query → RAG retrieval (journal + intel) → LLM → personalized advice
-4. Goals + journal → topic selection → deep research → reports
-5. Embeddings → KMeans clustering → trend detection
+3. Query → RAG retrieval (journal + intel, dynamic weighting) + profile + memory → LLM → advice
+4. Curriculum → SM-2 scheduling → quiz generation → Bloom's grading → progress tracking
+5. Goals + journal → topic selection → deep research → reports
+6. Embeddings → KMeans clustering → trend detection
 
 ## Configuration
 
@@ -186,18 +177,17 @@ Config locations (checked in order): `./config.yaml` → `~/.coach/config.yaml` 
 
 | Route | Description |
 |-------|-------------|
-| `/` | Chat-first interface with daily briefing |
-| `/advisor` | Chat, advice, and saved conversations |
-| `/journal` | Create, read, delete entries |
-| `/goals` | Goals + milestones + check-ins |
-| `/intel` | Intelligence feed |
-| `/projects` | Matched issues + project ideas |
-| `/library` | Saved AI-generated reports |
-| `/settings` | API key management (Fernet-encrypted) |
+| `/home` | Dashboard with daily briefing, goals, suggestions |
+| `/focus` | Advisor chat with RAG context |
+| `/radar` | Intelligence feed from all scrapers |
+| `/library` | Reports, PDF uploads, saved research |
+| `/learn` | Curriculum hub — guides, quizzes, progress |
+| `/journal` | Create, read, search entries |
+| `/settings` | API key management (Fernet-encrypted), profile |
 
 ## MCP server
 
-StewardMe exposes 22 tools via MCP for Claude Code integration. No LLM calls in the MCP layer — Claude Code does the reasoning, MCP provides data.
+StewardMe exposes 52 tools across 13 modules via MCP for Claude Code integration. No LLM calls in the MCP layer — Claude Code does the reasoning, MCP provides data.
 
 ```bash
 python -m coach_mcp  # stdio transport
