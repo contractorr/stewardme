@@ -185,7 +185,7 @@ export default function ChapterReaderPage() {
 
   if (loading) {
     return (
-      <div className="space-y-4 max-w-3xl mx-auto">
+      <div className="space-y-4 max-w-7xl mx-auto">
         <div className="h-6 w-48 animate-pulse rounded bg-muted" />
         <div className="h-96 animate-pulse rounded-lg bg-muted" />
       </div>
@@ -203,7 +203,7 @@ export default function ChapterReaderPage() {
   const isCompleted = chapter.progress?.status === "completed";
 
   return (
-    <div className="max-w-3xl mx-auto space-y-4">
+    <div className="max-w-7xl mx-auto space-y-4 pb-12">
       {/* Sticky header */}
       <div className="sticky top-0 z-10 -mx-4 flex items-center justify-between gap-2 border-b bg-background/95 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <div className="flex items-center gap-2 min-w-0">
