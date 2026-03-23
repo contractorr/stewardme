@@ -7,6 +7,7 @@ from pathlib import Path
 import frontmatter
 import structlog
 
+from graceful import graceful_context
 from services.tool_registry import ToolRegistry
 
 logger = structlog.get_logger()
@@ -167,12 +168,10 @@ def _register_journal_tools(registry: ToolRegistry, components: dict) -> None:
         title = args.get("title")
         tags = args.get("tags", [])
         filepath = storage.create(content=content, entry_type=entry_type, title=title, tags=tags)
-        try:
+        with graceful_context("graceful.tools.embed_journal"):
             post = storage.read(filepath)
             if embeddings:
                 embeddings.add_entry(str(filepath), post.content, dict(post.metadata))
-        except Exception:
-            pass
         return {
             "path": str(filepath),
             "filename": filepath.name,
@@ -276,13 +275,11 @@ def _register_goal_tools(registry: ToolRegistry, components: dict) -> None:
             post["check_in_days"] = check_days
             with open(filepath, "w") as handle:
                 handle.write(frontmatter.dumps(post))
-        try:
+        with graceful_context("graceful.tools.embed_goal"):
             embeddings = components.get("embeddings")
             if embeddings:
                 post = storage.read(filepath)
                 embeddings.add_entry(str(filepath), post.content, dict(post.metadata))
-        except Exception:
-            pass
         return {
             "path": str(filepath),
             "filename": filepath.name,
@@ -382,18 +379,16 @@ def _register_goal_tools(registry: ToolRegistry, components: dict) -> None:
         progress = tracker.get_progress(goal_path)
 
         intel_matches = []
-        try:
+        with graceful_context("graceful.tools.goal_intel_match"):
             intel_storage = components.get("intel_storage")
             if intel_storage:
                 from intelligence.goal_intel_match import GoalIntelMatchStore
 
                 match_store = GoalIntelMatchStore(intel_storage.db_path)
                 intel_matches = match_store.get_matches(goal_paths=[str(goal_path)], limit=5)
-        except Exception:
-            pass
 
         related_entries = []
-        try:
+        with graceful_context("graceful.tools.goal_search"):
             embeddings = components.get("embeddings")
             if embeddings:
                 query_text = f"{meta.get('title', '')} {(post.content or '')[:200]}"
@@ -409,8 +404,6 @@ def _register_goal_tools(registry: ToolRegistry, components: dict) -> None:
                             "metadata": result_meta,
                         }
                     )
-        except Exception:
-            pass
 
         return {
             "title": meta.get("title", ""),

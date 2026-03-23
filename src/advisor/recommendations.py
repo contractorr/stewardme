@@ -7,6 +7,7 @@ from typing import Optional
 
 import structlog
 
+from graceful import graceful_context
 from llm import LLMError
 
 from .prompts import PromptTemplates
@@ -97,15 +98,13 @@ class Recommender:
     ) -> list[Recommendation]:
         """Generate recommendations for a category."""
         # Check for sparse data
-        try:
+        with graceful_context("graceful.recs.journal_check"):
             all_entries = self.rag.search.storage.list_entries(limit=5)
             if len(all_entries) < 5:
                 logger.info(
                     "Sparse journal data (%d entries), skipping recommendations", len(all_entries)
                 )
                 return []
-        except Exception:
-            pass
 
         # Build profile-aware query for intel retrieval
         base_query = CATEGORY_QUERIES.get(category, category)
@@ -685,7 +684,7 @@ class RecommendationEngine:
 
         # Get weekly hours from profile
         weekly_hours = 5
-        try:
+        with graceful_context("graceful.recs.profile_hours"):
             from profile.storage import ProfileStorage
 
             ps = ProfileStorage(self.rag._profile_path)
@@ -694,8 +693,6 @@ class RecommendationEngine:
                 weekly_hours = profile.constraints.get(
                     "time_per_week", profile.weekly_hours_available
                 )
-        except Exception:
-            pass
 
         prompt = PromptTemplates.TOP_PICKS.format(
             profile_context=profile_ctx,

@@ -1,6 +1,7 @@
 """Project discovery MCP tools."""
 
 from coach_mcp.bootstrap import get_components, get_profile_storage
+from graceful import graceful_context
 from services.projects import (
     build_project_ideas_context,
     discover_matching_project_issues,
@@ -13,10 +14,8 @@ def _projects_discover(args: dict) -> dict:
     c = get_components()
 
     profile = None
-    try:
+    with graceful_context("graceful.mcp.projects.profile_load", log_level="debug"):
         profile = get_profile_storage().load()
-    except Exception:
-        pass
 
     limit = args.get("limit", 20)
     days = args.get("days", 14)

@@ -7,6 +7,7 @@ import structlog
 
 from coach_mcp.async_utils import run_coro_sync
 from coach_mcp.bootstrap import get_components, get_insight_store, get_thread_store
+from graceful import graceful_context
 
 logger = structlog.get_logger()
 
@@ -89,7 +90,9 @@ def _get_proactive_context(args: dict) -> dict:
         result["_insight_error"] = str(e)
 
     # Goals summary
-    try:
+    result["stale_goals"] = []
+    result["active_goals_summary"] = []
+    with graceful_context("graceful.mcp.journal.goals_summary", log_level="debug"):
         from advisor.goals import GoalTracker
 
         tracker = GoalTracker(storage)
@@ -102,12 +105,10 @@ def _get_proactive_context(args: dict) -> dict:
         result["active_goals_summary"] = [
             {"title": g["title"], "status": g["status"]} for g in goals if g["status"] == "active"
         ]
-    except Exception:
-        result["stale_goals"] = []
-        result["active_goals_summary"] = []
 
     # Journal health
-    try:
+    result["journal_health"] = {"entries_this_week": 0, "last_entry_days_ago": -1}
+    with graceful_context("graceful.mcp.journal.health", log_level="debug"):
         entries = storage.list_entries(limit=10)
         week_ago = (datetime.now() - timedelta(days=7)).isoformat()
         recent = [e for e in entries if e.get("created", "") >= week_ago]
@@ -126,8 +127,6 @@ def _get_proactive_context(args: dict) -> dict:
             "entries_this_week": len(recent),
             "last_entry_days_ago": days_ago,
         }
-    except Exception:
-        result["journal_health"] = {"entries_this_week": 0, "last_entry_days_ago": -1}
 
     return result
 
@@ -145,14 +144,12 @@ def _create(args: dict) -> dict:
 
     # Auto-generate title if not provided
     if not title:
-        try:
+        with graceful_context("graceful.mcp.journal.title_gen", log_level="debug"):
             from journal.titler import generate_title
             from llm import create_cheap_provider
 
             llm = create_cheap_provider()
             title = generate_title(content, llm)
-        except Exception:
-            pass
 
     # Import goal defaults if creating a goal
     metadata = None
@@ -216,15 +213,13 @@ def _detect_thread(c: dict, entry_id: str) -> dict | None:
         embedding = emb_result["embeddings"][0]
 
         entry_date = datetime.now()
-        try:
+        with graceful_context("graceful.mcp.journal.date_parse", log_level="debug"):
             entry = c["storage"].read(Path(entry_id))
             created = entry.get("created", "")
             if created:
                 entry_date = datetime.fromisoformat(str(created).replace("Z", "+00:00")).replace(
                     tzinfo=None
                 )
-        except Exception:
-            pass
 
         from journal.threads import ThreadDetector
 

@@ -5,6 +5,8 @@ from typing import Optional
 
 import structlog
 
+from graceful import graceful_context
+
 logger = structlog.get_logger()
 
 
@@ -35,7 +37,7 @@ class NudgeEngine:
     def _check_profile_stale(self) -> list[str]:
         if not self.profile_storage:
             return []
-        try:
+        with graceful_context("graceful.nudges.profile_stale"):
             profile = self.profile_storage.load()
             if not profile:
                 return [
@@ -46,14 +48,12 @@ class NudgeEngine:
                 return [
                     f"Profile is >{refresh_days} days old. Run `coach profile update` to refresh."
                 ]
-        except Exception:
-            pass
         return []
 
     def _check_stale_goals(self) -> list[str]:
         if not self.journal_storage:
             return []
-        try:
+        with graceful_context("graceful.nudges.stale_goals"):
             from advisor.goals import GoalTracker
 
             tracker = GoalTracker(self.journal_storage)
@@ -63,14 +63,12 @@ class NudgeEngine:
                 return [
                     f'Haven\'t checked in on "{top["title"]}" in {top.get("days_since_check", "14+")} days.'
                 ]
-        except Exception:
-            pass
         return []
 
     def _check_journal_streak(self) -> list[str]:
         if not self.journal_storage:
             return []
-        try:
+        with graceful_context("graceful.nudges.journal_streak"):
             entries = self.journal_storage.list_entries(limit=30)
             if not entries:
                 return ["No journal entries yet. Start with `coach journal add`."]
@@ -89,21 +87,17 @@ class NudgeEngine:
                 return [f"{len(recent)} entries this week — solid streak!"]
             elif len(recent) == 0:
                 return ["No journal entries in 7 days. Quick reflection? `coach journal add`"]
-        except Exception:
-            pass
         return []
 
 
 def get_nudges_for_cli(config: dict, components: dict, max_nudges: int = 2) -> list[str]:
     """Convenience function for CLI commands to get nudges."""
     profile_storage = None
-    try:
+    with graceful_context("graceful.nudges.profile_init"):
         from profile.storage import ProfileStorage
 
         profile_path = config.get("profile", {}).get("path", "~/coach/profile.yaml")
         profile_storage = ProfileStorage(profile_path)
-    except Exception:
-        pass
 
     engine = NudgeEngine(
         journal_storage=components.get("storage"),

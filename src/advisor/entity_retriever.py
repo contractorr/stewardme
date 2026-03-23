@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from xml.sax.saxutils import quoteattr
 
+from graceful import graceful_context
 from intelligence.entity_store import EntityStore
 
 
@@ -29,12 +30,10 @@ class EntityRetriever:
         self.max_memory_facts_per_entity = max_memory_facts_per_entity
         self._bridge = None
         if fact_store is not None:
-            try:
+            with graceful_context("graceful.entity_retriever.bridge_init"):
                 from services.entity_bridge import EntityBridge
 
                 self._bridge = EntityBridge(entity_store, fact_store)
-            except Exception:
-                pass
 
     def retrieve(
         self, matched_entities: list[dict], _query: str = "", max_chars: int | None = None

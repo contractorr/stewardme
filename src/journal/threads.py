@@ -5,6 +5,8 @@ from datetime import datetime
 
 import structlog
 
+from graceful import graceful_context
+
 from .thread_store import ThreadStore
 
 logger = structlog.get_logger()
@@ -190,7 +192,7 @@ class ThreadDetector:
 
     async def _make_label(self, entry_id: str) -> str:
         """Generate thread label from entry content — truncated snippet, no LLM."""
-        try:
+        with graceful_context("graceful.threads.label_extract"):
             collection = self._embeddings.collection
             result = collection.get(ids=[entry_id], include=["documents"])
             if result["documents"] and result["documents"][0]:
@@ -201,13 +203,11 @@ class ThreadDetector:
                     if len(line) > 10:
                         return line[:80]
                 return text[:80]
-        except Exception:
-            pass
         return "Recurring topic"
 
     def _get_entry_date(self, entry_id: str, fallback: datetime) -> datetime:
         """Resolve the original created timestamp for an existing entry when available."""
-        try:
+        with graceful_context("graceful.threads.entry_date"):
             collection = self._embeddings.collection
             result = collection.get(ids=[entry_id], include=["metadatas"])
             if result["metadatas"] and result["metadatas"][0]:
@@ -215,8 +215,6 @@ class ThreadDetector:
                 if created:
                     dt = datetime.fromisoformat(str(created).replace("Z", "+00:00"))
                     return dt.replace(tzinfo=None) if dt.tzinfo else dt
-        except Exception:
-            pass
         return fallback
 
     async def reindex_all(self) -> dict:

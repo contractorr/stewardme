@@ -2,7 +2,7 @@
 
 ## Problem
 
-~10 `except Exception: pass` blocks silently swallow errors across `advisor/engine.py`, `services/advice.py`, and `intelligence/scheduler.py`. When these features degrade, there is zero logging or metrics — diagnostic blindness in production.
+~30 `except Exception: pass` blocks silently swallow errors across advisor/, journal/, services/, intelligence/, and coach_mcp/. When these features degrade, there is zero logging or metrics — diagnostic blindness in production.
 
 ## Desired Behavior
 
@@ -15,7 +15,8 @@ When a non-critical subsystem fails (cache init, goal loading, profile lookup, e
 ## Acceptance Criteria
 
 - [ ] Two reusable primitives: `@graceful` decorator and `graceful_context` context manager
-- [ ] All 9 identified silent-swallow sites replaced with instrumented equivalents
+- [x] All 9 Phase 1 sites replaced (engine.py, advice.py, scheduler.py)
+- [ ] All 20 Phase 2 sites replaced (tools, nudges, recs, threads, trends, MCP)
 - [ ] Each site produces a structlog warning (or debug) with `exc_info=True` on failure
 - [ ] Each site increments a named `metrics.counter()` on failure
 - [ ] Zero behavioral change: all fallback values remain identical to current code

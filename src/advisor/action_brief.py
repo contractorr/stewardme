@@ -6,6 +6,8 @@ from typing import Optional
 
 import structlog
 
+from graceful import graceful_context
+
 from .prompts import PromptTemplates
 from .rag import RAGRetriever
 from .recommendation_storage import Recommendation, RecommendationStorage
@@ -150,14 +152,12 @@ class ActionBriefGenerator:
             storage = IntelStorage(intel_db)
 
             profile = None
-            try:
+            with graceful_context("graceful.action_brief.profile_load"):
                 from profile.storage import ProfileStorage
 
                 profile_path = self.config.get("profile", {}).get("path", "~/coach/profile.yaml")
                 ps = ProfileStorage(profile_path)
                 profile = ps.load()
-            except Exception:
-                pass
 
             events = get_upcoming_events(storage, profile=profile, days=30, limit=5, min_score=5.0)
             if not events:

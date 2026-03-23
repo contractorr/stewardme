@@ -5,6 +5,7 @@ from __future__ import annotations
 import structlog
 
 from advisor.async_bridge import run_async
+from graceful import graceful_context
 
 logger = structlog.get_logger()
 
@@ -59,10 +60,8 @@ class MemoryRetriever:
                 return ""
 
             observations = []
-            try:
+            with graceful_context("graceful.retriever.observations"):
                 observations = self._fact_store.get_all_active_observations()
-            except Exception:
-                pass
 
             return self._format_memory_block(
                 merged, thread_boosts=thread_boosts, observations=observations

@@ -1,6 +1,7 @@
 """Intelligence MCP tools — search, recent items, trigger scrape."""
 
 from coach_mcp.bootstrap import get_components, get_profile_storage, get_watchlist_store
+from graceful import graceful_context
 
 
 def _get_watchlist_store():
@@ -92,10 +93,8 @@ def _events_upcoming(args: dict) -> dict:
     from advisor.events import get_upcoming_events
 
     profile = None
-    try:
+    with graceful_context("graceful.mcp.intel.profile_load", log_level="debug"):
         profile = get_profile_storage().load()
-    except Exception:
-        pass
 
     days = args.get("days", 90)
     limit = args.get("limit", 20)
