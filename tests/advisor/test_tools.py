@@ -43,6 +43,9 @@ def mock_components(tmp_path):
         profile="",
         memory="",
         thoughts="",
+        documents="",
+        entity_context="",
+        curriculum_context="",
     )
 
     return {

@@ -1,7 +1,6 @@
 """Compatibility wrapper for the canonical user_state_store module."""
 
 from user_state_store import (
-    _DEFAULT_DB_PATH,
     _get_conn,
     add_user_rss_feed,
     clear_onboarding_responses,
@@ -31,7 +30,6 @@ from user_state_store import (
 )
 
 __all__ = [
-    "_DEFAULT_DB_PATH",
     "_get_conn",
     "add_user_rss_feed",
     "clear_onboarding_responses",

@@ -168,8 +168,9 @@ mastery_score = completion_pct * 0.4 + review_score * 0.6
 - `ALTER TABLE guides ADD COLUMN track TEXT NOT NULL DEFAULT ''`
 - `upsert_guide()` and `sync_catalog()` include `track` in column lists.
 - `list_guides()` and `get_guide()` compute `mastery_score` per guide.
-- `list_tracks(user_id, track_metadata)` groups guides by track, returns aggregate stats.
-- `get_stats()` adds `mastery_by_track` computation.
+- `list_tracks(user_id, track_metadata)` groups guides by track, returns aggregate stats. Uses `_batch_guide_data()` to pre-fetch chapter counts, completion counts, enrollments, and avg easiness factors in 4 bulk queries instead of per-guide sub-queries.
+- `get_tree_data(user_id)` returns per-guide skill tree data. Also uses `_batch_guide_data()` for O(1) lookups per guide.
+- `get_stats()` adds `mastery_by_track` computation. Consolidates enrollment, progress, and review stats into batched queries (3 instead of 7). Uses `_batch_guide_data()` for track mastery instead of per-guide sub-queries. Inlines due review count to avoid separate connection.
 
 ---
 

@@ -693,36 +693,46 @@ class CurriculumStore:
 
     def get_stats(self, user_id: str) -> LearningStats:
         with wal_connect(self.db_path, row_factory=True) as conn:
-            enrolled = conn.execute(
-                "SELECT COUNT(*) FROM user_guide_enrollment WHERE user_id=?", (user_id,)
-            ).fetchone()[0]
-            guide_completed = conn.execute(
-                "SELECT COUNT(*) FROM user_guide_enrollment WHERE user_id=? AND completed_at IS NOT NULL",
-                (user_id,),
-            ).fetchone()[0]
-            chapters_completed = conn.execute(
-                "SELECT COUNT(*) FROM user_chapter_progress WHERE user_id=? AND status='completed'",
-                (user_id,),
-            ).fetchone()[0]
-            total_chapters = conn.execute("SELECT COUNT(*) FROM chapters").fetchone()[0]
-            reading_time = conn.execute(
-                "SELECT COALESCE(SUM(reading_time_seconds), 0) FROM user_chapter_progress WHERE user_id=?",
-                (user_id,),
-            ).fetchone()[0]
-            reviews_done = conn.execute(
-                "SELECT COUNT(*) FROM review_items WHERE user_id=? AND last_reviewed IS NOT NULL",
-                (user_id,),
-            ).fetchone()[0]
-            avg_grade_row = conn.execute(
-                """SELECT AVG(ri.easiness_factor) FROM review_items ri
-                   WHERE ri.user_id=? AND ri.last_reviewed IS NOT NULL""",
+            # Batch 1: enrollment counts (1 query instead of 2)
+            enroll_row = conn.execute(
+                "SELECT COUNT(*) as enrolled, "
+                "SUM(CASE WHEN completed_at IS NOT NULL THEN 1 ELSE 0 END) as completed "
+                "FROM user_guide_enrollment WHERE user_id=?",
                 (user_id,),
             ).fetchone()
-            avg_grade = round(avg_grade_row[0], 2) if avg_grade_row[0] else 0.0
+            enrolled = enroll_row["enrolled"]
+            guide_completed = enroll_row["completed"]
 
-            due = self.count_due_reviews(user_id)
+            # Batch 2: chapter progress (1 query instead of 2)
+            progress_row = conn.execute(
+                "SELECT "
+                "SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) as completed, "
+                "COALESCE(SUM(reading_time_seconds), 0) as reading_time "
+                "FROM user_chapter_progress WHERE user_id=?",
+                (user_id,),
+            ).fetchone()
+            chapters_completed = progress_row["completed"] or 0
+            reading_time = progress_row["reading_time"]
 
-            # Mastery by category
+            total_chapters = conn.execute("SELECT COUNT(*) FROM chapters").fetchone()[0]
+
+            # Batch 3: review stats (1 query instead of 2)
+            review_row = conn.execute(
+                "SELECT COUNT(*) as done, AVG(easiness_factor) as avg_ef "
+                "FROM review_items WHERE user_id=? AND last_reviewed IS NOT NULL",
+                (user_id,),
+            ).fetchone()
+            reviews_done = review_row["done"]
+            avg_grade = round(review_row["avg_ef"], 2) if review_row["avg_ef"] else 0.0
+
+            # Due reviews (inline instead of separate connection)
+            now = datetime.utcnow().isoformat()
+            due = conn.execute(
+                "SELECT COUNT(*) FROM review_items WHERE user_id=? AND next_review <= ?",
+                (user_id, now),
+            ).fetchone()[0]
+
+            # Mastery by category (already batched)
             mastery: dict[str, float] = {}
             cats = conn.execute(
                 """SELECT g.category, COUNT(DISTINCT ucp.chapter_id) as done,
@@ -757,7 +767,6 @@ class CurriculumStore:
             for i in range(365):
                 day = (today - timedelta(days=i)).isoformat()
                 if day in daily or (i == 0 and daily):
-                    # Check if there's activity for this exact day
                     if day in daily:
                         streak += 1
                     elif i == 0:
@@ -767,27 +776,23 @@ class CurriculumStore:
                 elif i > 0:
                     break
 
-            # Mastery by track
+            # Mastery by track — batch via pre-fetched data (no N+1)
+            chapter_counts, completed_counts, _, avg_ef_map = self._batch_guide_data(conn, user_id)
             mastery_track: dict[str, float] = {}
-            track_rows = conn.execute(
-                "SELECT DISTINCT track FROM guides WHERE track != ''"
-            ).fetchall()
-            for tr in track_rows:
-                tid = dict(tr)["track"]
-                track_guides = conn.execute(
-                    "SELECT id FROM guides WHERE track=?", (tid,)
-                ).fetchall()
+            guide_rows = conn.execute("SELECT id, track FROM guides WHERE track != ''").fetchall()
+            track_guide_map: dict[str, list[str]] = {}
+            for gr in guide_rows:
+                gd = dict(gr)
+                track_guide_map.setdefault(gd["track"], []).append(gd["id"])
+
+            for tid, guide_ids in track_guide_map.items():
                 track_scores = []
-                for tg in track_guides:
-                    gid = dict(tg)["id"]
-                    t_total = conn.execute(
-                        "SELECT COUNT(*) FROM chapters WHERE guide_id=?", (gid,)
-                    ).fetchone()[0]
-                    t_done = conn.execute(
-                        "SELECT COUNT(*) FROM user_chapter_progress WHERE user_id=? AND guide_id=? AND status='completed'",
-                        (user_id, gid),
-                    ).fetchone()[0]
-                    track_scores.append(self._compute_mastery(conn, user_id, gid, t_done, t_total))
+                for gid in guide_ids:
+                    t_total = chapter_counts.get(gid, 0)
+                    t_done = completed_counts.get(gid, 0)
+                    track_scores.append(
+                        self._mastery_from_precomputed(t_done, t_total, avg_ef_map.get(gid))
+                    )
                 mastery_track[tid] = (
                     round(sum(track_scores) / len(track_scores), 1) if track_scores else 0.0
                 )
@@ -837,10 +842,64 @@ class CurriculumStore:
         review_score = max(0.0, min(100.0, (avg_ef - 1.3) / 1.2 * 100))
         return round(completion_pct * 0.4 + review_score * 0.6, 1)
 
+    @staticmethod
+    def _batch_guide_data(
+        conn: sqlite3.Connection, user_id: str | None
+    ) -> tuple[dict[str, int], dict[str, int], dict[str, str | None], dict[str, float | None]]:
+        """Pre-fetch chapter counts, completion counts, enrollments, and avg EFs in bulk."""
+        # chapter_count per guide
+        chapter_counts: dict[str, int] = {}
+        for r in conn.execute("SELECT guide_id, COUNT(*) as cnt FROM chapters GROUP BY guide_id"):
+            chapter_counts[r[0]] = r[1]
+
+        completed_counts: dict[str, int] = {}
+        enrollment_map: dict[str, str | None] = {}
+        avg_ef_map: dict[str, float | None] = {}
+
+        if user_id:
+            for r in conn.execute(
+                "SELECT guide_id, COUNT(*) as cnt FROM user_chapter_progress "
+                "WHERE user_id=? AND status='completed' GROUP BY guide_id",
+                (user_id,),
+            ):
+                completed_counts[r[0]] = r[1]
+
+            for r in conn.execute(
+                "SELECT guide_id, completed_at FROM user_guide_enrollment WHERE user_id=?",
+                (user_id,),
+            ):
+                enrollment_map[r[0]] = r[1]
+
+            for r in conn.execute(
+                "SELECT guide_id, AVG(easiness_factor) FROM review_items "
+                "WHERE user_id=? AND last_reviewed IS NOT NULL AND item_type != 'pre_reading' "
+                "GROUP BY guide_id",
+                (user_id,),
+            ):
+                avg_ef_map[r[0]] = r[1]
+
+        return chapter_counts, completed_counts, enrollment_map, avg_ef_map
+
+    @staticmethod
+    def _mastery_from_precomputed(
+        chapters_completed: int, chapters_total: int, avg_ef: float | None
+    ) -> float:
+        """Compute mastery from pre-fetched data (no extra queries)."""
+        if chapters_total == 0:
+            return 0.0
+        completion_pct = chapters_completed / chapters_total * 100
+        if avg_ef is None:
+            return round(completion_pct * 0.4, 1)
+        review_score = max(0.0, min(100.0, (avg_ef - 1.3) / 1.2 * 100))
+        return round(completion_pct * 0.4 + review_score * 0.6, 1)
+
     def list_tracks(self, user_id: str, track_metadata: dict[str, dict]) -> list[dict]:
         """List tracks with aggregate stats."""
         with wal_connect(self.db_path, row_factory=True) as conn:
             rows = conn.execute("SELECT * FROM guides ORDER BY id").fetchall()
+            chapter_counts, completed_counts, enrollment_map, avg_ef_map = self._batch_guide_data(
+                conn, user_id
+            )
 
             tracks: dict[str, dict] = {}
             # Init from metadata
@@ -878,21 +937,14 @@ class CurriculumStore:
                 t["guide_ids"].append(d["id"])
 
                 if user_id:
-                    total = conn.execute(
-                        "SELECT COUNT(*) FROM chapters WHERE guide_id=?", (d["id"],)
-                    ).fetchone()[0]
-                    completed = conn.execute(
-                        "SELECT COUNT(*) FROM user_chapter_progress WHERE user_id=? AND guide_id=? AND status='completed'",
-                        (user_id, d["id"]),
-                    ).fetchone()[0]
-                    mastery = self._compute_mastery(conn, user_id, d["id"], completed, total)
+                    total = chapter_counts.get(d["id"], 0)
+                    completed = completed_counts.get(d["id"], 0)
+                    mastery = self._mastery_from_precomputed(
+                        completed, total, avg_ef_map.get(d["id"])
+                    )
                     t["mastery_scores"].append(mastery)
 
-                    enrollment = conn.execute(
-                        "SELECT completed_at FROM user_guide_enrollment WHERE user_id=? AND guide_id=?",
-                        (user_id, d["id"]),
-                    ).fetchone()
-                    if enrollment and dict(enrollment).get("completed_at"):
+                    if enrollment_map.get(d["id"]):
                         t["guides_completed"] += 1
 
             result = []
@@ -909,35 +961,27 @@ class CurriculumStore:
 
     def get_tree_data(self, user_id: str) -> list[dict]:
         """Return per-guide data for skill tree: progress, mastery, status."""
-        import json
+        import json as _json
 
         with wal_connect(self.db_path, row_factory=True) as conn:
             rows = conn.execute("SELECT * FROM guides ORDER BY id").fetchall()
+            chapter_counts, completed_counts, enrollment_map, avg_ef_map = self._batch_guide_data(
+                conn, user_id
+            )
+
             results = []
             for row in rows:
                 d = dict(row)
                 gid = d["id"]
-                prereqs = json.loads(d.get("prerequisites", "[]"))
+                prereqs = _json.loads(d.get("prerequisites", "[]"))
 
-                total = conn.execute(
-                    "SELECT COUNT(*) FROM chapters WHERE guide_id=?", (gid,)
-                ).fetchone()[0]
-                completed = conn.execute(
-                    "SELECT COUNT(*) FROM user_chapter_progress WHERE user_id=? AND guide_id=? AND status='completed'",
-                    (user_id, gid),
-                ).fetchone()[0]
-
-                enrollment = conn.execute(
-                    "SELECT * FROM user_guide_enrollment WHERE user_id=? AND guide_id=?",
-                    (user_id, gid),
-                ).fetchone()
-                enrolled = enrollment is not None
-                guide_completed = (
-                    dict(enrollment).get("completed_at") is not None if enrollment else False
-                )
+                total = chapter_counts.get(gid, 0)
+                completed = completed_counts.get(gid, 0)
+                enrolled = gid in enrollment_map
+                guide_completed = enrollment_map.get(gid) is not None if enrolled else False
 
                 progress_pct = round(completed / total * 100, 1) if total > 0 else 0.0
-                mastery = self._compute_mastery(conn, user_id, gid, completed, total)
+                mastery = self._mastery_from_precomputed(completed, total, avg_ef_map.get(gid))
 
                 # Determine status
                 if not enrolled:

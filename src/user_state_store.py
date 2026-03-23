@@ -15,8 +15,6 @@ from storage_paths import get_coach_home
 
 logger = structlog.get_logger()
 
-_DEFAULT_DB_PATH = get_coach_home() / "users.db"
-
 
 def get_default_db_path() -> Path:
     """Resolve the default users DB path from the current environment."""
@@ -28,7 +26,7 @@ def get_default_db_path() -> Path:
     if coach_home:
         return Path(coach_home).expanduser() / "users.db"
 
-    return _DEFAULT_DB_PATH
+    return get_coach_home() / "users.db"
 
 
 def _get_conn(db_path: Path | None = None) -> sqlite3.Connection:

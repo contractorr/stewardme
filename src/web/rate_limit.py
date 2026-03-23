@@ -1,6 +1,7 @@
 """Per-user rate limiting for shared-key (lite mode) users.
 
-In-memory sliding window — resets on deploy. Acceptable for now.
+In-memory sliding window — resets on deploy. Acceptable for single-worker.
+Periodic pruning prevents unbounded memory growth from abandoned users.
 """
 
 import time
@@ -20,17 +21,48 @@ BURST_INTERVAL = 10.0
 ONBOARDING_BURST_INTERVAL = 3.0
 ONBOARDING_LIMIT = 20  # max turns in one onboarding session
 
+# Pruning: evict stale entries every N checks, cap total tracked users
+_PRUNE_EVERY = 500  # calls between full prune sweeps
+_MAX_TRACKED_USERS = 10_000  # hard cap on tracked user IDs
+
 # user_id -> list of timestamps
 _request_log: dict[str, list[float]] = defaultdict(list)
 _onboarding_log: dict[str, list[float]] = defaultdict(list)
+_call_counter = 0
 
 
 def _prune(user_id: str, now: float) -> list[float]:
-    """Remove timestamps older than the window."""
+    """Remove timestamps older than the window for a single user."""
     cutoff = now - WINDOW_SECONDS
     log = [t for t in _request_log[user_id] if t > cutoff]
     _request_log[user_id] = log
     return log
+
+
+def _periodic_prune(now: float) -> None:
+    """Sweep all logs and evict users with no recent activity."""
+    global _call_counter
+    _call_counter += 1
+    if _call_counter < _PRUNE_EVERY:
+        return
+    _call_counter = 0
+
+    cutoff = now - WINDOW_SECONDS
+    onboard_cutoff = now - 3600
+
+    stale = [uid for uid, ts in _request_log.items() if not ts or ts[-1] <= cutoff]
+    for uid in stale:
+        del _request_log[uid]
+
+    stale_ob = [uid for uid, ts in _onboarding_log.items() if not ts or ts[-1] <= onboard_cutoff]
+    for uid in stale_ob:
+        del _onboarding_log[uid]
+
+    # Hard cap: if still over limit, drop oldest-activity users
+    if len(_request_log) > _MAX_TRACKED_USERS:
+        by_age = sorted(_request_log.items(), key=lambda kv: kv[1][-1] if kv[1] else 0)
+        for uid, _ in by_age[: len(_request_log) - _MAX_TRACKED_USERS]:
+            del _request_log[uid]
 
 
 def check_shared_key_rate_limit(user_id: str, *, onboarding: bool = False) -> None:
@@ -40,6 +72,7 @@ def check_shared_key_rate_limit(user_id: str, *, onboarding: bool = False) -> No
     never competes with regular usage.
     """
     now = time.time()
+    _periodic_prune(now)
 
     if onboarding:
         _check_onboarding_limit(user_id, now)
@@ -96,5 +129,7 @@ def _check_onboarding_limit(user_id: str, now: float) -> None:
 
 def reset_rate_limits() -> None:
     """Clear all rate limit state. Used in tests."""
+    global _call_counter
     _request_log.clear()
     _onboarding_log.clear()
+    _call_counter = 0

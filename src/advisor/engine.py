@@ -246,60 +246,38 @@ class AdvisorEngine:
             )
             return PromptTemplates.SYSTEM, prompt
 
-        use_extended = any(
-            self._rag_config.get(k, False)
-            for k in (
-                "structured_profile",
-                "inject_memory",
-                "inject_recurring_thoughts",
-                "inject_documents",
-                "xml_delimiters",
-            )
-        ) or bool(attachment_ids)
-
         research_ctx = ""
         if include_research and hasattr(self.rag, "get_research_context"):
             research_ctx = self.rag.get_research_context(question)
         has_research = bool(research_ctx.strip())
-        enhanced_ctx = self.rag.get_enhanced_context(question)
+
+        ctx = self.rag.build_context_for_ask(
+            question,
+            self._rag_config,
+            attachment_ids=attachment_ids,
+        )
+
         system_prompt = PromptTemplates.SYSTEM
-        if enhanced_ctx.entity_context:
+        if ctx.entity_context:
             system_prompt += "\n\n" + PromptTemplates.ENTITY_SYSTEM_SUFFIX
 
-        if use_extended:
-            ctx = self.rag.build_context_for_ask(
-                question,
-                self._rag_config,
-                attachment_ids=attachment_ids,
-            )
-            prompt_template = PromptTemplates.get_prompt(
-                advice_type,
-                with_research=has_research,
-                xml_delimiters=self._rag_config.get("xml_delimiters", False),
-                extended=True,
-            )
-            user_prompt = PromptTemplates._build_user_prompt(
-                template=prompt_template,
-                journal_context=ctx.journal,
-                intel_context=ctx.intel,
-                profile_context=ctx.profile,
-                documents_context=ctx.documents,
-                memory_context=ctx.memory,
-                thoughts_context=ctx.thoughts,
-                research_context=research_ctx if has_research else "",
-                entity_context=ctx.entity_context,
-                curriculum_context=ctx.curriculum_context,
-                question=question,
-            )
-            return system_prompt, user_prompt
-
-        profile_ctx = self.rag.get_profile_context()
-        prompt_template = PromptTemplates.get_prompt(advice_type, with_research=has_research)
-        user_prompt = prompt_template.format(
-            journal_context=profile_ctx + enhanced_ctx.journal,
-            intel_context=enhanced_ctx.intel,
+        prompt_template = PromptTemplates.get_prompt(
+            advice_type,
+            with_research=has_research,
+            xml_delimiters=self._rag_config.get("xml_delimiters", False),
+            extended=True,
+        )
+        user_prompt = PromptTemplates._build_user_prompt(
+            template=prompt_template,
+            journal_context=ctx.journal,
+            intel_context=ctx.intel,
+            profile_context=ctx.profile,
+            documents_context=ctx.documents,
+            memory_context=ctx.memory,
+            thoughts_context=ctx.thoughts,
             research_context=research_ctx if has_research else "",
-            entity_context=enhanced_ctx.entity_context,
+            entity_context=ctx.entity_context,
+            curriculum_context=ctx.curriculum_context,
             question=question,
         )
         return system_prompt, user_prompt

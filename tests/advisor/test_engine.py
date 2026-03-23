@@ -6,6 +6,7 @@ import pytest
 
 from advisor.council import CouncilMember
 from advisor.engine import AdvisorEngine, APIKeyMissingError, LLMError
+from advisor.rag import AskContext
 
 
 @pytest.fixture
@@ -23,6 +24,9 @@ def mock_rag():
         intel="intel ctx",
         profile="",
         entity_context="",
+    )
+    rag.build_context_for_ask.return_value = AskContext(
+        journal="journal ctx", intel="intel ctx", profile=""
     )
     return rag
 
@@ -178,12 +182,11 @@ class TestContextAssemblyWiring:
             rag=mock_rag, provider="claude", client=mock_client, rag_config=rag_config
         )
 
-    def test_default_config_uses_enhanced_path(self, mock_rag, mock_client):
-        """No rag_config flags → get_enhanced_context + get_profile_context."""
+    def test_default_config_uses_build_context(self, mock_rag, mock_client):
+        """Default rag_config → build_context_for_ask always called."""
         engine = self._make_engine(mock_rag, mock_client)
         engine.ask("test")
-        mock_rag.get_enhanced_context.assert_called_once()
-        mock_rag.get_profile_context.assert_called_once()
+        mock_rag.build_context_for_ask.assert_called_once()
 
     def test_inject_memory_calls_build_context(self, mock_rag, mock_client):
         """inject_memory=True → build_context_for_ask used."""
@@ -225,6 +228,13 @@ class TestContextAssemblyWiring:
         call_args = mock_client.messages.create.call_args
         user_msg = [m for m in call_args.kwargs["messages"] if m["role"] == "user"][0]
         assert "<user_memory>" not in user_msg["content"]
+
+    @pytest.mark.parametrize("advice_type", ["general", "career", "goals", "opportunities"])
+    def test_all_advice_types_use_unified_path(self, mock_rag, mock_client, advice_type):
+        """Every advice_type routes through build_context_for_ask."""
+        engine = self._make_engine(mock_rag, mock_client)
+        engine.ask("test", advice_type=advice_type)
+        mock_rag.build_context_for_ask.assert_called_once()
 
     def test_attachment_ids_force_document_context(self, mock_rag, mock_client):
         """Attachment IDs should trigger extended document-grounded prompt assembly."""

@@ -1,5 +1,7 @@
 """Agentic orchestrator — LLM tool-calling loop."""
 
+import concurrent.futures
+import json
 import uuid
 from collections.abc import Callable
 
@@ -21,6 +23,21 @@ from .trace import (
 
 logger = structlog.get_logger()
 
+
+def _is_tool_error(result_text: str) -> bool:
+    """Check if a tool result is a structured error from ToolRegistry.
+
+    ToolRegistry.execute() returns JSON with an "error" key on failure.
+    Parse instead of string-matching to avoid false positives on content
+    that happens to contain the word "error".
+    """
+    try:
+        parsed = json.loads(result_text)
+        return isinstance(parsed, dict) and "error" in parsed
+    except (json.JSONDecodeError, TypeError):
+        return False
+
+
 _NUDGE_TEMPLATE = (
     "You've only used {used} tool(s) so far ({used_names}). "
     "Consider using additional tools for a more thorough answer. "
@@ -40,12 +57,14 @@ class AgenticOrchestrator:
         min_tool_calls: int = 2,
         cheap_llm: LLMProvider | None = None,
         token_threshold: int = 100_000,
+        tool_timeout: float = 60.0,
     ):
         self.llm = llm
         self.registry = registry
         self.system_prompt = system_prompt
         self.max_iterations = max_iterations
         self.min_tool_calls = min_tool_calls
+        self.tool_timeout = tool_timeout
         self.compressor = ContextCompressor(
             cheap_llm=cheap_llm,
             token_threshold=token_threshold,
@@ -159,8 +178,16 @@ class AgenticOrchestrator:
                     event_callback({"type": "tool_start", "tool": tc.name})
                 self._trace.append(make_tool_start_entry(tc.name, tc.id, list(tc.arguments.keys())))
 
-                result_text = self.registry.execute(tc.name, tc.arguments)
-                is_error = '"error"' in result_text[:50]
+                try:
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                        future = pool.submit(self.registry.execute, tc.name, tc.arguments)
+                        result_text = future.result(timeout=self.tool_timeout)
+                except concurrent.futures.TimeoutError:
+                    logger.error("tool_timeout", tool=tc.name, timeout=self.tool_timeout)
+                    result_text = json.dumps(
+                        {"error": f"{tc.name}: timed out after {self.tool_timeout}s"}
+                    )
+                is_error = _is_tool_error(result_text)
 
                 logger.info(
                     "tool_result",

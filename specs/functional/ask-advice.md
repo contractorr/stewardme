@@ -31,6 +31,13 @@ Home is the default entry point for both note capture and grounded advice. The p
 - User writes a note, saves it, then upgrades it into advice with one click.
 - User opens the full chat deep link only when a longer thread needs more space.
 
+## Acceptance Criteria — Prompt Assembly
+
+- All `ask()` invocations (CLI, web, MCP, council) use a single prompt assembly path via `build_context_for_ask()`.
+- Available context (memory, documents, recurring thoughts, curriculum) is always included when the corresponding data exists.
+- Empty contexts produce no artifacts in the final prompt (blank lines collapse).
+- There is no configuration flag that silently drops context categories; `rag_config` flags control retrieval, not prompt shape.
+
 ## Key System Components
 
 - `web/src/app/(dashboard)/page.tsx`

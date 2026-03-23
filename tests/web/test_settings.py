@@ -38,7 +38,7 @@ def test_put_settings(client, auth_headers, secret_key, users_db):
         get_or_create_user("user-123", db_path=users_db)
 
         with (
-            patch("web.user_store._DEFAULT_DB_PATH", users_db),
+            patch("web.user_store.get_default_db_path", return_value=users_db),
             patch("web.routes.settings.set_user_secret", wraps=_real_set_user_secret(users_db)),
         ):
             res = client.put(
@@ -71,7 +71,7 @@ def test_put_settings_can_remove_provider_key(client, auth_headers, secret_key, 
         get_or_create_user("user-123", db_path=users_db)
 
         with (
-            patch("web.user_store._DEFAULT_DB_PATH", users_db),
+            patch("web.user_store.get_default_db_path", return_value=users_db),
             patch("web.routes.settings.set_user_secret", wraps=_real_set_user_secret(users_db)),
             patch(
                 "web.routes.settings.delete_user_secret", wraps=_real_delete_user_secret(users_db)
@@ -112,7 +112,7 @@ def test_put_settings_blank_legacy_key_clears_all_personal_keys(
         get_or_create_user("user-123", db_path=users_db)
 
         with (
-            patch("web.user_store._DEFAULT_DB_PATH", users_db),
+            patch("web.user_store.get_default_db_path", return_value=users_db),
             patch("web.routes.settings.set_user_secret", wraps=_real_set_user_secret(users_db)),
             patch(
                 "web.routes.settings.delete_user_secret", wraps=_real_delete_user_secret(users_db)
