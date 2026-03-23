@@ -14,6 +14,7 @@ from apscheduler.events import EVENT_JOB_ERROR
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+from graceful import graceful_context
 from observability import metrics
 from storage_paths import get_coach_home
 
@@ -273,7 +274,7 @@ class IntelScheduler:
                 config_rss_urls.add(url)
 
         # Merge user-added RSS feeds with per-user ownership tagging
-        try:
+        with graceful_context("graceful.scheduler.rss_merge", log_level="debug"):
             from user_state_store import get_all_user_rss_feeds
 
             # Build feed_url → set[user_id] mapping for ownership
@@ -295,8 +296,6 @@ class IntelScheduler:
                         )
                     )
                     config_rss_urls.add(url)
-        except Exception:
-            pass  # web module may not be available in CLI mode
 
         if "custom_blogs" in enabled:
             for url in self.config.get("custom_blogs", []):
@@ -348,7 +347,7 @@ class IntelScheduler:
             # Load profile for location filter
             location = ""
             if events_config.get("location_filter", False):
-                try:
+                with graceful_context("graceful.scheduler.event_location"):
                     from profile.storage import ProfileStorage
 
                     profile_path = self.full_config.get("profile", {}).get(
@@ -358,8 +357,6 @@ class IntelScheduler:
                     p = ps.load()
                     if p:
                         location = p.location
-                except Exception:
-                    pass
             self._scrapers.append(
                 EventScraper(
                     self.storage,
@@ -416,7 +413,7 @@ class IntelScheduler:
         if gh_issues_config.get("enabled", False):
             langs = gh_issues_config.get("languages")
             if not langs:
-                try:
+                with graceful_context("graceful.scheduler.gh_issues_langs"):
                     from profile.storage import ProfileStorage
 
                     profile_path = self.full_config.get("profile", {}).get(
@@ -426,8 +423,6 @@ class IntelScheduler:
                     p = ps.load()
                     if p:
                         langs = p.languages_frameworks[:5]
-                except Exception:
-                    pass
             self._scrapers.append(
                 GitHubIssuesScraper(
                     self.storage,
@@ -541,14 +536,14 @@ class IntelScheduler:
                         duration_s=round(elapsed, 2),
                         items_deduped=deduped_count,
                     )
-                    try:
+                    with graceful_context(
+                        "graceful.scheduler.log_event", log_level="debug", exc_types=(ImportError,)
+                    ):
                         from user_state_store import log_event
 
                         log_event(
                             "scraper_run", metadata={"source": source, "items_added": new_count}
                         )
-                    except ImportError:
-                        pass
                     metrics.counter("scraper_success")
                     metrics.counter("scraper_items_new", new_count)
 

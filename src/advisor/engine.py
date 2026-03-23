@@ -7,6 +7,7 @@ from typing import Optional
 
 import structlog
 
+from graceful import graceful_context
 from llm import LLMError as BaseLLMError
 from llm import LLMRateLimitError, create_cheap_provider, create_llm_provider
 from storage_paths import get_coach_home
@@ -97,12 +98,10 @@ class AdvisorEngine:
 
         # Attach context cache to RAG if not already set
         if not getattr(rag, "cache", None):
-            try:
+            with graceful_context("graceful.advisor.cache_init"):
                 cache_path = get_coach_home() / "context_cache.db"
                 cache_path.parent.mkdir(parents=True, exist_ok=True)
                 rag.cache = ContextCache(cache_path)
-            except Exception:
-                pass  # non-critical
 
         try:
             self.llm = create_llm_provider(
@@ -125,7 +124,7 @@ class AdvisorEngine:
 
             # Build coaching prompt with active goals summary
             goals_summary = ""
-            try:
+            with graceful_context("graceful.advisor.goal_init"):
                 storage = components.get("storage")
                 if storage:
                     tracker = GoalTracker(storage)
@@ -140,8 +139,6 @@ class AdvisorEngine:
                         lines.append(f"- {g['title']} ({status}, {pct}% done{stale}) — {fname}")
                     if lines:
                         goals_summary = "\n".join(lines)
-            except Exception:
-                pass  # broken goals must not prevent startup
 
             system_prompt = PromptTemplates.build_agentic_system(goals_summary)
 
@@ -149,7 +146,7 @@ class AdvisorEngine:
             # the LLM has user context even if it doesn't call search tools.
             profile_ctx = rag.get_profile_context()
             if not profile_ctx.strip():
-                try:
+                with graceful_context("graceful.advisor.journal_fallback"):
                     journal_ctx = rag.get_recent_entries(days=30, max_chars=3000)
                     if journal_ctx.strip():
                         system_prompt += (
@@ -157,8 +154,6 @@ class AdvisorEngine:
                             "journal entries for context — use these to personalize your advice:\n"
                             + journal_ctx
                         )
-                except Exception:
-                    pass
 
             self._orchestrator = AgenticOrchestrator(
                 llm=self.llm,

@@ -6,6 +6,8 @@ from typing import Any, Callable
 
 import structlog
 
+from graceful import graceful
+
 logger = structlog.get_logger()
 
 DEFAULT_MAX_HISTORY_CHARS = 64_000
@@ -106,31 +108,27 @@ def _maybe_persist_trace(engine, trace_data_dir: Path | None) -> None:
         logger.debug("trace_persist_failed", exc_info=True)
 
 
+@graceful("graceful.advice.collect_usage", fallback=None)
 def _collect_usage_from_engine(engine) -> dict | None:
     """Extract token usage from the engine after a request. Never raises."""
-    try:
-        orch = getattr(engine, "_orchestrator", None)
-        if orch is not None:
-            usage = getattr(orch, "_total_usage", None)
-            if usage and (usage.get("input_tokens", 0) or usage.get("output_tokens", 0)):
-                return dict(usage)
-        llm = getattr(engine, "llm", None)
-        if llm is not None:
-            return getattr(llm, "_last_usage", None)
-    except Exception:
-        pass
+    orch = getattr(engine, "_orchestrator", None)
+    if orch is not None:
+        usage = getattr(orch, "_total_usage", None)
+        if usage and (usage.get("input_tokens", 0) or usage.get("output_tokens", 0)):
+            return dict(usage)
+    llm = getattr(engine, "llm", None)
+    if llm is not None:
+        return getattr(llm, "_last_usage", None)
     return None
 
 
+@graceful("graceful.advice.get_model", fallback=None)
 def _get_model_name(engine) -> str | None:
     """Extract the model name from the engine. Never raises."""
-    try:
-        llm = getattr(engine, "llm", None)
-        if llm is None:
-            return None
-        return getattr(llm, "model_name", None) or getattr(llm, "model", None)
-    except Exception:
+    llm = getattr(engine, "llm", None)
+    if llm is None:
         return None
+    return getattr(llm, "model_name", None) or getattr(llm, "model", None)
 
 
 def run_advice(
