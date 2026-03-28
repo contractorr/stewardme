@@ -6,43 +6,21 @@
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-green.svg)](LICENSE)
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-**An e-bike for the mind** — AI that guides you through new topics, professional growth and personal reflection, grounded in live data, personalised to you.
+Webapp for learning and journaling, supplemented with an AI grounded in live data, personalised to you.
 
-**Try the live demo at [StewardMe.ai](https://stewardme.ai)**
+**Live demo at [StewardMe.ai](https://stewardme.ai)**
 
-- **Master new topics** — 50+ structured guides with spaced repetition, Bloom's taxonomy quizzes, and teach-back prompts. Add your own material. 
-- **Stay ahead** — 19 scrapers (HN, GitHub, arXiv, Reddit, Product Hunt, YC Jobs, Google Patents, RSS, and more) filtered to what matters to you
+- **Learn new topics** — 50+ structured guides with spaced repetition, Bloom's taxonomy quizzes, and teach-back prompts. Add your own material. 
 - **Reflect and grow** — journal your thinking, set goals, get advice grounded in your own context
+- **Stay ahead** — 19 scrapers (HN, GitHub, arXiv, Reddit, Product Hunt, YC Jobs, Google Patents, RSS, and more) filtered to what matters to you, based on your goals, journal and learning
 - **Runs anywhere** — CLI, web app, MCP server (52 tools for Claude Code), or Docker one-liner
-
-## Why StewardMe?
-
-**The world moves fast** - 
-There is a lot of signal online that is underutilised. Every day, you miss important events and updates that you might have found useful or interesting. The problem is they are buried across hundreds of sources, and everybody is time-poor.
-
-**Foundation models are complementary** - 
-Humans are limited in bandwidth, recall, and hours in the day. LLMs aren't. Right now our strengths are complementary. StewardMe is allows users to delegate the scanning, pattern-matching and synthesis to a model.
-
-**Journaling closes the loop.** - 
-Journaling forces reflection. Writing things down also creates a signal that can be leveraged to guide AI. It creates a feedback loop that allows models to do more targeted research and surface more relevant information to you over time. Your journal is what makes the AI personal. 
-
-### How it compares
-
-| | ChatGPT / Copilot | Notion AI | StewardMe |
-|---|---|---|---|
-| **Your data stays local** | No | No | Yes — SQLite + markdown files |
-| **Scans live sources for you** | No | No | Yes — 19 scrapers (HN, arXiv, GitHub, Reddit, RSS, ...) |
-| **Learns from your feedback** | No | No | Yes — per-category scoring adjusts over time |
-| **Self-hosted** | No | No | Yes — Docker one-liner or bare metal |
-| **Multi-provider LLM** | GPT only | GPT only | Claude, OpenAI, Gemini (auto-detect) |
-| **Open source** | No | No | AGPL-3.0 |
 
 ## What it does
 
-- **Curriculum & learn** — 50+ guides (327 chapters), SM-2 spaced repetition, Bloom's taxonomy quizzes, teach-back prompts, cross-guide connections via ChromaDB
+- **Curriculum & learn** — Learning guides on 50+ topics, SM-2 spaced repetition, Bloom's taxonomy quizzes, teach-back prompts, cross-guide connections via ChromaDB
 - **Journal + semantic search** — markdown entries with YAML frontmatter, ChromaDB embeddings, sentiment analysis, trend detection
 - **Intelligence radar** — 19 scrapers across 14 source files, SQLite storage with URL + content-hash dedup
-- **AI advisor** — RAG retrieval (dynamic journal/intel blend from engagement data) fed to Claude, OpenAI, or Gemini. Agentic + classic modes
+- **AI advisor** — Dynamic journal/intel blend from engagement data fed to Claude, OpenAI, or Gemini. Agentic + classic modes
 - **Goal tracking** — milestones, check-ins, staleness detection, nudges
 - **Deep research** — topic selection from your context, web search (Tavily or DuckDuckGo), LLM synthesis → reports
 - **Memory & threads** — persistent user memory (facts, context), thread inbox with state machine
