@@ -278,6 +278,52 @@ export interface NextRecommendation {
   applied_assessments?: AppliedAssessment[];
 }
 
+export type LearningTodayTaskType =
+  | "continue_chapter"
+  | "due_reviews"
+  | "start_guide"
+  | "applied_practice";
+
+export interface LearningTodayTask {
+  id: string;
+  task_type: LearningTodayTaskType;
+  title: string;
+  detail: string;
+  cta_label: string;
+  priority: number;
+  estimate_minutes: number;
+  guide_id?: string | null;
+  guide_title?: string | null;
+  chapter_id?: string | null;
+  chapter_title?: string | null;
+  recommendation_type?: RecommendationType;
+  review_count?: number;
+  signals?: RecommendationSignal[];
+  matched_programs?: Array<LearningProgram & { match_reason?: string }>;
+  assessment?: AppliedAssessment | null;
+}
+
+export type LearningProgramFocusStatus = "active" | "recommended" | "available";
+
+export interface LearningProgramFocus extends LearningProgram {
+  status: LearningProgramFocusStatus;
+  total_guide_count: number;
+  enrolled_guide_count: number;
+  completed_guide_count: number;
+  in_progress_guide_count: number;
+  ready_guide_count: number;
+  progress_pct: number;
+}
+
+export interface LearningToday {
+  headline: string;
+  summary: string;
+  recommended_action: NextRecommendation | null;
+  tasks: LearningTodayTask[];
+  focus_programs: LearningProgramFocus[];
+  reviews_due: number;
+}
+
 export interface ReadyGuide {
   id: string;
   title: string;

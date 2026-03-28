@@ -16,12 +16,16 @@ import type {
 import { SkillTreeNodeCard } from "./SkillTreeNode";
 import { SkillTreeEdges } from "./SkillTreeEdges";
 
-export function SkillTree() {
+interface Props {
+  initialSelectedProgramId?: string | null;
+}
+
+export function SkillTree({ initialSelectedProgramId = null }: Props) {
   const token = useToken();
   const [data, setData] = useState<SkillTreeResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedTracks, setSelectedTracks] = useState<Set<string>>(new Set());
-  const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
+  const [selectedProgramId, setSelectedProgramId] = useState<string | null>(initialSelectedProgramId);
   const containerRef = useRef<HTMLDivElement>(null);
   const nodeRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const [nodePositions, setNodePositions] = useState<Map<string, DOMRect>>(new Map());

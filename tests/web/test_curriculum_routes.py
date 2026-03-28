@@ -1,9 +1,11 @@
 """Tests for curriculum routes: tree, ready, next (DAG-aware), placement."""
 
+from datetime import datetime, timedelta
 from pathlib import Path
 from profile.storage import ProfileStorage, UserProfile
 from unittest.mock import AsyncMock, patch
 
+from curriculum.models import BloomLevel, ReviewItem, ReviewItemType
 from curriculum.store import CurriculumStore
 from web.deps import get_user_paths
 
@@ -128,6 +130,20 @@ def test_next_auto_syncs_catalog_when_empty(client, auth_headers):
     assert "recommendation_type" in data
 
 
+def test_today_auto_syncs_catalog_when_empty(client, auth_headers):
+    store = _curriculum_store()
+    assert store.list_guides() == []
+
+    resp = client.get("/api/curriculum/today", headers=auth_headers)
+
+    assert resp.status_code == 200
+    assert store.list_guides()
+    data = resp.json()
+    assert data["headline"] == "Today in Learn"
+    assert "tasks" in data
+    assert "focus_programs" in data
+
+
 def test_next_continues_enrolled_guide(client, auth_headers):
     """GET /api/curriculum/next continues enrolled guide."""
     client.post("/api/curriculum/sync", headers=auth_headers)
@@ -186,6 +202,60 @@ def test_next_personalizes_entry_point_with_profile(client, auth_headers):
     assert data["recommendation_type"] == "entry"
     assert any(program["id"] == "business-acumen" for program in data["matched_programs"])
     assert any(signal["kind"] in {"context", "time"} for signal in data["signals"])
+
+
+def test_today_returns_queue_and_program_focus(client, auth_headers):
+    client.post("/api/curriculum/sync", headers=auth_headers)
+
+    profile_path = get_user_paths("user-123")["profile_path"]
+    ProfileStorage(profile_path).save(
+        UserProfile(
+            current_role="Operations manager",
+            goals_short_term="Build business acumen and get sharper at applied decision-making.",
+            weekly_hours_available=4,
+        )
+    )
+
+    store = _curriculum_store()
+    guide_id = "28-accounting"
+    store.enroll("user-123", guide_id)
+
+    guide = store.get_guide(guide_id, user_id="user-123")
+    chapter = guide["chapters"][0]
+    store.update_progress(
+        "user-123",
+        chapter["id"],
+        guide_id,
+        status="in_progress",
+        reading_time_seconds=300,
+    )
+    store.add_review_items(
+        [
+            ReviewItem(
+                id="review-due-1",
+                user_id="user-123",
+                chapter_id=chapter["id"],
+                guide_id=guide_id,
+                question="What does a P&L show?",
+                expected_answer="Revenue, expenses, and profit.",
+                bloom_level=BloomLevel.UNDERSTAND,
+                item_type=ReviewItemType.QUIZ,
+                next_review=datetime.utcnow() - timedelta(days=1),
+            )
+        ]
+    )
+
+    resp = client.get("/api/curriculum/today", headers=auth_headers)
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["headline"] == "Today in Learn"
+    assert data["recommended_action"]["guide_id"] == guide_id
+    assert len(data["tasks"]) >= 3
+    assert data["tasks"][0]["task_type"] in {"continue_chapter", "due_reviews"}
+    assert any(task["task_type"] == "due_reviews" for task in data["tasks"])
+    assert any(task["task_type"] == "applied_practice" for task in data["tasks"])
+    assert any(program["status"] == "active" for program in data["focus_programs"])
 
 
 def test_get_guide_exposes_applied_assessment_plan(client, auth_headers):

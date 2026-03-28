@@ -413,7 +413,7 @@ export default function HomePage() {
           <div className="grid animate-in gap-4 fade-in-0 slide-in-from-bottom-2 duration-400 fill-mode-both delay-100 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
             <LearningSnapshotCard
               stats={stats.learningStats}
-              nextStep={stats.nextLearningStep}
+              today={stats.learningToday}
               loading={stats.loading}
             />
 

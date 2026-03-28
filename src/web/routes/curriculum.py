@@ -321,6 +321,337 @@ def _get_next_recommendation_v2(
     }
 
 
+def _recommendation_priority(stage: str | None) -> int:
+    return {
+        "continue": 110,
+        "enrolled": 102,
+        "ready": 78,
+        "entry": 64,
+        "fallback": 12,
+    }.get(stage or "fallback", 12)
+
+
+def _estimate_task_minutes(
+    *,
+    chapter: dict | None = None,
+    guide: dict | None = None,
+    review_count: int = 0,
+    assessment: dict | None = None,
+) -> int:
+    if review_count > 0:
+        return max(5, min(review_count * 4, 25))
+    if assessment is not None:
+        return 20 if assessment.get("stage") == "review" else 25
+    if chapter and chapter.get("reading_time_minutes"):
+        return max(5, int(chapter["reading_time_minutes"]))
+    if guide and guide.get("total_reading_time_minutes"):
+        return max(10, min(int(guide["total_reading_time_minutes"]), 30))
+    return 10
+
+
+def _build_today_task_from_recommendation(
+    recommendation: dict,
+    store: CurriculumStore,
+    user_id: str,
+) -> dict | None:
+    guide_id = recommendation.get("guide_id")
+    if not guide_id:
+        return None
+
+    chapter = recommendation.get("chapter")
+    guide = store.get_guide(guide_id, user_id=user_id) or store.get_guide(guide_id)
+    stage = recommendation.get("recommendation_type")
+
+    if chapter:
+        title = f"Resume {chapter['title']}"
+        detail = recommendation.get("reason") or "Pick up the next chapter in your active guide."
+        cta_label = "Resume lesson"
+        task_type = "continue_chapter"
+    else:
+        guide_title = recommendation.get("guide_title") or (guide or {}).get("title") or guide_id
+        title = f"Start {guide_title}"
+        detail = (
+            recommendation.get("reason") or "Open the strongest next guide for your current path."
+        )
+        cta_label = "Open guide"
+        task_type = "start_guide"
+
+    return {
+        "id": f"recommendation:{guide_id}:{chapter['id'] if chapter else stage}",
+        "task_type": task_type,
+        "title": title,
+        "detail": detail,
+        "cta_label": cta_label,
+        "priority": _recommendation_priority(stage),
+        "estimate_minutes": _estimate_task_minutes(chapter=chapter, guide=guide),
+        "guide_id": guide_id,
+        "guide_title": recommendation.get("guide_title") or (guide or {}).get("title"),
+        "chapter_id": chapter["id"] if chapter else None,
+        "chapter_title": chapter["title"] if chapter else None,
+        "recommendation_type": stage,
+        "signals": recommendation.get("signals", []),
+        "matched_programs": recommendation.get("matched_programs", []),
+        "assessment": None,
+    }
+
+
+def _build_due_review_task(
+    store: CurriculumStore,
+    user_id: str,
+    reviews_due: int,
+) -> dict | None:
+    if reviews_due <= 0:
+        return None
+
+    due_preview = store.get_due_reviews(user_id, limit=min(reviews_due, 3))
+    guide_titles: list[str] = []
+    for item in due_preview:
+        guide = store.get_guide(item["guide_id"])
+        if guide and guide["title"] not in guide_titles:
+            guide_titles.append(guide["title"])
+
+    detail = "Spaced repetition is ready now."
+    if guide_titles:
+        preview = ", ".join(guide_titles[:2])
+        if len(guide_titles) > 2:
+            preview += ", and more"
+        detail = f"Clear recall work waiting across {preview}."
+
+    return {
+        "id": "due-reviews",
+        "task_type": "due_reviews",
+        "title": f"Clear {reviews_due} due review{'s' if reviews_due != 1 else ''}",
+        "detail": detail,
+        "cta_label": "Start reviews",
+        "priority": 106 if reviews_due >= 5 else 96,
+        "estimate_minutes": _estimate_task_minutes(review_count=reviews_due),
+        "guide_id": None,
+        "guide_title": None,
+        "chapter_id": None,
+        "chapter_title": None,
+        "recommendation_type": None,
+        "review_count": reviews_due,
+        "signals": [],
+        "matched_programs": [],
+        "assessment": None,
+    }
+
+
+def _pick_applied_assessment_for_today(assessments: list[dict], reviews_due: int) -> dict | None:
+    if not assessments:
+        return None
+
+    preferred_stages = (
+        ["review", "scenario_practice"]
+        if reviews_due > 0
+        else [
+            "scenario_practice",
+            "review",
+            "chapter_completion",
+        ]
+    )
+    for stage in preferred_stages:
+        for assessment in assessments:
+            if assessment.get("stage") == stage:
+                return assessment
+    return assessments[0]
+
+
+def _build_applied_practice_task(recommendation: dict, reviews_due: int) -> dict | None:
+    if recommendation.get("recommendation_type") not in {"continue", "enrolled"}:
+        return None
+
+    guide_id = recommendation.get("guide_id")
+    if not guide_id:
+        return None
+
+    assessment = _pick_applied_assessment_for_today(
+        recommendation.get("applied_assessments", []),
+        reviews_due,
+    )
+    if not assessment:
+        return None
+
+    return {
+        "id": f"applied:{guide_id}:{assessment['type']}",
+        "task_type": "applied_practice",
+        "title": assessment["title"],
+        "detail": assessment["summary"],
+        "cta_label": "Open guide",
+        "priority": 68,
+        "estimate_minutes": _estimate_task_minutes(assessment=assessment),
+        "guide_id": guide_id,
+        "guide_title": recommendation.get("guide_title"),
+        "chapter_id": recommendation.get("chapter", {}).get("id")
+        if recommendation.get("chapter")
+        else None,
+        "chapter_title": recommendation.get("chapter", {}).get("title")
+        if recommendation.get("chapter")
+        else None,
+        "recommendation_type": recommendation.get("recommendation_type"),
+        "signals": [],
+        "matched_programs": recommendation.get("matched_programs", []),
+        "assessment": assessment,
+    }
+
+
+def _build_program_focus(
+    store: CurriculumStore,
+    user_id: str,
+    program: dict,
+    *,
+    matched_program_ids: set[str],
+    ready_guide_ids: set[str],
+) -> dict | None:
+    guide_ids = list(
+        dict.fromkeys([*program.get("guide_ids", []), *program.get("applied_module_ids", [])])
+    )
+    if not guide_ids:
+        return None
+
+    total = 0
+    enrolled = 0
+    completed = 0
+    in_progress = 0
+    ready = 0
+    for guide_id in guide_ids:
+        guide = store.get_guide(guide_id, user_id=user_id) or store.get_guide(guide_id)
+        if not guide:
+            continue
+        total += 1
+        if guide.get("enrolled"):
+            enrolled += 1
+        if guide.get("enrollment_completed_at"):
+            completed += 1
+        elif (guide.get("progress_pct") or 0) > 0:
+            in_progress += 1
+        if guide_id in ready_guide_ids and not guide.get("enrolled"):
+            ready += 1
+
+    if total == 0:
+        return None
+
+    has_active_work = in_progress > 0 or enrolled > completed
+    if has_active_work:
+        status = "active"
+    elif program["id"] in matched_program_ids:
+        status = "recommended"
+    else:
+        status = "available"
+
+    return {
+        **program,
+        "status": status,
+        "total_guide_count": total,
+        "enrolled_guide_count": enrolled,
+        "completed_guide_count": completed,
+        "in_progress_guide_count": in_progress,
+        "ready_guide_count": ready,
+        "progress_pct": round(completed / total * 100, 1),
+    }
+
+
+def _build_learning_today(
+    user_id: str,
+    store: CurriculumStore,
+    scanner: CurriculumScanner,
+    guide_aliases: set[str],
+) -> dict:
+    stats = store.get_stats(user_id)
+    recommendation = _get_next_recommendation_v2(user_id, store, scanner, guide_aliases)
+    ready_guides = store.get_ready_guides(user_id, excluded_guide_ids=guide_aliases)
+    ready_guide_ids = {guide["id"] for guide in ready_guides}
+    matched_program_ids = {program["id"] for program in recommendation.get("matched_programs", [])}
+
+    tasks: list[dict] = []
+    recommendation_task = _build_today_task_from_recommendation(recommendation, store, user_id)
+    if recommendation_task:
+        tasks.append(recommendation_task)
+
+    due_review_task = _build_due_review_task(store, user_id, stats.reviews_due)
+    if due_review_task:
+        tasks.append(due_review_task)
+
+    applied_task = _build_applied_practice_task(recommendation, stats.reviews_due)
+    if applied_task:
+        tasks.append(applied_task)
+
+    deduped_tasks: list[dict] = []
+    seen_task_ids: set[str] = set()
+    for task in sorted(tasks, key=lambda item: (-item["priority"], item["title"])):
+        if task["id"] in seen_task_ids:
+            continue
+        deduped_tasks.append(task)
+        seen_task_ids.add(task["id"])
+
+    focus_programs = []
+    for program in scanner.get_learning_programs():
+        focus = _build_program_focus(
+            store,
+            user_id,
+            program,
+            matched_program_ids=matched_program_ids,
+            ready_guide_ids=ready_guide_ids,
+        )
+        if not focus:
+            continue
+        if (
+            focus["status"] == "active"
+            or focus["status"] == "recommended"
+            or focus["ready_guide_count"] > 0
+        ):
+            focus_programs.append(focus)
+
+    if not focus_programs:
+        for program in scanner.get_learning_programs()[:3]:
+            focus = _build_program_focus(
+                store,
+                user_id,
+                program,
+                matched_program_ids=matched_program_ids,
+                ready_guide_ids=ready_guide_ids,
+            )
+            if focus:
+                focus_programs.append(focus)
+
+    status_rank = {"active": 0, "recommended": 1, "available": 2}
+    focus_programs.sort(
+        key=lambda item: (
+            status_rank.get(item["status"], 9),
+            -item["progress_pct"],
+            -item["ready_guide_count"],
+            item["title"],
+        )
+    )
+
+    summary_parts = []
+    if recommendation_task:
+        summary_parts.append(recommendation_task["title"])
+    if stats.reviews_due > 0:
+        summary_parts.append(
+            f"{stats.reviews_due} review{'s' if stats.reviews_due != 1 else ''} due"
+        )
+    active_program_count = sum(1 for program in focus_programs if program["status"] == "active")
+    if active_program_count > 0:
+        summary_parts.append(
+            f"{active_program_count} active path{'s' if active_program_count != 1 else ''}"
+        )
+
+    if summary_parts:
+        summary = "Today: " + " • ".join(summary_parts[:3])
+    else:
+        summary = "Choose a program path or guide to start building momentum in Learn."
+
+    return {
+        "headline": "Today in Learn",
+        "summary": summary,
+        "recommended_action": recommendation if recommendation.get("guide_id") else None,
+        "tasks": deduped_tasks[:4],
+        "focus_programs": focus_programs[:3],
+        "reviews_due": stats.reviews_due,
+    }
+
+
 def _chapter_content_path(chapter_id: str) -> Path | None:
     """Resolve chapter markdown file from content dirs.
 
@@ -1050,6 +1381,15 @@ async def get_stats(user: dict = Depends(get_current_user)):
     _ensure_catalog_initialized(store)
     stats = store.get_stats(user["id"])
     return stats.model_dump()
+
+
+@router.get("/today")
+async def get_today_learning_workflow(user: dict = Depends(get_current_user)):
+    user_id = user["id"]
+    store = _get_store(user_id)
+    scanner = _ensure_catalog_initialized(store, CurriculumScanner(_content_dirs()))
+    guide_aliases = set(scanner.get_guide_aliases())
+    return _build_learning_today(user_id, store, scanner, guide_aliases)
 
 
 @router.post("/sync")

@@ -217,6 +217,7 @@ Current properties:
 
 - Score guide candidates against user profile context and curated learning programs.
 - Build recommendation signals for `/api/curriculum/next`.
+- Assemble a ranked daily workflow payload for `/api/curriculum/today`.
 - Generate the applied-assessment pilot payload surfaced in Learn.
 
 #### Current inputs
@@ -262,7 +263,7 @@ This is used by `/api/curriculum/chapters/{chapter_id}/related`.
 
 **File:** `src/web/routes/curriculum.py`
 
-The web API currently exposes 21 curriculum routes.
+The web API currently exposes 22 curriculum routes.
 
 #### Core catalog and graph
 
@@ -280,6 +281,7 @@ The web API currently exposes 21 curriculum routes.
 - `GET /api/curriculum/review/due`
 - `POST /api/curriculum/review/{review_id}/grade`
 - `GET /api/curriculum/stats`
+- `GET /api/curriculum/today`
 
 #### Quiz and deep-processing features
 
@@ -315,12 +317,20 @@ The web API currently exposes 21 curriculum routes.
   - `signals`
   - `matched_programs`
   - `applied_assessments`
+- `/today` returns:
+  - `headline`
+  - `summary`
+  - `recommended_action`
+  - ranked `tasks`
+  - `focus_programs`
+  - `reviews_due`
 - sync runs alias reconciliation after catalog upsert
 
 ### Frontend
 
 #### Pages
 
+- `web/src/app/(dashboard)/home/page.tsx`
 - `web/src/app/(dashboard)/learn/page.tsx`
 - `web/src/app/(dashboard)/learn/[guideId]/page.tsx`
 - `web/src/app/(dashboard)/learn/[guideId]/[chapterId]/page.tsx`
@@ -328,11 +338,14 @@ The web API currently exposes 21 curriculum routes.
 
 #### Current UX surface
 
+- Home:
+  - `Today in Learn` card backed by `/api/curriculum/today`
+  - learning metrics alongside the daily queue
 - Learn landing page:
-  - stats row
-  - personalized "Next up" card
-  - due-review card
-  - grid/tree tabs
+  - `Today in Learn` primary task
+  - supporting queue
+  - program-path cards
+  - library/grid/tree section below the workflow surfaces
 - guide detail:
   - enrollment
   - chapter list
@@ -433,6 +446,7 @@ Relevant suites include:
 - `tests/curriculum/`
 - `tests/web/test_curriculum_routes.py`
 - `tests/coach_mcp/test_server.py`
+- `web/e2e/tests/curriculum.spec.ts`
 
 ## Known Limitations
 

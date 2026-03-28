@@ -3,6 +3,7 @@ import {
   installApiMocks,
   MOCK_GUIDE_DETAIL,
   MOCK_STATS,
+  MOCK_TODAY,
   MOCK_TREE,
 } from "../fixtures/api-mocks";
 
@@ -13,6 +14,10 @@ test.describe("Curriculum / Learn", () => {
 
   test("learn page shows guide grid and stats", async ({ page }) => {
     await page.goto("/learn");
+
+    await expect(page.getByRole("heading", { name: "Today in Learn" })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(MOCK_TODAY.tasks[0].title, { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Program paths" })).toBeVisible();
 
     // Stats row should render
     await expect(page.getByText("Enrolled")).toBeVisible({ timeout: 10_000 });
@@ -43,6 +48,15 @@ test.describe("Curriculum / Learn", () => {
     await expect(page.getByText(MOCK_GUIDE_DETAIL.chapters[2].title)).toBeVisible();
   });
 
+  test("home page surfaces the learning queue", async ({ page }) => {
+    await page.goto("/");
+
+    await expect(page.locator("text=Today in Learn").first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(MOCK_TODAY.tasks[0].title, { exact: true })).toBeVisible();
+    await expect(page.getByText("Program paths").first()).toBeVisible();
+    await expect(page.getByText("Operator Path")).toBeVisible();
+  });
+
   test("tree program filter keeps applied modules visible", async ({ page }) => {
     await page.goto("/learn");
     await page.getByRole("tab", { name: "Tree" }).click();
@@ -56,6 +70,6 @@ test.describe("Curriculum / Learn", () => {
     await expect(page.getByText("2 guides")).toBeVisible();
     await expect(page.getByText("Healthcare Industry")).toBeVisible();
     await expect(page.getByText("Finance Industry")).toHaveCount(0);
-    await expect(page.getByText(MOCK_TREE.programs[0].description)).toBeVisible();
+    await expect(page.getByText(MOCK_TREE.programs[0].description).first()).toBeVisible();
   });
 });

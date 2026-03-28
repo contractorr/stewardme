@@ -45,17 +45,164 @@ export const MOCK_GUIDES = [
 
 export const MOCK_STATS = {
   guides_enrolled: 1,
+  guides_completed: 0,
   chapters_completed: 2,
   total_chapters: 17,
   total_reading_time_seconds: 2700,
+  reviews_completed: 4,
+  average_grade: 2.4,
   current_streak_days: 3,
   reviews_due: 2,
+  mastery_by_category: {},
+  mastery_by_track: {},
+  daily_activity: {},
 };
 
 export const MOCK_NEXT = {
   guide_id: "python-basics",
   guide_title: "Python Basics",
   chapter: { id: "python-basics/ch03", title: "Functions and Scope" },
+};
+
+export const MOCK_TODAY = {
+  headline: "Today in Learn",
+  summary: "Today: Resume Functions and Scope • 2 reviews due • 1 active path",
+  recommended_action: {
+    guide_id: "python-basics",
+    guide_title: "Python Basics",
+    chapter: { id: "python-basics/ch03", title: "Functions and Scope" },
+    reason: "Continue where you left off.",
+    recommendation_type: "continue",
+    signals: [
+      {
+        kind: "progress",
+        label: "Active momentum",
+        detail: "You already started this guide, so the shortest path is to keep moving.",
+      },
+    ],
+    matched_programs: [
+      {
+        id: "operator-path",
+        title: "Operator Path",
+        audience: "Operators",
+        description: "Core technical guide plus a healthcare capstone.",
+        color: "#2563eb",
+        outcomes: ["Build practical technical judgment"],
+        guide_ids: ["python-basics"],
+        applied_module_ids: ["industry-healthcare"],
+      },
+    ],
+    applied_assessments: [
+      {
+        type: "decision_brief",
+        stage: "review",
+        title: "Decision brief",
+        summary: "Use one framework from Python Basics to support a real decision.",
+        deliverable: "One-page brief",
+        prompt: "Write a brief.",
+        evaluation_focus: ["Clear framing"],
+      },
+    ],
+  },
+  tasks: [
+    {
+      id: "recommendation:python-basics:python-basics/ch03",
+      task_type: "continue_chapter",
+      title: "Resume Functions and Scope",
+      detail: "Continue where you left off.",
+      cta_label: "Resume lesson",
+      priority: 110,
+      estimate_minutes: 12,
+      guide_id: "python-basics",
+      guide_title: "Python Basics",
+      chapter_id: "python-basics/ch03",
+      chapter_title: "Functions and Scope",
+      recommendation_type: "continue",
+      signals: [
+        {
+          kind: "progress",
+          label: "Active momentum",
+          detail: "You already started this guide, so the shortest path is to keep moving.",
+        },
+      ],
+      matched_programs: [
+        {
+          id: "operator-path",
+          title: "Operator Path",
+          audience: "Operators",
+          description: "Core technical guide plus a healthcare capstone.",
+          color: "#2563eb",
+          outcomes: ["Build practical technical judgment"],
+          guide_ids: ["python-basics"],
+          applied_module_ids: ["industry-healthcare"],
+        },
+      ],
+      assessment: null,
+    },
+    {
+      id: "due-reviews",
+      task_type: "due_reviews",
+      title: "Clear 2 due reviews",
+      detail: "Clear recall work waiting across Python Basics.",
+      cta_label: "Start reviews",
+      priority: 96,
+      estimate_minutes: 8,
+      guide_id: null,
+      guide_title: null,
+      chapter_id: null,
+      chapter_title: null,
+      recommendation_type: null,
+      review_count: 2,
+      signals: [],
+      matched_programs: [],
+      assessment: null,
+    },
+    {
+      id: "applied:python-basics:decision_brief",
+      task_type: "applied_practice",
+      title: "Decision brief",
+      detail: "Use one framework from Python Basics to support a real decision.",
+      cta_label: "Open guide",
+      priority: 68,
+      estimate_minutes: 20,
+      guide_id: "python-basics",
+      guide_title: "Python Basics",
+      chapter_id: "python-basics/ch03",
+      chapter_title: "Functions and Scope",
+      recommendation_type: "continue",
+      signals: [],
+      matched_programs: [],
+      assessment: {
+        type: "decision_brief",
+        stage: "review",
+        title: "Decision brief",
+        summary: "Use one framework from Python Basics to support a real decision.",
+        deliverable: "One-page brief",
+        prompt: "Write a brief.",
+        evaluation_focus: ["Clear framing"],
+      },
+    },
+  ],
+  focus_programs: [
+    {
+      id: "operator-path",
+      title: "Operator Path",
+      audience: "Operators",
+      description: "Core technical guide plus a healthcare capstone.",
+      color: "#2563eb",
+      outcomes: ["Build practical technical judgment"],
+      guide_ids: ["python-basics"],
+      applied_module_ids: ["industry-healthcare"],
+      status: "active",
+      total_guide_count: 2,
+      enrolled_guide_count: 1,
+      completed_guide_count: 0,
+      in_progress_guide_count: 1,
+      ready_guide_count: 1,
+      progress_pct: 0,
+    },
+  ],
+  reviews_due: 2,
 };
 
 export const MOCK_TREE = {
@@ -216,6 +363,12 @@ export async function installApiMocks(page: Page) {
   await page.route("**/api/v1/suggestions*", (route) =>
     route.fulfill({ json: [] }),
   );
+  await page.route("**/api/v1/journal?limit=200", (route) =>
+    route.fulfill({ json: [] }),
+  );
+  await page.route("**/api/v1/goals", (route) =>
+    route.fulfill({ json: [] }),
+  );
 
   // Home stats
   await page.route("**/api/v1/home/stats", (route) =>
@@ -252,6 +405,9 @@ export async function installApiMocks(page: Page) {
   );
   await page.route("**/api/v1/curriculum/next", (route) =>
     route.fulfill({ json: MOCK_NEXT }),
+  );
+  await page.route("**/api/v1/curriculum/today", (route) =>
+    route.fulfill({ json: MOCK_TODAY }),
   );
   await page.route("**/api/v1/curriculum/tree", (route) =>
     route.fulfill({ json: MOCK_TREE }),

@@ -12,11 +12,12 @@ recommendations, and authoring QA.
 
 - Workspace: `Learn`
 - Primary job: help the user study, retain, and revisit structured material
+- Primary framing: a daily learning workflow organized around outcome-based programs, not only a guide library
 - Cross-system handoffs:
   - guide enrollment can create a linked `learning` goal with chapter milestones
   - completed chapters can trigger reflection prompts and best-effort memory extraction
   - advisor context can include active curriculum progress
-  - due reviews can surface in the main Learn workspace
+  - due reviews can surface on Home and in the main Learn workspace
 
 ## Current Behavior
 
@@ -28,11 +29,18 @@ recommendations, and authoring QA.
   - outcome-based learning programs
 - Learn supports both legacy markdown and schema-first `MDX + frontmatter`.
 - The primary learner surfaces are:
+  - Home `Today in Learn` card
+  - `/learn` Today queue
+  - `/learn` program-path cards
   - `/learn` grid view
   - `/learn` tree view
   - guide detail
   - chapter reader
   - review session
+- `/learn` is now organized as:
+  - a prioritized daily queue
+  - outcome-based program paths
+  - a secondary library/map section
 - The current study loop includes:
   - pre-reading prompts
   - chapter completion
@@ -47,6 +55,11 @@ recommendations, and authoring QA.
   - industries
   - time budget
   - learning-program overlap
+- The recommendation logic now also feeds a `Today in Learn` workflow payload:
+  - primary action for the current block
+  - due-review task when recall is waiting
+  - applied-practice prompt for active guides
+  - active/recommended program-path cards with progress counts
 - Guide and recommendation payloads also expose an applied-assessment pilot:
   - teach-back note
   - decision brief
@@ -60,19 +73,26 @@ recommendations, and authoring QA.
 
 ### Discover and choose
 
-- User opens `/learn`.
-- They can browse a guide grid or switch to a tree view.
+- User opens Home or `/learn`.
+- They first see a `Today in Learn` queue rather than only a generic catalog.
+- They can open the primary task immediately, clear due reviews, or jump into a recommended program path.
+- They can still browse a guide grid or switch to a tree view.
 - Grid view supports search, category filtering, and sort modes.
 - Tree view supports:
   - track filters
   - learning-program filters
   - prerequisite edges
   - progress/mastery-aware guide nodes
-- The "Next up" card can recommend:
+- Program-path cards summarize:
+  - whether the path is active, recommended, or merely available
+  - completed/in-progress/ready guide counts
+  - path outcomes
+  - a direct link into the tree view filtered to that path
+- The daily queue can recommend:
   - continuing a chapter
-  - continuing an enrolled guide
+  - clearing due reviews
   - starting an unlocked guide
-  - starting an entry-point guide
+  - opening applied-practice work for the current guide
 
 ### Enroll and orient
 
@@ -135,7 +155,9 @@ recommendations, and authoring QA.
 
 ## Acceptance Criteria
 
-- [x] `/learn` exposes both grid and tree views for the curriculum.
+- [x] Home and `/learn` both surface a `Today in Learn` workflow rather than only a passive recommendation card.
+- [x] `/learn` exposes both grid and tree views for the curriculum as secondary library surfaces.
+- [x] `/learn` surfaces outcome-based program paths with progress counts and direct navigation into filtered tree views.
 - [x] Guides can be enrolled and tracked persistently.
 - [x] Guide enrollment can create linked learning goals with chapter milestones.
 - [x] Chapter reading progress accumulates across sessions.
@@ -150,6 +172,7 @@ recommendations, and authoring QA.
 - [x] Canonical guide aliases are resolved so deprecated guide IDs do not remain in the active graph.
 - [x] Learning programs are data-driven from the manifest.
 - [x] `/api/curriculum/next` is profile-aware and not only prerequisite-aware.
+- [x] `/api/curriculum/today` assembles a ranked learning queue plus active/recommended program paths.
 - [x] Recommendation and guide payloads surface applied-assessment pilot data.
 - [x] Typed visual blocks render as web-native visuals.
 - [x] Legacy markdown diagrams and data blocks still degrade gracefully.
@@ -190,10 +213,12 @@ recommendations, and authoring QA.
 ## Key System Components
 
 - `web/src/app/(dashboard)/learn/page.tsx`
+- `web/src/app/(dashboard)/home/page.tsx`
 - `web/src/app/(dashboard)/learn/[guideId]/page.tsx`
 - `web/src/app/(dashboard)/learn/[guideId]/[chapterId]/page.tsx`
 - `web/src/app/(dashboard)/learn/review/page.tsx`
 - `web/src/components/curriculum/`
+- `web/src/components/home/LearningSnapshotCard.tsx`
 - `src/web/routes/curriculum.py`
 - `src/curriculum/content_schema.py`
 - `src/curriculum/scanner.py`
