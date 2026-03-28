@@ -156,8 +156,9 @@ export function SkillTree() {
     );
   }
 
-  const coreTrackIds = Object.keys(data.tracks).filter((trackId) => trackId !== "industry");
-  const coreTracks = coreTrackIds.map((trackId) => data.tracks[trackId] as Track);
+  const coreTracks: Track[] = Object.entries(data.tracks)
+    .filter(([trackId]) => trackId !== "industry")
+    .map(([trackId, track]) => ({ ...track, id: track.id || trackId }));
 
   return (
     <div className="space-y-6">

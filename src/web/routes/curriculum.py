@@ -373,6 +373,10 @@ async def get_skill_tree(
     )
 
     tree_data = store.get_tree_data(user_id, excluded_guide_ids=guide_aliases)
+    track_payload = {
+        track["id"]: track
+        for track in store.list_tracks(user_id, track_meta, excluded_guide_ids=guide_aliases)
+    }
 
     from curriculum.models import LearningProgram, SkillTreeEdge, SkillTreeNode, SkillTreeResponse
 
@@ -406,7 +410,7 @@ async def get_skill_tree(
             edges.append(SkillTreeEdge(source=prereq_id, target=g["id"]))
 
     programs = [LearningProgram(**program) for program in scanner.get_learning_programs()]
-    return SkillTreeResponse(tracks=track_meta, programs=programs, nodes=nodes, edges=edges)
+    return SkillTreeResponse(tracks=track_payload, programs=programs, nodes=nodes, edges=edges)
 
 
 @router.get("/guides")

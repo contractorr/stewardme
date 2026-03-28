@@ -21,6 +21,9 @@ def test_tree_endpoint(client, auth_headers):
     assert isinstance(data["programs"], list)
     assert isinstance(data["nodes"], list)
     assert isinstance(data["edges"], list)
+    assert "human_sciences" in data["tracks"]
+    assert data["tracks"]["human_sciences"]["id"] == "human_sciences"
+    assert data["tracks"]["human_sciences"]["title"] == "Human Sciences"
 
     node_ids = {node["id"] for node in data["nodes"]}
     assert "05-game-theory-strategic-interaction-guide" not in node_ids
