@@ -117,7 +117,15 @@ export function SkillTree() {
     if (!token) return;
     setLoading(true);
     apiFetch<SkillTreeResponse>("/api/v1/curriculum/tree", {}, token)
-      .then(setData)
+      .then((data) => {
+        console.log("Skill tree data:", {
+          trackCount: Object.keys(data.tracks).length,
+          trackIds: Object.keys(data.tracks),
+          nodeCount: data.nodes.length,
+          sampleNodes: data.nodes.slice(0, 3).map((n) => ({ id: n.id, track: n.track })),
+        });
+        setData(data);
+      })
       .catch((e) => toast.error((e as Error).message))
       .finally(() => setLoading(false));
   }, [token]);

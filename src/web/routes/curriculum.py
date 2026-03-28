@@ -114,6 +114,13 @@ async def get_skill_tree(
     skill_tree = scanner._skill_tree
     positions = build_tree_layout(skill_tree)
 
+    logger.info(
+        "curriculum.tree_metadata",
+        user_id=user_id,
+        track_count=len(track_meta),
+        track_ids=list(track_meta.keys()),
+    )
+
     tree_data = store.get_tree_data(user_id)
 
     from curriculum.models import SkillTreeEdge, SkillTreeNode, SkillTreeResponse
