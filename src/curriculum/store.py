@@ -714,7 +714,13 @@ class CurriculumStore:
             chapters_completed = progress_row["completed"] or 0
             reading_time = progress_row["reading_time"]
 
-            total_chapters = conn.execute("SELECT COUNT(*) FROM chapters").fetchone()[0]
+            # Count only chapters from enrolled guides (0 if not enrolled in anything)
+            total_chapters = conn.execute(
+                """SELECT COUNT(DISTINCT c.id) FROM chapters c
+                   JOIN user_guide_enrollment uge ON uge.guide_id = c.guide_id
+                   WHERE uge.user_id = ?""",
+                (user_id,),
+            ).fetchone()[0]
 
             # Batch 3: review stats (1 query instead of 2)
             review_row = conn.execute(
