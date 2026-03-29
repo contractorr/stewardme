@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta
 from pathlib import Path
 from profile.storage import ProfileStorage, UserProfile
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from curriculum.models import BloomLevel, ReviewGradeResult, ReviewItem, ReviewItemType
@@ -95,6 +96,62 @@ def test_get_chapter_resolves_superseded_alias_to_canonical_chapter(client, auth
     payload = resp.json()
     assert payload["guide_id"] == "35-engineering-guide"
     assert payload["id"] == "35-engineering-guide/01-introduction"
+
+
+def test_build_question_generator_wires_resolved_llm_providers():
+    from web.routes import curriculum as curriculum_routes
+
+    full_llm = object()
+    cheap_llm = object()
+    config = SimpleNamespace(
+        llm=SimpleNamespace(provider="claude", model="claude-sonnet-4-20250514")
+    )
+
+    with (
+        patch.object(
+            curriculum_routes,
+            "resolve_llm_credentials_for_user",
+            return_value=("openai", "test-key", "shared"),
+        ),
+        patch.object(curriculum_routes, "get_config", return_value=config),
+        patch.object(curriculum_routes, "create_llm_provider", return_value=full_llm) as full_mock,
+        patch.object(
+            curriculum_routes,
+            "create_cheap_provider",
+            return_value=cheap_llm,
+        ) as cheap_mock,
+    ):
+        generator = curriculum_routes._build_question_generator("user-123")
+
+    assert generator.llm is full_llm
+    assert generator.cheap_llm is cheap_llm
+    full_mock.assert_called_once_with(
+        provider="openai",
+        api_key="test-key",
+        model=curriculum_routes.SHARED_LLM_MODEL,
+    )
+    cheap_mock.assert_called_once_with(provider="openai", api_key="test-key")
+
+
+def test_progress_write_canonicalizes_alias_chapter_ids(client, auth_headers):
+    client.post("/api/curriculum/sync", headers=auth_headers)
+
+    resp = client.post(
+        "/api/curriculum/progress",
+        headers=auth_headers,
+        json={
+            "chapter_id": "32-engineering-guide/01-introduction",
+            "guide_id": "32-engineering-guide",
+            "status": "in_progress",
+        },
+    )
+
+    assert resp.status_code == 200
+    store = _curriculum_store()
+    progress = store.get_chapter_progress("user-123", "35-engineering-guide/01-introduction")
+    assert progress is not None
+    assert progress["guide_id"] == "35-engineering-guide"
+    assert store.get_chapter_progress("user-123", "32-engineering-guide/01-introduction") is None
 
 
 def test_next_returns_entry_point_when_no_enrollment(client, auth_headers):
@@ -564,6 +621,54 @@ def test_retry_reviews_endpoint_returns_recent_weak_items(client, auth_headers):
     assert [item["id"] for item in payload] == ["retry-item-1"]
 
 
+def test_review_grade_uses_teachback_grader_for_teachback_items(client, auth_headers):
+    client.post("/api/curriculum/sync", headers=auth_headers)
+
+    store = _curriculum_store()
+    chapter = store.get_guide("01-philosophy-guide", user_id="user-123")["chapters"][0]
+    store.add_review_items(
+        [
+            ReviewItem(
+                id="teachback-review",
+                user_id="user-123",
+                chapter_id=chapter["id"],
+                guide_id=chapter["guide_id"],
+                question="Explain opportunity cost as if teaching someone with no background",
+                expected_answer="Opportunity cost is the value of the next-best alternative you give up.",
+                bloom_level=BloomLevel.CREATE,
+                item_type=ReviewItemType.TEACHBACK,
+                next_review=datetime.utcnow() - timedelta(days=1),
+            )
+        ]
+    )
+
+    fake_generator = SimpleNamespace(
+        grade_teachback=AsyncMock(
+            return_value=ReviewGradeResult(
+                grade=4,
+                feedback="Clear explanation with a usable everyday example.",
+                correct_points=["Defines the trade-off"],
+                missing_points=["Sharpen the example"],
+            )
+        ),
+        grade_answer=AsyncMock(),
+    )
+
+    with patch("web.routes.curriculum._build_question_generator", return_value=fake_generator):
+        resp = client.post(
+            "/api/curriculum/review/teachback-review/grade",
+            headers=auth_headers,
+            json={"answer": "It is what you give up when you choose one option over another."},
+        )
+
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload["grade"] == 4
+    assert payload["feedback"] == "Clear explanation with a usable everyday example."
+    fake_generator.grade_teachback.assert_awaited_once()
+    fake_generator.grade_answer.assert_not_called()
+
+
 def test_today_includes_retry_task_when_weak_items_exist(client, auth_headers):
     client.post("/api/curriculum/sync", headers=auth_headers)
     store = _curriculum_store()
@@ -662,17 +767,18 @@ def test_placement_generate_and_submit(client, auth_headers):
         },
     ]
 
-    with patch("web.routes.curriculum.QuestionGenerator") as MockGen:
-        gen_instance = MockGen.return_value
-        gen_instance.generate_placement_questions = AsyncMock(return_value=mock_questions)
-        gen_instance.grade_answer = AsyncMock(
+    fake_generator = SimpleNamespace(
+        generate_placement_questions=AsyncMock(return_value=mock_questions),
+        grade_answer=AsyncMock(
             return_value=type(
                 "R",
                 (),
                 {"grade": 4, "feedback": "Good", "correct_points": [], "missing_points": []},
             )()
-        )
+        ),
+    )
 
+    with patch("web.routes.curriculum._build_question_generator", return_value=fake_generator):
         # Generate
         resp = client.post(
             f"/api/curriculum/guides/{guide_id}/placement/generate",

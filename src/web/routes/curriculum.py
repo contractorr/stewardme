@@ -25,8 +25,15 @@ from curriculum.personalization import (
 from curriculum.question_generator import QuestionGenerator
 from curriculum.scanner import CurriculumScanner, build_tree_layout
 from curriculum.store import CurriculumStore
+from llm import LLMError, create_cheap_provider, create_llm_provider
 from web.auth import get_current_user
-from web.deps import get_config, get_profile_path, get_user_paths
+from web.deps import (
+    SHARED_LLM_MODEL,
+    get_config,
+    get_profile_path,
+    get_user_paths,
+    resolve_llm_credentials_for_user,
+)
 from web.user_store import log_event
 
 logger = structlog.get_logger()
@@ -50,6 +57,24 @@ def _content_dirs() -> list[Path]:
 def _get_store(user_id: str) -> CurriculumStore:
     paths = get_user_paths(user_id)
     return CurriculumStore(Path(paths["data_dir"]) / "curriculum.db")
+
+
+def _build_question_generator(user_id: str) -> QuestionGenerator:
+    provider_name, api_key, source = resolve_llm_credentials_for_user(user_id)
+    if not api_key:
+        return QuestionGenerator()
+
+    config = get_config()
+    provider = provider_name or config.llm.provider
+    model = SHARED_LLM_MODEL if source == "shared" else config.llm.model
+
+    try:
+        llm = create_llm_provider(provider=provider, api_key=api_key, model=model)
+        cheap_llm = create_cheap_provider(provider=provider, api_key=api_key)
+        return QuestionGenerator(llm_provider=llm, cheap_llm_provider=cheap_llm)
+    except LLMError as exc:
+        logger.warning("curriculum.llm_init_failed", user_id=user_id, error=str(exc))
+        return QuestionGenerator()
 
 
 def _ensure_catalog_initialized(
@@ -397,6 +422,14 @@ def _decorate_guide_payload(
 def _resolve_guide_id(scanner: CurriculumScanner, guide_id: str) -> str:
     """Resolve manifest aliases to the canonical guide ID."""
     return scanner.canonicalize_guide_id(guide_id)
+
+
+def _resolve_chapter_id(scanner: CurriculumScanner, chapter_id: str) -> str:
+    """Resolve manifest aliases embedded in a full chapter ID."""
+    if "/" not in chapter_id:
+        return chapter_id
+    raw_guide_id, chapter_stem = chapter_id.split("/", 1)
+    return f"{_resolve_guide_id(scanner, raw_guide_id)}/{chapter_stem}"
 
 
 def _recommendation_reason(stage: str, recommendation_meta: dict, fallback: str) -> str:
@@ -1299,10 +1332,13 @@ async def update_progress(
 ):
     user_id = user["id"]
     store = _get_store(user_id)
+    scanner = _ensure_catalog_initialized(store, CurriculumScanner(_content_dirs()))
+    resolved_guide_id = _resolve_guide_id(scanner, body.guide_id)
+    resolved_chapter_id = _resolve_chapter_id(scanner, body.chapter_id)
     result = store.update_progress(
         user_id=user_id,
-        chapter_id=body.chapter_id,
-        guide_id=body.guide_id,
+        chapter_id=resolved_chapter_id,
+        guide_id=resolved_guide_id,
         status=body.status.value if body.status else None,
         reading_time_seconds=body.reading_time_seconds,
         scroll_position=body.scroll_position,
@@ -1315,16 +1351,16 @@ async def update_progress(
         log_event(
             "chapter_completed",
             user_id,
-            {"chapter_id": body.chapter_id, "guide_id": body.guide_id},
+            {"chapter_id": resolved_chapter_id, "guide_id": resolved_guide_id},
         )
 
         # Reflection prompt
         try:
-            chapter = store.get_chapter(body.chapter_id)
-            ch_title = chapter["title"] if chapter else body.chapter_id
-            guide = store.get_guide(body.guide_id)
-            g_title = guide["title"] if guide else body.guide_id
-            guide_complete = _is_guide_just_completed(store, user_id, body.guide_id)
+            chapter = store.get_chapter(resolved_chapter_id)
+            ch_title = chapter["title"] if chapter else resolved_chapter_id
+            guide = store.get_guide(resolved_guide_id)
+            g_title = guide["title"] if guide else resolved_guide_id
+            guide_complete = _is_guide_just_completed(store, user_id, resolved_guide_id)
             reflection_prompt = _generate_reflection_prompt(ch_title, g_title, guide_complete)
         except Exception as exc:
             logger.debug("reflection_prompt_failed", error=str(exc))
@@ -1333,7 +1369,7 @@ async def update_progress(
         try:
             config = get_config()
             if config.memory.enabled:
-                _, document = _load_chapter_document(body.chapter_id)
+                _, document = _load_chapter_document(resolved_chapter_id)
                 if document:
                     text = document.body[:3000]
                     from memory.pipeline import MemoryPipeline
@@ -1342,12 +1378,12 @@ async def update_progress(
                     fact_store = get_memory_store(user_id)
                     pipeline = MemoryPipeline(fact_store)
                     updates = pipeline.process_document(
-                        document_id=f"curriculum:{body.chapter_id}",
+                        document_id=f"curriculum:{resolved_chapter_id}",
                         document_text=text,
                         document_metadata={
                             "source_type": "curriculum",
-                            "guide_id": body.guide_id,
-                            "chapter_id": body.chapter_id,
+                            "guide_id": resolved_guide_id,
+                            "chapter_id": resolved_chapter_id,
                         },
                     )
                     memory_facts_extracted = len(updates)
@@ -1430,20 +1466,34 @@ async def grade_review(
     # If self-grade provided, use it directly
     if body.self_grade is not None:
         grade = max(0, min(5, body.self_grade))
+        grade_result = None
     else:
         # LLM grading
         try:
-            gen = QuestionGenerator()
-            bloom = BloomLevel(item["bloom_level"])
-            result = await gen.grade_answer(
-                question=item["question"],
-                expected_answer=item["expected_answer"],
-                student_answer=body.answer,
-                bloom_level=bloom,
-            )
-            grade = result.grade
+            gen = _build_question_generator(user["id"])
+            if item.get("item_type") == ReviewItemType.TEACHBACK.value:
+                concept = item["question"].removeprefix("Explain ").split(" as if ")[0]
+                chapter = store.get_chapter(item["chapter_id"])
+                guide = store.get_guide(item["guide_id"]) if chapter else None
+                grade_result = await gen.grade_teachback(
+                    concept=concept,
+                    expected_answer=item["expected_answer"],
+                    student_answer=body.answer,
+                    chapter_title=chapter["title"] if chapter else "",
+                    guide_title=guide["title"] if guide else "",
+                )
+            else:
+                bloom = BloomLevel(item["bloom_level"])
+                grade_result = await gen.grade_answer(
+                    question=item["question"],
+                    expected_answer=item["expected_answer"],
+                    student_answer=body.answer,
+                    bloom_level=bloom,
+                )
+            grade = grade_result.grade
         except Exception:
             grade = 3  # default if grading fails
+            grade_result = None
 
     updated = store.grade_review(review_id, grade)
     if not updated:
@@ -1457,7 +1507,16 @@ async def grade_review(
             "grade": grade,
         },
     )
-    return {"review": updated, "grade": grade}
+    response = {"review": updated, "grade": grade}
+    if grade_result:
+        response.update(
+            {
+                "feedback": grade_result.feedback,
+                "correct_points": grade_result.correct_points,
+                "missing_points": grade_result.missing_points,
+            }
+        )
+    return response
 
 
 @router.post("/quiz/{chapter_id:path}/generate")
@@ -1466,21 +1525,23 @@ async def generate_quiz(
     user: dict = Depends(get_current_user),
 ):
     store = _get_store(user["id"])
-    chapter = store.get_chapter(chapter_id)
+    scanner = _ensure_catalog_initialized(store, CurriculumScanner(_content_dirs()))
+    resolved_chapter_id = _resolve_chapter_id(scanner, chapter_id)
+    chapter = store.get_chapter(resolved_chapter_id)
     if not chapter:
         raise HTTPException(status_code=404, detail="Chapter not found")
 
     # Check if questions already exist
     existing = [
         item
-        for item in store.get_review_items_for_chapter(user["id"], chapter_id)
+        for item in store.get_review_items_for_chapter(user["id"], resolved_chapter_id)
         if item.get("item_type") == ReviewItemType.QUIZ.value
     ]
     if existing:
         return {"questions": existing, "cached": True}
 
     # Read content
-    _, document = _load_chapter_document(chapter_id, chapter.get("filename"))
+    _, document = _load_chapter_document(resolved_chapter_id, chapter.get("filename"))
     if not document:
         raise HTTPException(status_code=404, detail="Chapter content not found")
 
@@ -1488,14 +1549,14 @@ async def generate_quiz(
     guide = store.get_guide(chapter["guide_id"])
     guide_title = guide["title"] if guide else ""
 
-    gen = QuestionGenerator()
+    gen = _build_question_generator(user["id"])
     items = await gen.generate_questions(
         content=document.body,
         chapter_title=chapter["title"],
         guide_title=guide_title,
         count=5,
         content_hash=chapter["content_hash"],
-        chapter_id=chapter_id,
+        chapter_id=resolved_chapter_id,
         guide_id=chapter["guide_id"],
         user_id=user["id"],
     )
@@ -1514,6 +1575,8 @@ async def submit_quiz(
     user: dict = Depends(get_current_user),
 ):
     store = _get_store(user["id"])
+    scanner = _ensure_catalog_initialized(store, CurriculumScanner(_content_dirs()))
+    resolved_chapter_id = _resolve_chapter_id(scanner, chapter_id)
     results = []
 
     for question_id, answer in body.answers.items():
@@ -1521,7 +1584,7 @@ async def submit_quiz(
         if not item:
             continue
 
-        gen = QuestionGenerator()
+        gen = _build_question_generator(user["id"])
         bloom = BloomLevel(item["bloom_level"])
         grade_result = await gen.grade_answer(
             question=item["question"],
@@ -1545,7 +1608,7 @@ async def submit_quiz(
         "quiz_completed",
         user["id"],
         {
-            "chapter_id": chapter_id,
+            "chapter_id": resolved_chapter_id,
             "avg_grade": sum(r["grade"] for r in results) / len(results) if results else 0,
         },
     )
@@ -1564,17 +1627,19 @@ async def generate_teachback(
 
     user_id = user["id"]
     store = _get_store(user_id)
-    chapter = store.get_chapter(chapter_id)
+    scanner = _ensure_catalog_initialized(store, CurriculumScanner(_content_dirs()))
+    resolved_chapter_id = _resolve_chapter_id(scanner, chapter_id)
+    chapter = store.get_chapter(resolved_chapter_id)
     if not chapter:
         raise HTTPException(status_code=404, detail="Chapter not found")
 
     # Must be completed
-    progress = store.get_chapter_progress(user_id, chapter_id)
+    progress = store.get_chapter_progress(user_id, resolved_chapter_id)
     if not progress or progress.get("status") != "completed":
         raise HTTPException(status_code=400, detail="Chapter not completed")
 
     # Return cached
-    existing = store.get_teachback_for_chapter(user_id, chapter_id)
+    existing = store.get_teachback_for_chapter(user_id, resolved_chapter_id)
     if existing:
         return {
             "concept": existing["question"].removeprefix("Explain ").split(" as if ")[0],
@@ -1583,20 +1648,20 @@ async def generate_teachback(
         }
 
     # Generate
-    _, document = _load_chapter_document(chapter_id, chapter.get("filename"))
+    _, document = _load_chapter_document(resolved_chapter_id, chapter.get("filename"))
     if not document:
         raise HTTPException(status_code=404, detail="Chapter content not found")
 
     guide = store.get_guide(chapter["guide_id"])
     guide_title = guide["title"] if guide else ""
 
-    gen = QuestionGenerator()
+    gen = _build_question_generator(user_id)
     item = await gen.generate_teachback(
         content=document.body,
         chapter_title=chapter["title"],
         guide_title=guide_title,
         content_hash=chapter["content_hash"],
-        chapter_id=chapter_id,
+        chapter_id=resolved_chapter_id,
         guide_id=chapter["guide_id"],
         user_id=user_id,
     )
@@ -1633,7 +1698,7 @@ async def grade_teachback(
     chapter = store.get_chapter(item["chapter_id"])
     guide = store.get_guide(item["guide_id"]) if chapter else None
 
-    gen = QuestionGenerator()
+    gen = _build_question_generator(user_id)
     result = await gen.grade_teachback(
         concept=concept,
         expected_answer=item["expected_answer"],
@@ -1670,31 +1735,33 @@ async def get_pre_reading(
 
     user_id = user["id"]
     store = _get_store(user_id)
-    chapter = store.get_chapter(chapter_id)
+    scanner = _ensure_catalog_initialized(store, CurriculumScanner(_content_dirs()))
+    resolved_chapter_id = _resolve_chapter_id(scanner, chapter_id)
+    chapter = store.get_chapter(resolved_chapter_id)
     if not chapter:
         raise HTTPException(status_code=404, detail="Chapter not found")
 
     # Return cached
-    existing = store.get_pre_reading_questions(user_id, chapter_id)
+    existing = store.get_pre_reading_questions(user_id, resolved_chapter_id)
     if existing:
         return {"questions": existing}
 
     # Generate (includes both quiz + pre-reading items)
-    _, document = _load_chapter_document(chapter_id, chapter.get("filename"))
+    _, document = _load_chapter_document(resolved_chapter_id, chapter.get("filename"))
     if not document:
         return {"questions": []}
 
     guide = store.get_guide(chapter["guide_id"])
     guide_title = guide["title"] if guide else ""
 
-    gen = QuestionGenerator()
+    gen = _build_question_generator(user_id)
     items = await gen.generate_questions(
         content=document.body,
         chapter_title=chapter["title"],
         guide_title=guide_title,
         count=config.curriculum.questions_per_chapter,
         content_hash=chapter["content_hash"],
-        chapter_id=chapter_id,
+        chapter_id=resolved_chapter_id,
         guide_id=chapter["guide_id"],
         user_id=user_id,
         include_pre_reading=True,
@@ -1721,7 +1788,9 @@ async def get_related_chapters(
 
     user_id = user["id"]
     store = _get_store(user_id)
-    chapter = store.get_chapter(chapter_id)
+    scanner = _ensure_catalog_initialized(store, CurriculumScanner(_content_dirs()))
+    resolved_chapter_id = _resolve_chapter_id(scanner, chapter_id)
+    chapter = store.get_chapter(resolved_chapter_id)
     if not chapter:
         raise HTTPException(status_code=404, detail="Chapter not found")
 
@@ -1732,7 +1801,7 @@ async def get_related_chapters(
         return {"related": []}
 
     # Read current chapter content
-    _, document = _load_chapter_document(chapter_id, chapter.get("filename"))
+    _, document = _load_chapter_document(resolved_chapter_id, chapter.get("filename"))
     if not document:
         return {"related": []}
 
@@ -1978,7 +2047,7 @@ async def submit_applied_assessment(
             detail="Add more substance to the draft before submitting it for feedback",
         )
 
-    gen = QuestionGenerator()
+    gen = _build_question_generator(user_id)
     grade_result = await gen.grade_applied_assessment(
         guide_title=guide["title"],
         assessment_type=assessment_type,
@@ -2044,7 +2113,7 @@ async def generate_placement(
 
     user_id = user["id"]
     store = _get_store(user_id)
-    scanner = CurriculumScanner(_content_dirs())
+    scanner = _ensure_catalog_initialized(store, CurriculumScanner(_content_dirs()))
     resolved_guide_id = _resolve_guide_id(scanner, guide_id)
     guide = store.get_guide(resolved_guide_id, user_id=user_id)
     if not guide:
@@ -2058,7 +2127,7 @@ async def generate_placement(
     if not chapters:
         raise HTTPException(status_code=400, detail="No assessable chapters")
 
-    gen = QuestionGenerator()
+    gen = _build_question_generator(user_id)
     all_questions: list[dict] = []
     max_q = config.curriculum.placement_max_questions
     per_ch = config.curriculum.placement_questions_per_chapter
@@ -2133,7 +2202,7 @@ async def submit_placement(
         raise HTTPException(status_code=410, detail="Placement session expired")
 
     questions_by_id = {q["id"]: q for q in cached["questions"]}
-    gen = QuestionGenerator()
+    gen = _build_question_generator(user_id)
     results = []
 
     for question_id, answer in body.answers.items():

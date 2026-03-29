@@ -30,7 +30,7 @@ export default function ChapterReaderPage() {
   const params = useParams();
   const guideId = params.guideId as string;
   const chapterId = params.chapterId as string;
-  const fullChapterId = `${guideId}/${chapterId}`;
+  const requestedChapterId = `${guideId}/${chapterId}`;
 
   const [chapter, setChapter] = useState<ChapterDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,24 +43,31 @@ export default function ChapterReaderPage() {
   const [reflectionPrompt, setReflectionPrompt] = useState<string | null>(null);
   const [reflectionDraft, setReflectionDraft] = useState("");
   const [savingReflection, setSavingReflection] = useState(false);
+  const resolvedGuideId = chapter?.guide_id ?? guideId;
+  const resolvedChapterId = chapter?.id ?? requestedChapterId;
 
   // Reading time tracker
   const readingStart = useRef(Date.now());
   const lastSync = useRef(Date.now());
 
   const syncProgress = useCallback(
-    async (status?: ChapterStatus) => {
+    async (
+      status?: ChapterStatus,
+      ids?: { chapterId?: string; guideId?: string }
+    ) => {
       if (!token) return;
       const elapsed = Math.round((Date.now() - lastSync.current) / 1000);
       lastSync.current = Date.now();
+      const activeChapterId = ids?.chapterId ?? resolvedChapterId;
+      const activeGuideId = ids?.guideId ?? resolvedGuideId;
       try {
         await apiFetch(
           "/api/v1/curriculum/progress",
           {
             method: "POST",
             body: JSON.stringify({
-              chapter_id: fullChapterId,
-              guide_id: guideId,
+              chapter_id: activeChapterId,
+              guide_id: activeGuideId,
               ...(status ? { status } : {}),
               reading_time_seconds: elapsed > 0 ? elapsed : undefined,
             }),
@@ -71,7 +78,7 @@ export default function ChapterReaderPage() {
         // silent
       }
     },
-    [token, fullChapterId, guideId]
+    [token, resolvedChapterId, resolvedGuideId]
   );
 
   // Load chapter
@@ -89,7 +96,10 @@ export default function ChapterReaderPage() {
         setChapter(data);
         // Auto mark in progress
         if (!data.progress || data.progress.status === "not_started") {
-          syncProgress("in_progress");
+          void syncProgress("in_progress", {
+            chapterId: data.id,
+            guideId: data.guide_id,
+          });
         }
       })
       .catch((e) => toast.error((e as Error).message))
@@ -117,13 +127,13 @@ export default function ChapterReaderPage() {
       }>(
         "/api/v1/curriculum/progress",
         {
-          method: "POST",
-          body: JSON.stringify({
-            chapter_id: fullChapterId,
-            guide_id: guideId,
-            status: "completed",
-            reading_time_seconds: elapsed > 0 ? elapsed : undefined,
-          }),
+            method: "POST",
+            body: JSON.stringify({
+              chapter_id: resolvedChapterId,
+              guide_id: resolvedGuideId,
+              status: "completed",
+              reading_time_seconds: elapsed > 0 ? elapsed : undefined,
+            }),
         },
         token!
       );
@@ -134,7 +144,7 @@ export default function ChapterReaderPage() {
       }
       // Refresh to get updated status
       const data = await apiFetch<ChapterDetail>(
-        `/api/v1/curriculum/guides/${guideId}/chapters/${chapterId}`,
+        `/api/v1/curriculum/guides/${resolvedGuideId}/chapters/${chapterId}`,
         {},
         token!
       );
@@ -158,7 +168,7 @@ export default function ChapterReaderPage() {
             content: reflectionDraft.trim(),
             entry_type: "reflection",
             title: `Reflection: ${chapter?.title ?? chapterId}`,
-            tags: ["curriculum", guideId, "reflection"],
+            tags: ["curriculum", resolvedGuideId, "reflection"],
           }),
         },
         token
@@ -178,7 +188,7 @@ export default function ChapterReaderPage() {
     setQuizLoading(true);
     try {
       const data = await apiFetch<{ questions: ReviewItem[] }>(
-        `/api/v1/curriculum/quiz/${fullChapterId}/generate`,
+        `/api/v1/curriculum/quiz/${resolvedChapterId}/generate`,
         { method: "POST" },
         token
       );
@@ -209,7 +219,7 @@ export default function ChapterReaderPage() {
         quiz.map((question) => [question.id, quizAnswers[question.id]?.trim() ?? ""])
       );
       const data = await apiFetch<{ results: QuizResult[] }>(
-        `/api/v1/curriculum/quiz/${fullChapterId}/submit`,
+        `/api/v1/curriculum/quiz/${resolvedChapterId}/submit`,
         {
           method: "POST",
           body: JSON.stringify({ answers }),
@@ -262,13 +272,15 @@ export default function ChapterReaderPage() {
       {/* Sticky header */}
       <div className="sticky top-0 z-10 -mx-4 flex items-center justify-between gap-2 border-b bg-background/95 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <div className="flex items-center gap-2 min-w-0">
-          <Link href={`/learn/${guideId}`}>
+          <Link href={`/learn/${resolvedGuideId}`}>
             <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
               <ChevronLeft className="h-4 w-4" />
             </Button>
           </Link>
           <div className="truncate">
-            <p className="text-xs text-muted-foreground truncate">{guideId.replace(/-/g, " ")}</p>
+            <p className="text-xs text-muted-foreground truncate">
+              {resolvedGuideId.replace(/-/g, " ")}
+            </p>
             <p className="text-sm font-medium truncate">{chapter.title}</p>
           </div>
         </div>
@@ -286,11 +298,11 @@ export default function ChapterReaderPage() {
       </div>
 
       {/* Pre-reading questions */}
-      <PreReadingCard chapterId={fullChapterId} isCompleted={isCompleted} />
+      <PreReadingCard chapterId={resolvedChapterId} isCompleted={isCompleted} />
 
       {/* Content */}
       <article className="max-w-none rounded-xl border bg-card p-6 shadow-sm">
-        <CurriculumRenderer content={chapter.content} guideId={guideId} />
+        <CurriculumRenderer content={chapter.content} guideId={resolvedGuideId} />
       </article>
 
       {/* Bottom actions */}
@@ -313,14 +325,14 @@ export default function ChapterReaderPage() {
         </div>
         <div className="flex gap-2">
           {chapter.prev_chapter && (
-            <Link href={`/learn/${guideId}/${chapter.prev_chapter.split("/").pop()}`}>
+            <Link href={`/learn/${resolvedGuideId}/${chapter.prev_chapter.split("/").pop()}`}>
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="mr-1 h-3.5 w-3.5" /> Prev
               </Button>
             </Link>
           )}
           {chapter.next_chapter && (
-            <Link href={`/learn/${guideId}/${chapter.next_chapter.split("/").pop()}`}>
+            <Link href={`/learn/${resolvedGuideId}/${chapter.next_chapter.split("/").pop()}`}>
               <Button variant="ghost" size="sm">
                 Next <ArrowRight className="ml-1 h-3.5 w-3.5" />
               </Button>
@@ -368,7 +380,7 @@ export default function ChapterReaderPage() {
       )}
 
       {/* Teach-back */}
-      {isCompleted && <TeachBackCard chapterId={fullChapterId} />}
+      {isCompleted && <TeachBackCard chapterId={resolvedChapterId} />}
 
       {/* Quiz panel (inline) */}
       {quiz && quiz.length > 0 && (
@@ -498,7 +510,7 @@ export default function ChapterReaderPage() {
       )}
 
       {/* Cross-guide connections */}
-      <RelatedChaptersCard chapterId={fullChapterId} />
+      <RelatedChaptersCard chapterId={resolvedChapterId} />
     </div>
   );
 }

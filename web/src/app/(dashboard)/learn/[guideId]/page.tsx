@@ -45,6 +45,7 @@ export default function GuideDetailPage() {
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState(false);
   const [launchingAssessmentType, setLaunchingAssessmentType] = useState<string | null>(null);
+  const resolvedGuideId = guide?.id ?? guideId;
 
   // Placement state
   const [showPlacement, setShowPlacement] = useState(false);
@@ -66,9 +67,17 @@ export default function GuideDetailPage() {
     if (!token) return;
     setEnrolling(true);
     try {
-      await apiFetch(`/api/v1/curriculum/guides/${guideId}/enroll`, { method: "POST" }, token);
+      await apiFetch(
+        `/api/v1/curriculum/guides/${resolvedGuideId}/enroll`,
+        { method: "POST" },
+        token,
+      );
       // Reload
-      const updated = await apiFetch<GuideDetail>(`/api/v1/curriculum/guides/${guideId}`, {}, token);
+      const updated = await apiFetch<GuideDetail>(
+        `/api/v1/curriculum/guides/${resolvedGuideId}`,
+        {},
+        token,
+      );
       setGuide(updated);
       toast.success("Enrolled!");
     } catch (e) {
@@ -85,7 +94,7 @@ export default function GuideDetailPage() {
     setPlacementAnswers({});
     try {
       const data = await apiFetch<{ questions: PlacementQuestion[] }>(
-        `/api/v1/curriculum/guides/${guideId}/placement/generate`,
+        `/api/v1/curriculum/guides/${resolvedGuideId}/placement/generate`,
         { method: "POST" },
         token,
       );
@@ -103,7 +112,7 @@ export default function GuideDetailPage() {
     setPlacementLoading(true);
     try {
       const result = await apiFetch<PlacementResult>(
-        `/api/v1/curriculum/guides/${guideId}/placement/submit`,
+        `/api/v1/curriculum/guides/${resolvedGuideId}/placement/submit`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -115,7 +124,7 @@ export default function GuideDetailPage() {
       if (result.passed) {
         toast.success("Placement passed — guide completed!");
         const updated = await apiFetch<GuideDetail>(
-          `/api/v1/curriculum/guides/${guideId}`,
+          `/api/v1/curriculum/guides/${resolvedGuideId}`,
           {},
           token,
         );
@@ -133,7 +142,7 @@ export default function GuideDetailPage() {
     setLaunchingAssessmentType(assessmentType);
     try {
       const artifact = await apiFetch<AppliedAssessmentLaunchResult>(
-        `/api/v1/curriculum/guides/${guideId}/assessments/${assessmentType}/launch`,
+        `/api/v1/curriculum/guides/${resolvedGuideId}/assessments/${assessmentType}/launch`,
         { method: "POST" },
         token,
       );
@@ -147,7 +156,9 @@ export default function GuideDetailPage() {
   };
 
   const isGuideCompleted = !!guide?.enrollment_completed_at;
-  const firstUnread = guide?.chapters?.find((c) => c.status !== "completed");
+  const firstUnread = guide?.chapters?.find(
+    (chapter) => !chapter.is_glossary && chapter.status !== "completed",
+  );
 
   if (loading) {
     return (
@@ -236,8 +247,8 @@ export default function GuideDetailPage() {
                 {placementLoading ? "Generating..." : "Test out"}
               </Button>
             )}
-            {firstUnread && (
-              <Link href={`/learn/${guideId}/${firstUnread.id.split("/").pop()}`}>
+              {firstUnread && (
+               <Link href={`/learn/${resolvedGuideId}/${firstUnread.id.split("/").pop()}`}>
                 <Button>
                   <Play className="mr-1.5 h-3.5 w-3.5" />
                   {guide.chapters_completed ? "Continue" : "Start reading"}
@@ -344,7 +355,7 @@ export default function GuideDetailPage() {
                 {!placementResult.passed && (
                   <div className="flex gap-2">
                     {firstUnread && (
-                      <Link href={`/learn/${guideId}/${firstUnread.id.split("/").pop()}`}>
+                      <Link href={`/learn/${resolvedGuideId}/${firstUnread.id.split("/").pop()}`}>
                         <Button>Start reading instead</Button>
                       </Link>
                     )}
@@ -396,7 +407,7 @@ export default function GuideDetailPage() {
           <CardTitle className="text-base">Chapters</CardTitle>
         </CardHeader>
         <CardContent>
-          <ChapterList guideId={guideId} chapters={guide.chapters ?? []} />
+          <ChapterList guideId={resolvedGuideId} chapters={guide.chapters ?? []} />
         </CardContent>
       </Card>
     </div>

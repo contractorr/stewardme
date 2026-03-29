@@ -560,10 +560,14 @@ class CurriculumStore:
 
                     # Progress counts
                     total = conn.execute(
-                        "SELECT COUNT(*) FROM chapters WHERE guide_id=?", (d["id"],)
+                        "SELECT COUNT(*) FROM chapters WHERE guide_id=? AND is_glossary=0",
+                        (d["id"],),
                     ).fetchone()[0]
                     completed = conn.execute(
-                        "SELECT COUNT(*) FROM user_chapter_progress WHERE user_id=? AND guide_id=? AND status='completed'",
+                        """SELECT COUNT(*) FROM user_chapter_progress ucp
+                           JOIN chapters c ON c.id = ucp.chapter_id
+                           WHERE ucp.user_id=? AND ucp.guide_id=? AND ucp.status='completed'
+                           AND c.is_glossary=0""",
                         (user_id, d["id"]),
                     ).fetchone()[0]
                     d["chapters_total"] = total
@@ -621,19 +625,27 @@ class CurriculumStore:
                     (user_id, guide_id),
                 ).fetchone()
                 d["enrolled"] = enrollment is not None
-                completed = sum(1 for c in d["chapters"] if c["status"] == "completed")
+                d["enrollment_completed_at"] = (
+                    dict(enrollment).get("completed_at") if enrollment else None
+                )
+                assessable_chapters = [c for c in d["chapters"] if not c.get("is_glossary")]
+                completed = sum(1 for c in assessable_chapters if c["status"] == "completed")
                 d["chapters_completed"] = completed
-                d["chapters_total"] = len(d["chapters"])
+                d["chapters_total"] = len(assessable_chapters)
                 d["progress_pct"] = (
-                    round(completed / len(d["chapters"]) * 100, 1) if d["chapters"] else 0.0
+                    round(completed / len(assessable_chapters) * 100, 1)
+                    if assessable_chapters
+                    else 0.0
                 )
                 d["mastery_score"] = self._compute_mastery(
-                    conn, user_id, guide_id, completed, len(d["chapters"])
+                    conn, user_id, guide_id, completed, len(assessable_chapters)
                 )
             else:
                 d["enrolled"] = False
                 d["chapters_completed"] = 0
-                d["chapters_total"] = len(d["chapters"])
+                d["chapters_total"] = sum(
+                    1 for chapter in d["chapters"] if not chapter.get("is_glossary")
+                )
                 d["progress_pct"] = 0.0
                 d["mastery_score"] = 0.0
 
@@ -979,7 +991,8 @@ class CurriculumStore:
         now = datetime.utcnow().isoformat()
         with wal_connect(self.db_path) as conn:
             row = conn.execute(
-                "SELECT COUNT(*) FROM review_items WHERE user_id=? AND next_review <= ?",
+                """SELECT COUNT(*) FROM review_items
+                   WHERE user_id=? AND next_review <= ? AND item_type != 'pre_reading'""",
                 (user_id, now),
             ).fetchone()
             return row[0] if row else 0
@@ -1000,10 +1013,12 @@ class CurriculumStore:
 
             # Batch 2: chapter progress (1 query instead of 2)
             progress_row = conn.execute(
-                "SELECT "
-                "SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) as completed, "
-                "COALESCE(SUM(reading_time_seconds), 0) as reading_time "
-                "FROM user_chapter_progress WHERE user_id=?",
+                """SELECT
+                   SUM(CASE WHEN ucp.status='completed' THEN 1 ELSE 0 END) as completed,
+                   COALESCE(SUM(ucp.reading_time_seconds), 0) as reading_time
+                   FROM user_chapter_progress ucp
+                   JOIN chapters c ON c.id = ucp.chapter_id
+                   WHERE ucp.user_id=? AND c.is_glossary=0""",
                 (user_id,),
             ).fetchone()
             chapters_completed = progress_row["completed"] or 0
@@ -1013,7 +1028,7 @@ class CurriculumStore:
             total_chapters = conn.execute(
                 """SELECT COUNT(DISTINCT c.id) FROM chapters c
                    JOIN user_guide_enrollment uge ON uge.guide_id = c.guide_id
-                   WHERE uge.user_id = ?""",
+                   WHERE uge.user_id = ? AND c.is_glossary=0""",
                 (user_id,),
             ).fetchone()[0]
 
@@ -1029,7 +1044,8 @@ class CurriculumStore:
             # Due reviews (inline instead of separate connection)
             now = datetime.utcnow().isoformat()
             due = conn.execute(
-                "SELECT COUNT(*) FROM review_items WHERE user_id=? AND next_review <= ?",
+                """SELECT COUNT(*) FROM review_items
+                   WHERE user_id=? AND next_review <= ? AND item_type != 'pre_reading'""",
                 (user_id, now),
             ).fetchone()[0]
 
@@ -1042,6 +1058,7 @@ class CurriculumStore:
                    JOIN chapters c ON c.guide_id = g.id
                    LEFT JOIN user_chapter_progress ucp
                    ON ucp.chapter_id = c.id AND ucp.user_id=? AND ucp.status='completed'
+                   WHERE c.is_glossary=0
                    GROUP BY g.category""",
                 (user_id,),
             ).fetchall()
@@ -1150,7 +1167,9 @@ class CurriculumStore:
         """Pre-fetch chapter counts, completion counts, enrollments, and avg EFs in bulk."""
         # chapter_count per guide
         chapter_counts: dict[str, int] = {}
-        for r in conn.execute("SELECT guide_id, COUNT(*) as cnt FROM chapters GROUP BY guide_id"):
+        for r in conn.execute(
+            "SELECT guide_id, COUNT(*) as cnt FROM chapters WHERE is_glossary=0 GROUP BY guide_id"
+        ):
             chapter_counts[r[0]] = r[1]
 
         completed_counts: dict[str, int] = {}
@@ -1422,7 +1441,8 @@ class CurriculumStore:
                 """SELECT c.* FROM chapters c
                    LEFT JOIN user_chapter_progress ucp
                    ON ucp.chapter_id = c.id AND ucp.user_id=?
-                   WHERE c.guide_id=? AND (ucp.status IS NULL OR ucp.status != 'completed')
+                   WHERE c.guide_id=? AND c.is_glossary=0
+                   AND (ucp.status IS NULL OR ucp.status != 'completed')
                    ORDER BY c."order" ASC LIMIT 1""",
                 (user_id, guide_id),
             ).fetchone()

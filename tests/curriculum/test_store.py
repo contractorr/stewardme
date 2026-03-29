@@ -227,7 +227,7 @@ def test_stats(store, sample_guide, sample_chapters):
 
     stats = store.get_stats(user_id)
     assert stats.guides_enrolled == 1
-    assert stats.total_chapters == 3
+    assert stats.total_chapters == 2
     assert stats.chapters_completed == 0
 
 
@@ -290,6 +290,33 @@ def test_count_due_reviews(store, sample_guide, sample_chapters):
     ]
     store.add_review_items(items)
     assert store.count_due_reviews(user_id) == 1
+
+
+def test_due_review_counts_exclude_pre_reading_items(store, sample_guide, sample_chapters):
+    store.sync_catalog([sample_guide], sample_chapters)
+    user_id = "test-user"
+    now = datetime.utcnow()
+
+    store.add_review_items(
+        [
+            ReviewItem(
+                id="pre-reading-due",
+                user_id=user_id,
+                chapter_id="01-philosophy-guide/01-introduction",
+                guide_id="01-philosophy-guide",
+                question="What do you already know about philosophy?",
+                expected_answer="",
+                bloom_level=BloomLevel.REMEMBER,
+                item_type=ReviewItemType.PRE_READING,
+                next_review=now,
+                created_at=now,
+            )
+        ]
+    )
+
+    assert store.get_due_reviews(user_id) == []
+    assert store.count_due_reviews(user_id) == 0
+    assert store.get_stats(user_id).reviews_due == 0
 
 
 def test_get_chapter_metadata(store, sample_guide, sample_chapters):
@@ -382,9 +409,7 @@ def test_reconcile_guide_aliases_merges_user_data_and_removes_alias_catalog_rows
         ]
     )
 
-    stats = store.reconcile_guide_aliases(
-        {"32-engineering-guide": "35-engineering-guide"}
-    )
+    stats = store.reconcile_guide_aliases({"32-engineering-guide": "35-engineering-guide"})
 
     assert stats["aliases_processed"] == 1
     assert stats["enrollments_merged"] == 1
@@ -403,9 +428,7 @@ def test_reconcile_guide_aliases_merges_user_data_and_removes_alias_catalog_rows
     assert progress["guide_id"] == "35-engineering-guide"
     assert progress["status"] == "completed"
     assert progress["reading_time_seconds"] == 75
-    assert (
-        store.get_chapter_progress(user_id, "32-engineering-guide/01-introduction") is None
-    )
+    assert store.get_chapter_progress(user_id, "32-engineering-guide/01-introduction") is None
 
     review_item = store.get_review_item("review-legacy")
     assert review_item is not None
@@ -601,7 +624,7 @@ def test_mastery_score_no_reviews(store, sample_guide, sample_chapters):
     user_id = "test-user"
     store.enroll(user_id, "01-philosophy-guide")
 
-    # Complete 1 of 3 chapters
+    # Complete 1 of 2 assessable chapters
     store.update_progress(
         user_id=user_id,
         chapter_id="01-philosophy-guide/01-introduction",
@@ -611,8 +634,8 @@ def test_mastery_score_no_reviews(store, sample_guide, sample_chapters):
 
     guides = store.list_guides(user_id=user_id)
     g = guides[0]
-    # completion_pct = 1/3 * 100 = 33.33, mastery = 33.33 * 0.4 = 13.3
-    assert 13.0 <= g["mastery_score"] <= 14.0
+    # completion_pct = 1/2 * 100 = 50, mastery = 50 * 0.4 = 20
+    assert g["mastery_score"] == 20.0
 
 
 def test_mastery_score_with_reviews(store, sample_guide, sample_chapters):
@@ -802,6 +825,34 @@ def test_get_tree_data_with_progress(store, sample_guide, sample_chapters):
     )
     data = store.get_tree_data(user_id)
     assert data[0]["status"] == "completed"
+
+
+def test_get_guide_completion_ignores_glossary_and_exposes_completion_timestamp(
+    store, sample_guide, sample_chapters
+):
+    store.sync_catalog([sample_guide], sample_chapters)
+    user_id = "test-user"
+    store.enroll(user_id, "01-philosophy-guide")
+
+    for chapter_id in [
+        "01-philosophy-guide/01-introduction",
+        "01-philosophy-guide/02-logic",
+    ]:
+        store.update_progress(
+            user_id=user_id,
+            chapter_id=chapter_id,
+            guide_id="01-philosophy-guide",
+            status="completed",
+        )
+
+    guide = store.get_guide("01-philosophy-guide", user_id=user_id)
+
+    assert guide["enrollment_completed_at"] is not None
+    assert guide["chapters_total"] == 2
+    assert guide["chapters_completed"] == 2
+    assert guide["progress_pct"] == 100.0
+    assert guide["chapters"][-1]["is_glossary"] is True
+    assert store.get_next_chapter(user_id, "01-philosophy-guide") is None
 
 
 def test_get_tree_data_mastery(store, sample_guide, sample_chapters):
