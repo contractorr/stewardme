@@ -2,7 +2,6 @@
 
 import { useRef, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import ReactMarkdown from "react-markdown";
 import {
   Brain,
   BookOpen,
@@ -115,32 +114,38 @@ export const guideCards = [
   {
     icon: Home,
     title: "Check your brief",
-    description: "Your daily dashboard — prioritized tasks, goal updates, and signals. Start here each day.",
+    description:
+      "Your daily dashboard — prioritized tasks, goal updates, and signals. Start here each day.",
   },
   {
     icon: Target,
     title: "Set goals in Focus",
-    description: "Track goals and milestones. Your steward uses these to prioritize your brief and surface relevant intel.",
+    description:
+      "Track goals and milestones. Your steward uses these to prioritize your brief and surface relevant intel.",
   },
   {
     icon: BookOpen,
     title: "Journal daily",
-    description: "Capture thoughts, decisions, observations. Every entry sharpens your steward's guidance.",
+    description:
+      "Capture thoughts, decisions, observations. Every entry sharpens your steward's guidance.",
   },
   {
     icon: MessageSquare,
     title: "Ask anything",
-    description: "Decisions, priorities, strategy — tap any item or type a question to start a conversation.",
+    description:
+      "Decisions, priorities, strategy — tap any item or type a question to start a conversation.",
   },
   {
     icon: Newspaper,
     title: "Intel runs in background",
-    description: "Scrapers watch HN, GitHub, arXiv, Reddit & RSS. Relevant items surface automatically.",
+    description:
+      "Scrapers watch HN, GitHub, arXiv, Reddit & RSS. Relevant items surface automatically.",
   },
   {
     icon: FileText,
     title: "Browse your Library",
-    description: "Research reports, uploaded PDFs, and saved content — all searchable in one place.",
+    description:
+      "Research reports, uploaded PDFs, and saved content — all searchable in one place.",
   },
 ];
 
@@ -148,22 +153,26 @@ export const behindTheScenesCards = [
   {
     icon: Brain,
     title: "Memory",
-    description: "Your steward remembers facts, preferences, and context you share — across every conversation.",
+    description:
+      "Your steward remembers facts, preferences, and context you share — across every conversation.",
   },
   {
     icon: Waypoints,
     title: "Threads",
-    description: "Recurring themes are detected across your journal and grouped into threads you can track over time.",
+    description:
+      "Recurring themes are detected across your journal and grouped into threads you can track over time.",
   },
   {
     icon: Lightbulb,
     title: "Insights",
-    description: "Patterns in your journal and goals are surfaced as actionable insights on your brief.",
+    description:
+      "Patterns in your journal and goals are surfaced as actionable insights on your brief.",
   },
   {
     icon: GitMerge,
     title: "Goal–intel matching",
-    description: "Intel articles are automatically scored against your goals so the most relevant items rise to the top.",
+    description:
+      "Intel articles are automatically scored against your goals so the most relevant items rise to the top.",
   },
 ];
 
@@ -191,13 +200,21 @@ export default function OnboardingPage() {
   // Check if user already has API key to skip welcome phase
   useEffect(() => {
     if (!token) return;
-    apiFetch<{ llm_api_key_set: boolean; using_shared_key: boolean }>("/api/v1/settings", {}, token)
+    apiFetch<{ llm_api_key_set: boolean; using_shared_key: boolean }>(
+      "/api/v1/settings",
+      {},
+      token,
+    )
       .then(async (s) => {
         setUsingSharedKey(s.using_shared_key);
         if (s.llm_api_key_set) {
           // Verify key still works before skipping welcome
           try {
-            await apiFetch("/api/v1/settings/test-llm", { method: "POST" }, token);
+            await apiFetch(
+              "/api/v1/settings/test-llm",
+              { method: "POST" },
+              token,
+            );
             setHasApiKey(true);
           } catch {
             setHasApiKey(false); // key invalid — force welcome phase
@@ -215,11 +232,11 @@ export default function OnboardingPage() {
     (async () => {
       setSending(true);
       try {
-        const res = await apiFetch<{ message: string; done: boolean; turn: number }>(
-          "/api/v1/onboarding/start",
-          { method: "POST" },
-          token
-        );
+        const res = await apiFetch<{
+          message: string;
+          done: boolean;
+          turn: number;
+        }>("/api/v1/onboarding/start", { method: "POST" }, token);
         setMessages([{ role: "assistant", content: res.message }]);
         setTurn(res.turn);
       } catch {
@@ -258,7 +275,7 @@ export default function OnboardingPage() {
       await apiFetch(
         "/api/v1/user/me",
         { method: "PATCH", body: JSON.stringify({ name: name.trim() }) },
-        token
+        token,
       );
     } catch {
       // non-blocking — name is optional
@@ -270,13 +287,17 @@ export default function OnboardingPage() {
     // Clear any stale personal key so backend falls through to shared key
     if (token) {
       try {
-        await apiFetch("/api/v1/settings", {
-          method: "PUT",
-          body: JSON.stringify({
-            llm_api_key: "",
-            llm_remove_providers: ALL_LLM_PROVIDERS,
-          }),
-        }, token);
+        await apiFetch(
+          "/api/v1/settings",
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              llm_api_key: "",
+              llm_remove_providers: ALL_LLM_PROVIDERS,
+            }),
+          },
+          token,
+        );
       } catch {
         // best-effort
       }
@@ -301,7 +322,7 @@ export default function OnboardingPage() {
       await apiFetch(
         "/api/v1/settings",
         { method: "PUT", body: JSON.stringify(payload) },
-        token
+        token,
       );
 
       // Connectivity test — only advance if it passes
@@ -310,14 +331,18 @@ export default function OnboardingPage() {
         const result = await apiFetch<{ ok: boolean; provider: string }>(
           "/api/v1/settings/test-llm",
           { method: "POST" },
-          token
+          token,
         );
-        toast.success(`${result.provider.charAt(0).toUpperCase() + result.provider.slice(1)} connection successful!`);
+        toast.success(
+          `${result.provider.charAt(0).toUpperCase() + result.provider.slice(1)} connection successful!`,
+        );
         setTesting(false);
         setPhase("chat");
       } catch {
         setTesting(false);
-        toast.error("Could not connect — double-check your API key and try again.");
+        toast.error(
+          "Could not connect — double-check your API key and try again.",
+        );
         // stay on welcome — don't advance
       }
     } catch (e) {
@@ -344,9 +369,12 @@ export default function OnboardingPage() {
       }>(
         "/api/v1/onboarding/chat",
         { method: "POST", body: JSON.stringify({ message: text }) },
-        token
+        token,
       );
-      setMessages((prev) => [...prev, { role: "assistant", content: res.message }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: res.message },
+      ]);
       setTurn(res.turn);
       if (res.done) {
         setGoalsCreated(res.goals_created);
@@ -380,10 +408,12 @@ export default function OnboardingPage() {
         const cats = await apiFetch<FeedCategoryItem[]>(
           "/api/v1/onboarding/feed-categories",
           {},
-          token
+          token,
         );
         setFeedCategories(cats);
-        setSelectedFeeds(new Set(cats.filter((c) => c.preselected).map((c) => c.id)));
+        setSelectedFeeds(
+          new Set(cats.filter((c) => c.preselected).map((c) => c.id)),
+        );
       } catch (e) {
         toast.error((e as Error).message);
         handleDone();
@@ -410,7 +440,7 @@ export default function OnboardingPage() {
           method: "POST",
           body: JSON.stringify({ selected_category_ids: [...selectedFeeds] }),
         },
-        token
+        token,
       );
       setFeedsAdded(res.feeds_added);
       handleDone();
@@ -425,9 +455,10 @@ export default function OnboardingPage() {
 
   return (
     <div className="flex h-full items-center justify-center p-4">
-      <div className="flex w-full max-w-2xl flex-col rounded-xl border bg-card shadow-sm"
-        style={{ height: "min(85vh, 720px)" }}>
-
+      <div
+        className="flex w-full max-w-2xl flex-col rounded-xl border bg-card shadow-sm"
+        style={{ height: "min(85vh, 720px)" }}
+      >
         {phase === "intro" && (
           <div className="flex flex-1 flex-col overflow-hidden">
             <div className="px-6 pt-6 pb-2 text-center">
@@ -436,7 +467,8 @@ export default function OnboardingPage() {
               </div>
               <h1 className="text-xl font-semibold text-primary">StewardMe</h1>
               <p className="text-sm text-muted-foreground">
-                Scans the world. Learns your context. Tells you what matters next.
+                Scans the world. Learns your context. Tells you what matters
+                next.
               </p>
             </div>
 
@@ -455,17 +487,16 @@ export default function OnboardingPage() {
                 </div>
               ))}
               <div className="rounded-lg border bg-muted/50 p-3 text-xs text-muted-foreground leading-relaxed">
-                <span className="font-medium text-foreground">How it connects:</span>{" "}
+                <span className="font-medium text-foreground">
+                  How it connects:
+                </span>{" "}
                 Journal + intel feed your steward. Goals shape what surfaces.
                 More context = sharper guidance.
               </div>
             </div>
 
             <div className="px-6 pb-6">
-              <Button
-                onClick={() => setPhase("name")}
-                className="w-full"
-              >
+              <Button onClick={() => setPhase("name")} className="w-full">
                 Continue
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
@@ -518,7 +549,9 @@ export default function OnboardingPage() {
                   encrypted and stored per-user.
                 </p>
                 <p>
-                  <span className="font-medium text-foreground">Need a key?</span>{" "}
+                  <span className="font-medium text-foreground">
+                    Need a key?
+                  </span>{" "}
                   Go to{" "}
                   <a
                     href="https://console.anthropic.com/settings/keys"
@@ -528,8 +561,8 @@ export default function OnboardingPage() {
                   >
                     console.anthropic.com
                     <ExternalLink className="h-3 w-3" />
-                  </a>
-                  {" "}&rarr; create a key &rarr; paste it below.
+                  </a>{" "}
+                  &rarr; create a key &rarr; paste it below.
                 </p>
               </div>
 
@@ -566,7 +599,11 @@ export default function OnboardingPage() {
                 disabled={saving || testing}
                 className="w-full"
               >
-                {testing ? "Testing connection..." : saving ? "Saving..." : "Get Started"}
+                {testing
+                  ? "Testing connection..."
+                  : saving
+                    ? "Saving..."
+                    : "Get Started"}
               </Button>
               <button
                 onClick={handleSkipKey}
@@ -576,8 +613,12 @@ export default function OnboardingPage() {
               </button>
               <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30 p-3 text-xs text-muted-foreground space-y-1">
                 <p className="font-medium text-foreground">Lite mode</p>
-                <p>Haiku model &middot; 30 queries/day &middot; No deep research</p>
-                <p>Add your own key anytime in Settings for the full experience.</p>
+                <p>
+                  Haiku model &middot; 30 queries/day &middot; No deep research
+                </p>
+                <p>
+                  Add your own key anytime in Settings for the full experience.
+                </p>
               </div>
             </div>
           </div>
@@ -681,7 +722,8 @@ export default function OnboardingPage() {
               </div>
               <h2 className="text-lg font-semibold">Set up your radar</h2>
               <p className="text-sm text-muted-foreground">
-                Pick topics to follow — we&apos;ll add curated RSS feeds for each.
+                Pick topics to follow — we&apos;ll add curated RSS feeds for
+                each.
               </p>
             </div>
 
@@ -705,9 +747,13 @@ export default function OnboardingPage() {
                           <Check className="h-2.5 w-2.5 text-primary-foreground" />
                         </span>
                       )}
-                      <Icon className={`h-5 w-5 ${selected ? "text-primary" : "text-muted-foreground"}`} />
+                      <Icon
+                        className={`h-5 w-5 ${selected ? "text-primary" : "text-muted-foreground"}`}
+                      />
                       <span className="text-sm font-medium">{cat.label}</span>
-                      <span className="text-xs text-muted-foreground">{cat.feed_count} feeds</span>
+                      <span className="text-xs text-muted-foreground">
+                        {cat.feed_count} feeds
+                      </span>
                     </button>
                   );
                 })}
@@ -716,8 +762,8 @@ export default function OnboardingPage() {
 
             <div className="border-t px-6 py-4">
               <p className="mb-3 text-center text-xs text-muted-foreground">
-                {selectedFeeds.size} topic{selectedFeeds.size !== 1 ? "s" : ""} selected
-                {" "}&mdash; you can add more from Settings anytime.
+                {selectedFeeds.size} topic{selectedFeeds.size !== 1 ? "s" : ""}{" "}
+                selected &mdash; you can add more from Settings anytime.
               </p>
               <Button
                 onClick={handleSaveFeeds}
@@ -772,9 +818,9 @@ export default function OnboardingPage() {
                 </div>
               ))}
               <div className="rounded-lg border bg-muted/50 p-3 text-xs text-muted-foreground leading-relaxed">
-                <span className="font-medium text-foreground">Tip:</span>{" "}
-                The more you journal and set goals, the sharper your brief gets.
-                You can always revisit this from the sidebar.
+                <span className="font-medium text-foreground">Tip:</span> The
+                more you journal and set goals, the sharper your brief gets. You
+                can always revisit this from the sidebar.
               </div>
               {usingSharedKey && (
                 <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30 p-3 text-xs text-muted-foreground space-y-1">

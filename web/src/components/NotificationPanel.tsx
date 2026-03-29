@@ -1,14 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
 import Link from "next/link";
-import { Bell, Check, CheckCheck } from "lucide-react";
+import { Check, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { PopoverContent } from "@/components/ui/popover";
 
 interface Notification {
   id: string;
@@ -22,13 +17,11 @@ interface Notification {
 export function NotificationPanel({
   notifications,
   loading,
-  onOpen,
   onMarkRead,
   onMarkAllRead,
 }: {
   notifications: Notification[];
   loading: boolean;
-  onOpen: () => void;
   onMarkRead: (id: string) => void;
   onMarkAllRead: () => void;
 }) {
@@ -37,7 +30,12 @@ export function NotificationPanel({
       <div className="flex items-center justify-between border-b px-3 py-2">
         <span className="text-sm font-medium">Notifications</span>
         {notifications.some((n) => !n.read) && (
-          <Button variant="ghost" size="sm" onClick={onMarkAllRead} className="h-7 text-xs">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onMarkAllRead}
+            className="h-7 text-xs"
+          >
             <CheckCheck className="mr-1 h-3 w-3" />
             Mark all read
           </Button>
@@ -45,7 +43,9 @@ export function NotificationPanel({
       </div>
       <div className="max-h-72 overflow-y-auto">
         {loading && (
-          <div className="px-3 py-4 text-center text-xs text-muted-foreground">Loading...</div>
+          <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+            Loading...
+          </div>
         )}
         {!loading && notifications.length === 0 && (
           <div className="px-3 py-4 text-center text-xs text-muted-foreground">

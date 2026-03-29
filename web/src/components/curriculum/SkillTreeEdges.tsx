@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useMemo } from "react";
 import type { SkillTreeEdge } from "@/types/curriculum";
 
 interface SkillTreeEdgesProps {
@@ -22,13 +22,10 @@ export function SkillTreeEdges({
   containerRect,
   getTrackColor,
 }: SkillTreeEdgesProps) {
-  const svgRef = useRef<SVGSVGElement>(null);
-  const [paths, setPaths] = useState<EdgePath[]>([]);
+  const paths = useMemo(() => {
+    if (!containerRect || nodePositions.size === 0) return [];
 
-  useEffect(() => {
-    if (!containerRect || nodePositions.size === 0) return;
-
-    const newPaths: EdgePath[] = [];
+    const nextPaths: EdgePath[] = [];
     for (const edge of edges) {
       const sourceRect = nodePositions.get(edge.source);
       const targetRect = nodePositions.get(edge.target);
@@ -40,20 +37,20 @@ export function SkillTreeEdges({
       const ty = targetRect.top - containerRect.top;
       const mid = (sy + ty) / 2;
 
-      newPaths.push({
+      nextPaths.push({
         key: `${edge.source}-${edge.target}`,
         d: `M ${sx},${sy} C ${sx},${mid} ${tx},${mid} ${tx},${ty}`,
         color: getTrackColor(edge.source),
       });
     }
-    setPaths(newPaths);
-  }, [edges, nodePositions, containerRect, getTrackColor]);
+
+    return nextPaths;
+  }, [containerRect, edges, getTrackColor, nodePositions]);
 
   if (!containerRect) return null;
 
   return (
     <svg
-      ref={svgRef}
       className="pointer-events-none absolute inset-0"
       width={containerRect.width}
       height={containerRect.height}

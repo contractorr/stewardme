@@ -25,21 +25,42 @@ export function SkillTree({ initialSelectedProgramId = null }: Props) {
   const [data, setData] = useState<SkillTreeResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedTracks, setSelectedTracks] = useState<Set<string>>(new Set());
-  const [selectedProgramId, setSelectedProgramId] = useState<string | null>(initialSelectedProgramId);
+  const [selectedProgramId, setSelectedProgramId] = useState<string | null>(
+    initialSelectedProgramId,
+  );
   const containerRef = useRef<HTMLDivElement>(null);
   const nodeRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-  const [nodePositions, setNodePositions] = useState<Map<string, DOMRect>>(new Map());
+  const [nodePositions, setNodePositions] = useState<Map<string, DOMRect>>(
+    new Map(),
+  );
   const [containerRect, setContainerRect] = useState<DOMRect | null>(null);
   const [measureTick, setMeasureTick] = useState(0);
 
-  useEffect(() => {
-    if (!token) return;
+  const loadTree = useCallback(async () => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
-    apiFetch<SkillTreeResponse>("/api/v1/curriculum/tree", {}, token)
-      .then(setData)
-      .catch((e) => toast.error((e as Error).message))
-      .finally(() => setLoading(false));
+    try {
+      const tree = await apiFetch<SkillTreeResponse>(
+        "/api/v1/curriculum/tree",
+        {},
+        token,
+      );
+      setData(tree);
+    } catch (e) {
+      toast.error((e as Error).message);
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
   }, [token]);
+
+  useEffect(() => {
+    void loadTree();
+  }, [loadTree]);
 
   useEffect(() => {
     if (!data || !containerRef.current) return;
@@ -88,7 +109,10 @@ export function SkillTree({ initialSelectedProgramId = null }: Props) {
 
   const selectedProgramNodeIds = useMemo(() => {
     if (!selectedProgram) return null;
-    return new Set([...selectedProgram.guide_ids, ...selectedProgram.applied_module_ids]);
+    return new Set([
+      ...selectedProgram.guide_ids,
+      ...selectedProgram.applied_module_ids,
+    ]);
   }, [selectedProgram]);
 
   const selectedProgramGuideCount = selectedProgramNodeIds?.size ?? 0;
@@ -110,7 +134,9 @@ export function SkillTree({ initialSelectedProgramId = null }: Props) {
   const filteredEdges = useMemo((): SkillTreeEdge[] => {
     if (!data) return [];
     const nodeIds = new Set(filteredNodes.map((node) => node.id));
-    return data.edges.filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target));
+    return data.edges.filter(
+      (edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target),
+    );
   }, [data, filteredNodes]);
 
   const filteredIndustryNodes = useMemo(() => {
@@ -157,7 +183,9 @@ export function SkillTree({ initialSelectedProgramId = null }: Props) {
   if (!data || data.nodes.length === 0) {
     return (
       <div className="rounded-lg border border-dashed p-8 text-center">
-        <p className="text-sm text-muted-foreground">No skill tree data available</p>
+        <p className="text-sm text-muted-foreground">
+          No skill tree data available
+        </p>
       </div>
     );
   }
@@ -170,7 +198,9 @@ export function SkillTree({ initialSelectedProgramId = null }: Props) {
     <div className="space-y-6">
       <div className="space-y-4">
         <div>
-          <h3 className="text-sm font-semibold text-foreground">Core Curriculum</h3>
+          <h3 className="text-sm font-semibold text-foreground">
+            Core Curriculum
+          </h3>
           <p className="text-xs text-muted-foreground">
             Foundational knowledge organized as prerequisite pathways
           </p>
@@ -181,13 +211,17 @@ export function SkillTree({ initialSelectedProgramId = null }: Props) {
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-2">
                 <Route className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-medium text-muted-foreground">Learning Path:</span>
+                <span className="text-xs font-medium text-muted-foreground">
+                  Learning Path:
+                </span>
               </div>
               <select
                 value={selectedProgramId ?? ""}
                 onChange={(e) => {
                   const nextProgramId = e.target.value;
-                  setSelectedProgramId(nextProgramId === "" ? null : nextProgramId);
+                  setSelectedProgramId(
+                    nextProgramId === "" ? null : nextProgramId,
+                  );
                   if (nextProgramId) setSelectedTracks(new Set());
                 }}
                 className="h-8 rounded-md border bg-background px-2 text-xs"
@@ -208,7 +242,9 @@ export function SkillTree({ initialSelectedProgramId = null }: Props) {
 
             {selectedProgram && (
               <div className="rounded-lg border bg-muted/30 p-3">
-                <p className="text-xs text-muted-foreground">{selectedProgram.description}</p>
+                <p className="text-xs text-muted-foreground">
+                  {selectedProgram.description}
+                </p>
               </div>
             )}
           </>
@@ -219,7 +255,9 @@ export function SkillTree({ initialSelectedProgramId = null }: Props) {
             <Badge
               key={track.id}
               variant={
-                selectedTracks.size === 0 || selectedTracks.has(track.id) ? "default" : "outline"
+                selectedTracks.size === 0 || selectedTracks.has(track.id)
+                  ? "default"
+                  : "outline"
               }
               className="cursor-pointer text-xs"
               style={
@@ -247,7 +285,9 @@ export function SkillTree({ initialSelectedProgramId = null }: Props) {
         <div ref={containerRef} className="relative overflow-x-auto pb-4 pt-8">
           {filteredNodes.length === 0 ? (
             <div className="rounded-lg border border-dashed p-8 text-center">
-              <p className="text-sm text-muted-foreground">No guides match the selected filters</p>
+              <p className="text-sm text-muted-foreground">
+                No guides match the selected filters
+              </p>
               <Badge
                 variant="outline"
                 className="mt-3 cursor-pointer text-xs"
@@ -270,7 +310,10 @@ export function SkillTree({ initialSelectedProgramId = null }: Props) {
 
               <div className="relative z-10 flex flex-col gap-8">
                 {depthRows.map(([depth, nodes]) => (
-                  <div key={depth} className="flex flex-wrap justify-center gap-3">
+                  <div
+                    key={depth}
+                    className="flex flex-wrap justify-center gap-3"
+                  >
                     {nodes.map((node) => (
                       <SkillTreeNodeCard
                         key={node.id}
@@ -290,9 +333,12 @@ export function SkillTree({ initialSelectedProgramId = null }: Props) {
       {filteredIndustryNodes.length > 0 && (
         <div className="space-y-4">
           <div>
-            <h3 className="text-sm font-semibold text-foreground">Industry Applications</h3>
+            <h3 className="text-sm font-semibold text-foreground">
+              Industry Applications
+            </h3>
             <p className="text-xs text-muted-foreground">
-              Sector-specific guides for practitioners - {filteredIndustryNodes.length} industries
+              Sector-specific guides for practitioners -{" "}
+              {filteredIndustryNodes.length} industries
             </p>
           </div>
 
