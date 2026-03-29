@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import {
   installApiMocks,
+  MOCK_ASSESSMENT_DRAFT,
   MOCK_GUIDE_DETAIL,
   MOCK_STATS,
   MOCK_TODAY,
@@ -46,6 +47,18 @@ test.describe("Curriculum / Learn", () => {
     await expect(page.getByText("Chapters", { exact: true })).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText(MOCK_GUIDE_DETAIL.chapters[0].title)).toBeVisible();
     await expect(page.getByText(MOCK_GUIDE_DETAIL.chapters[2].title)).toBeVisible();
+  });
+
+  test("guide detail can launch an applied deliverable draft", async ({ page }) => {
+    await page.goto("/learn/python-basics");
+    await expect(page.getByText("Applied Assessment Pilot")).toBeVisible({ timeout: 10_000 });
+
+    await page.getByRole("button", { name: "Create deliverable" }).click();
+
+    await page.waitForURL(`**/journal?open=${encodeURIComponent(MOCK_ASSESSMENT_DRAFT.entry_path)}`, {
+      timeout: 10_000,
+    });
+    await expect(page.getByRole("heading", { name: "Journal" })).toBeVisible();
   });
 
   test("home page surfaces the learning queue", async ({ page }) => {

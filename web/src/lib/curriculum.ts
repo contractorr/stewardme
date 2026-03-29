@@ -42,6 +42,9 @@ export function formatLearningSeconds(seconds: number): string {
 }
 
 export function buildLearningTaskHref(task: LearningTodayTask): string {
+  if (task.entry_path) {
+    return `/journal?open=${encodeURIComponent(task.entry_path)}`;
+  }
   if (task.task_type === "due_reviews") {
     return "/learn/review";
   }

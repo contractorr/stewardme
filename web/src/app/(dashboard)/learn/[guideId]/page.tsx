@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { ArrowLeft, BookOpen, Clock, GraduationCap, Play } from "lucide-react";
@@ -14,7 +14,12 @@ import { Input } from "@/components/ui/input";
 import { ChapterList } from "@/components/curriculum/ChapterList";
 import { DifficultyBadge } from "@/components/curriculum/DifficultyBadge";
 import { ProgressRing } from "@/components/curriculum/ProgressRing";
-import type { GuideDetail, PlacementQuestion, PlacementResult } from "@/types/curriculum";
+import type {
+  AppliedAssessmentLaunchResult,
+  GuideDetail,
+  PlacementQuestion,
+  PlacementResult,
+} from "@/types/curriculum";
 
 function formatTime(minutes: number): string {
   if (minutes < 60) return `${minutes}m`;
@@ -33,11 +38,13 @@ const assessmentStageLabels: Record<string, string> = {
 export default function GuideDetailPage() {
   const token = useToken();
   const params = useParams();
+  const router = useRouter();
   const guideId = params.guideId as string;
 
   const [guide, setGuide] = useState<GuideDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState(false);
+  const [launchingAssessmentType, setLaunchingAssessmentType] = useState<string | null>(null);
 
   // Placement state
   const [showPlacement, setShowPlacement] = useState(false);
@@ -118,6 +125,24 @@ export default function GuideDetailPage() {
       toast.error((e as Error).message);
     } finally {
       setPlacementLoading(false);
+    }
+  };
+
+  const handleLaunchAssessment = async (assessmentType: string) => {
+    if (!token) return;
+    setLaunchingAssessmentType(assessmentType);
+    try {
+      const artifact = await apiFetch<AppliedAssessmentLaunchResult>(
+        `/api/v1/curriculum/guides/${guideId}/assessments/${assessmentType}/launch`,
+        { method: "POST" },
+        token,
+      );
+      toast.success(artifact.created ? "Draft created in Journal" : "Opening existing draft");
+      router.push(`/journal?open=${encodeURIComponent(artifact.entry_path)}`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setLaunchingAssessmentType(null);
     }
   };
 
@@ -246,6 +271,24 @@ export default function GuideDetailPage() {
                 <p className="text-xs text-muted-foreground">
                   Evaluate on {assessment.evaluation_focus.join(", ").toLowerCase()}.
                 </p>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {assessment.draft_entry_path ? (
+                    <Link href={`/journal?open=${encodeURIComponent(assessment.draft_entry_path)}`}>
+                      <Button size="sm" variant="outline">Open draft</Button>
+                    </Link>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void handleLaunchAssessment(assessment.type)}
+                      disabled={launchingAssessmentType === assessment.type}
+                    >
+                      {launchingAssessmentType === assessment.type
+                        ? "Creating..."
+                        : "Create deliverable"}
+                    </Button>
+                  )}
+                </div>
               </div>
             ))}
           </CardContent>

@@ -263,7 +263,7 @@ This is used by `/api/curriculum/chapters/{chapter_id}/related`.
 
 **File:** `src/web/routes/curriculum.py`
 
-The web API currently exposes 22 curriculum routes.
+The web API currently exposes 23 curriculum routes.
 
 #### Core catalog and graph
 
@@ -291,6 +291,7 @@ The web API currently exposes 22 curriculum routes.
 - `POST /api/curriculum/teachback/{review_id}/grade`
 - `GET /api/curriculum/chapters/{chapter_id}/pre-reading`
 - `GET /api/curriculum/chapters/{chapter_id}/related`
+- `POST /api/curriculum/guides/{guide_id}/assessments/{assessment_type}/launch`
 
 #### Recommendation and placement
 
@@ -312,6 +313,7 @@ The web API currently exposes 22 curriculum routes.
   - `canonical_guide_id`
   - `learning_programs`
   - `applied_assessments` on guide detail
+  - draft metadata for launched applied assessments
 - `/next` returns:
   - `recommendation_type`
   - `signals`
@@ -324,6 +326,9 @@ The web API currently exposes 22 curriculum routes.
   - ranked `tasks`
   - `focus_programs`
   - `reviews_due`
+- assessment launch creates:
+  - a persisted Journal draft entry
+  - a linked learning-goal entry with default milestones
 - sync runs alias reconciliation after catalog upsert
 
 ### Frontend
@@ -351,6 +356,7 @@ The web API currently exposes 22 curriculum routes.
   - chapter list
   - learning-program badges
   - applied-assessment pilot cards
+  - create/open draft actions for applied assessments
   - placement/test-out
 - chapter reader:
   - renderer

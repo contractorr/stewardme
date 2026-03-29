@@ -264,6 +264,11 @@ export interface AppliedAssessment {
   deliverable: string;
   prompt: string;
   evaluation_focus: string[];
+  draft_entry_path?: string | null;
+  draft_entry_title?: string | null;
+  draft_goal_path?: string | null;
+  draft_goal_title?: string | null;
+  draft_status?: "draft" | "active" | "submitted" | null;
 }
 
 export interface NextRecommendation {
@@ -296,11 +301,22 @@ export interface LearningTodayTask {
   guide_title?: string | null;
   chapter_id?: string | null;
   chapter_title?: string | null;
+  entry_path?: string | null;
   recommendation_type?: RecommendationType;
   review_count?: number;
   signals?: RecommendationSignal[];
   matched_programs?: Array<LearningProgram & { match_reason?: string }>;
   assessment?: AppliedAssessment | null;
+}
+
+export interface AppliedAssessmentLaunchResult {
+  guide_id: string;
+  assessment_type: AppliedAssessmentType;
+  entry_path: string;
+  entry_title: string;
+  goal_path: string | null;
+  goal_title: string | null;
+  created: boolean;
 }
 
 export type LearningProgramFocusStatus = "active" | "recommended" | "available";

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -89,6 +90,7 @@ function EntrySkeleton() {
 
 export default function JournalPage() {
   const token = useToken();
+  const searchParams = useSearchParams();
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<JournalEntry | null>(null);
@@ -98,6 +100,7 @@ export default function JournalPage() {
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<JournalFilter>("all");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [openedFromQuery, setOpenedFromQuery] = useState<string | null>(null);
   const [form, setForm] = useState({
     title: "",
     content: "",
@@ -163,7 +166,7 @@ export default function JournalPage() {
     }
   };
 
-  const viewEntry = async (path: string) => {
+  const viewEntry = useCallback(async (path: string) => {
     if (!token) return;
     try {
       const entry = await apiFetch<JournalEntry>(
@@ -176,7 +179,14 @@ export default function JournalPage() {
     } catch (e) {
       toast.error((e as Error).message);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    const openPath = searchParams.get("open");
+    if (!token || !openPath || openedFromQuery === openPath) return;
+    setOpenedFromQuery(openPath);
+    void viewEntry(openPath);
+  }, [openedFromQuery, searchParams, token, viewEntry]);
 
   const typeColors: Record<string, { badge: string; border: string }> = {
     daily: { badge: "bg-info/15 text-info border-info/25", border: "border-l-info" },

@@ -65,6 +65,10 @@ recommendations, and authoring QA.
   - decision brief
   - scenario analysis
   - case memo
+- Applied assessments are no longer view-only:
+  - guide detail can create a persisted draft in Journal
+  - launch also creates a linked learning goal for the deliverable
+  - existing drafts reopen from guide detail and the Today queue
 - Curriculum visuals are no longer markdown-only:
   - typed visual blocks render as web-native components
   - legacy ASCII diagrams and plain data tables still fall back safely
@@ -92,7 +96,7 @@ recommendations, and authoring QA.
   - continuing a chapter
   - clearing due reviews
   - starting an unlocked guide
-  - opening applied-practice work for the current guide
+  - opening applied-practice work for the current guide or its existing draft
 
 ### Enroll and orient
 
@@ -104,6 +108,10 @@ recommendations, and authoring QA.
   - learning-program membership
   - applied-assessment pilot cards
   - placement/test-out action when the guide is not already complete
+- Each applied-assessment card can:
+  - create a draft artifact in Journal
+  - create a linked learning goal with default milestones
+  - reopen an existing draft instead of duplicating it
 - Enrolling in a guide persists enrollment and can auto-create a linked learning goal with
   non-glossary chapters as milestones.
 
@@ -174,6 +182,8 @@ recommendations, and authoring QA.
 - [x] `/api/curriculum/next` is profile-aware and not only prerequisite-aware.
 - [x] `/api/curriculum/today` assembles a ranked learning queue plus active/recommended program paths.
 - [x] Recommendation and guide payloads surface applied-assessment pilot data.
+- [x] Applied-assessment cards can create persisted Journal drafts and linked learning goals.
+- [x] Existing applied-assessment drafts reopen instead of creating duplicate artifacts.
 - [x] Typed visual blocks render as web-native visuals.
 - [x] Legacy markdown diagrams and data blocks still degrade gracefully.
 - [x] Internal curriculum links navigate correctly inside the app.

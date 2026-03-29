@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 
 from curriculum.models import BloomLevel, ReviewItem, ReviewItemType
 from curriculum.store import CurriculumStore
+from journal.storage import JournalStorage
 from web.deps import get_user_paths
 
 
@@ -280,6 +281,66 @@ def test_get_guide_exposes_applied_assessment_plan(client, auth_headers):
         "scenario_practice",
         "capstone",
     }
+
+
+def test_launch_assessment_creates_draft_and_goal(client, auth_headers):
+    client.post("/api/curriculum/sync", headers=auth_headers)
+
+    resp = client.post(
+        "/api/curriculum/guides/37-ai-ml-fundamentals-guide/assessments/decision_brief/launch",
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 201
+    payload = resp.json()
+    assert payload["created"] is True
+
+    storage = JournalStorage(get_user_paths("user-123")["journal_dir"])
+    entry = storage.read(payload["entry_path"])
+    goal = storage.read(payload["goal_path"])
+
+    assert entry["curriculum_assessment_type"] == "decision_brief"
+    assert entry["assessment_status"] == "draft"
+    assert entry["linked_goal_path"] == payload["goal_path"]
+    assert goal["curriculum_assessment_type"] == "decision_brief"
+    assert goal["goal_type"] == "learning"
+
+
+def test_get_guide_exposes_existing_assessment_draft_metadata(client, auth_headers):
+    client.post("/api/curriculum/sync", headers=auth_headers)
+    client.post(
+        "/api/curriculum/guides/37-ai-ml-fundamentals-guide/assessments/decision_brief/launch",
+        headers=auth_headers,
+    )
+
+    guide = client.get("/api/curriculum/guides/37-ai-ml-fundamentals-guide", headers=auth_headers)
+    assert guide.status_code == 200
+    payload = guide.json()
+    decision_brief = next(
+        assessment
+        for assessment in payload["applied_assessments"]
+        if assessment["type"] == "decision_brief"
+    )
+    assert decision_brief["draft_entry_path"]
+    assert decision_brief["draft_goal_path"]
+    assert decision_brief["draft_status"] == "draft"
+
+
+def test_launch_assessment_reuses_existing_draft(client, auth_headers):
+    client.post("/api/curriculum/sync", headers=auth_headers)
+
+    first = client.post(
+        "/api/curriculum/guides/37-ai-ml-fundamentals-guide/assessments/decision_brief/launch",
+        headers=auth_headers,
+    ).json()
+    second = client.post(
+        "/api/curriculum/guides/37-ai-ml-fundamentals-guide/assessments/decision_brief/launch",
+        headers=auth_headers,
+    ).json()
+
+    assert first["entry_path"] == second["entry_path"]
+    assert first["goal_path"] == second["goal_path"]
+    assert second["created"] is False
 
 
 def test_placement_generate_disabled(client, auth_headers):

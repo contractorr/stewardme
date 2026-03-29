@@ -327,6 +327,17 @@ export const MOCK_GUIDE_DETAIL = {
   chapters_completed: 2,
   has_glossary: false,
   enrollment_completed_at: null,
+  applied_assessments: [
+    {
+      type: "decision_brief",
+      stage: "review",
+      title: "Decision brief",
+      summary: "Use one framework from Python Basics to support a real decision.",
+      deliverable: "One-page brief",
+      prompt: "Write a short brief for a technical trade-off.",
+      evaluation_focus: ["Clear framing", "Recommendation quality"],
+    },
+  ],
   chapters: [
     { id: "python-basics/ch01", title: "Introduction", status: "completed", reading_time_minutes: 8 },
     { id: "python-basics/ch02", title: "Variables & Types", status: "completed", reading_time_minutes: 10 },
@@ -334,6 +345,25 @@ export const MOCK_GUIDE_DETAIL = {
     { id: "python-basics/ch04", title: "Control Flow", status: "not_started", reading_time_minutes: 8 },
     { id: "python-basics/ch05", title: "Data Structures", status: "not_started", reading_time_minutes: 7 },
   ],
+};
+
+export const MOCK_ASSESSMENT_DRAFT = {
+  guide_id: "python-basics",
+  assessment_type: "decision_brief",
+  entry_path: "C:/mock-journal/python-basics-decision-brief.md",
+  entry_title: "Python Basics - Decision brief",
+  goal_path: "C:/mock-journal/python-basics-decision-brief-goal.md",
+  goal_title: "Apply Python Basics: Decision brief",
+  created: true,
+};
+
+export const MOCK_JOURNAL_ENTRY = {
+  path: MOCK_ASSESSMENT_DRAFT.entry_path,
+  title: MOCK_ASSESSMENT_DRAFT.entry_title,
+  type: "action_brief",
+  created: "2026-03-29T09:00:00Z",
+  tags: ["learning", "assessment"],
+  content: "# Decision brief\n\nDraft content here.",
 };
 
 export const MOCK_SSE_ANSWER = {
@@ -366,6 +396,15 @@ export async function installApiMocks(page: Page) {
   await page.route("**/api/v1/journal?limit=200", (route) =>
     route.fulfill({ json: [] }),
   );
+  await page.route("**/api/v1/journal?limit=100", (route) =>
+    route.fulfill({ json: [MOCK_JOURNAL_ENTRY] }),
+  );
+  await page.route("**/api/v1/journal/*/mind-map", (route) =>
+    route.fulfill({ json: { status: "not_available", mind_map: null } }),
+  );
+  await page.route("**/api/v1/journal/*", (route) =>
+    route.fulfill({ json: MOCK_JOURNAL_ENTRY }),
+  );
   await page.route("**/api/v1/goals", (route) =>
     route.fulfill({ json: [] }),
   );
@@ -393,6 +432,10 @@ export async function installApiMocks(page: Page) {
   });
 
   // Curriculum — register detail route FIRST (more specific)
+  await page.route(
+    "**/api/v1/curriculum/guides/python-basics/assessments/decision_brief/launch",
+    (route) => route.fulfill({ json: MOCK_ASSESSMENT_DRAFT }),
+  );
   await page.route("**/api/v1/curriculum/guides/*", (route) =>
     route.fulfill({ json: MOCK_GUIDE_DETAIL }),
   );

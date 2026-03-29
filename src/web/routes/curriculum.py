@@ -87,6 +87,166 @@ def _load_user_profile(user_id: str):
         return None
 
 
+_ASSESSMENT_STAGE_LABELS = {
+    "chapter_completion": "After chapter",
+    "review": "Review",
+    "scenario_practice": "Scenario",
+    "capstone": "Capstone",
+}
+
+
+def _assessment_draft_key(guide_id: str, assessment_type: str) -> str:
+    return f"{guide_id}:{assessment_type}"
+
+
+def _assessment_entry_type(assessment_type: str) -> str:
+    return {
+        "teach_back": "reflection",
+        "decision_brief": "action_brief",
+        "scenario_analysis": "note",
+        "case_memo": "action_brief",
+    }.get(assessment_type, "note")
+
+
+def _list_assessment_drafts(
+    user_id: str,
+    *,
+    guide_id: str | None = None,
+) -> dict[str, dict]:
+    from journal.storage import JournalStorage
+
+    storage = JournalStorage(get_user_paths(user_id)["journal_dir"])
+    drafts: dict[str, dict] = {}
+
+    for entry in storage.list_entries(limit=100):
+        try:
+            post = storage.read(entry["path"])
+        except Exception:
+            continue
+
+        metadata = dict(post.metadata)
+        entry_guide_id = metadata.get("curriculum_guide_id")
+        assessment_type = metadata.get("curriculum_assessment_type")
+        draft_status = metadata.get("assessment_status", "draft")
+        if not entry_guide_id or not assessment_type or draft_status not in {"draft", "active"}:
+            continue
+        if guide_id and entry_guide_id != guide_id:
+            continue
+
+        key = _assessment_draft_key(entry_guide_id, assessment_type)
+        sort_key = metadata.get("updated") or metadata.get("created") or entry.get("created") or ""
+        existing = drafts.get(key)
+        if existing and existing["sort_key"] >= sort_key:
+            continue
+
+        drafts[key] = {
+            "entry_path": str(entry["path"]),
+            "entry_title": metadata.get("title", entry.get("title", "Assessment draft")),
+            "goal_path": metadata.get("linked_goal_path"),
+            "goal_title": metadata.get("linked_goal_title"),
+            "draft_status": draft_status,
+            "sort_key": sort_key,
+        }
+
+    return drafts
+
+
+def _attach_assessment_drafts(
+    guide_id: str,
+    assessments: list[dict],
+    draft_map: dict[str, dict],
+) -> list[dict]:
+    enriched: list[dict] = []
+    for assessment in assessments:
+        draft = draft_map.get(_assessment_draft_key(guide_id, assessment["type"]))
+        if not draft:
+            enriched.append(assessment)
+            continue
+        enriched.append(
+            {
+                **assessment,
+                "draft_entry_path": draft["entry_path"],
+                "draft_entry_title": draft["entry_title"],
+                "draft_goal_path": draft.get("goal_path"),
+                "draft_goal_title": draft.get("goal_title"),
+                "draft_status": draft.get("draft_status"),
+            }
+        )
+    return enriched
+
+
+def _build_assessment_entry_content(guide: dict, assessment: dict) -> str:
+    focus_lines = "\n".join(f"- {item}" for item in assessment["evaluation_focus"])
+    stage_label = _ASSESSMENT_STAGE_LABELS.get(assessment["stage"], assessment["stage"])
+    return f"""# {assessment["title"]}
+
+Guide: {guide["title"]}
+Stage: {stage_label}
+Deliverable: {assessment["deliverable"]}
+
+## Prompt
+{assessment["prompt"]}
+
+## Evaluation Focus
+{focus_lines}
+
+## Draft
+
+### Recommendation
+
+### Reasoning
+
+### Risks and Failure Modes
+
+### Signals to Watch
+"""
+
+
+def _build_assessment_goal_content(guide: dict, assessment: dict) -> str:
+    focus_lines = "\n".join(f"- {item}" for item in assessment["evaluation_focus"])
+    return f"""Complete the applied assessment **{assessment["title"]}** for **{guide["title"]}**.
+
+Deliverable: {assessment["deliverable"]}
+
+Prompt:
+{assessment["prompt"]}
+
+Evaluate the work against:
+{focus_lines}
+"""
+
+
+def _schedule_curriculum_entry_hooks(user_id: str, entry_path: Path, storage) -> None:
+    post = storage.read(entry_path)
+    try:
+        from journal.extraction_receipts import ReceiptBuilder
+        from web.deps import get_receipt_store
+
+        ReceiptBuilder(get_receipt_store(user_id)).seed_pending(
+            str(entry_path),
+            post.get("title", entry_path.stem),
+        )
+    except Exception as exc:
+        logger.warning(
+            "curriculum.assessment_receipt_seed_failed",
+            user_id=user_id,
+            entry_path=str(entry_path),
+            error=str(exc),
+        )
+
+    try:
+        from web.routes.journal import _schedule_post_create_hooks
+
+        _schedule_post_create_hooks(user_id, entry_path, post.content, dict(post.metadata))
+    except Exception as exc:
+        logger.warning(
+            "curriculum.assessment_post_create_failed",
+            user_id=user_id,
+            entry_path=str(entry_path),
+            error=str(exc),
+        )
+
+
 def _decorate_guide_payload(
     guide: dict,
     scanner: CurriculumScanner,
@@ -472,13 +632,18 @@ def _build_applied_practice_task(recommendation: dict, reviews_due: int) -> dict
     if not assessment:
         return None
 
+    has_draft = bool(assessment.get("draft_entry_path"))
     return {
         "id": f"applied:{guide_id}:{assessment['type']}",
         "task_type": "applied_practice",
-        "title": assessment["title"],
-        "detail": assessment["summary"],
-        "cta_label": "Open guide",
-        "priority": 68,
+        "title": f"Continue {assessment['title']}" if has_draft else assessment["title"],
+        "detail": (
+            f"Draft already created in Journal. {assessment['summary']}"
+            if has_draft
+            else assessment["summary"]
+        ),
+        "cta_label": "Open draft" if has_draft else "Open guide",
+        "priority": 92 if has_draft else 68,
         "estimate_minutes": _estimate_task_minutes(assessment=assessment),
         "guide_id": guide_id,
         "guide_title": recommendation.get("guide_title"),
@@ -488,6 +653,7 @@ def _build_applied_practice_task(recommendation: dict, reviews_due: int) -> dict
         "chapter_title": recommendation.get("chapter", {}).get("title")
         if recommendation.get("chapter")
         else None,
+        "entry_path": assessment.get("draft_entry_path"),
         "recommendation_type": recommendation.get("recommendation_type"),
         "signals": [],
         "matched_programs": recommendation.get("matched_programs", []),
@@ -559,6 +725,13 @@ def _build_learning_today(
 ) -> dict:
     stats = store.get_stats(user_id)
     recommendation = _get_next_recommendation_v2(user_id, store, scanner, guide_aliases)
+    assessment_drafts = _list_assessment_drafts(user_id)
+    if recommendation.get("guide_id"):
+        recommendation["applied_assessments"] = _attach_assessment_drafts(
+            recommendation["guide_id"],
+            recommendation.get("applied_assessments", []),
+            assessment_drafts,
+        )
     ready_guides = store.get_ready_guides(user_id, excluded_guide_ids=guide_aliases)
     ready_guide_ids = {guide["id"] for guide in ready_guides}
     matched_program_ids = {program["id"] for program in recommendation.get("matched_programs", [])}
@@ -778,7 +951,7 @@ async def get_guide(
     if not guide:
         raise HTTPException(status_code=404, detail="Guide not found")
     next_chapter = store.get_next_chapter(user["id"], resolved_guide_id)
-    return _decorate_guide_payload(
+    payload = _decorate_guide_payload(
         guide,
         scanner,
         program_lookup,
@@ -786,6 +959,12 @@ async def get_guide(
         include_applied_assessments=True,
         assessment_chapter_title=next_chapter["title"] if next_chapter else None,
     )
+    payload["applied_assessments"] = _attach_assessment_drafts(
+        payload["id"],
+        payload.get("applied_assessments", []),
+        _list_assessment_drafts(user["id"], guide_id=payload["id"]),
+    )
+    return payload
 
 
 @router.get("/guides/{guide_id}/chapters/{chapter_id:path}")
@@ -1424,6 +1603,123 @@ async def get_next_recommendation(
     scanner = _ensure_catalog_initialized(store, CurriculumScanner(_content_dirs()))
     guide_aliases = set(scanner.get_guide_aliases())
     return _get_next_recommendation_v2(user_id, store, scanner, guide_aliases)
+
+
+@router.post(
+    "/guides/{guide_id}/assessments/{assessment_type}/launch", status_code=status.HTTP_201_CREATED
+)
+async def launch_applied_assessment(
+    guide_id: str,
+    assessment_type: str,
+    user: dict = Depends(get_current_user),
+):
+    user_id = user["id"]
+    store = _get_store(user_id)
+    scanner = _ensure_catalog_initialized(store, CurriculumScanner(_content_dirs()))
+    resolved_guide_id = _resolve_guide_id(scanner, guide_id)
+    program_lookup = _build_program_lookup(scanner.get_learning_programs())
+    profile = _load_user_profile(user_id)
+
+    guide = store.get_guide(resolved_guide_id, user_id=user_id)
+    if not guide:
+        raise HTTPException(status_code=404, detail="Guide not found")
+
+    next_chapter = store.get_next_chapter(user_id, resolved_guide_id)
+    decorated_guide = _decorate_guide_payload(
+        guide,
+        scanner,
+        program_lookup,
+        profile=profile,
+        include_applied_assessments=True,
+        assessment_chapter_title=next_chapter["title"] if next_chapter else None,
+    )
+    assessments = decorated_guide.get("applied_assessments", [])
+    assessment = next((item for item in assessments if item["type"] == assessment_type), None)
+    if not assessment:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+
+    existing_draft = _list_assessment_drafts(user_id, guide_id=resolved_guide_id).get(
+        _assessment_draft_key(resolved_guide_id, assessment_type)
+    )
+    if existing_draft:
+        return {
+            "guide_id": resolved_guide_id,
+            "assessment_type": assessment_type,
+            "entry_path": existing_draft["entry_path"],
+            "entry_title": existing_draft["entry_title"],
+            "goal_path": existing_draft.get("goal_path"),
+            "goal_title": existing_draft.get("goal_title"),
+            "created": False,
+        }
+
+    from advisor.goals import GoalTracker, get_goal_defaults
+    from journal.storage import JournalStorage
+
+    storage = JournalStorage(get_user_paths(user_id)["journal_dir"])
+    tags = [
+        "learning",
+        "assessment",
+        resolved_guide_id,
+        assessment_type.replace("_", "-"),
+    ]
+
+    goal_title = f"Apply {guide['title']}: {assessment['title']}"
+    goal_path = storage.create(
+        content=_build_assessment_goal_content(guide, assessment),
+        entry_type="goal",
+        title=goal_title,
+        tags=tags,
+        metadata={
+            **get_goal_defaults(goal_type="learning"),
+            "curriculum_guide_id": resolved_guide_id,
+            "curriculum_guide_title": guide["title"],
+            "curriculum_assessment_type": assessment_type,
+            "curriculum_assessment_stage": assessment["stage"],
+            "assessment_status": "active",
+        },
+    )
+
+    tracker = GoalTracker(storage)
+    for milestone in ["Draft response", "Review against rubric", "Finalize deliverable"]:
+        tracker.add_milestone(goal_path, milestone)
+
+    entry_title = f"{guide['title']} - {assessment['title']}"
+    entry_path = storage.create(
+        content=_build_assessment_entry_content(guide, assessment),
+        entry_type=_assessment_entry_type(assessment_type),
+        title=entry_title,
+        tags=tags,
+        metadata={
+            "curriculum_guide_id": resolved_guide_id,
+            "curriculum_guide_title": guide["title"],
+            "curriculum_assessment_type": assessment_type,
+            "curriculum_assessment_stage": assessment["stage"],
+            "assessment_status": "draft",
+            "linked_goal_path": str(goal_path),
+            "linked_goal_title": goal_title,
+        },
+    )
+    _schedule_curriculum_entry_hooks(user_id, entry_path, storage)
+
+    log_event(
+        "curriculum_assessment_launched",
+        user_id,
+        {
+            "guide_id": resolved_guide_id,
+            "assessment_type": assessment_type,
+            "entry_path": str(entry_path),
+            "goal_path": str(goal_path),
+        },
+    )
+    return {
+        "guide_id": resolved_guide_id,
+        "assessment_type": assessment_type,
+        "entry_path": str(entry_path),
+        "entry_title": entry_title,
+        "goal_path": str(goal_path),
+        "goal_title": goal_title,
+        "created": True,
+    }
 
 
 # --- Placement bypass (test-out) ---
