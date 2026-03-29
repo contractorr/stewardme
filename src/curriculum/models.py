@@ -43,6 +43,23 @@ class ChapterStatus(str, Enum):
     COMPLETED = "completed"
 
 
+class GuideOrigin(str, Enum):
+    BUILTIN = "builtin"
+    USER = "user"
+
+
+class GuideKind(str, Enum):
+    CORE = "core"
+    STANDALONE = "standalone"
+    EXTENSION = "extension"
+
+
+class GuideDepth(str, Enum):
+    SURVEY = "survey"
+    PRACTITIONER = "practitioner"
+    DEEP_DIVE = "deep_dive"
+
+
 # --- Guide + Chapter data models ---
 
 
@@ -73,6 +90,10 @@ class Guide(BaseModel):
     category: GuideCategory = GuideCategory.HUMANITIES
     difficulty: DifficultyLevel = DifficultyLevel.INTERMEDIATE
     source_dir: str = ""  # relative path within content dir
+    origin: GuideOrigin = GuideOrigin.BUILTIN
+    kind: GuideKind = GuideKind.CORE
+    owner_user_id: str = ""
+    base_guide_id: str | None = None
     chapter_count: int = 0
     total_word_count: int = 0
     total_reading_time_minutes: int = 0
@@ -199,6 +220,22 @@ class ReviewGradeRequest(BaseModel):
 
 class QuizSubmission(BaseModel):
     answers: dict[str, str]  # question_id -> answer text
+
+
+class GuideGenerationRequest(BaseModel):
+    topic: str
+    depth: GuideDepth
+    audience: str
+    time_budget: str
+    instruction: str | None = None
+
+
+class GuideExtensionRequest(BaseModel):
+    prompt: str
+    depth: GuideDepth | None = None
+    audience: str | None = None
+    time_budget: str | None = None
+    instruction: str | None = None
 
 
 # --- Skill tree DAG models ---

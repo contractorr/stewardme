@@ -8,6 +8,9 @@ export type GuideCategory =
   | "professional";
 
 export type DifficultyLevel = "introductory" | "intermediate" | "advanced";
+export type GuideOrigin = "builtin" | "user";
+export type GuideKind = "core" | "standalone" | "extension";
+export type GuideDepth = "survey" | "practitioner" | "deep_dive";
 
 export type BloomLevel =
   | "remember"
@@ -27,11 +30,18 @@ export interface Guide {
   category: GuideCategory;
   difficulty: DifficultyLevel;
   source_dir: string;
+  origin: GuideOrigin;
+  kind: GuideKind;
+  owner_user_id?: string;
+  base_guide_id?: string | null;
   chapter_count: number;
   total_word_count: number;
   total_reading_time_minutes: number;
   has_glossary: boolean;
   prerequisites: string[];
+  deletable?: boolean;
+  archived_at?: string | null;
+  archive_path?: string;
   track?: string;
   // Progress (present when user_id provided)
   enrolled?: boolean;
@@ -43,6 +53,7 @@ export interface Guide {
   canonical_guide_id?: string | null;
   learning_programs?: LearningProgram[];
   applied_assessments?: AppliedAssessment[];
+  linked_extensions?: Guide[];
 }
 
 export interface Chapter {

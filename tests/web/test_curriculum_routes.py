@@ -8,12 +8,94 @@ from unittest.mock import AsyncMock, patch
 
 from curriculum.models import BloomLevel, ReviewGradeResult, ReviewItem, ReviewItemType
 from curriculum.store import CurriculumStore
+from curriculum.user_content import write_guide_metadata
 from journal.storage import JournalStorage
 from web.deps import get_user_paths
 
 
 def _curriculum_store(user_id: str = "user-123") -> CurriculumStore:
     return CurriculumStore(Path(get_user_paths(user_id)["data_dir"]) / "curriculum.db")
+
+
+def _write_user_guide_content(
+    user_id: str,
+    guide_id: str,
+    title: str,
+    *,
+    kind: str = "standalone",
+    base_guide_id: str | None = None,
+) -> None:
+    guide_dir = Path(get_user_paths(user_id)["curriculum_dir"]) / guide_id
+    guide_dir.mkdir(parents=True, exist_ok=True)
+    write_guide_metadata(
+        guide_dir,
+        {
+            "title": title,
+            "origin": "user",
+            "kind": kind,
+            "owner_user_id": user_id,
+            "base_guide_id": base_guide_id,
+            "category": "professional",
+            "difficulty": "intermediate",
+            "created_at": datetime.utcnow().isoformat(),
+        },
+    )
+    (guide_dir / "01-introduction.mdx").write_text(
+        """---
+title: Introduction
+summary: Start here.
+objectives:
+  - Understand the central idea.
+checkpoints:
+  - Explain the core takeaway.
+content_format: markdown
+schema_version: 1
+---
+# Introduction
+
+This is a generated learning chapter with enough structure to scan and study.
+
+## Core Idea
+
+The guide introduces the topic in a practical way.
+
+## Why It Matters
+
+This section explains why the material matters to the learner.
+
+## Checkpoint
+
+- Explain the core takeaway.
+""",
+        encoding="utf-8",
+    )
+
+
+class _StubGuideGenerationService:
+    def __init__(self, user_id: str):
+        self.user_id = user_id
+
+    async def generate_guide(self, *, topic: str, **_: object) -> dict:
+        guide_id = "user-custom-topic-abc123"
+        _write_user_guide_content(self.user_id, guide_id, f"{topic} Guide")
+        return {"guide_id": guide_id, "title": f"{topic} Guide", "kind": "standalone"}
+
+    async def extend_guide(self, *, source_guide: dict, prompt: str, **_: object) -> dict:
+        guide_id = "ext-custom-extension-def456"
+        _write_user_guide_content(
+            self.user_id,
+            guide_id,
+            f"{source_guide['title']} Extension",
+            kind="extension",
+            base_guide_id=source_guide["id"],
+        )
+        return {
+            "guide_id": guide_id,
+            "title": f"{source_guide['title']} Extension",
+            "kind": "extension",
+            "base_guide_id": source_guide["id"],
+            "prompt": prompt,
+        }
 
 
 def test_tree_endpoint(client, auth_headers):
@@ -96,6 +178,126 @@ def test_get_chapter_resolves_superseded_alias_to_canonical_chapter(client, auth
     payload = resp.json()
     assert payload["guide_id"] == "35-engineering-guide"
     assert payload["id"] == "35-engineering-guide/01-introduction"
+
+
+def test_generate_user_guide_creates_separate_user_owned_guide(client, auth_headers):
+    with patch(
+        "web.routes.curriculum._build_guide_generation_service",
+        return_value=_StubGuideGenerationService("user-123"),
+    ):
+        resp = client.post(
+            "/api/curriculum/guides/generate",
+            headers=auth_headers,
+            json={
+                "topic": "Custom Topic",
+                "depth": "practitioner",
+                "audience": "Product manager",
+                "time_budget": "3 hours per week",
+                "instruction": "Focus on implementation trade-offs.",
+            },
+        )
+
+    assert resp.status_code == 201
+    payload = resp.json()
+    assert payload["id"] == "user-custom-topic-abc123"
+    assert payload["origin"] == "user"
+    assert payload["kind"] == "standalone"
+    assert payload["enrolled"] is False
+    assert payload["base_guide_id"] is None
+
+    user_guides = client.get("/api/curriculum/guides?origin=user", headers=auth_headers).json()
+    assert any(guide["id"] == "user-custom-topic-abc123" for guide in user_guides)
+
+
+def test_extend_guide_creates_linked_extension(client, auth_headers):
+    client.post("/api/curriculum/sync", headers=auth_headers)
+
+    with patch(
+        "web.routes.curriculum._build_guide_generation_service",
+        return_value=_StubGuideGenerationService("user-123"),
+    ):
+        resp = client.post(
+            "/api/curriculum/guides/28-accounting/extend",
+            headers=auth_headers,
+            json={"prompt": "Add startup finance operator scenarios."},
+        )
+
+    assert resp.status_code == 201
+    payload = resp.json()
+    assert payload["origin"] == "user"
+    assert payload["kind"] == "extension"
+    assert payload["base_guide_id"] == "28-accounting"
+
+    base_guide = client.get("/api/curriculum/guides/28-accounting", headers=auth_headers).json()
+    assert any(
+        extension["id"] == "ext-custom-extension-def456"
+        for extension in base_guide["linked_extensions"]
+    )
+
+
+def test_archive_and_restore_user_guide_preserves_progress(client, auth_headers):
+    with patch(
+        "web.routes.curriculum._build_guide_generation_service",
+        return_value=_StubGuideGenerationService("user-123"),
+    ):
+        create_resp = client.post(
+            "/api/curriculum/guides/generate",
+            headers=auth_headers,
+            json={
+                "topic": "Custom Topic",
+                "depth": "practitioner",
+                "audience": "Product manager",
+                "time_budget": "3 hours per week",
+            },
+        )
+
+    guide_id = create_resp.json()["id"]
+    enroll_resp = client.post(
+        f"/api/curriculum/guides/{guide_id}/enroll?create_goal=false",
+        headers=auth_headers,
+    )
+    assert enroll_resp.status_code == 201
+
+    guide_detail = client.get(f"/api/curriculum/guides/{guide_id}", headers=auth_headers).json()
+    chapter_id = guide_detail["chapters"][0]["id"]
+    client.post(
+        "/api/curriculum/progress",
+        headers=auth_headers,
+        json={
+            "chapter_id": chapter_id,
+            "guide_id": guide_id,
+            "status": "completed",
+        },
+    )
+
+    archive_resp = client.delete(f"/api/curriculum/guides/{guide_id}", headers=auth_headers)
+    assert archive_resp.status_code == 200
+    assert archive_resp.json()["archived"] is True
+
+    guides = client.get("/api/curriculum/guides?origin=user", headers=auth_headers).json()
+    assert all(guide["id"] != guide_id for guide in guides)
+
+    archived = client.get("/api/curriculum/guides/archived", headers=auth_headers).json()
+    assert any(guide["id"] == guide_id for guide in archived)
+
+    hidden_resp = client.get(f"/api/curriculum/guides/{guide_id}", headers=auth_headers)
+    assert hidden_resp.status_code == 404
+
+    restore_resp = client.post(f"/api/curriculum/guides/{guide_id}/restore", headers=auth_headers)
+    assert restore_resp.status_code == 200
+    assert restore_resp.json()["restored"] is True
+
+    restored = client.get(f"/api/curriculum/guides/{guide_id}", headers=auth_headers).json()
+    assert restored["enrolled"] is True
+    assert restored["chapters"][0]["status"] == "completed"
+
+
+def test_archive_rejects_builtin_guide(client, auth_headers):
+    client.post("/api/curriculum/sync", headers=auth_headers)
+
+    resp = client.delete("/api/curriculum/guides/28-accounting", headers=auth_headers)
+
+    assert resp.status_code == 403
 
 
 def test_build_question_generator_wires_resolved_llm_providers():

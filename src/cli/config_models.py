@@ -343,12 +343,23 @@ class CurriculumConfig(BaseModel):
     placement_pass_threshold: float = 3.5
     placement_questions_per_chapter: int = 2
     placement_max_questions: int = 15
+    user_guide_default_chapters: int = 4
+    user_guide_max_chapters: int = 6
+    user_guide_max_topic_length: int = 240
+    user_guide_generation_timeout_seconds: int = 120
 
     @field_validator("interleaving_ratio")
     @classmethod
     def validate_interleaving(cls, v: float) -> float:
         if not 0.0 <= v <= 1.0:
             raise ValueError(f"interleaving_ratio must be 0-1, got {v}")
+        return v
+
+    @field_validator("user_guide_default_chapters", "user_guide_max_chapters")
+    @classmethod
+    def validate_user_guide_chapter_limits(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError(f"user guide chapter count must be >= 1, got {v}")
         return v
 
 

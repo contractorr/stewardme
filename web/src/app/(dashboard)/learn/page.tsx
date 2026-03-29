@@ -12,6 +12,7 @@ import {
   GitFork,
   GraduationCap,
   LayoutGrid,
+  Plus,
   RefreshCcw,
   Route,
   Search,
@@ -24,7 +25,16 @@ import { SkillTree } from "@/components/curriculum/SkillTree";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToken } from "@/hooks/useToken";
 import { apiFetch } from "@/lib/api";
@@ -37,7 +47,12 @@ import {
   learningTaskLabels,
   recommendationLabels,
 } from "@/lib/curriculum";
-import type { Guide, LearningStats, LearningToday } from "@/types/curriculum";
+import type {
+  Guide,
+  GuideDepth,
+  LearningStats,
+  LearningToday,
+} from "@/types/curriculum";
 
 type CategoryFilter = string | "all";
 type SortMode = "alpha" | "progress" | "difficulty" | "recommended";
@@ -60,17 +75,34 @@ const difficultyOrder: Record<string, number> = {
   advanced: 2,
 };
 
+const depthLabels: Record<GuideDepth, string> = {
+  survey: "Survey",
+  practitioner: "Practitioner",
+  deep_dive: "Deep dive",
+};
+
 export default function LearnPage() {
   const token = useToken();
   const searchParams = useSearchParams();
   const [guides, setGuides] = useState<Guide[]>([]);
+  const [archivedGuides, setArchivedGuides] = useState<Guide[]>([]);
   const [stats, setStats] = useState<LearningStats | null>(null);
   const [today, setToday] = useState<LearningToday | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [restoringGuideId, setRestoringGuideId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<CategoryFilter>("all");
   const [sort, setSort] = useState<SortMode>("recommended");
+  const [createForm, setCreateForm] = useState({
+    topic: "",
+    depth: "practitioner" as GuideDepth,
+    audience: "",
+    time_budget: "",
+    instruction: "",
+  });
   const [activeView, setActiveView] = useState<LearnView>(
     searchParams.get("view") === "tree" ? "tree" : "grid",
   );
@@ -82,12 +114,16 @@ export default function LearnPage() {
     if (!token) return;
     setLoading(true);
     try {
-      const [guidesData, statsData, todayData] = await Promise.all([
+      const [guidesData, archivedData, statsData, todayData] = await Promise.all([
         apiFetch<Guide[]>("/api/v1/curriculum/guides", {}, token),
+        apiFetch<Guide[]>("/api/v1/curriculum/guides/archived", {}, token).catch(
+          () => [],
+        ),
         apiFetch<LearningStats>("/api/v1/curriculum/stats", {}, token),
         apiFetch<LearningToday>("/api/v1/curriculum/today", {}, token),
       ]);
       setGuides(guidesData);
+      setArchivedGuides(archivedData);
       setStats(statsData);
       setToday(todayData);
     } catch (e) {
@@ -136,13 +172,78 @@ export default function LearnPage() {
     }
   };
 
+  const handleCreateGuide = async () => {
+    if (!token) return;
+    setCreating(true);
+    try {
+      const created = await apiFetch<Guide>(
+        "/api/v1/curriculum/guides/generate",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            topic: createForm.topic.trim(),
+            depth: createForm.depth,
+            audience: createForm.audience.trim(),
+            time_budget: createForm.time_budget.trim(),
+            instruction: createForm.instruction.trim() || undefined,
+          }),
+        },
+        token,
+      );
+      setCreateOpen(false);
+      setCreateForm({
+        topic: "",
+        depth: "practitioner",
+        audience: "",
+        time_budget: "",
+        instruction: "",
+      });
+      await loadData();
+      toast.success(`Created ${created.title}`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleRestoreGuide = async (guideId: string) => {
+    if (!token) return;
+    setRestoringGuideId(guideId);
+    try {
+      await apiFetch(
+        `/api/v1/curriculum/guides/${guideId}/restore`,
+        { method: "POST" },
+        token,
+      );
+      await loadData();
+      toast.success("Guide restored");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setRestoringGuideId(null);
+    }
+  };
+
   const categories = useMemo(() => {
-    const cats = new Set(guides.map((g) => g.category));
+    const cats = new Set(
+      guides.filter((guide) => guide.origin === "builtin").map((g) => g.category),
+    );
     return ["all", ...Array.from(cats).sort()];
   }, [guides]);
 
+  const builtinGuides = useMemo(
+    () => guides.filter((guide) => guide.origin === "builtin"),
+    [guides],
+  );
+
+  const userGuides = useMemo(
+    () => guides.filter((guide) => guide.origin === "user"),
+    [guides],
+  );
+
   const filtered = useMemo(() => {
-    let result = guides;
+    let result = builtinGuides;
     if (category !== "all") {
       result = result.filter((g) => g.category === category);
     }
@@ -171,7 +272,7 @@ export default function LearnPage() {
           return a.title.localeCompare(b.title);
       }
     });
-  }, [guides, category, search, sort]);
+  }, [builtinGuides, category, search, sort]);
 
   const primaryTask = today?.tasks[0] ?? null;
   const secondaryTasks = today?.tasks.slice(1, 4) ?? [];
@@ -411,6 +512,87 @@ export default function LearnPage() {
         </div>
       </section>
 
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold">Your Guides</h2>
+            <p className="text-sm text-muted-foreground">
+              User-authored guides stay separate from the built-in curriculum.
+            </p>
+          </div>
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            Create guide
+          </Button>
+        </div>
+
+        <Tabs defaultValue="active">
+          <TabsList variant="line">
+            <TabsTrigger value="active">Active</TabsTrigger>
+            <TabsTrigger value="archived">
+              Archived
+              {archivedGuides.length > 0 ? (
+                <Badge variant="secondary" className="ml-1.5 text-[10px]">
+                  {archivedGuides.length}
+                </Badge>
+              ) : null}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="active" className="space-y-4">
+            {userGuides.length > 0 ? (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {userGuides.map((guide) => (
+                  <GuideCard key={guide.id} guide={guide} />
+                ))}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="p-6 text-sm text-muted-foreground">
+                  No custom guides yet. Create one from a topic, target
+                  audience, and time budget.
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="archived" className="space-y-3">
+            {archivedGuides.length > 0 ? (
+              archivedGuides.map((guide) => (
+                <Card key={guide.id}>
+                  <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium">{guide.title}</p>
+                        <Badge variant="outline" className="text-[10px]">
+                          {guide.kind === "extension" ? "Extension" : "Guide"}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Archived guides keep their progress and can be restored.
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={() => void handleRestoreGuide(guide.id)}
+                      disabled={restoringGuideId === guide.id}
+                    >
+                      {restoringGuideId === guide.id ? "Restoring..." : "Restore"}
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <Card>
+                <CardContent className="p-6 text-sm text-muted-foreground">
+                  No archived guides.
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
+      </section>
+
       <section className="space-y-3">
         <div className="flex items-center gap-2">
           <Route className="h-4 w-4 text-primary" />
@@ -633,6 +815,113 @@ export default function LearnPage() {
           </TabsContent>
         </Tabs>
       </section>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Guide</DialogTitle>
+            <DialogDescription>
+              Generate a separate user-authored learning guide from a topic and
+              study context.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Topic</label>
+              <Input
+                value={createForm.topic}
+                onChange={(event) =>
+                  setCreateForm((current) => ({
+                    ...current,
+                    topic: event.target.value,
+                  }))
+                }
+                placeholder="AI product strategy"
+              />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Depth</label>
+                <select
+                  value={createForm.depth}
+                  onChange={(event) =>
+                    setCreateForm((current) => ({
+                      ...current,
+                      depth: event.target.value as GuideDepth,
+                    }))
+                  }
+                  className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                >
+                  {Object.entries(depthLabels).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Time Budget</label>
+                <Input
+                  value={createForm.time_budget}
+                  onChange={(event) =>
+                    setCreateForm((current) => ({
+                      ...current,
+                      time_budget: event.target.value,
+                    }))
+                  }
+                  placeholder="3 hours per week"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Audience</label>
+              <Input
+                value={createForm.audience}
+                onChange={(event) =>
+                  setCreateForm((current) => ({
+                    ...current,
+                    audience: event.target.value,
+                  }))
+                }
+                placeholder="Product manager moving into AI"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Instruction</label>
+              <Textarea
+                value={createForm.instruction}
+                onChange={(event) =>
+                  setCreateForm((current) => ({
+                    ...current,
+                    instruction: event.target.value,
+                  }))
+                }
+                rows={4}
+                placeholder="Optional: bias the guide toward frameworks, trade-offs, and practical execution."
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              onClick={() => void handleCreateGuide()}
+              disabled={
+                creating ||
+                !createForm.topic.trim() ||
+                !createForm.audience.trim() ||
+                !createForm.time_budget.trim()
+              }
+            >
+              {creating ? "Creating..." : "Create guide"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

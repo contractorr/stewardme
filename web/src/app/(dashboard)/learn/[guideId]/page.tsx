@@ -1,21 +1,40 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, BookOpen, Clock, GraduationCap, Play } from "lucide-react";
-import { useToken } from "@/hooks/useToken";
-import { apiFetch } from "@/lib/api";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import {
+  ArrowLeft,
+  BookOpen,
+  Clock,
+  GraduationCap,
+  Play,
+  Plus,
+  Trash2,
+} from "lucide-react";
+
 import { ChapterList } from "@/components/curriculum/ChapterList";
 import { DifficultyBadge } from "@/components/curriculum/DifficultyBadge";
 import { ProgressRing } from "@/components/curriculum/ProgressRing";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { useToken } from "@/hooks/useToken";
+import { apiFetch } from "@/lib/api";
 import type {
   AppliedAssessmentLaunchResult,
+  GuideDepth,
   GuideDetail,
   PlacementQuestion,
   PlacementResult,
@@ -27,6 +46,12 @@ function formatTime(minutes: number): string {
   const m = minutes % 60;
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
+
+const depthLabels: Record<GuideDepth, string> = {
+  survey: "Survey",
+  practitioner: "Practitioner",
+  deep_dive: "Deep dive",
+};
 
 const assessmentStageLabels: Record<string, string> = {
   chapter_completion: "After chapter",
@@ -44,10 +69,20 @@ export default function GuideDetailPage() {
   const [guide, setGuide] = useState<GuideDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState(false);
+  const [archiveLoading, setArchiveLoading] = useState(false);
+  const [extendOpen, setExtendOpen] = useState(false);
+  const [extending, setExtending] = useState(false);
   const [launchingAssessmentType, setLaunchingAssessmentType] = useState<string | null>(null);
   const resolvedGuideId = guide?.id ?? guideId;
 
-  // Placement state
+  const [extensionForm, setExtensionForm] = useState({
+    prompt: "",
+    depth: "practitioner" as GuideDepth,
+    audience: "",
+    time_budget: "",
+    instruction: "",
+  });
+
   const [showPlacement, setShowPlacement] = useState(false);
   const [placementQuestions, setPlacementQuestions] = useState<PlacementQuestion[]>([]);
   const [placementAnswers, setPlacementAnswers] = useState<Record<string, string>>({});
@@ -72,18 +107,73 @@ export default function GuideDetailPage() {
         { method: "POST" },
         token,
       );
-      // Reload
       const updated = await apiFetch<GuideDetail>(
         `/api/v1/curriculum/guides/${resolvedGuideId}`,
         {},
         token,
       );
       setGuide(updated);
-      toast.success("Enrolled!");
+      toast.success("Enrolled");
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
       setEnrolling(false);
+    }
+  };
+
+  const handleExtendGuide = async () => {
+    if (!token) return;
+    setExtending(true);
+    try {
+      const created = await apiFetch<GuideDetail>(
+        `/api/v1/curriculum/guides/${resolvedGuideId}/extend`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            prompt: extensionForm.prompt.trim(),
+            depth: extensionForm.depth,
+            audience: extensionForm.audience.trim() || undefined,
+            time_budget: extensionForm.time_budget.trim() || undefined,
+            instruction: extensionForm.instruction.trim() || undefined,
+          }),
+        },
+        token,
+      );
+      setExtendOpen(false);
+      setExtensionForm({
+        prompt: "",
+        depth: "practitioner",
+        audience: "",
+        time_budget: "",
+        instruction: "",
+      });
+      toast.success(`Created ${created.title}`);
+      router.push(`/learn/${created.id}`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setExtending(false);
+    }
+  };
+
+  const handleArchiveGuide = async () => {
+    if (!token) return;
+    if (!window.confirm("Archive this guide? You can restore it later from Learn.")) {
+      return;
+    }
+    setArchiveLoading(true);
+    try {
+      await apiFetch(
+        `/api/v1/curriculum/guides/${resolvedGuideId}`,
+        { method: "DELETE" },
+        token,
+      );
+      toast.success("Guide archived");
+      router.push("/learn");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setArchiveLoading(false);
     }
   };
 
@@ -122,7 +212,7 @@ export default function GuideDetailPage() {
       );
       setPlacementResult(result);
       if (result.passed) {
-        toast.success("Placement passed — guide completed!");
+        toast.success("Placement passed and guide completed");
         const updated = await apiFetch<GuideDetail>(
           `/api/v1/curriculum/guides/${resolvedGuideId}`,
           {},
@@ -171,10 +261,12 @@ export default function GuideDetailPage() {
 
   if (!guide) {
     return (
-      <div className="text-center py-12">
+      <div className="py-12 text-center">
         <p className="text-muted-foreground">Guide not found</p>
         <Link href="/learn">
-          <Button variant="ghost" className="mt-2">Back to guides</Button>
+          <Button variant="ghost" className="mt-2">
+            Back to guides
+          </Button>
         </Link>
       </div>
     );
@@ -182,7 +274,6 @@ export default function GuideDetailPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-6">
-      {/* Header */}
       <div className="flex items-center gap-2">
         <Link href="/learn">
           <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -192,11 +283,24 @@ export default function GuideDetailPage() {
         <h1 className="text-2xl font-semibold tracking-tight">{guide.title}</h1>
       </div>
 
-      {/* Meta + actions */}
       <Card>
         <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-3">
+              {guide.origin === "user" ? (
+                <Badge variant="outline" className="text-[10px]">
+                  Your guide
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="text-[10px]">
+                  Built-in
+                </Badge>
+              )}
+              {guide.kind === "extension" && (
+                <Badge variant="outline" className="text-[10px]">
+                  Extension
+                </Badge>
+              )}
               <DifficultyBadge level={guide.difficulty} />
               <span className="flex items-center gap-1 text-sm text-muted-foreground">
                 <BookOpen className="h-3.5 w-3.5" />
@@ -207,9 +311,22 @@ export default function GuideDetailPage() {
                 {formatTime(guide.total_reading_time_minutes)}
               </span>
               {guide.has_glossary && (
-                <Badge variant="outline" className="text-[10px]">Glossary</Badge>
+                <Badge variant="outline" className="text-[10px]">
+                  Glossary
+                </Badge>
               )}
             </div>
+
+            {guide.base_guide_id && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-muted-foreground">Extends:</span>
+                <Link href={`/learn/${guide.base_guide_id}`}>
+                  <Badge variant="outline" className="text-[10px]">
+                    {guide.base_guide_id}
+                  </Badge>
+                </Link>
+              </div>
+            )}
 
             {(guide.learning_programs?.length ?? 0) > 0 && (
               <div className="flex flex-wrap items-center gap-2">
@@ -228,13 +345,28 @@ export default function GuideDetailPage() {
               </div>
             )}
           </div>
-          <div className="flex items-center gap-3">
+
+          <div className="flex flex-wrap items-center gap-3">
             {guide.enrolled && (
               <ProgressRing progress={guide.progress_pct ?? 0} size={44} strokeWidth={4} />
             )}
             {!guide.enrolled && (
               <Button onClick={handleEnroll} disabled={enrolling}>
                 {enrolling ? "Enrolling..." : "Enroll"}
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setExtendOpen(true)}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              Extend guide
+            </Button>
+            {guide.origin === "user" && (
+              <Button
+                variant="outline"
+                onClick={() => void handleArchiveGuide()}
+                disabled={archiveLoading}
+              >
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                {archiveLoading ? "Archiving..." : "Delete guide"}
               </Button>
             )}
             {!isGuideCompleted && (
@@ -247,8 +379,8 @@ export default function GuideDetailPage() {
                 {placementLoading ? "Generating..." : "Test out"}
               </Button>
             )}
-              {firstUnread && (
-               <Link href={`/learn/${resolvedGuideId}/${firstUnread.id.split("/").pop()}`}>
+            {firstUnread && (
+              <Link href={`/learn/${resolvedGuideId}/${firstUnread.id.split("/").pop()}`}>
                 <Button>
                   <Play className="mr-1.5 h-3.5 w-3.5" />
                   {guide.chapters_completed ? "Continue" : "Start reading"}
@@ -258,6 +390,32 @@ export default function GuideDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      {(guide.linked_extensions?.length ?? 0) > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Extensions</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-2">
+            {guide.linked_extensions?.map((extension) => (
+              <Link key={extension.id} href={`/learn/${extension.id}`}>
+                <div className="h-full rounded-lg border p-4 transition-colors hover:border-primary/40">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium">{extension.title}</p>
+                    <Badge variant="outline" className="text-[10px]">
+                      Extension
+                    </Badge>
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {extension.chapter_count} chapters,{" "}
+                    {formatTime(extension.total_reading_time_minutes)}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {(guide.applied_assessments?.length ?? 0) > 0 && (
         <Card>
@@ -323,11 +481,10 @@ export default function GuideDetailPage() {
         </Card>
       )}
 
-      {/* Placement quiz */}
       {showPlacement && placementQuestions.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-base">
               <GraduationCap className="h-4 w-4" />
               Placement Quiz
             </CardTitle>
@@ -340,15 +497,17 @@ export default function GuideDetailPage() {
                     {placementResult.passed ? "Passed" : "Not passed"}
                   </Badge>
                   <span className="text-sm text-muted-foreground">
-                    Average: {placementResult.average_grade.toFixed(1)} / 5
-                    (need {placementResult.threshold})
+                    Average: {placementResult.average_grade.toFixed(1)} / 5 (need{" "}
+                    {placementResult.threshold})
                   </span>
                 </div>
                 {placementResult.results.map((r, i) => (
-                  <div key={r.question_id} className="rounded border p-3 text-sm space-y-1">
-                    <p className="font-medium">Q{i + 1}: {placementQuestions[i]?.question}</p>
+                  <div key={r.question_id} className="space-y-1 rounded border p-3 text-sm">
+                    <p className="font-medium">
+                      Q{i + 1}: {placementQuestions[i]?.question}
+                    </p>
                     <p className="text-muted-foreground">
-                      Grade: {r.grade}/5 — {r.feedback}
+                      Grade: {r.grade}/5 - {r.feedback}
                     </p>
                   </div>
                 ))}
@@ -401,7 +560,6 @@ export default function GuideDetailPage() {
         </Card>
       )}
 
-      {/* Chapter list */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Chapters</CardTitle>
@@ -410,6 +568,108 @@ export default function GuideDetailPage() {
           <ChapterList guideId={resolvedGuideId} chapters={guide.chapters ?? []} />
         </CardContent>
       </Card>
+
+      <Dialog open={extendOpen} onOpenChange={setExtendOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Extend Guide</DialogTitle>
+            <DialogDescription>
+              Create a separate linked guide with additional material for this topic.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">What should this extension cover?</label>
+              <Textarea
+                value={extensionForm.prompt}
+                onChange={(event) =>
+                  setExtensionForm((current) => ({
+                    ...current,
+                    prompt: event.target.value,
+                  }))
+                }
+                rows={4}
+                placeholder="Add case studies for regulated AI launches and decision frameworks for model risk."
+              />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Depth</label>
+                <select
+                  value={extensionForm.depth}
+                  onChange={(event) =>
+                    setExtensionForm((current) => ({
+                      ...current,
+                      depth: event.target.value as GuideDepth,
+                    }))
+                  }
+                  className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                >
+                  {Object.entries(depthLabels).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Time Budget</label>
+                <Input
+                  value={extensionForm.time_budget}
+                  onChange={(event) =>
+                    setExtensionForm((current) => ({
+                      ...current,
+                      time_budget: event.target.value,
+                    }))
+                  }
+                  placeholder="2 focused sessions"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Audience</label>
+              <Input
+                value={extensionForm.audience}
+                onChange={(event) =>
+                  setExtensionForm((current) => ({
+                    ...current,
+                    audience: event.target.value,
+                  }))
+                }
+                placeholder="Technical product lead"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Instruction</label>
+              <Textarea
+                value={extensionForm.instruction}
+                onChange={(event) =>
+                  setExtensionForm((current) => ({
+                    ...current,
+                    instruction: event.target.value,
+                  }))
+                }
+                rows={4}
+                placeholder="Optional: emphasize trade-offs, implementation pitfalls, and decision criteria."
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              onClick={() => void handleExtendGuide()}
+              disabled={extending || !extensionForm.prompt.trim()}
+            >
+              {extending ? "Creating..." : "Create extension"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

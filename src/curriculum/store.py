@@ -20,7 +20,7 @@ from .spaced_repetition import sm2_update
 
 logger = structlog.get_logger()
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 
 class CurriculumStore:
@@ -40,12 +40,18 @@ class CurriculumStore:
                     category TEXT NOT NULL DEFAULT 'humanities',
                     difficulty TEXT NOT NULL DEFAULT 'intermediate',
                     source_dir TEXT NOT NULL DEFAULT '',
+                    origin TEXT NOT NULL DEFAULT 'builtin',
+                    kind TEXT NOT NULL DEFAULT 'core',
+                    owner_user_id TEXT NOT NULL DEFAULT '',
+                    base_guide_id TEXT,
                     chapter_count INTEGER NOT NULL DEFAULT 0,
                     total_word_count INTEGER NOT NULL DEFAULT 0,
                     total_reading_time_minutes INTEGER NOT NULL DEFAULT 0,
                     has_glossary INTEGER NOT NULL DEFAULT 0,
                     prerequisites TEXT NOT NULL DEFAULT '[]',
-                    track TEXT NOT NULL DEFAULT ''
+                    track TEXT NOT NULL DEFAULT '',
+                    archived_at TEXT,
+                    archive_path TEXT NOT NULL DEFAULT ''
                 )
             """)
             conn.execute("""
@@ -164,6 +170,20 @@ class CurriculumStore:
                     except sqlite3.OperationalError:
                         pass
 
+            if current_ver < 5:
+                for statement in (
+                    "ALTER TABLE guides ADD COLUMN origin TEXT NOT NULL DEFAULT 'builtin'",
+                    "ALTER TABLE guides ADD COLUMN kind TEXT NOT NULL DEFAULT 'core'",
+                    "ALTER TABLE guides ADD COLUMN owner_user_id TEXT NOT NULL DEFAULT ''",
+                    "ALTER TABLE guides ADD COLUMN base_guide_id TEXT",
+                    "ALTER TABLE guides ADD COLUMN archived_at TEXT",
+                    "ALTER TABLE guides ADD COLUMN archive_path TEXT NOT NULL DEFAULT ''",
+                ):
+                    try:
+                        conn.execute(statement)
+                    except sqlite3.OperationalError:
+                        pass
+
             ensure_schema_version(conn, SCHEMA_VERSION)
             conn.commit()
 
@@ -172,13 +192,16 @@ class CurriculumStore:
     def upsert_guide(self, guide: Guide) -> None:
         with wal_connect(self.db_path) as conn:
             conn.execute(
-                """INSERT INTO guides (id, title, category, difficulty, source_dir,
-                   chapter_count, total_word_count, total_reading_time_minutes,
-                   has_glossary, prerequisites, track)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """INSERT INTO guides (id, title, category, difficulty, source_dir, origin, kind,
+                   owner_user_id, base_guide_id, chapter_count, total_word_count,
+                   total_reading_time_minutes, has_glossary, prerequisites, track)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT(id) DO UPDATE SET
                    title=excluded.title, category=excluded.category,
                    difficulty=excluded.difficulty, source_dir=excluded.source_dir,
+                   origin=excluded.origin, kind=excluded.kind,
+                   owner_user_id=excluded.owner_user_id,
+                   base_guide_id=excluded.base_guide_id,
                    chapter_count=excluded.chapter_count,
                    total_word_count=excluded.total_word_count,
                    total_reading_time_minutes=excluded.total_reading_time_minutes,
@@ -191,6 +214,10 @@ class CurriculumStore:
                     guide.category.value,
                     guide.difficulty.value,
                     guide.source_dir,
+                    guide.origin.value,
+                    guide.kind.value,
+                    guide.owner_user_id,
+                    guide.base_guide_id,
                     guide.chapter_count,
                     guide.total_word_count,
                     guide.total_reading_time_minutes,
@@ -248,13 +275,16 @@ class CurriculumStore:
         with wal_connect(self.db_path) as conn:
             for g in guides:
                 conn.execute(
-                    """INSERT INTO guides (id, title, category, difficulty, source_dir,
-                       chapter_count, total_word_count, total_reading_time_minutes,
-                       has_glossary, prerequisites, track)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """INSERT INTO guides (id, title, category, difficulty, source_dir, origin,
+                       kind, owner_user_id, base_guide_id, chapter_count, total_word_count,
+                       total_reading_time_minutes, has_glossary, prerequisites, track)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                        ON CONFLICT(id) DO UPDATE SET
                        title=excluded.title, category=excluded.category,
                        difficulty=excluded.difficulty, source_dir=excluded.source_dir,
+                       origin=excluded.origin, kind=excluded.kind,
+                       owner_user_id=excluded.owner_user_id,
+                       base_guide_id=excluded.base_guide_id,
                        chapter_count=excluded.chapter_count,
                        total_word_count=excluded.total_word_count,
                        total_reading_time_minutes=excluded.total_reading_time_minutes,
@@ -267,6 +297,10 @@ class CurriculumStore:
                         g.category.value,
                         g.difficulty.value,
                         g.source_dir,
+                        g.origin.value,
+                        g.kind.value,
+                        g.owner_user_id,
+                        g.base_guide_id,
                         g.chapter_count,
                         g.total_word_count,
                         g.total_reading_time_minutes,
@@ -532,21 +566,55 @@ class CurriculumStore:
             migrated += 1
         return migrated
 
-    def list_guides(self, category: str | None = None, user_id: str | None = None) -> list[dict]:
+    @staticmethod
+    def _deserialize_guide_row(row: sqlite3.Row | dict) -> dict:
+        guide = dict(row)
+        guide["has_glossary"] = bool(guide["has_glossary"])
+        guide["prerequisites"] = json.loads(guide.get("prerequisites", "[]"))
+        guide["base_guide_id"] = guide.get("base_guide_id")
+        guide["archived_at"] = guide.get("archived_at")
+        guide["archive_path"] = guide.get("archive_path") or ""
+        guide["deletable"] = guide.get("origin") == "user"
+        return guide
+
+    def is_guide_archived(self, guide_id: str) -> bool:
+        with wal_connect(self.db_path, row_factory=True) as conn:
+            row = conn.execute(
+                "SELECT archived_at FROM guides WHERE id=?",
+                (guide_id,),
+            ).fetchone()
+            return bool(row and dict(row).get("archived_at"))
+
+    def list_guides(
+        self,
+        category: str | None = None,
+        user_id: str | None = None,
+        *,
+        origin: str | None = None,
+        include_archived: bool = False,
+    ) -> list[dict]:
         """List guides with optional user progress summary."""
         with wal_connect(self.db_path, row_factory=True) as conn:
+            where_clauses: list[str] = []
+            params: list[object] = []
             if category:
-                rows = conn.execute(
-                    "SELECT * FROM guides WHERE category = ? ORDER BY id", (category,)
-                ).fetchall()
-            else:
-                rows = conn.execute("SELECT * FROM guides ORDER BY id").fetchall()
+                where_clauses.append("category = ?")
+                params.append(category)
+            if origin:
+                where_clauses.append("origin = ?")
+                params.append(origin)
+            if not include_archived:
+                where_clauses.append("archived_at IS NULL")
+
+            query = "SELECT * FROM guides"
+            if where_clauses:
+                query += " WHERE " + " AND ".join(where_clauses)
+            query += " ORDER BY id"
+            rows = conn.execute(query, tuple(params)).fetchall()
 
             results = []
             for row in rows:
-                d = dict(row)
-                d["has_glossary"] = bool(d["has_glossary"])
-                d["prerequisites"] = json.loads(d.get("prerequisites", "[]"))
+                d = self._deserialize_guide_row(row)
 
                 if user_id:
                     enrollment = conn.execute(
@@ -587,15 +655,53 @@ class CurriculumStore:
                 results.append(d)
             return results
 
-    def get_guide(self, guide_id: str, user_id: str | None = None) -> dict | None:
+    def list_linked_extensions(
+        self,
+        base_guide_id: str,
+        *,
+        user_id: str | None = None,
+        include_archived: bool = False,
+    ) -> list[dict]:
+        with wal_connect(self.db_path, row_factory=True) as conn:
+            query = "SELECT * FROM guides WHERE origin='user' AND base_guide_id=?"
+            if not include_archived:
+                query += " AND archived_at IS NULL"
+            query += " ORDER BY title"
+            rows = conn.execute(query, (base_guide_id,)).fetchall()
+
+            results = []
+            for row in rows:
+                guide = self._deserialize_guide_row(row)
+                if user_id:
+                    detailed = self.get_guide(
+                        guide["id"], user_id=user_id, include_archived=include_archived
+                    )
+                    if detailed:
+                        results.append(detailed)
+                else:
+                    results.append(guide)
+            return results
+
+    def list_archived_guides(self, user_id: str | None = None) -> list[dict]:
+        guides = self.list_guides(user_id=user_id, origin="user", include_archived=True)
+        return [guide for guide in guides if guide.get("archived_at")]
+
+    def get_guide(
+        self,
+        guide_id: str,
+        user_id: str | None = None,
+        *,
+        include_archived: bool = False,
+    ) -> dict | None:
         """Get guide with chapters and progress."""
         with wal_connect(self.db_path, row_factory=True) as conn:
-            row = conn.execute("SELECT * FROM guides WHERE id=?", (guide_id,)).fetchone()
+            query = "SELECT * FROM guides WHERE id=?"
+            if not include_archived:
+                query += " AND archived_at IS NULL"
+            row = conn.execute(query, (guide_id,)).fetchone()
             if not row:
                 return None
-            d = dict(row)
-            d["has_glossary"] = bool(d["has_glossary"])
-            d["prerequisites"] = json.loads(d.get("prerequisites", "[]"))
+            d = self._deserialize_guide_row(row)
 
             chapters = conn.execute(
                 'SELECT * FROM chapters WHERE guide_id=? ORDER BY "order"', (guide_id,)
@@ -651,10 +757,13 @@ class CurriculumStore:
 
             return d
 
-    def get_chapter(self, chapter_id: str) -> dict | None:
+    def get_chapter(self, chapter_id: str, *, include_archived: bool = False) -> dict | None:
         """Get chapter metadata."""
         with wal_connect(self.db_path, row_factory=True) as conn:
-            row = conn.execute("SELECT * FROM chapters WHERE id=?", (chapter_id,)).fetchone()
+            query = "SELECT c.* FROM chapters c JOIN guides g ON g.id = c.guide_id WHERE c.id=?"
+            if not include_archived:
+                query += " AND g.archived_at IS NULL"
+            row = conn.execute(query, (chapter_id,)).fetchone()
             if not row:
                 return None
             return self._deserialize_chapter_row(row)
@@ -679,13 +788,38 @@ class CurriculumStore:
             ).fetchone()
             return row is not None
 
-    def get_enrollments(self, user_id: str) -> list[dict]:
+    def get_enrollments(self, user_id: str, *, include_archived: bool = False) -> list[dict]:
         with wal_connect(self.db_path, row_factory=True) as conn:
-            rows = conn.execute(
-                "SELECT * FROM user_guide_enrollment WHERE user_id=? ORDER BY enrolled_at DESC",
-                (user_id,),
-            ).fetchall()
+            query = (
+                "SELECT uge.* FROM user_guide_enrollment uge JOIN guides g ON g.id = uge.guide_id "
+                "WHERE uge.user_id=?"
+            )
+            if not include_archived:
+                query += " AND g.archived_at IS NULL"
+            query += " ORDER BY uge.enrolled_at DESC"
+            rows = conn.execute(query, (user_id,)).fetchall()
             return [dict(r) for r in rows]
+
+    def archive_guide(self, guide_id: str, archive_path: str) -> dict | None:
+        now = datetime.utcnow().isoformat()
+        with wal_connect(self.db_path, row_factory=True) as conn:
+            conn.execute(
+                "UPDATE guides SET archived_at=?, archive_path=? WHERE id=? AND origin='user'",
+                (now, archive_path, guide_id),
+            )
+            conn.commit()
+            row = conn.execute("SELECT * FROM guides WHERE id=?", (guide_id,)).fetchone()
+            return self._deserialize_guide_row(row) if row else None
+
+    def restore_guide(self, guide_id: str) -> dict | None:
+        with wal_connect(self.db_path, row_factory=True) as conn:
+            conn.execute(
+                "UPDATE guides SET archived_at=NULL, archive_path='' WHERE id=? AND origin='user'",
+                (guide_id,),
+            )
+            conn.commit()
+            row = conn.execute("SELECT * FROM guides WHERE id=?", (guide_id,)).fetchone()
+            return self._deserialize_guide_row(row) if row else None
 
     # --- Progress ---
 
@@ -802,7 +936,7 @@ class CurriculumStore:
                    FROM user_chapter_progress ucp
                    JOIN chapters c ON c.id = ucp.chapter_id
                    JOIN guides g ON g.id = c.guide_id
-                   WHERE ucp.user_id=?
+                   WHERE ucp.user_id=? AND g.archived_at IS NULL
                    ORDER BY ucp.updated_at DESC LIMIT 1""",
                 (user_id,),
             ).fetchone()
@@ -852,18 +986,21 @@ class CurriculumStore:
         with wal_connect(self.db_path, row_factory=True) as conn:
             if guide_id:
                 rows = conn.execute(
-                    """SELECT * FROM review_items
-                       WHERE user_id=? AND guide_id=? AND next_review <= ?
+                    """SELECT ri.* FROM review_items ri
+                       JOIN guides g ON g.id = ri.guide_id
+                       WHERE ri.user_id=? AND ri.guide_id=? AND ri.next_review <= ?
                        AND item_type != 'pre_reading'
-                       ORDER BY next_review ASC LIMIT ?""",
+                       AND g.archived_at IS NULL
+                       ORDER BY ri.next_review ASC LIMIT ?""",
                     (user_id, guide_id, now, limit),
                 ).fetchall()
             else:
                 rows = conn.execute(
-                    """SELECT * FROM review_items
-                       WHERE user_id=? AND next_review <= ?
-                       AND item_type != 'pre_reading'
-                       ORDER BY next_review ASC LIMIT ?""",
+                    """SELECT ri.* FROM review_items ri
+                       JOIN guides g ON g.id = ri.guide_id
+                       WHERE ri.user_id=? AND ri.next_review <= ?
+                       AND ri.item_type != 'pre_reading' AND g.archived_at IS NULL
+                       ORDER BY ri.next_review ASC LIMIT ?""",
                     (user_id, now, limit),
                 ).fetchall()
             return [dict(r) for r in rows]
@@ -876,14 +1013,17 @@ class CurriculumStore:
         include_pre_reading: bool = True,
     ) -> list[dict]:
         with wal_connect(self.db_path, row_factory=True) as conn:
-            query = "SELECT * FROM review_items WHERE user_id=?"
+            query = (
+                "SELECT ri.* FROM review_items ri JOIN guides g ON g.id = ri.guide_id "
+                "WHERE ri.user_id=? AND g.archived_at IS NULL"
+            )
             params: list[object] = [user_id]
             if guide_id:
-                query += " AND guide_id=?"
+                query += " AND ri.guide_id=?"
                 params.append(guide_id)
             if not include_pre_reading:
-                query += " AND item_type != 'pre_reading'"
-            query += " ORDER BY created_at DESC"
+                query += " AND ri.item_type != 'pre_reading'"
+            query += " ORDER BY ri.created_at DESC"
             rows = conn.execute(query, tuple(params)).fetchall()
             return [dict(r) for r in rows]
 
@@ -897,24 +1037,28 @@ class CurriculumStore:
         with wal_connect(self.db_path, row_factory=True) as conn:
             if guide_id:
                 rows = conn.execute(
-                    """SELECT * FROM review_items
-                       WHERE user_id=?
-                       AND guide_id=?
-                       AND item_type != 'pre_reading'
-                       AND last_reviewed IS NOT NULL
-                       AND (repetitions = 0 OR easiness_factor < 2.4)
-                       ORDER BY last_reviewed DESC
+                    """SELECT ri.* FROM review_items ri
+                       JOIN guides g ON g.id = ri.guide_id
+                       WHERE ri.user_id=?
+                       AND ri.guide_id=?
+                       AND ri.item_type != 'pre_reading'
+                       AND ri.last_reviewed IS NOT NULL
+                       AND g.archived_at IS NULL
+                       AND (ri.repetitions = 0 OR ri.easiness_factor < 2.4)
+                       ORDER BY ri.last_reviewed DESC
                        LIMIT ?""",
                     (user_id, guide_id, limit),
                 ).fetchall()
             else:
                 rows = conn.execute(
-                    """SELECT * FROM review_items
-                       WHERE user_id=?
-                       AND item_type != 'pre_reading'
-                       AND last_reviewed IS NOT NULL
-                       AND (repetitions = 0 OR easiness_factor < 2.4)
-                       ORDER BY last_reviewed DESC
+                    """SELECT ri.* FROM review_items ri
+                       JOIN guides g ON g.id = ri.guide_id
+                       WHERE ri.user_id=?
+                       AND ri.item_type != 'pre_reading'
+                       AND ri.last_reviewed IS NOT NULL
+                       AND g.archived_at IS NULL
+                       AND (ri.repetitions = 0 OR ri.easiness_factor < 2.4)
+                       ORDER BY ri.last_reviewed DESC
                        LIMIT ?""",
                     (user_id, limit),
                 ).fetchall()
@@ -922,7 +1066,12 @@ class CurriculumStore:
 
     def get_review_item(self, review_id: str) -> dict | None:
         with wal_connect(self.db_path, row_factory=True) as conn:
-            row = conn.execute("SELECT * FROM review_items WHERE id=?", (review_id,)).fetchone()
+            row = conn.execute(
+                """SELECT ri.* FROM review_items ri
+                   JOIN guides g ON g.id = ri.guide_id
+                   WHERE ri.id=? AND g.archived_at IS NULL""",
+                (review_id,),
+            ).fetchone()
             return dict(row) if row else None
 
     def grade_review(self, review_id: str, grade: int) -> dict | None:
@@ -964,7 +1113,9 @@ class CurriculumStore:
     def get_review_items_for_chapter(self, user_id: str, chapter_id: str) -> list[dict]:
         with wal_connect(self.db_path, row_factory=True) as conn:
             rows = conn.execute(
-                "SELECT * FROM review_items WHERE user_id=? AND chapter_id=?",
+                """SELECT ri.* FROM review_items ri
+                   JOIN guides g ON g.id = ri.guide_id
+                   WHERE ri.user_id=? AND ri.chapter_id=? AND g.archived_at IS NULL""",
                 (user_id, chapter_id),
             ).fetchall()
             return [dict(r) for r in rows]
@@ -997,7 +1148,10 @@ class CurriculumStore:
         """Get the teach-back review item for a chapter, if any."""
         with wal_connect(self.db_path, row_factory=True) as conn:
             row = conn.execute(
-                "SELECT * FROM review_items WHERE user_id=? AND chapter_id=? AND item_type='teachback'",
+                """SELECT ri.* FROM review_items ri
+                   JOIN guides g ON g.id = ri.guide_id
+                   WHERE ri.user_id=? AND ri.chapter_id=? AND ri.item_type='teachback'
+                   AND g.archived_at IS NULL""",
                 (user_id, chapter_id),
             ).fetchone()
             return dict(row) if row else None
@@ -1006,7 +1160,10 @@ class CurriculumStore:
         """Get pre-reading question items for a chapter."""
         with wal_connect(self.db_path, row_factory=True) as conn:
             rows = conn.execute(
-                "SELECT * FROM review_items WHERE user_id=? AND chapter_id=? AND item_type='pre_reading'",
+                """SELECT ri.* FROM review_items ri
+                   JOIN guides g ON g.id = ri.guide_id
+                   WHERE ri.user_id=? AND ri.chapter_id=? AND ri.item_type='pre_reading'
+                   AND g.archived_at IS NULL""",
                 (user_id, chapter_id),
             ).fetchall()
             return [dict(r) for r in rows]
@@ -1015,8 +1172,10 @@ class CurriculumStore:
         now = datetime.utcnow().isoformat()
         with wal_connect(self.db_path) as conn:
             row = conn.execute(
-                """SELECT COUNT(*) FROM review_items
-                   WHERE user_id=? AND next_review <= ? AND item_type != 'pre_reading'""",
+                """SELECT COUNT(*) FROM review_items ri
+                   JOIN guides g ON g.id = ri.guide_id
+                   WHERE ri.user_id=? AND ri.next_review <= ?
+                   AND ri.item_type != 'pre_reading' AND g.archived_at IS NULL""",
                 (user_id, now),
             ).fetchone()
             return row[0] if row else 0
@@ -1028,8 +1187,10 @@ class CurriculumStore:
             # Batch 1: enrollment counts (1 query instead of 2)
             enroll_row = conn.execute(
                 "SELECT COUNT(*) as enrolled, "
-                "SUM(CASE WHEN completed_at IS NOT NULL THEN 1 ELSE 0 END) as completed "
-                "FROM user_guide_enrollment WHERE user_id=?",
+                "SUM(CASE WHEN uge.completed_at IS NOT NULL THEN 1 ELSE 0 END) as completed "
+                "FROM user_guide_enrollment uge "
+                "JOIN guides g ON g.id = uge.guide_id "
+                "WHERE uge.user_id=? AND g.archived_at IS NULL",
                 (user_id,),
             ).fetchone()
             enrolled = enroll_row["enrolled"]
@@ -1042,7 +1203,8 @@ class CurriculumStore:
                    COALESCE(SUM(ucp.reading_time_seconds), 0) as reading_time
                    FROM user_chapter_progress ucp
                    JOIN chapters c ON c.id = ucp.chapter_id
-                   WHERE ucp.user_id=? AND c.is_glossary=0""",
+                   JOIN guides g ON g.id = c.guide_id
+                   WHERE ucp.user_id=? AND c.is_glossary=0 AND g.archived_at IS NULL""",
                 (user_id,),
             ).fetchone()
             chapters_completed = progress_row["completed"] or 0
@@ -1052,14 +1214,16 @@ class CurriculumStore:
             total_chapters = conn.execute(
                 """SELECT COUNT(DISTINCT c.id) FROM chapters c
                    JOIN user_guide_enrollment uge ON uge.guide_id = c.guide_id
-                   WHERE uge.user_id = ? AND c.is_glossary=0""",
+                   JOIN guides g ON g.id = c.guide_id
+                   WHERE uge.user_id = ? AND c.is_glossary=0 AND g.archived_at IS NULL""",
                 (user_id,),
             ).fetchone()[0]
 
             # Batch 3: review stats (1 query instead of 2)
             review_row = conn.execute(
-                "SELECT COUNT(*) as done, AVG(easiness_factor) as avg_ef "
-                "FROM review_items WHERE user_id=? AND last_reviewed IS NOT NULL",
+                "SELECT COUNT(*) as done, AVG(ri.easiness_factor) as avg_ef "
+                "FROM review_items ri JOIN guides g ON g.id = ri.guide_id "
+                "WHERE ri.user_id=? AND ri.last_reviewed IS NOT NULL AND g.archived_at IS NULL",
                 (user_id,),
             ).fetchone()
             reviews_done = review_row["done"]
@@ -1068,8 +1232,10 @@ class CurriculumStore:
             # Due reviews (inline instead of separate connection)
             now = datetime.utcnow().isoformat()
             due = conn.execute(
-                """SELECT COUNT(*) FROM review_items
-                   WHERE user_id=? AND next_review <= ? AND item_type != 'pre_reading'""",
+                """SELECT COUNT(*) FROM review_items ri
+                   JOIN guides g ON g.id = ri.guide_id
+                   WHERE ri.user_id=? AND ri.next_review <= ?
+                   AND ri.item_type != 'pre_reading' AND g.archived_at IS NULL""",
                 (user_id, now),
             ).fetchone()[0]
 
@@ -1082,7 +1248,7 @@ class CurriculumStore:
                    JOIN chapters c ON c.guide_id = g.id
                    LEFT JOIN user_chapter_progress ucp
                    ON ucp.chapter_id = c.id AND ucp.user_id=? AND ucp.status='completed'
-                   WHERE c.is_glossary=0
+                   WHERE c.is_glossary=0 AND g.archived_at IS NULL
                    GROUP BY g.category""",
                 (user_id,),
             ).fetchall()
@@ -1095,10 +1261,11 @@ class CurriculumStore:
             # Daily activity (last 30 days)
             thirty_days_ago = (datetime.utcnow() - timedelta(days=30)).isoformat()
             daily_rows = conn.execute(
-                """SELECT DATE(updated_at) as day, COUNT(*) as cnt
-                   FROM user_chapter_progress
-                   WHERE user_id=? AND updated_at >= ?
-                   GROUP BY DATE(updated_at)""",
+                """SELECT DATE(ucp.updated_at) as day, COUNT(*) as cnt
+                   FROM user_chapter_progress ucp
+                   JOIN guides g ON g.id = ucp.guide_id
+                   WHERE ucp.user_id=? AND ucp.updated_at >= ? AND g.archived_at IS NULL
+                   GROUP BY DATE(ucp.updated_at)""",
                 (user_id, thirty_days_ago),
             ).fetchall()
             daily = {dict(r)["day"]: dict(r)["cnt"] for r in daily_rows}
@@ -1121,7 +1288,9 @@ class CurriculumStore:
             # Mastery by track — batch via pre-fetched data (no N+1)
             chapter_counts, completed_counts, _, avg_ef_map = self._batch_guide_data(conn, user_id)
             mastery_track: dict[str, float] = {}
-            guide_rows = conn.execute("SELECT id, track FROM guides WHERE track != ''").fetchall()
+            guide_rows = conn.execute(
+                "SELECT id, track FROM guides WHERE track != '' AND archived_at IS NULL"
+            ).fetchall()
             track_guide_map: dict[str, list[str]] = {}
             for gr in guide_rows:
                 gd = dict(gr)
@@ -1192,7 +1361,10 @@ class CurriculumStore:
         # chapter_count per guide
         chapter_counts: dict[str, int] = {}
         for r in conn.execute(
-            "SELECT guide_id, COUNT(*) as cnt FROM chapters WHERE is_glossary=0 GROUP BY guide_id"
+            """SELECT c.guide_id, COUNT(*) as cnt
+               FROM chapters c JOIN guides g ON g.id = c.guide_id
+               WHERE c.is_glossary=0 AND g.archived_at IS NULL
+               GROUP BY c.guide_id"""
         ):
             chapter_counts[r[0]] = r[1]
 
@@ -1202,22 +1374,28 @@ class CurriculumStore:
 
         if user_id:
             for r in conn.execute(
-                "SELECT guide_id, COUNT(*) as cnt FROM user_chapter_progress "
-                "WHERE user_id=? AND status='completed' GROUP BY guide_id",
+                "SELECT ucp.guide_id, COUNT(*) as cnt FROM user_chapter_progress ucp "
+                "JOIN guides g ON g.id = ucp.guide_id "
+                "WHERE ucp.user_id=? AND ucp.status='completed' AND g.archived_at IS NULL "
+                "GROUP BY ucp.guide_id",
                 (user_id,),
             ):
                 completed_counts[r[0]] = r[1]
 
             for r in conn.execute(
-                "SELECT guide_id, completed_at FROM user_guide_enrollment WHERE user_id=?",
+                "SELECT uge.guide_id, uge.completed_at FROM user_guide_enrollment uge "
+                "JOIN guides g ON g.id = uge.guide_id "
+                "WHERE uge.user_id=? AND g.archived_at IS NULL",
                 (user_id,),
             ):
                 enrollment_map[r[0]] = r[1]
 
             for r in conn.execute(
-                "SELECT guide_id, AVG(easiness_factor) FROM review_items "
-                "WHERE user_id=? AND last_reviewed IS NOT NULL AND item_type != 'pre_reading' "
-                "GROUP BY guide_id",
+                "SELECT ri.guide_id, AVG(ri.easiness_factor) FROM review_items ri "
+                "JOIN guides g ON g.id = ri.guide_id "
+                "WHERE ri.user_id=? AND ri.last_reviewed IS NOT NULL "
+                "AND ri.item_type != 'pre_reading' AND g.archived_at IS NULL "
+                "GROUP BY ri.guide_id",
                 (user_id,),
             ):
                 avg_ef_map[r[0]] = r[1]
@@ -1245,7 +1423,9 @@ class CurriculumStore:
     ) -> list[dict]:
         """List tracks with aggregate stats."""
         with wal_connect(self.db_path, row_factory=True) as conn:
-            rows = conn.execute("SELECT * FROM guides ORDER BY id").fetchall()
+            rows = conn.execute(
+                "SELECT * FROM guides WHERE archived_at IS NULL AND origin='builtin' ORDER BY id"
+            ).fetchall()
             chapter_counts, completed_counts, enrollment_map, avg_ef_map = self._batch_guide_data(
                 conn, user_id
             )
@@ -1316,7 +1496,9 @@ class CurriculumStore:
         import json as _json
 
         with wal_connect(self.db_path, row_factory=True) as conn:
-            rows = conn.execute("SELECT * FROM guides ORDER BY id").fetchall()
+            rows = conn.execute(
+                "SELECT * FROM guides WHERE archived_at IS NULL AND origin='builtin' ORDER BY id"
+            ).fetchall()
             chapter_counts, completed_counts, enrollment_map, avg_ef_map = self._batch_guide_data(
                 conn, user_id
             )
@@ -1377,7 +1559,9 @@ class CurriculumStore:
         import json
 
         with wal_connect(self.db_path, row_factory=True) as conn:
-            rows = conn.execute("SELECT * FROM guides ORDER BY id").fetchall()
+            rows = conn.execute(
+                "SELECT * FROM guides WHERE archived_at IS NULL AND origin='builtin' ORDER BY id"
+            ).fetchall()
             excluded_guide_ids = excluded_guide_ids or set()
             results = []
             for row in rows:

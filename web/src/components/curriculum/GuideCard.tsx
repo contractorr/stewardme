@@ -34,6 +34,11 @@ export function GuideCard({ guide }: { guide: Guide }) {
             {pct > 0 && <ProgressRing progress={pct} size={36} />}
           </div>
           <div className="flex flex-wrap gap-1.5 pt-1">
+            {guide.origin === "user" && (
+              <Badge variant="outline" className="text-[10px]">
+                Your guide
+              </Badge>
+            )}
             <Badge variant="secondary" className="text-[10px]">
               {categoryLabels[guide.category] ?? guide.category}
             </Badge>

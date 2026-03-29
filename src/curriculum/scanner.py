@@ -14,7 +14,8 @@ from .content_schema import (
     list_curriculum_content_files,
     load_curriculum_document,
 )
-from .models import Chapter, DifficultyLevel, Guide, GuideCategory
+from .models import Chapter, DifficultyLevel, Guide, GuideCategory, GuideKind, GuideOrigin
+from .user_content import load_guide_metadata
 
 logger = structlog.get_logger()
 
@@ -142,6 +143,42 @@ def _guide_title_from_dir(dir_name: str) -> str:
 def _guide_order(dir_name: str) -> int:
     m = _ORDER_RE.match(dir_name)
     return int(m.group(1)) if m else 99
+
+
+def _coerce_category(value: object, fallback: GuideCategory) -> GuideCategory:
+    if isinstance(value, str):
+        try:
+            return GuideCategory(value)
+        except ValueError:
+            return fallback
+    return fallback
+
+
+def _coerce_difficulty(value: object, fallback: DifficultyLevel) -> DifficultyLevel:
+    if isinstance(value, str):
+        try:
+            return DifficultyLevel(value)
+        except ValueError:
+            return fallback
+    return fallback
+
+
+def _coerce_origin(value: object) -> GuideOrigin:
+    if isinstance(value, str):
+        try:
+            return GuideOrigin(value)
+        except ValueError:
+            return GuideOrigin.BUILTIN
+    return GuideOrigin.BUILTIN
+
+
+def _coerce_kind(value: object, fallback: GuideKind = GuideKind.CORE) -> GuideKind:
+    if isinstance(value, str):
+        try:
+            return GuideKind(value)
+        except ValueError:
+            return fallback
+    return fallback
 
 
 def _load_manifest_data(content_dir: Path) -> dict[str, Any] | None:
@@ -474,6 +511,7 @@ class CurriculumScanner:
         guide_chapters: list[Chapter] = []
         total_words = 0
         has_glossary = False
+        guide_metadata = load_guide_metadata(guide_dir)
 
         for idx, chapter_file in enumerate(chapter_files):
             try:
@@ -528,12 +566,27 @@ class CurriculumScanner:
                         prereqs.append(d.name)
                         break
 
+        inferred_category = _infer_category(guide_id, is_industry)
+        inferred_difficulty = _infer_difficulty(guide_id, order)
+        origin = _coerce_origin(guide_metadata.get("origin"))
+        inferred_kind = GuideKind.CORE
+        if origin == GuideOrigin.USER:
+            inferred_kind = (
+                GuideKind.EXTENSION if guide_metadata.get("base_guide_id") else GuideKind.STANDALONE
+            )
+        kind = _coerce_kind(guide_metadata.get("kind"), inferred_kind)
         guide = Guide(
             id=guide_id,
-            title=_guide_title_from_dir(guide_id),
-            category=_infer_category(guide_id, is_industry),
-            difficulty=_infer_difficulty(guide_id, order),
+            title=str(guide_metadata.get("title") or _guide_title_from_dir(guide_id)),
+            category=_coerce_category(guide_metadata.get("category"), inferred_category),
+            difficulty=_coerce_difficulty(guide_metadata.get("difficulty"), inferred_difficulty),
             source_dir=str(guide_dir),
+            origin=origin,
+            kind=kind,
+            owner_user_id=str(guide_metadata.get("owner_user_id") or ""),
+            base_guide_id=str(guide_metadata.get("base_guide_id"))
+            if guide_metadata.get("base_guide_id")
+            else None,
             chapter_count=len(guide_chapters),
             total_word_count=total_words,
             total_reading_time_minutes=reading_time,

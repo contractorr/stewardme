@@ -25,6 +25,8 @@ class StoragePaths(TypedDict):
     follow_up_path: Path  # legacy alias
     intel_follow_ups_path: Path  # canonical
     intel_db: Path
+    curriculum_dir: Path
+    curriculum_archive_dir: Path
 
 
 def get_coach_home(coach_home: Path | None = None) -> Path:
@@ -70,6 +72,8 @@ def _build_paths(data_dir: Path, profile_path: Path, intel_db: Path) -> StorageP
         follow_up_path=follow_up_path,
         intel_follow_ups_path=follow_up_path,
         intel_db=intel_db,
+        curriculum_dir=data_dir / "curriculum",
+        curriculum_archive_dir=data_dir / "curriculum-archive",
     )
 
 
