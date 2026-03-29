@@ -4,7 +4,7 @@
 
 ## Overview
 
-The curriculum subsystem powers the Learn workspace. It scans the curriculum corpus, normalizes
+The curriculum subsystem powers the Library workspace. It scans the curriculum corpus, normalizes
 content metadata, stores per-user progress and review state, exposes web and MCP surfaces, and
 supports richer rendering and recommendation behavior than the original markdown-only reader.
 
@@ -393,38 +393,29 @@ context that includes:
 #### Current UX surface
 
 - Home:
-  - `Today in Learn` card backed by `/api/curriculum/today`
-  - learning metrics alongside the daily queue
-  - top program paths now show revision / weak-item / assessment cues from the same backend signals
-- Learn landing page:
-  - `Today in Learn` primary task
-  - supporting queue
-  - program-path cards
-  - program-path remediation badges driven by aggregated learning signals
-  - library/grid/tree section below the workflow surfaces
+  - one learning card backed by `/api/curriculum/today`
+  - one primary next-step CTA
+  - quiet review summary when work is due
+- Library landing page:
+  - `Next up` section with a single recommended action
+  - `Reviews` section with a single review entry point
+  - `Browse guides` section with simple search and guide cards
 - guide detail:
-  - enrollment
   - chapter list
-  - learning-program badges
-  - applied-assessment pilot cards
-  - create/open/revise draft actions for applied assessments
-  - draft status and latest feedback summary for reviewed deliverables
-  - placement/test-out
-- Journal:
-  - reads and updates persisted assessment drafts
-  - submits assessment drafts for rubric feedback
-  - shows the latest grading feedback block inline with the draft
+  - simple progress summary
+  - one primary action: start, continue, or review
 - chapter reader:
   - renderer
-  - pre-reading
   - completion
-  - inline reflection textarea
-  - teach-back
-  - free-form quiz flow with grading feedback
-  - related chapters
+  - optional reflection after completion
+  - review CTA after completion
 - review page:
-  - due-item session flow
-  - retry-mode session flow for recently weak items
+  - one simple review session flow
+  - retry items can still be used as backend fallback, but they are not exposed as a separate primary mode
+
+Advanced curriculum capabilities such as applied assessments, placement, related chapters,
+teach-back, and custom guide generation still exist in the backend, but they are no longer part of
+the default learning surface.
 
 #### CurriculumRenderer
 

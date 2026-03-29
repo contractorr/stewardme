@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowLeft, CheckCircle } from "lucide-react";
 import { useToken } from "@/hooks/useToken";
@@ -14,20 +13,11 @@ import type { ReviewItem, ReviewSubmissionResult } from "@/types/curriculum";
 
 export default function ReviewSessionPage() {
   const token = useToken();
-  const searchParams = useSearchParams();
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [current, setCurrent] = useState(0);
   const [loading, setLoading] = useState(true);
   const [grades, setGrades] = useState<number[]>([]);
   const [done, setDone] = useState(false);
-  const mode = searchParams.get("mode") === "retry" ? "retry" : "due";
-  const endpoint =
-    mode === "retry"
-      ? "/api/v1/curriculum/review/retry?limit=20"
-      : "/api/v1/curriculum/review/due?limit=20";
-  const pageTitle = mode === "retry" ? "Weak Item Retry" : "Review Session";
-  const emptyTitle =
-    mode === "retry" ? "No weak items to retry right now." : "Session complete!";
 
   useEffect(() => {
     if (!token) return;
@@ -39,7 +29,19 @@ export default function ReviewSessionPage() {
       setCurrent(0);
       setGrades([]);
       try {
-        const data = await apiFetch<ReviewItem[]>(endpoint, {}, token);
+        const dueItems = await apiFetch<ReviewItem[]>(
+          "/api/v1/curriculum/review/due?limit=20",
+          {},
+          token,
+        );
+        const data =
+          dueItems.length > 0
+            ? dueItems
+            : await apiFetch<ReviewItem[]>(
+                "/api/v1/curriculum/review/retry?limit=20",
+                {},
+                token,
+              ).catch(() => []);
         if (cancelled) return;
         setItems(data);
         if (data.length === 0) setDone(true);
@@ -54,12 +56,12 @@ export default function ReviewSessionPage() {
     return () => {
       cancelled = true;
     };
-  }, [endpoint, token]);
+  }, [token]);
 
   const handleGrade = async (
     reviewId: string,
     answer: string,
-    selfGrade?: number
+    selfGrade?: number,
   ): Promise<ReviewSubmissionResult | null> => {
     if (!token) return null;
     try {
@@ -72,7 +74,7 @@ export default function ReviewSessionPage() {
             self_grade: selfGrade ?? null,
           }),
         },
-        token
+        token,
       );
       setGrades((prev) => [...prev, result.grade]);
       return result;
@@ -101,20 +103,28 @@ export default function ReviewSessionPage() {
 
   const avgGrade =
     grades.length > 0
-      ? (grades.reduce((a, b) => a + b, 0) / grades.length).toFixed(1)
+      ? (grades.reduce((left, right) => left + right, 0) / grades.length).toFixed(1)
       : "—";
 
   if (done) {
     return (
-      <div className="max-w-2xl mx-auto text-center py-12 space-y-4">
+      <div className="max-w-2xl mx-auto space-y-4 py-12 text-center">
         <CheckCircle className="mx-auto h-12 w-12 text-green-500" />
-        <h2 className="text-xl font-semibold">{emptyTitle}</h2>
-        <div className="flex justify-center gap-6 text-sm text-muted-foreground">
-          <span>Reviewed: {grades.length}</span>
-          <span>Avg grade: {avgGrade}/5</span>
-        </div>
+        <h2 className="text-xl font-semibold">
+          {grades.length > 0 ? "Review complete" : "No reviews due right now"}
+        </h2>
+        {grades.length > 0 ? (
+          <div className="flex justify-center gap-6 text-sm text-muted-foreground">
+            <span>Reviewed: {grades.length}</span>
+            <span>Avg grade: {avgGrade}/5</span>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Finish another chapter and new review items will show up here.
+          </p>
+        )}
         <Link href="/learn">
-          <Button className="mt-4">Back to Learn</Button>
+          <Button className="mt-4">Back to Library</Button>
         </Link>
       </div>
     );
@@ -131,22 +141,21 @@ export default function ReviewSessionPage() {
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <h1 className="text-lg font-semibold">{pageTitle}</h1>
+          <h1 className="text-lg font-semibold">Review</h1>
         </div>
         <span className="text-sm text-muted-foreground">
           {current + 1} / {items.length}
         </span>
       </div>
 
-      {/* Progress bar */}
-      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
         <div
           className="h-full rounded-full bg-primary transition-all"
           style={{ width: `${((current + 1) / items.length) * 100}%` }}
         />
       </div>
 
-      {item && (
+      {item ? (
         <ReviewCard
           key={item.id}
           item={item}
@@ -155,7 +164,7 @@ export default function ReviewSessionPage() {
           nextLabel={current + 1 >= items.length ? "Finish session" : "Next item"}
           showAnswer
         />
-      )}
+      ) : null}
     </div>
   );
 }

@@ -1,130 +1,85 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import {
-  ArrowRight,
-  BookOpen,
-  Clock,
-  Flame,
-  GitFork,
-  GraduationCap,
-  LayoutGrid,
-  Plus,
-  RefreshCcw,
-  Route,
-  Search,
-  Sparkles,
-} from "lucide-react";
+import { ArrowRight, RefreshCcw, RotateCcw, Search } from "lucide-react";
 
 import { WorkspacePageHeader } from "@/components/WorkspacePageHeader";
 import { GuideCard } from "@/components/curriculum/GuideCard";
-import { SkillTree } from "@/components/curriculum/SkillTree";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToken } from "@/hooks/useToken";
 import { apiFetch } from "@/lib/api";
 import {
-  buildLearningProgramHref,
   buildLearningTaskHref,
   formatLearningMinutes,
-  formatLearningProgramSignals,
-  formatLearningSeconds,
-  learningProgramStatusLabels,
   learningTaskLabels,
-  recommendationLabels,
 } from "@/lib/curriculum";
-import type {
-  Guide,
-  GuideDepth,
-  LearningStats,
-  LearningToday,
-} from "@/types/curriculum";
+import type { Guide, LearningStats, LearningToday, LearningTodayTask } from "@/types/curriculum";
 
-type CategoryFilter = string | "all";
-type SortMode = "alpha" | "progress" | "difficulty" | "recommended";
-type LearnView = "grid" | "tree";
+function sortGuides(guides: Guide[]): Guide[] {
+  return [...guides].sort((left, right) => {
+    const leftProgress = left.progress_pct ?? 0;
+    const rightProgress = right.progress_pct ?? 0;
+    const leftActive = left.enrolled && leftProgress < 100;
+    const rightActive = right.enrolled && rightProgress < 100;
 
-const categoryLabels: Record<string, string> = {
-  all: "All",
-  science: "Science",
-  humanities: "Humanities",
-  business: "Business",
-  technology: "Technology",
-  industry: "Industry",
-  social_science: "Social Science",
-  professional: "Professional",
-};
+    if (leftActive !== rightActive) {
+      return Number(rightActive) - Number(leftActive);
+    }
 
-const difficultyOrder: Record<string, number> = {
-  introductory: 0,
-  intermediate: 1,
-  advanced: 2,
-};
+    const leftStarted = leftProgress > 0;
+    const rightStarted = rightProgress > 0;
+    if (leftStarted !== rightStarted) {
+      return Number(rightStarted) - Number(leftStarted);
+    }
 
-const depthLabels: Record<GuideDepth, string> = {
-  survey: "Survey",
-  practitioner: "Practitioner",
-  deep_dive: "Deep dive",
-};
+    if (leftProgress !== rightProgress) {
+      return rightProgress - leftProgress;
+    }
+
+    return left.title.localeCompare(right.title);
+  });
+}
+
+function getReviewCount(
+  task: LearningTodayTask | null,
+  stats: LearningStats | null,
+  today: LearningToday | null,
+): number {
+  if (!task) {
+    return stats?.reviews_due ?? today?.reviews_due ?? 0;
+  }
+  return task.review_count ?? task.retry_count ?? stats?.reviews_due ?? today?.reviews_due ?? 0;
+}
 
 export default function LearnPage() {
   const token = useToken();
-  const searchParams = useSearchParams();
   const [guides, setGuides] = useState<Guide[]>([]);
-  const [archivedGuides, setArchivedGuides] = useState<Guide[]>([]);
   const [stats, setStats] = useState<LearningStats | null>(null);
   const [today, setToday] = useState<LearningToday | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [restoringGuideId, setRestoringGuideId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState<CategoryFilter>("all");
-  const [sort, setSort] = useState<SortMode>("recommended");
-  const [createForm, setCreateForm] = useState({
-    topic: "",
-    depth: "practitioner" as GuideDepth,
-    audience: "",
-    time_budget: "",
-    instruction: "",
-  });
-  const [activeView, setActiveView] = useState<LearnView>(
-    searchParams.get("view") === "tree" ? "tree" : "grid",
-  );
-  const librarySectionRef = useRef<HTMLElement | null>(null);
-
-  const selectedProgramId = searchParams.get("program");
 
   const loadData = async () => {
     if (!token) return;
     setLoading(true);
     try {
-      const [guidesData, archivedData, statsData, todayData] = await Promise.all([
+      const [guidesData, statsData, todayData] = await Promise.all([
         apiFetch<Guide[]>("/api/v1/curriculum/guides", {}, token),
-        apiFetch<Guide[]>("/api/v1/curriculum/guides/archived", {}, token).catch(
-          () => [],
-        ),
         apiFetch<LearningStats>("/api/v1/curriculum/stats", {}, token),
         apiFetch<LearningToday>("/api/v1/curriculum/today", {}, token),
       ]);
       setGuides(guidesData);
-      setArchivedGuides(archivedData);
       setStats(statsData);
       setToday(todayData);
     } catch (e) {
@@ -137,24 +92,6 @@ export default function LearnPage() {
   useEffect(() => {
     void loadData();
   }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    setActiveView(searchParams.get("view") === "tree" ? "tree" : "grid");
-  }, [searchParams]);
-
-  const handleViewChange = (value: string) => {
-    const nextView = value as LearnView;
-    setActiveView(nextView);
-
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const section = librarySectionRef.current;
-        if (!section) return;
-        const top = section.getBoundingClientRect().top + window.scrollY - 16;
-        window.scrollTo({ top: Math.max(top, 0) });
-      });
-    });
-  };
 
   const handleSync = async () => {
     if (!token) return;
@@ -173,142 +110,38 @@ export default function LearnPage() {
     }
   };
 
-  const handleCreateGuide = async () => {
-    if (!token) return;
-    setCreating(true);
-    try {
-      const created = await apiFetch<Guide>(
-        "/api/v1/curriculum/guides/generate",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            topic: createForm.topic.trim(),
-            depth: createForm.depth,
-            audience: createForm.audience.trim(),
-            time_budget: createForm.time_budget.trim(),
-            instruction: createForm.instruction.trim() || undefined,
-          }),
-        },
-        token,
-      );
-      setCreateOpen(false);
-      setCreateForm({
-        topic: "",
-        depth: "practitioner",
-        audience: "",
-        time_budget: "",
-        instruction: "",
-      });
-      await loadData();
-      toast.success(`Created ${created.title}`);
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setCreating(false);
-    }
-  };
+  const visibleGuides = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    const filtered = query
+      ? guides.filter((guide) => guide.title.toLowerCase().includes(query))
+      : guides;
+    return sortGuides(filtered);
+  }, [guides, search]);
 
-  const handleRestoreGuide = async (guideId: string) => {
-    if (!token) return;
-    setRestoringGuideId(guideId);
-    try {
-      await apiFetch(
-        `/api/v1/curriculum/guides/${guideId}/restore`,
-        { method: "POST" },
-        token,
-      );
-      await loadData();
-      toast.success("Guide restored");
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setRestoringGuideId(null);
-    }
-  };
+  const reviewTask =
+    today?.tasks.find(
+      (task) => task.task_type === "due_reviews" || task.task_type === "retry_reviews",
+    ) ?? null;
 
-  const categories = useMemo(() => {
-    const cats = new Set(
-      guides.filter((guide) => guide.origin === "builtin").map((g) => g.category),
-    );
-    return ["all", ...Array.from(cats).sort()];
-  }, [guides]);
+  const nextUpTask =
+    today?.tasks.find(
+      (task) => task.task_type === "continue_chapter" || task.task_type === "start_guide",
+    ) ??
+    reviewTask ??
+    today?.tasks.find((task) => Boolean(task.guide_id || task.chapter_id)) ??
+    today?.tasks[0] ??
+    null;
 
-  const builtinGuides = useMemo(
-    () => guides.filter((guide) => guide.origin === "builtin"),
-    [guides],
-  );
-
-  const userGuides = useMemo(
-    () => guides.filter((guide) => guide.origin === "user"),
-    [guides],
-  );
-
-  const filtered = useMemo(() => {
-    let result = builtinGuides;
-    if (category !== "all") {
-      result = result.filter((g) => g.category === category);
-    }
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      result = result.filter((g) => g.title.toLowerCase().includes(q));
-    }
-    return [...result].sort((a, b) => {
-      switch (sort) {
-        case "alpha":
-          return a.title.localeCompare(b.title);
-        case "progress":
-          return (b.progress_pct ?? 0) - (a.progress_pct ?? 0);
-        case "difficulty":
-          return (
-            (difficultyOrder[a.difficulty] ?? 1) -
-            (difficultyOrder[b.difficulty] ?? 1)
-          );
-        case "recommended":
-        default:
-          if (a.enrolled && !b.enrolled) return -1;
-          if (!a.enrolled && b.enrolled) return 1;
-          if ((a.progress_pct ?? 0) !== (b.progress_pct ?? 0)) {
-            return (b.progress_pct ?? 0) - (a.progress_pct ?? 0);
-          }
-          return a.title.localeCompare(b.title);
-      }
-    });
-  }, [builtinGuides, category, search, sort]);
-
-  const primaryTask = today?.tasks[0] ?? null;
-  const secondaryTasks = today?.tasks.slice(1, 4) ?? [];
-  const primarySignals = primaryTask?.signals?.slice(0, 3) ?? [];
-
-  const statsCards = stats
-    ? [
-        {
-          icon: GraduationCap,
-          label: "Enrolled",
-          value: `${stats.guides_enrolled}`,
-        },
-        {
-          icon: BookOpen,
-          label: "Chapters",
-          value: `${stats.chapters_completed}/${stats.total_chapters}`,
-        },
-        {
-          icon: Clock,
-          label: "Reading",
-          value: formatLearningSeconds(stats.total_reading_time_seconds),
-        },
-        {
-          icon: Flame,
-          label: "Streak",
-          value: `${stats.current_streak_days}d`,
-        },
-      ]
-    : [];
+  const reviewCount = getReviewCount(reviewTask, stats, today);
+  const inProgressCount = guides.filter(
+    (guide) => (guide.progress_pct ?? 0) > 0 && (guide.progress_pct ?? 0) < 100,
+  ).length;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-6">
+    <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
       <WorkspacePageHeader
-        title="Learn"
-        description="Daily learning workflow centered on today’s queue, program paths, and applied practice."
+        title="Library"
+        description="Pick a guide, continue your next chapter, and clear reviews when they are due."
         eyebrow="Curriculum"
         actions={
           <Button
@@ -325,608 +158,138 @@ export default function LearnPage() {
         }
       />
 
-      <section className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary" />
-          <h2 className="text-lg font-semibold">Today in Learn</h2>
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-          <Card className="border-primary/15 bg-card/80">
-            <CardHeader className="space-y-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="space-y-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                    Daily queue
-                  </p>
-                  <CardTitle className="text-2xl">
-                    {today?.headline ?? "Today in Learn"}
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {today?.summary ??
-                      "Learn now starts from the work that matters today, not from a catalog-first view."}
-                  </p>
+      <section className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(280px,0.9fr)]">
+        <Card>
+          <CardHeader className="space-y-2">
+            <div className="space-y-1">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                Next up
+              </p>
+              <CardTitle className="text-2xl">
+                {nextUpTask?.title ?? "Choose a guide to start learning"}
+              </CardTitle>
+              <CardDescription>
+                {nextUpTask?.detail ??
+                  "Start with one guide and move through it chapter by chapter."}
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {nextUpTask ? (
+              <>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span className="rounded-full border px-2 py-1">
+                    {learningTaskLabels[nextUpTask.task_type]}
+                  </span>
+                  <span>{formatLearningMinutes(nextUpTask.estimate_minutes)}</span>
+                  {nextUpTask.guide_title ? <span>{nextUpTask.guide_title}</span> : null}
                 </div>
-                {stats && (
-                  <Badge variant="secondary" className="text-xs">
-                    {stats.reviews_due} review
-                    {stats.reviews_due === 1 ? "" : "s"} due
-                  </Badge>
-                )}
-              </div>
-
-              {primaryTask ? (
-                <div className="rounded-2xl border bg-background/80 p-5">
-                  <div className="mb-3 flex flex-wrap items-center gap-2">
-                    <Badge variant="outline" className="text-[10px]">
-                      {learningTaskLabels[primaryTask.task_type]}
-                    </Badge>
-                    {primaryTask.recommendation_type ? (
-                      <Badge variant="secondary" className="text-[10px]">
-                        {recommendationLabels[primaryTask.recommendation_type]}
-                      </Badge>
-                    ) : null}
-                    <Badge variant="outline" className="text-[10px]">
-                      {formatLearningMinutes(primaryTask.estimate_minutes)}
-                    </Badge>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <p className="text-xl font-semibold">
-                        {primaryTask.title}
-                      </p>
-                      {primaryTask.guide_title ? (
-                        <p className="text-xs text-muted-foreground">
-                          {primaryTask.guide_title}
-                        </p>
-                      ) : null}
-                      <p className="text-sm text-muted-foreground">
-                        {primaryTask.detail}
-                      </p>
-                    </div>
-
-                    {primarySignals.length > 0 ? (
-                      <div className="grid gap-2 sm:grid-cols-3">
-                        {primarySignals.map((signal) => (
-                          <div
-                            key={`${signal.kind}-${signal.label}`}
-                            className="rounded-xl border bg-background/70 p-3"
-                          >
-                            <p className="text-sm font-medium">
-                              {signal.label}
-                            </p>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              {signal.detail}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
-
-                    {primaryTask.matched_programs?.length ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {primaryTask.matched_programs.map((program) => (
-                          <Badge
-                            key={program.id}
-                            variant="outline"
-                            className="text-[10px]"
-                            style={{
-                              borderColor: program.color,
-                              color: program.color,
-                            }}
-                          >
-                            {program.title}
-                          </Badge>
-                        ))}
-                      </div>
-                    ) : null}
-
-                    <div className="flex flex-wrap gap-2">
-                      <Button asChild>
-                        <Link href={buildLearningTaskHref(primaryTask)}>
-                          {primaryTask.cta_label}
-                          <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-                        </Link>
-                      </Button>
-                      <Button variant="outline" asChild>
-                        <Link href="/learn/review">Open reviews</Link>
-                      </Button>
-                    </div>
-                  </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button asChild>
+                    <Link href={buildLearningTaskHref(nextUpTask)}>
+                      {nextUpTask.cta_label}
+                      <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                    </Link>
+                  </Button>
+                  <Button variant="outline" asChild>
+                    <Link href="#browse-guides">Browse guides</Link>
+                  </Button>
                 </div>
-              ) : (
-                <div className="rounded-2xl border border-dashed p-6">
-                  <p className="text-sm text-muted-foreground">
-                    No task is queued yet. Start with a program path or open the
-                    library below.
-                  </p>
-                </div>
-              )}
-            </CardHeader>
-          </Card>
+              </>
+            ) : (
+              <Button asChild>
+                <Link href="#browse-guides">
+                  Browse guides
+                  <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                </Link>
+              </Button>
+            )}
+          </CardContent>
+        </Card>
 
-          <div className="space-y-4">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Queue</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {secondaryTasks.length > 0 ? (
-                  secondaryTasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="rounded-xl border bg-background/70 p-3"
-                    >
-                      <div className="mb-2 flex flex-wrap items-center gap-2">
-                        <Badge variant="outline" className="text-[10px]">
-                          {learningTaskLabels[task.task_type]}
-                        </Badge>
-                        <Badge variant="secondary" className="text-[10px]">
-                          {formatLearningMinutes(task.estimate_minutes)}
-                        </Badge>
-                      </div>
-                      <p className="text-sm font-medium">{task.title}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {task.detail}
-                      </p>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="mt-3 px-0"
-                        asChild
-                      >
-                        <Link href={buildLearningTaskHref(task)}>
-                          {task.cta_label}
-                          <ArrowRight className="ml-1 h-3 w-3" />
-                        </Link>
-                      </Button>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Secondary tasks will appear here once you enroll, review, or
-                    unlock more guides.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-
-            {statsCards.length > 0 ? (
-              <div className="grid grid-cols-2 gap-3">
-                {statsCards.map(({ icon: Icon, label, value }) => (
-                  <Card key={label}>
-                    <CardContent className="flex items-center gap-3 p-4">
-                      <Icon className="h-4 w-4 text-primary" />
-                      <div>
-                        <p className="text-lg font-semibold">{value}</p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {label}
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </section>
-
-      <section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="space-y-1">
-            <h2 className="text-lg font-semibold">Your Guides</h2>
+        <Card>
+          <CardHeader className="space-y-2">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <RotateCcw className="h-4 w-4" />
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em]">
+                Reviews
+              </p>
+            </div>
+            <CardTitle>
+              {reviewCount > 0
+                ? `${reviewCount} review${reviewCount === 1 ? "" : "s"} due`
+                : "You’re caught up"}
+            </CardTitle>
+            <CardDescription>
+              {reviewCount > 0
+                ? "Use one short review session to keep what you’ve learned fresh."
+                : "New reviews will show up here after you finish more chapters."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {reviewCount > 0 ? (
+              <Button asChild>
+                <Link href="/learn/review">Start review</Link>
+              </Button>
+            ) : (
+              <Button variant="outline" asChild>
+                <Link href="#browse-guides">Browse guides</Link>
+              </Button>
+            )}
             <p className="text-sm text-muted-foreground">
-              User-authored guides stay separate from the built-in curriculum.
+              {inProgressCount > 0
+                ? `${inProgressCount} guide${inProgressCount === 1 ? "" : "s"} currently in progress.`
+                : "No guides in progress yet."}
             </p>
-          </div>
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="mr-1.5 h-3.5 w-3.5" />
-            Create guide
-          </Button>
-        </div>
-
-        <Tabs defaultValue="active">
-          <TabsList variant="line">
-            <TabsTrigger value="active">Active</TabsTrigger>
-            <TabsTrigger value="archived">
-              Archived
-              {archivedGuides.length > 0 ? (
-                <Badge variant="secondary" className="ml-1.5 text-[10px]">
-                  {archivedGuides.length}
-                </Badge>
-              ) : null}
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="active" className="space-y-4">
-            {userGuides.length > 0 ? (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {userGuides.map((guide) => (
-                  <GuideCard key={guide.id} guide={guide} />
-                ))}
-              </div>
-            ) : (
-              <Card>
-                <CardContent className="p-6 text-sm text-muted-foreground">
-                  No custom guides yet. Create one from a topic, target
-                  audience, and time budget.
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
-          <TabsContent value="archived" className="space-y-3">
-            {archivedGuides.length > 0 ? (
-              archivedGuides.map((guide) => (
-                <Card key={guide.id}>
-                  <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium">{guide.title}</p>
-                        <Badge variant="outline" className="text-[10px]">
-                          {guide.kind === "extension" ? "Extension" : "Guide"}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Archived guides keep their progress and can be restored.
-                      </p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      onClick={() => void handleRestoreGuide(guide.id)}
-                      disabled={restoringGuideId === guide.id}
-                    >
-                      {restoringGuideId === guide.id ? "Restoring..." : "Restore"}
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))
-            ) : (
-              <Card>
-                <CardContent className="p-6 text-sm text-muted-foreground">
-                  No archived guides.
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-        </Tabs>
+          </CardContent>
+        </Card>
       </section>
 
-      <section className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Route className="h-4 w-4 text-primary" />
-          <h2 className="text-lg font-semibold">Program paths</h2>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Programs are the primary framing now: outcomes first, reusable guides
-          underneath, applied modules at the edge.
-        </p>
-
-        {today?.focus_programs?.length ? (
-          <div className="grid gap-4 lg:grid-cols-3">
-            {today.focus_programs.map((program) => {
-              const programSignals = formatLearningProgramSignals(program);
-
-              return (
-                <Card key={program.id} className="border-primary/10">
-                  <CardHeader className="space-y-3 pb-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge
-                        variant="outline"
-                        className="text-[10px]"
-                        style={{
-                          borderColor: program.color,
-                          color: program.color,
-                        }}
-                      >
-                        {learningProgramStatusLabels[program.status]}
-                      </Badge>
-                      <Badge variant="secondary" className="text-[10px]">
-                        {program.completed_guide_count}/
-                        {program.total_guide_count} complete
-                      </Badge>
-                    </div>
-                    <div className="space-y-1">
-                      <CardTitle className="text-lg">{program.title}</CardTitle>
-                      <p className="text-sm text-muted-foreground">
-                        {program.description}
-                      </p>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div className="rounded-xl border bg-background/70 p-3">
-                        <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                          In progress
-                        </p>
-                        <p className="mt-1 text-lg font-semibold">
-                          {program.in_progress_guide_count}
-                        </p>
-                      </div>
-                      <div className="rounded-xl border bg-background/70 p-3">
-                        <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                          Ready
-                        </p>
-                        <p className="mt-1 text-lg font-semibold">
-                          {program.ready_guide_count}
-                        </p>
-                      </div>
-                    </div>
-
-                    {programSignals.length > 0 ? (
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                          Watch now
-                        </p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {programSignals.map((signal) => (
-                            <Badge
-                              key={signal}
-                              variant="outline"
-                              className="text-[10px]"
-                            >
-                              {signal}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                        Outcomes
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {program.outcomes.slice(0, 3).map((outcome) => (
-                          <Badge
-                            key={outcome}
-                            variant="secondary"
-                            className="max-w-full shrink whitespace-normal break-words py-1 text-left text-[10px] leading-snug"
-                          >
-                            {outcome}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-
-                    <Button variant="outline" asChild>
-                      <Link href={buildLearningProgramHref(program.id)}>
-                        Open path
-                        <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        ) : (
-          <Card>
-            <CardContent className="p-6 text-sm text-muted-foreground">
-              Program recommendations will appear here once your curriculum
-              profile and progress have more signal.
-            </CardContent>
-          </Card>
-        )}
-      </section>
-
-      <section
-        id="library-and-map"
-        ref={librarySectionRef}
-        className="scroll-mt-4 space-y-4"
-      >
+      <section id="browse-guides" className="space-y-4">
         <div className="space-y-1">
-          <h2 className="text-lg font-semibold">Library and map</h2>
+          <h2 className="text-lg font-semibold">Browse guides</h2>
           <p className="text-sm text-muted-foreground">
-            Browse the full guide library or switch to the graph view when you
-            want to inspect the underlying curriculum.
+            Search the catalog and pick one guide to start or continue.
           </p>
         </div>
 
-        <Tabs
-          value={activeView}
-          onValueChange={handleViewChange}
-        >
-          <TabsList variant="line">
-            <TabsTrigger value="grid">
-              <LayoutGrid className="mr-1.5 h-3.5 w-3.5" />
-              Grid
-            </TabsTrigger>
-            <TabsTrigger value="tree">
-              <GitFork className="mr-1.5 h-3.5 w-3.5" />
-              Tree
-            </TabsTrigger>
-          </TabsList>
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="pl-9"
+            placeholder="Search guides"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </div>
 
-          <TabsContent value="grid" className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative min-w-[200px] max-w-sm flex-1">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search guides..."
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  className="h-9 pl-9 text-sm"
-                />
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {categories.map((cat) => (
-                  <Badge
-                    key={cat}
-                    variant={category === cat ? "default" : "outline"}
-                    className="cursor-pointer text-xs"
-                    onClick={() => setCategory(cat)}
-                  >
-                    {categoryLabels[cat] ?? cat}
-                  </Badge>
-                ))}
-              </div>
-              <select
-                value={sort}
-                onChange={(event) => setSort(event.target.value as SortMode)}
-                className="h-9 rounded-md border bg-background px-2 text-xs"
-              >
-                <option value="recommended">Recommended</option>
-                <option value="alpha">A-Z</option>
-                <option value="progress">Progress</option>
-                <option value="difficulty">Difficulty</option>
-              </select>
-            </div>
-
-            {loading ? (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <Card key={i} className="animate-pulse">
-                    <CardHeader className="pb-2">
-                      <div className="h-5 w-3/4 rounded bg-muted" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="h-3 w-1/2 rounded bg-muted" />
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className="rounded-lg border border-dashed p-8 text-center">
-                <GraduationCap className="mx-auto h-10 w-10 text-muted-foreground/40" />
-                <p className="mt-2 text-sm text-muted-foreground">
-                  No guides found
-                </p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="mt-3"
-                  onClick={handleSync}
-                >
-                  Sync content
-                </Button>
-              </div>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {filtered.map((guide) => (
-                  <GuideCard key={guide.id} guide={guide} />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="tree">
-            <SkillTree
-              key={selectedProgramId ?? "all-programs"}
-              initialSelectedProgramId={selectedProgramId}
-            />
-          </TabsContent>
-        </Tabs>
-      </section>
-
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create Guide</DialogTitle>
-            <DialogDescription>
-              Generate a separate user-authored learning guide from a topic and
-              study context.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Topic</label>
-              <Input
-                value={createForm.topic}
-                onChange={(event) =>
-                  setCreateForm((current) => ({
-                    ...current,
-                    topic: event.target.value,
-                  }))
-                }
-                placeholder="AI product strategy"
-              />
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Depth</label>
-                <select
-                  value={createForm.depth}
-                  onChange={(event) =>
-                    setCreateForm((current) => ({
-                      ...current,
-                      depth: event.target.value as GuideDepth,
-                    }))
-                  }
-                  className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-                >
-                  {Object.entries(depthLabels).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Time Budget</label>
-                <Input
-                  value={createForm.time_budget}
-                  onChange={(event) =>
-                    setCreateForm((current) => ({
-                      ...current,
-                      time_budget: event.target.value,
-                    }))
-                  }
-                  placeholder="3 hours per week"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Audience</label>
-              <Input
-                value={createForm.audience}
-                onChange={(event) =>
-                  setCreateForm((current) => ({
-                    ...current,
-                    audience: event.target.value,
-                  }))
-                }
-                placeholder="Product manager moving into AI"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Instruction</label>
-              <Textarea
-                value={createForm.instruction}
-                onChange={(event) =>
-                  setCreateForm((current) => ({
-                    ...current,
-                    instruction: event.target.value,
-                  }))
-                }
-                rows={4}
-                placeholder="Optional: bias the guide toward frameworks, trade-offs, and practical execution."
-              />
-            </div>
+        {loading ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <Card key={index} className="animate-pulse">
+                <CardHeader className="pb-2">
+                  <div className="h-5 w-3/4 rounded bg-muted" />
+                </CardHeader>
+                <CardContent>
+                  <div className="h-3 w-1/2 rounded bg-muted" />
+                </CardContent>
+              </Card>
+            ))}
           </div>
-
-          <DialogFooter>
-            <Button
-              onClick={() => void handleCreateGuide()}
-              disabled={
-                creating ||
-                !createForm.topic.trim() ||
-                !createForm.audience.trim() ||
-                !createForm.time_budget.trim()
-              }
-            >
-              {creating ? "Creating..." : "Create guide"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        ) : visibleGuides.length === 0 ? (
+          <Card>
+            <CardContent className="p-6 text-sm text-muted-foreground">
+              No guides match that search.
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {visibleGuides.map((guide) => (
+              <GuideCard key={guide.id} guide={guide} />
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

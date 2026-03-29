@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { BookOpen, Clock } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Guide } from "@/types/curriculum";
 import { DifficultyBadge } from "./DifficultyBadge";
@@ -13,16 +12,6 @@ function formatTime(minutes: number): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
-const categoryLabels: Record<string, string> = {
-  science: "Science",
-  humanities: "Humanities",
-  business: "Business",
-  technology: "Technology",
-  industry: "Industry",
-  social_science: "Social Science",
-  professional: "Professional",
-};
-
 export function GuideCard({ guide }: { guide: Guide }) {
   const pct = guide.progress_pct ?? 0;
   return (
@@ -33,15 +22,7 @@ export function GuideCard({ guide }: { guide: Guide }) {
             <CardTitle className="text-base leading-snug">{guide.title}</CardTitle>
             {pct > 0 && <ProgressRing progress={pct} size={36} />}
           </div>
-          <div className="flex flex-wrap gap-1.5 pt-1">
-            {guide.origin === "user" && (
-              <Badge variant="outline" className="text-[10px]">
-                Your guide
-              </Badge>
-            )}
-            <Badge variant="secondary" className="text-[10px]">
-              {categoryLabels[guide.category] ?? guide.category}
-            </Badge>
+          <div className="pt-1">
             <DifficultyBadge level={guide.difficulty} />
           </div>
         </CardHeader>

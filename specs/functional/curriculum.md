@@ -1,248 +1,254 @@
-# Curriculum / Learn
+# Curriculum / Library
 
-**Status:** Implemented
+**Status:** Proposed Simplification
 
 ## Purpose
 
-Learn is the app's structured study workspace. It turns the curriculum corpus into a guided,
-tracked learning system with active recall, spaced repetition, personalized next-step
-recommendations, and authoring QA.
+Library is the app's lightweight learning workspace. Its job is simple:
+
+- help the user pick something worth learning
+- help them continue where they left off
+- help them remember the important parts
+
+It should feel calm, obvious, and low-friction. It should not feel like a learning operating
+system.
+
+## Product Principles
+
+- One clear next step: every visit should make it obvious what to do next.
+- Fewer concepts: users should only need to understand `guide`, `chapter`, and `review`.
+- Reading first: the core value is reading and retaining useful material, not managing a learning framework.
+- Progressive disclosure: advanced structure can exist in the system, but it should not dominate the core UI.
+- Optional reflection: writing and deeper exercises can help, but they must never block progress.
 
 ## Product Placement
 
-- Workspace: `Learn`
-- Primary job: help the user study, retain, and revisit structured material
-- Primary framing: a daily learning workflow organized around outcome-based programs, not only a guide library
-- Cross-system handoffs:
-  - guide enrollment can create a linked `learning` goal with chapter milestones
-  - completed chapters can trigger reflection prompts and best-effort memory extraction
-  - advisor context can include active curriculum progress
-  - due reviews can surface on Home and in the main Learn workspace
+- Workspace: `Library`
+- Primary job: study practical material in small steps
+- Core question answered: `What should I learn next?`
+- Relationship to Home: Home can surface the next learning step, but the full learning workflow lives in `/learn`
+- Relationship to the rest of the app:
+  - learning should not require Goals to make sense
+  - learning should not require Journal to make sense
+  - learning should not require Radar or Research context to make sense
 
-## Current Behavior
+## Simplified Product Model
 
-- The shipped curriculum is scanned from `content/curriculum/`.
-- Guides are organized by a manifest-driven graph in `skill_tree.yaml`:
-  - tracks
-  - prerequisite edges
-  - canonical guide aliases
-  - outcome-based learning programs
-- Learn supports both legacy markdown and schema-first `MDX + frontmatter`.
-- The primary learner surfaces are:
-  - Home `Today in Learn` card
-  - `/learn` Today queue
-  - `/learn` program-path cards
-  - `/learn` grid view
-  - `/learn` tree view
-  - guide detail
-  - chapter reader
-  - review session
-- `/learn` is now organized as:
-  - a prioritized daily queue
-  - outcome-based program paths
-  - a secondary library/map section
-- The current study loop includes:
-  - pre-reading prompts
-  - chapter completion
-  - inline reflection writing
-  - free-form chapter quiz answers with grading feedback
-  - teach-back prompts
-  - SM-2 review scheduling
-  - placement / test-out for advanced users
-- Recommendation UX is profile-aware:
-  - role
-  - goals
-  - industries
-  - time budget
-  - learning-program overlap
-- Recommendation ranking also now consumes live learning-performance signals:
-  - weak-item density from recent review history
-  - applied-deliverable grades
-  - revision backlog on active deliverables
-- The same learning signals now shape path prioritization and advisor context:
-  - Home and `/learn` path cards surface revision, weak-item, and assessment-grade cues
-  - advisor prompt injection includes learning pressure plus per-guide weak-recall / revision attributes
-- The recommendation logic now also feeds a `Today in Learn` workflow payload:
-  - primary action for the current block
-  - due-review task when recall is waiting
-  - applied-practice prompt for active guides
-  - active/recommended program-path cards with progress counts
-- Guide and recommendation payloads also expose an applied-assessment pilot:
-  - teach-back note
-  - decision brief
-  - scenario analysis
-  - case memo
-- Applied assessments are no longer view-only:
-  - guide detail can create a persisted draft in Journal
-  - launch also creates a linked learning goal for the deliverable
-  - existing drafts reopen from guide detail and the Today queue
-  - Journal drafts can be edited and submitted for rubric feedback
-  - stronger submissions close the loop; weaker ones stay active for revision
-- Learn now closes a weak-recall loop:
-  - the Today queue can surface `retry weak items`
-  - `/learn/review?mode=retry` focuses on recently weak recall items
-- Curriculum visuals are no longer markdown-only:
-  - typed visual blocks render as web-native components
-  - legacy ASCII diagrams and plain data tables still fall back safely
+The learning experience should be built around just three things:
 
-## User Flows
+1. A guide
+2. A chapter
+3. A review queue
 
-### Discover and choose
+Everything else is secondary or deferred.
 
-- User opens Home or `/learn`.
-- They first see a `Today in Learn` queue rather than only a generic catalog.
-- They can open the primary task immediately, clear due reviews, or jump into a recommended program path.
-- They can still browse a guide grid or switch to a tree view.
-- Grid view supports search, category filtering, and sort modes.
-- Tree view supports:
-  - track filters
-  - learning-program filters
-  - prerequisite edges
-  - progress/mastery-aware guide nodes
-- Program-path cards summarize:
-  - whether the path is active, recommended, or merely available
-  - completed/in-progress/ready guide counts
-  - remediation and assessment cues such as revision backlog, weak recall pressure, and average deliverable grade
-  - path outcomes
-  - a direct link into the tree view filtered to that path
-- The daily queue can recommend:
-  - continuing a chapter
-  - clearing due reviews
-  - retrying recently weak review items
-  - starting an unlocked guide
-  - opening applied-practice work for the current guide or its existing draft
+### Guide
 
-### Enroll and orient
-
-- User opens a guide detail page.
-- Guide detail shows:
+- A guide is a short structured unit of learning on one topic.
+- A guide has:
+  - title
+  - short summary
+  - estimated effort
   - chapter list
-  - difficulty
-  - reading-time estimate
-  - learning-program membership
-  - applied-assessment pilot cards
-  - placement/test-out action when the guide is not already complete
-- Each applied-assessment card can:
-  - create a draft artifact in Journal
-  - create a linked learning goal with default milestones
-  - reopen an existing draft instead of duplicating it
-  - show status and latest feedback when the deliverable has already been reviewed
-- Enrolling in a guide persists enrollment and can auto-create a linked learning goal with
-  non-glossary chapters as milestones.
+  - simple progress state
 
-### Read and complete a chapter
+### Chapter
 
-- User opens a chapter reader.
-- Chapter content renders through the curriculum renderer.
-- Internal curriculum links resolve to in-app `/learn/...` routes.
-- Reading time is synced periodically.
-- On completion:
-  - chapter progress is updated
-  - a reflection prompt may be returned
-  - the learner can write their own reflection and save it to the journal
-  - memory extraction is attempted best-effort
+- A chapter is the primary unit of progress.
+- A chapter supports:
+  - reading
+  - marking complete
+  - optional recap or reflection
 
-### Active recall and review
+### Review
 
-- Before reading, a pre-reading card can show priming questions.
-- After or during reading, the learner can generate a chapter quiz.
-- Quiz flow supports:
-  - inline answer fields
-  - free-form submission
-  - grading feedback
-  - correct/missing points
-  - retry/resubmit flow
-- After completion, teach-back can be generated and graded separately.
-- Due items appear in `/learn/review` and are scheduled using SM-2.
-- Recently weak recall items can be retried in a separate retry-mode review session.
-- Applied deliverables can be edited in Journal and submitted for rubric feedback.
-- Feedback keeps weaker deliverables active for revision and marks stronger submissions complete.
+- Review is a lightweight queue for recall after reading.
+- Review should feel like a single simple follow-up flow, not a separate product mode with multiple subtypes.
 
-### Test out
+## Desired User Experience
 
-- Guide detail can offer "Test out".
-- Placement questions are generated across the guide's non-glossary chapters.
-- Passing placement marks the guide complete.
-- Failing placement returns per-question grading without mutating guide completion.
+### Home
 
-### Authoring and QA
+- Home shows one learning card.
+- That card contains:
+  - one primary next action
+  - a small reviews-due count when relevant
+  - a single link into Library
+- Home should not expose multiple learning concepts at once.
 
-- Maintainers can lint curriculum content.
-- Maintainers can migrate legacy markdown to schema-first MDX.
-- Maintainers can audit thin guides and applied modules for rewrite planning.
-- Manifest QA checks cover:
-  - missing guides
-  - missing prerequisites
-  - missing track assignment
-  - duplicate track assignment
-  - program references
-  - cycles
-  - alias-target validity
+### Library landing page
+
+The Library page should have only three primary sections:
+
+1. `Next up`
+2. `Reviews`
+3. `Browse guides`
+
+#### Next up
+
+- Show one primary action:
+  - continue current chapter
+  - start the next chapter
+  - clear due reviews
+  - start a selected guide if nothing is in progress
+- Include one short explanation line if helpful.
+- Do not show multiple recommendation systems, signal chips, or competing CTAs.
+
+#### Reviews
+
+- Show a small summary when reviews are due.
+- Use one review entry point: `Start review`.
+- Do not split the user into different review concepts such as normal review vs retry review in the main UI.
+
+#### Browse guides
+
+- Show a simple searchable guide list.
+- Keep filtering lightweight.
+- Prioritize:
+  - in-progress guides first
+  - then not-started guides
+- The primary browse goal is choosing a guide, not understanding a graph.
+
+### Guide detail
+
+Guide detail should answer only:
+
+- What is this guide about?
+- How long is it?
+- Where should I start or continue?
+
+Guide detail should include:
+
+- guide title and summary
+- chapter list
+- simple progress
+- one obvious CTA:
+  - `Start`
+  - `Continue`
+  - `Review`
+
+Guide detail should not be a control panel.
+
+### Chapter reader
+
+The chapter reader should focus on finishing the chapter with minimal distraction.
+
+Visible actions should be kept to:
+
+- `Mark complete`
+- `Start review` or `Review later`
+- previous / next chapter navigation
+
+Optional support can exist below the core reading flow, but it must stay secondary.
+
+### Review session
+
+- Review should be one lightweight session flow.
+- The user enters, answers a small batch, and exits.
+- Completion should feel satisfying and quick.
+- The system can keep richer scheduling logic internally, but the UI should present one simple review concept.
+
+## Core User Flows
+
+### Start learning
+
+- User opens Library.
+- They see one obvious next step.
+- If nothing is in progress, they browse guides and start one.
+
+### Continue learning
+
+- User opens Library.
+- They see the chapter they should continue.
+- One click takes them back into reading.
+
+### Finish a chapter
+
+- User reads a chapter.
+- User marks it complete.
+- The system can optionally offer a short recap question or reflection.
+- Completion moves the user forward without requiring extra work.
+
+### Review material
+
+- When reviews are due, Library highlights that clearly.
+- User starts one review session.
+- User completes the batch and returns to Library.
+
+### Browse and switch
+
+- User can browse guides with search.
+- Switching guides should be easy, but the product should gently favor one active guide at a time.
+
+## What We Should Keep
+
+- Guide catalog
+- Guide detail
+- Chapter reading
+- Enrollment / progress tracking
+- Simple review queue
+- Home handoff into learning
+- Basic search across guides
+
+## What We Should Simplify Hard
+
+- Collapse the current `Today` workflow into one primary next action instead of a ranked task stack.
+- Replace multiple recommendation labels and learning signal badges with plain-language copy.
+- Reduce metrics on the main page to the minimum needed for orientation.
+- Make review feel like one mode, not a family of modes.
+- Keep the primary landing page readable without needing to understand programs, tracks, or remediation logic.
+
+## Deferred / Out of Scope For The Minimalist Version
+
+- Program paths as a primary concept
+- Tree / graph view in the main learning flow
+- Track filters and prerequisite visualization
+- Applied assessments and deliverable workflows
+- Automatic goal creation from learning actions
+- Journal draft creation as part of the core loop
+- Teach-back as a primary workflow
+- Pre-reading prompts as a primary workflow
+- Placement / test-out
+- Related chapter suggestions in the primary flow
+- Retry-specific review mode in the main UI
+- User-authored guide generation and guide extensions
+- Complex performance signals exposed directly in the UI
+
+These may remain technically possible, but they should not shape the core experience until the
+minimal loop proves useful.
 
 ## Acceptance Criteria
 
-- [x] Home and `/learn` both surface a `Today in Learn` workflow rather than only a passive recommendation card.
-- [x] `/learn` exposes both grid and tree views for the curriculum as secondary library surfaces.
-- [x] `/learn` surfaces outcome-based program paths with progress counts and direct navigation into filtered tree views.
-- [x] Guides can be enrolled and tracked persistently.
-- [x] Guide enrollment can create linked learning goals with chapter milestones.
-- [x] Chapter reading progress accumulates across sessions.
-- [x] Chapter completion can return an inline reflection prompt.
-- [x] Learners write and save their own reflection text rather than saving prompt text directly.
-- [x] Chapter quizzes support free-form answers, grading feedback, and retry flow.
-- [x] Teach-back prompts can be generated and graded for completed chapters.
-- [x] Pre-reading prompts can be generated separately from review scheduling.
-- [x] SM-2 review sessions surface due items and reschedule them after grading.
-- [x] Placement/test-out exists for non-completed guides.
-- [x] Guide graph data comes from curated manifest metadata rather than only directory ordering.
-- [x] Canonical guide aliases are resolved so deprecated guide IDs do not remain in the active graph.
-- [x] Learning programs are data-driven from the manifest.
-- [x] `/api/curriculum/next` is profile-aware and not only prerequisite-aware.
-- [x] `/api/curriculum/next` also reacts to weak recall, deliverable grades, and revision backlog within the existing candidate buckets.
-- [x] `/api/curriculum/today` assembles a ranked learning queue plus active/recommended program paths.
-- [x] Program-path cards surface remediation and assessment cues instead of only completion counts.
-- [x] Advisor curriculum context includes learning pressure and per-guide weak-recall / revision signals.
-- [x] Recommendation and guide payloads surface applied-assessment pilot data.
-- [x] Applied-assessment cards can create persisted Journal drafts and linked learning goals.
-- [x] Existing applied-assessment drafts reopen instead of creating duplicate artifacts.
-- [x] Applied-assessment drafts can be edited in Journal and submitted for rubric feedback.
-- [x] Strong applied-assessment submissions complete their linked learning goal.
-- [x] Recently weak review items can resurface through a retry-specific review queue.
-- [x] Typed visual blocks render as web-native visuals.
-- [x] Legacy markdown diagrams and data blocks still degrade gracefully.
-- [x] Internal curriculum links navigate correctly inside the app.
-- [x] Curriculum lint, migration, and audit commands exist for maintainers.
+- [ ] Home shows one learning CTA, not multiple learning decisions.
+- [ ] `/learn` has at most three primary sections: `Next up`, `Reviews`, and `Browse guides`.
+- [ ] `/learn` can be understood without knowing what a program, path, track, or assessment is.
+- [ ] A user can start or continue learning from the landing page in one click.
+- [ ] A guide detail page has one obvious primary action.
+- [ ] A chapter reader keeps the reading flow primary and secondary tools visually subordinate.
+- [ ] Reviews are entered through one simple entry point.
+- [ ] Progress can advance without requiring reflection, quiz completion, or Journal usage.
+- [ ] Search is sufficient for finding guides in the normal case.
+- [ ] Learning does not auto-create goals or drafts as part of the default flow.
 
 ## Edge Cases
 
 | Scenario | Expected Behavior |
 |----------|-------------------|
-| Content directory missing or empty | Sync returns no guides; Learn shows empty or reduced state without crashing |
-| Guide requested via deprecated alias | API resolves to canonical guide ID |
-| Alias-based old user progress exists | Sync reconciles stale alias enrollment/progress/review rows into canonical IDs |
-| Chapter has legacy markdown only | Scanner and renderer still support it |
-| Chapter has schema-first MDX | Scanner prefers MDX over same-stem markdown |
-| External links in chapter content | Render normally; lint ignores them for curriculum-reference validation |
-| No LLM available for question generation | Generation degrades or returns empty outputs rather than breaking the rest of Learn |
-| Memory extraction fails | Progress update still succeeds |
-| Goal creation fails on enroll | Enrollment still succeeds |
-| Guide has no assessable non-glossary chapters | Placement generation rejects cleanly |
-| Related-chapter search has too little context | Related card returns empty state / no content rather than error |
+| User has one active guide and due reviews | The page chooses one recommended next step and still shows the other option clearly |
+| User has no active guide | Library defaults to a simple browse-and-start state |
+| User has no reviews due | Review section stays quiet and does not create dead space |
+| User returns after a long gap | Library still shows one obvious next action rather than a dense dashboard |
+| User wants a deeper exercise | The app can link outward, but the default learning flow stays lightweight |
+| Content is missing or sync fails | The page degrades to a simple empty or reduced state without exposing internal complexity |
 
-## Related Design Docs
+## Design Notes
 
-- `docs/curriculum-authoring.md`
-- `docs/curriculum-redesign-roadmap.md`
-- `docs/curriculum-recommendation-pilot.md`
-- `docs/curriculum-assessments.md`
-- `docs/curriculum-industry-capstones.md`
-
-## Out of Scope
-
-- Strict prerequisite gating or locking
-- Automatic corpus-wide content rewrites
-- Treating industry capstones as full multi-chapter textbooks by default
-- Replacing all legacy markdown immediately before migration
+- Prefer plain language:
+  - use `Next up`, `Guide`, `Chapter`, `Review`
+  - avoid `program path`, `placement`, `teach-back`, `assessment`, and `retry mode` in the main flow
+- Prefer one strong CTA over several equal CTAs.
+- Avoid dashboards full of badges, counts, and status cues unless they change the next action.
+- Favor vertical reading flow over control-heavy layouts.
 
 ## Key System Components
 
@@ -251,15 +257,6 @@ recommendations, and authoring QA.
 - `web/src/app/(dashboard)/learn/[guideId]/page.tsx`
 - `web/src/app/(dashboard)/learn/[guideId]/[chapterId]/page.tsx`
 - `web/src/app/(dashboard)/learn/review/page.tsx`
-- `web/src/components/curriculum/`
-- `web/src/components/home/LearningSnapshotCard.tsx`
 - `src/web/routes/curriculum.py`
-- `src/curriculum/content_schema.py`
-- `src/curriculum/scanner.py`
 - `src/curriculum/store.py`
-- `src/curriculum/question_generator.py`
 - `src/curriculum/personalization.py`
-- `src/curriculum/spaced_repetition.py`
-- `src/curriculum/embeddings.py`
-- `src/coach_mcp/tools/curriculum.py`
-- `content/curriculum/skill_tree.yaml`

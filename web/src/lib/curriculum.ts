@@ -22,9 +22,9 @@ export const learningTaskLabels: Record<
 > = {
   continue_chapter: "Continue",
   due_reviews: "Review",
-  retry_reviews: "Retry",
+  retry_reviews: "Review",
   start_guide: "Start",
-  applied_practice: "Apply",
+  applied_practice: "Guide",
 };
 
 export const learningProgramStatusLabels: Record<
@@ -53,11 +53,8 @@ export function formatLearningSeconds(seconds: number): string {
 }
 
 export function buildLearningTaskHref(task: LearningTodayTask): string {
-  if (task.entry_path) {
-    return `/journal?open=${encodeURIComponent(task.entry_path)}`;
-  }
   if (task.task_type === "retry_reviews") {
-    return "/learn/review?mode=retry";
+    return "/learn/review";
   }
   if (task.task_type === "due_reviews") {
     return "/learn/review";
@@ -67,6 +64,9 @@ export function buildLearningTaskHref(task: LearningTodayTask): string {
   }
   if (task.guide_id) {
     return `/learn/${task.guide_id}`;
+  }
+  if (task.entry_path) {
+    return `/journal?open=${encodeURIComponent(task.entry_path)}`;
   }
   return "/learn";
 }
