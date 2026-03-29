@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowLeft, CheckCircle } from "lucide-react";
 import { useToken } from "@/hooks/useToken";
@@ -13,23 +14,47 @@ import type { ReviewItem } from "@/types/curriculum";
 
 export default function ReviewSessionPage() {
   const token = useToken();
+  const searchParams = useSearchParams();
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [current, setCurrent] = useState(0);
   const [loading, setLoading] = useState(true);
   const [grades, setGrades] = useState<number[]>([]);
   const [done, setDone] = useState(false);
+  const mode = searchParams.get("mode") === "retry" ? "retry" : "due";
+  const endpoint =
+    mode === "retry"
+      ? "/api/v1/curriculum/review/retry?limit=20"
+      : "/api/v1/curriculum/review/due?limit=20";
+  const pageTitle = mode === "retry" ? "Weak Item Retry" : "Review Session";
+  const emptyTitle =
+    mode === "retry" ? "No weak items to retry right now." : "Session complete!";
 
   useEffect(() => {
     if (!token) return;
-    setLoading(true);
-    apiFetch<ReviewItem[]>("/api/v1/curriculum/review/due?limit=20", {}, token)
-      .then((data) => {
+    let cancelled = false;
+
+    const loadItems = async () => {
+      setLoading(true);
+      setDone(false);
+      setCurrent(0);
+      setGrades([]);
+      try {
+        const data = await apiFetch<ReviewItem[]>(endpoint, {}, token);
+        if (cancelled) return;
         setItems(data);
         if (data.length === 0) setDone(true);
-      })
-      .catch((e) => toast.error((e as Error).message))
-      .finally(() => setLoading(false));
-  }, [token]);
+      } catch (e) {
+        if (!cancelled) toast.error((e as Error).message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    void loadItems();
+    return () => {
+      cancelled = true;
+    };
+  }, [endpoint, token]);
 
   const handleGrade = async (
     reviewId: string,
@@ -80,7 +105,7 @@ export default function ReviewSessionPage() {
     return (
       <div className="max-w-2xl mx-auto text-center py-12 space-y-4">
         <CheckCircle className="mx-auto h-12 w-12 text-green-500" />
-        <h2 className="text-xl font-semibold">Session complete!</h2>
+        <h2 className="text-xl font-semibold">{emptyTitle}</h2>
         <div className="flex justify-center gap-6 text-sm text-muted-foreground">
           <span>Reviewed: {grades.length}</span>
           <span>Avg grade: {avgGrade}/5</span>
@@ -103,7 +128,7 @@ export default function ReviewSessionPage() {
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <h1 className="text-lg font-semibold">Review Session</h1>
+          <h1 className="text-lg font-semibold">{pageTitle}</h1>
         </div>
         <span className="text-sm text-muted-foreground">
           {current + 1} / {items.length}

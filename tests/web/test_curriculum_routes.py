@@ -5,7 +5,7 @@ from pathlib import Path
 from profile.storage import ProfileStorage, UserProfile
 from unittest.mock import AsyncMock, patch
 
-from curriculum.models import BloomLevel, ReviewItem, ReviewItemType
+from curriculum.models import BloomLevel, ReviewGradeResult, ReviewItem, ReviewItemType
 from curriculum.store import CurriculumStore
 from journal.storage import JournalStorage
 from web.deps import get_user_paths
@@ -341,6 +341,121 @@ def test_launch_assessment_reuses_existing_draft(client, auth_headers):
     assert first["entry_path"] == second["entry_path"]
     assert first["goal_path"] == second["goal_path"]
     assert second["created"] is False
+
+
+def test_submit_assessment_grades_draft_and_updates_goal(client, auth_headers):
+    client.post("/api/curriculum/sync", headers=auth_headers)
+
+    launched = client.post(
+        "/api/curriculum/guides/37-ai-ml-fundamentals-guide/assessments/decision_brief/launch",
+        headers=auth_headers,
+    ).json()
+
+    storage = JournalStorage(get_user_paths("user-123")["journal_dir"])
+    storage.update(
+        launched["entry_path"],
+        content=(
+            "# Decision brief\n\n"
+            "Recommend piloting a narrow internal AI assistant for support triage because it "
+            "improves response quality, reduces repetitive work, and preserves a human review "
+            "step for edge cases. The trade-offs are implementation effort, hallucination risk, "
+            "and the need for clear escalation paths, metrics, and rollback criteria."
+        ),
+    )
+
+    with patch(
+        "web.routes.curriculum.QuestionGenerator.grade_applied_assessment",
+        new=AsyncMock(
+            return_value=ReviewGradeResult(
+                grade=4,
+                feedback="Strong framing with clear trade-offs.",
+                correct_points=["Clear framing", "Good trade-off analysis"],
+                missing_points=["Define explicit success metrics"],
+            )
+        ),
+    ):
+        resp = client.post(
+            "/api/curriculum/guides/37-ai-ml-fundamentals-guide/assessments/decision_brief/submit",
+            headers=auth_headers,
+        )
+
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload["status"] == "submitted"
+    assert payload["grade"] == 4
+    assert payload["feedback"] == "Strong framing with clear trade-offs."
+
+    entry = storage.read(launched["entry_path"])
+    goal = storage.read(launched["goal_path"])
+    assert entry["assessment_status"] == "submitted"
+    assert entry["assessment_feedback"]["grade"] == 4
+    assert goal["status"] == "completed"
+    assert all(milestone.get("completed") for milestone in goal["milestones"])
+
+
+def test_retry_reviews_endpoint_returns_recent_weak_items(client, auth_headers):
+    client.post("/api/curriculum/sync", headers=auth_headers)
+    store = _curriculum_store()
+    guide_id = "28-accounting"
+    guide = store.get_guide(guide_id, user_id="user-123")
+    chapter = guide["chapters"][0]
+
+    store.add_review_items(
+        [
+            ReviewItem(
+                id="retry-item-1",
+                user_id="user-123",
+                chapter_id=chapter["id"],
+                guide_id=guide_id,
+                question="What does working capital show?",
+                expected_answer="It shows short-term operating liquidity.",
+                bloom_level=BloomLevel.UNDERSTAND,
+                item_type=ReviewItemType.QUIZ,
+                next_review=datetime.utcnow() - timedelta(days=1),
+            )
+        ]
+    )
+    store.grade_review("retry-item-1", 2)
+
+    resp = client.get("/api/curriculum/review/retry", headers=auth_headers)
+
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert [item["id"] for item in payload] == ["retry-item-1"]
+
+
+def test_today_includes_retry_task_when_weak_items_exist(client, auth_headers):
+    client.post("/api/curriculum/sync", headers=auth_headers)
+    store = _curriculum_store()
+    guide_id = "28-accounting"
+    guide = store.get_guide(guide_id, user_id="user-123")
+    chapter = guide["chapters"][0]
+
+    store.enroll("user-123", guide_id)
+    store.add_review_items(
+        [
+            ReviewItem(
+                id="retry-item-today",
+                user_id="user-123",
+                chapter_id=chapter["id"],
+                guide_id=guide_id,
+                question="Why do margins matter?",
+                expected_answer="They show unit economics and operating leverage.",
+                bloom_level=BloomLevel.UNDERSTAND,
+                item_type=ReviewItemType.QUIZ,
+                next_review=datetime.utcnow() - timedelta(days=1),
+            )
+        ]
+    )
+    store.grade_review("retry-item-today", 1)
+
+    resp = client.get("/api/curriculum/today", headers=auth_headers)
+
+    assert resp.status_code == 200
+    payload = resp.json()
+    retry_task = next(task for task in payload["tasks"] if task["task_type"] == "retry_reviews")
+    assert retry_task["retry_count"] == 1
+    assert retry_task["cta_label"] == "Retry weak items"
 
 
 def test_placement_generate_disabled(client, auth_headers):

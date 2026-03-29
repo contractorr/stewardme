@@ -263,6 +263,16 @@ export default function GuideDetailPage() {
                   <Badge variant="outline" className="text-[10px]">
                     {assessmentStageLabels[assessment.stage] ?? assessment.stage}
                   </Badge>
+                  {assessment.draft_status && (
+                    <Badge variant="secondary" className="text-[10px]">
+                      {assessment.draft_status}
+                    </Badge>
+                  )}
+                  {assessment.draft_feedback && (
+                    <Badge variant="outline" className="text-[10px]">
+                      Grade {assessment.draft_feedback.grade}/5
+                    </Badge>
+                  )}
                   <p className="text-sm font-medium">{assessment.title}</p>
                 </div>
                 <p className="text-sm text-muted-foreground">{assessment.summary}</p>
@@ -271,10 +281,17 @@ export default function GuideDetailPage() {
                 <p className="text-xs text-muted-foreground">
                   Evaluate on {assessment.evaluation_focus.join(", ").toLowerCase()}.
                 </p>
+                {assessment.draft_feedback && (
+                  <p className="text-xs text-muted-foreground">
+                    {assessment.draft_feedback.feedback}
+                  </p>
+                )}
                 <div className="flex flex-wrap gap-2 pt-1">
                   {assessment.draft_entry_path ? (
                     <Link href={`/journal?open=${encodeURIComponent(assessment.draft_entry_path)}`}>
-                      <Button size="sm" variant="outline">Open draft</Button>
+                      <Button size="sm" variant="outline">
+                        {assessment.draft_status === "active" ? "Revise draft" : "Open draft"}
+                      </Button>
                     </Link>
                   ) : (
                     <Button

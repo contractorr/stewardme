@@ -15,6 +15,7 @@ export const recommendationLabels: Record<RecommendationType | "fallback", strin
 export const learningTaskLabels: Record<LearningTodayTask["task_type"], string> = {
   continue_chapter: "Continue",
   due_reviews: "Review",
+  retry_reviews: "Retry",
   start_guide: "Start",
   applied_practice: "Apply",
 };
@@ -44,6 +45,9 @@ export function formatLearningSeconds(seconds: number): string {
 export function buildLearningTaskHref(task: LearningTodayTask): string {
   if (task.entry_path) {
     return `/journal?open=${encodeURIComponent(task.entry_path)}`;
+  }
+  if (task.task_type === "retry_reviews") {
+    return "/learn/review?mode=retry";
   }
   if (task.task_type === "due_reviews") {
     return "/learn/review";

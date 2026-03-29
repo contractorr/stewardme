@@ -38,6 +38,10 @@ import {
 } from "@/components/ui/sheet";
 import { apiFetch } from "@/lib/api";
 import { logEngagement } from "@/lib/engagement";
+import type {
+  AppliedAssessmentSubmissionResult,
+  AssessmentFeedbackResult,
+} from "@/types/curriculum";
 
 /** Strip markdown syntax for plain-text card previews. */
 function stripMarkdown(text: string): string {
@@ -64,9 +68,22 @@ interface JournalEntry {
   tags: string[];
   preview: string;
   content?: string;
+  metadata?: Record<string, unknown>;
 }
 
 type JournalFilter = "all" | "daily" | "project" | "goal" | "reflection";
+
+function assessmentTypeLabel(value: string): string {
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function isAssessmentFeedback(value: unknown): value is AssessmentFeedbackResult {
+  if (!value || typeof value !== "object") return false;
+  return typeof (value as { grade?: unknown }).grade === "number";
+}
 
 function EntrySkeleton() {
   return (
@@ -101,6 +118,10 @@ export default function JournalPage() {
   const [typeFilter, setTypeFilter] = useState<JournalFilter>("all");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [openedFromQuery, setOpenedFromQuery] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [savingEntry, setSavingEntry] = useState(false);
+  const [submittingAssessment, setSubmittingAssessment] = useState(false);
   const [form, setForm] = useState({
     title: "",
     content: "",
@@ -188,6 +209,96 @@ export default function JournalPage() {
     void viewEntry(openPath);
   }, [openedFromQuery, searchParams, token, viewEntry]);
 
+  useEffect(() => {
+    setEditingContent(selected?.content ?? "");
+    setIsEditing(false);
+  }, [selected]);
+
+  const saveEntry = useCallback(async (entry: JournalEntry, content: string) => {
+    if (!token) return null;
+    const updated = await apiFetch<JournalEntry>(
+      `/api/v1/journal/${encodeURIComponent(entry.path)}`,
+      {
+        method: "PUT",
+        body: JSON.stringify({
+          content,
+          metadata: entry.metadata ?? {},
+        }),
+      },
+      token
+    );
+    setSelected(updated);
+    setEntries((current) =>
+      current.map((candidate) =>
+        candidate.path === updated.path
+          ? {
+              ...candidate,
+              title: updated.title,
+              preview: stripMarkdown(updated.content ?? "").slice(0, 200),
+              tags: updated.tags,
+              metadata: updated.metadata,
+            }
+          : candidate
+      )
+    );
+    return updated;
+  }, [token]);
+
+  const handleSaveSelected = async () => {
+    if (!selected) return;
+    setSavingEntry(true);
+    try {
+      const updated = await saveEntry(selected, editingContent);
+      if (updated) {
+        setIsEditing(false);
+        toast.success("Entry saved");
+      }
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setSavingEntry(false);
+    }
+  };
+
+  const handleSubmitAssessment = async () => {
+    if (!token || !selected) return;
+    const guideId =
+      typeof selected.metadata?.curriculum_guide_id === "string"
+        ? selected.metadata.curriculum_guide_id
+        : null;
+    const assessmentType =
+      typeof selected.metadata?.curriculum_assessment_type === "string"
+        ? selected.metadata.curriculum_assessment_type
+        : null;
+    if (!guideId || !assessmentType) return;
+
+    setSubmittingAssessment(true);
+    try {
+      let latestEntry = selected;
+      if (editingContent !== (selected.content ?? "")) {
+        const updated = await saveEntry(selected, editingContent);
+        if (updated) latestEntry = updated;
+      }
+      const result = await apiFetch<AppliedAssessmentSubmissionResult>(
+        `/api/v1/curriculum/guides/${guideId}/assessments/${assessmentType}/submit`,
+        { method: "POST" },
+        token
+      );
+      await viewEntry(latestEntry.path);
+      loadEntries();
+      setIsEditing(false);
+      toast.success(
+        result.status === "submitted"
+          ? `Strong submission: ${result.grade}/5`
+          : `Feedback saved: ${result.grade}/5`
+      );
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setSubmittingAssessment(false);
+    }
+  };
+
   const typeColors: Record<string, { badge: string; border: string }> = {
     daily: { badge: "bg-info/15 text-info border-info/25", border: "border-l-info" },
     quick: { badge: "bg-info/15 text-info border-info/25", border: "border-l-info" },
@@ -240,6 +351,22 @@ export default function JournalPage() {
   }, [entries, query, tagFilter, typeFilter]);
 
   const hasActiveFilters = Boolean(query.trim()) || typeFilter !== "all" || Boolean(tagFilter);
+
+  const assessmentGuideTitle =
+    selected && typeof selected.metadata?.curriculum_guide_title === "string"
+      ? selected.metadata.curriculum_guide_title
+      : null;
+  const assessmentType =
+    selected && typeof selected.metadata?.curriculum_assessment_type === "string"
+      ? selected.metadata.curriculum_assessment_type
+      : null;
+  const assessmentStatus =
+    selected && typeof selected.metadata?.assessment_status === "string"
+      ? selected.metadata.assessment_status
+      : null;
+  const assessmentFeedback = isAssessmentFeedback(selected?.metadata?.assessment_feedback)
+    ? selected?.metadata?.assessment_feedback
+    : null;
 
   const filteredEmptyState = (() => {
     if (query.trim()) {
@@ -595,11 +722,122 @@ export default function JournalPage() {
               )}
             </SheetHeader>
             <div className="mt-6 space-y-6 px-6 pb-6">
-              <div className="prose prose-sm max-w-none dark:prose-invert prose-p:leading-relaxed prose-headings:mt-4 prose-headings:mb-2">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {selected.content || ""}
-                </ReactMarkdown>
-              </div>
+              {assessmentType && (
+                <Card className="border-primary/15 bg-primary/5">
+                  <CardHeader className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline">{assessmentTypeLabel(assessmentType)}</Badge>
+                      {assessmentGuideTitle && (
+                        <Badge variant="secondary">{assessmentGuideTitle}</Badge>
+                      )}
+                      {assessmentStatus && (
+                        <Badge
+                          variant="outline"
+                          className={
+                            assessmentStatus === "submitted"
+                              ? "border-green-500/40 text-green-700 dark:text-green-400"
+                              : assessmentStatus === "active"
+                                ? "border-amber-500/40 text-amber-700 dark:text-amber-400"
+                                : "border-slate-500/30 text-slate-700 dark:text-slate-300"
+                          }
+                        >
+                          {assessmentStatus}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant={isEditing ? "secondary" : "outline"}
+                        size="sm"
+                        onClick={() => {
+                          if (isEditing) {
+                            setEditingContent(selected.content ?? "");
+                          }
+                          setIsEditing((current) => !current);
+                        }}
+                      >
+                        {isEditing ? "Cancel editing" : "Edit draft"}
+                      </Button>
+                      {isEditing && (
+                        <Button size="sm" onClick={() => void handleSaveSelected()} disabled={savingEntry}>
+                          {savingEntry ? "Saving..." : "Save changes"}
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        onClick={() => void handleSubmitAssessment()}
+                        disabled={savingEntry || submittingAssessment}
+                      >
+                        {submittingAssessment
+                          ? "Submitting..."
+                          : assessmentStatus === "active" || assessmentStatus === "submitted"
+                            ? "Resubmit for feedback"
+                            : "Submit for feedback"}
+                      </Button>
+                    </div>
+                    {assessmentFeedback && (
+                      <div className="rounded-md border bg-background p-3 text-sm">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <span className="font-medium">Latest feedback</span>
+                          <Badge variant="outline">Grade {assessmentFeedback.grade}/5</Badge>
+                          {assessmentFeedback.graded_at && (
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(assessmentFeedback.graded_at).toLocaleString("en-GB", {
+                                day: "numeric",
+                                month: "short",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-2 text-muted-foreground">{assessmentFeedback.feedback}</p>
+                        {assessmentFeedback.correct_points.length > 0 && (
+                          <div className="mt-3">
+                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                              Strengths
+                            </p>
+                            <ul className="mt-1 list-disc pl-5">
+                              {assessmentFeedback.correct_points.map((point) => (
+                                <li key={point}>{point}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {assessmentFeedback.missing_points.length > 0 && (
+                          <div className="mt-3">
+                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                              Missing or weak
+                            </p>
+                            <ul className="mt-1 list-disc pl-5">
+                              {assessmentFeedback.missing_points.map((point) => (
+                                <li key={point}>{point}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardHeader>
+                </Card>
+              )}
+              {isEditing ? (
+                <div className="space-y-2">
+                  <Label htmlFor="journal-entry-editor">Content</Label>
+                  <Textarea
+                    id="journal-entry-editor"
+                    rows={18}
+                    value={editingContent}
+                    onChange={(e) => setEditingContent(e.target.value)}
+                  />
+                </div>
+              ) : (
+                <div className="prose prose-sm max-w-none dark:prose-invert prose-p:leading-relaxed prose-headings:mt-4 prose-headings:mb-2">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {selected.content || ""}
+                  </ReactMarkdown>
+                </div>
+              )}
               <MindMapCard entry={selected} token={token} />
               <div className="border-t pt-4">
                 {deletingPath === selected.path ? (

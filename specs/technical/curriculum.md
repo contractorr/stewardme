@@ -187,6 +187,7 @@ Current properties:
 - easiness-factor floor `1.3`
 - reset on failing recall
 - interval expansion on successful recall
+- recently weak items can also be queried separately for retry-mode review sessions
 
 ### Question Generation and Grading
 
@@ -205,6 +206,8 @@ Current properties:
 - quiz items are persisted as review items
 - pre-reading items are stored but excluded from SM-2 review behavior
 - placement questions are ephemeral and never persisted as review items
+- applied deliverables can be rubric-graded and fall back to heuristic grading when no LLM is
+  configured
 - grading strategy varies by Bloom level:
   - lower-level fallback logic
   - LLM grading for richer answers
@@ -263,7 +266,7 @@ This is used by `/api/curriculum/chapters/{chapter_id}/related`.
 
 **File:** `src/web/routes/curriculum.py`
 
-The web API currently exposes 23 curriculum routes.
+The web API currently exposes 25 curriculum routes.
 
 #### Core catalog and graph
 
@@ -279,6 +282,7 @@ The web API currently exposes 23 curriculum routes.
 
 - `POST /api/curriculum/progress`
 - `GET /api/curriculum/review/due`
+- `GET /api/curriculum/review/retry`
 - `POST /api/curriculum/review/{review_id}/grade`
 - `GET /api/curriculum/stats`
 - `GET /api/curriculum/today`
@@ -292,6 +296,7 @@ The web API currently exposes 23 curriculum routes.
 - `GET /api/curriculum/chapters/{chapter_id}/pre-reading`
 - `GET /api/curriculum/chapters/{chapter_id}/related`
 - `POST /api/curriculum/guides/{guide_id}/assessments/{assessment_type}/launch`
+- `POST /api/curriculum/guides/{guide_id}/assessments/{assessment_type}/submit`
 
 #### Recommendation and placement
 
@@ -326,9 +331,15 @@ The web API currently exposes 23 curriculum routes.
   - ranked `tasks`
   - `focus_programs`
   - `reviews_due`
+  - a retry-review task when recently weak recall exists
 - assessment launch creates:
   - a persisted Journal draft entry
   - a linked learning-goal entry with default milestones
+- assessment submission:
+  - grades the Journal draft against the assessment rubric
+  - writes feedback into Journal metadata
+  - leaves weak submissions `active` for revision
+  - marks stronger submissions `submitted` and completes the linked goal
 - sync runs alias reconciliation after catalog upsert
 
 ### Frontend
@@ -356,8 +367,13 @@ The web API currently exposes 23 curriculum routes.
   - chapter list
   - learning-program badges
   - applied-assessment pilot cards
-  - create/open draft actions for applied assessments
+  - create/open/revise draft actions for applied assessments
+  - draft status and latest feedback summary for reviewed deliverables
   - placement/test-out
+- Journal:
+  - reads and updates persisted assessment drafts
+  - submits assessment drafts for rubric feedback
+  - shows the latest grading feedback block inline with the draft
 - chapter reader:
   - renderer
   - pre-reading
@@ -368,6 +384,7 @@ The web API currently exposes 23 curriculum routes.
   - related chapters
 - review page:
   - due-item session flow
+  - retry-mode session flow for recently weak items
 
 #### CurriculumRenderer
 
@@ -453,6 +470,12 @@ Relevant suites include:
 - `tests/web/test_curriculum_routes.py`
 - `tests/coach_mcp/test_server.py`
 - `web/e2e/tests/curriculum.spec.ts`
+
+Key route-level checks now include:
+
+- today queue auto-sync and retry-task coverage
+- assessment launch, reopen, and submit flows
+- retry review endpoint coverage
 
 ## Known Limitations
 

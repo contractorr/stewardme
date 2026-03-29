@@ -205,6 +205,10 @@ export interface ReviewGradeResult {
   missing_points: string[];
 }
 
+export interface AssessmentFeedbackResult extends ReviewGradeResult {
+  graded_at?: string | null;
+}
+
 export interface QuizResult {
   question_id: string;
   grade: number;
@@ -269,6 +273,7 @@ export interface AppliedAssessment {
   draft_goal_path?: string | null;
   draft_goal_title?: string | null;
   draft_status?: "draft" | "active" | "submitted" | null;
+  draft_feedback?: AssessmentFeedbackResult | null;
 }
 
 export interface NextRecommendation {
@@ -286,6 +291,7 @@ export interface NextRecommendation {
 export type LearningTodayTaskType =
   | "continue_chapter"
   | "due_reviews"
+  | "retry_reviews"
   | "start_guide"
   | "applied_practice";
 
@@ -304,6 +310,7 @@ export interface LearningTodayTask {
   entry_path?: string | null;
   recommendation_type?: RecommendationType;
   review_count?: number;
+  retry_count?: number;
   signals?: RecommendationSignal[];
   matched_programs?: Array<LearningProgram & { match_reason?: string }>;
   assessment?: AppliedAssessment | null;
@@ -317,6 +324,14 @@ export interface AppliedAssessmentLaunchResult {
   goal_path: string | null;
   goal_title: string | null;
   created: boolean;
+}
+
+export interface AppliedAssessmentSubmissionResult extends AssessmentFeedbackResult {
+  guide_id: string;
+  assessment_type: AppliedAssessmentType;
+  entry_path: string;
+  goal_path: string | null;
+  status: "active" | "submitted";
 }
 
 export type LearningProgramFocusStatus = "active" | "recommended" | "available";

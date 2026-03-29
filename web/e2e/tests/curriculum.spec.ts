@@ -2,7 +2,9 @@ import { test, expect } from "@playwright/test";
 import {
   installApiMocks,
   MOCK_ASSESSMENT_DRAFT,
+  MOCK_ASSESSMENT_FEEDBACK,
   MOCK_GUIDE_DETAIL,
+  MOCK_RETRY_REVIEW_ITEMS,
   MOCK_STATS,
   MOCK_TODAY,
   MOCK_TREE,
@@ -61,6 +63,29 @@ test.describe("Curriculum / Learn", () => {
     await expect(page.getByRole("heading", { name: "Journal" })).toBeVisible();
   });
 
+  test("journal assessment draft can be submitted for feedback", async ({ page }) => {
+    await page.goto("/journal");
+    await expect(page.getByText(MOCK_ASSESSMENT_DRAFT.entry_title).first()).toBeVisible({
+      timeout: 10_000,
+    });
+    await page.getByText(MOCK_ASSESSMENT_DRAFT.entry_title).first().click();
+
+    await expect(page.getByRole("button", { name: "Submit for feedback" })).toBeVisible({
+      timeout: 10_000,
+    });
+    await page.getByRole("button", { name: "Edit draft" }).click();
+    await page.locator("#journal-entry-editor").fill(
+      "Recommend standardizing on Python functions for repeated workflows because they reduce " +
+        "duplication, clarify interfaces, and make review easier. The main trade-offs are initial " +
+        "refactoring cost, the need for naming discipline, and making sure tests cover the shared paths."
+    );
+    await page.getByRole("button", { name: "Submit for feedback" }).click();
+
+    await expect(page.getByText("Latest feedback")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(`Grade ${MOCK_ASSESSMENT_FEEDBACK.grade}/5`)).toBeVisible();
+    await expect(page.getByText(MOCK_ASSESSMENT_FEEDBACK.feedback)).toBeVisible();
+  });
+
   test("home page surfaces the learning queue", async ({ page }) => {
     await page.goto("/");
 
@@ -84,5 +109,14 @@ test.describe("Curriculum / Learn", () => {
     await expect(page.getByText("Healthcare Industry")).toBeVisible();
     await expect(page.getByText("Finance Industry")).toHaveCount(0);
     await expect(page.getByText(MOCK_TREE.programs[0].description).first()).toBeVisible();
+  });
+
+  test("retry review mode loads weak items", async ({ page }) => {
+    await page.goto("/learn/review?mode=retry");
+
+    await expect(page.getByRole("heading", { name: "Weak Item Retry" })).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByText(MOCK_RETRY_REVIEW_ITEMS[0].question)).toBeVisible();
   });
 });

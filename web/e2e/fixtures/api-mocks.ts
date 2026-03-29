@@ -357,14 +357,49 @@ export const MOCK_ASSESSMENT_DRAFT = {
   created: true,
 };
 
+export const MOCK_ASSESSMENT_FEEDBACK = {
+  grade: 4,
+  feedback: "Strong trade-off framing with clear recommendation logic.",
+  correct_points: ["Clear framing", "Defensible recommendation"],
+  missing_points: ["Define a sharper success metric"],
+  graded_at: "2026-03-29T10:15:00Z",
+};
+
 export const MOCK_JOURNAL_ENTRY = {
   path: MOCK_ASSESSMENT_DRAFT.entry_path,
   title: MOCK_ASSESSMENT_DRAFT.entry_title,
   type: "action_brief",
   created: "2026-03-29T09:00:00Z",
   tags: ["learning", "assessment"],
+  preview: "Decision brief draft content here.",
   content: "# Decision brief\n\nDraft content here.",
+  metadata: {
+    curriculum_guide_id: "python-basics",
+    curriculum_guide_title: "Python Basics",
+    curriculum_assessment_type: "decision_brief",
+    assessment_status: "draft",
+  },
 };
+
+export const MOCK_RETRY_REVIEW_ITEMS = [
+  {
+    id: "retry-1",
+    user_id: "user-123",
+    chapter_id: "python-basics/ch02",
+    guide_id: "python-basics",
+    question: "What problem do functions solve in Python?",
+    expected_answer: "They package reusable behavior and reduce duplication.",
+    bloom_level: "understand",
+    item_type: "quiz",
+    easiness_factor: 2.1,
+    interval_days: 1,
+    repetitions: 0,
+    next_review: "2026-03-30T09:00:00Z",
+    last_reviewed: "2026-03-29T09:30:00Z",
+    content_hash: "retry-hash-1",
+    created_at: "2026-03-28T09:00:00Z",
+  },
+];
 
 export const MOCK_SSE_ANSWER = {
   type: "answer",
@@ -376,6 +411,11 @@ export const MOCK_SSE_ANSWER = {
 // ── Route installer ───────────────────────────────────────────────────
 
 export async function installApiMocks(page: Page) {
+  let journalEntry: typeof MOCK_JOURNAL_ENTRY & { metadata: Record<string, unknown> } = {
+    ...MOCK_JOURNAL_ENTRY,
+    metadata: { ...MOCK_JOURNAL_ENTRY.metadata },
+  };
+
   // Settings (onboarding gate)
   await page.route("**/api/v1/settings", (route) =>
     route.fulfill({ json: MOCK_SETTINGS }),
@@ -393,18 +433,35 @@ export async function installApiMocks(page: Page) {
   await page.route("**/api/v1/suggestions*", (route) =>
     route.fulfill({ json: [] }),
   );
-  await page.route("**/api/v1/journal?limit=200", (route) =>
+  await page.route("**/api/v1/journal?limit=200*", (route) =>
     route.fulfill({ json: [] }),
   );
-  await page.route("**/api/v1/journal?limit=100", (route) =>
-    route.fulfill({ json: [MOCK_JOURNAL_ENTRY] }),
+  await page.route("**/api/v1/journal?limit=100*", (route) =>
+    route.fulfill({ json: [journalEntry] }),
+  );
+  await page.route("**/api/v1/journal", (route) =>
+    route.fulfill({ json: [journalEntry] }),
   );
   await page.route("**/api/v1/journal/*/mind-map", (route) =>
     route.fulfill({ json: { status: "not_available", mind_map: null } }),
   );
-  await page.route("**/api/v1/journal/*", (route) =>
-    route.fulfill({ json: MOCK_JOURNAL_ENTRY }),
-  );
+  await page.route("**/api/v1/journal/*", async (route) => {
+    if (route.request().method() === "PUT") {
+      const body = route.request().postDataJSON() as {
+        content?: string;
+        metadata?: Record<string, unknown>;
+      };
+      journalEntry = {
+        ...journalEntry,
+        content: body.content ?? journalEntry.content,
+        metadata: {
+          ...journalEntry.metadata,
+          ...(body.metadata ?? {}),
+        },
+      };
+    }
+    return route.fulfill({ json: journalEntry });
+  });
   await page.route("**/api/v1/goals", (route) =>
     route.fulfill({ json: [] }),
   );
@@ -436,6 +493,29 @@ export async function installApiMocks(page: Page) {
     "**/api/v1/curriculum/guides/python-basics/assessments/decision_brief/launch",
     (route) => route.fulfill({ json: MOCK_ASSESSMENT_DRAFT }),
   );
+  await page.route(
+    "**/api/v1/curriculum/guides/python-basics/assessments/decision_brief/submit",
+    (route) => {
+      journalEntry = {
+        ...journalEntry,
+        metadata: {
+          ...journalEntry.metadata,
+          assessment_status: "submitted",
+          assessment_feedback: MOCK_ASSESSMENT_FEEDBACK,
+        },
+      };
+      return route.fulfill({
+        json: {
+          guide_id: "python-basics",
+          assessment_type: "decision_brief",
+          entry_path: MOCK_ASSESSMENT_DRAFT.entry_path,
+          goal_path: MOCK_ASSESSMENT_DRAFT.goal_path,
+          status: "submitted",
+          ...MOCK_ASSESSMENT_FEEDBACK,
+        },
+      });
+    },
+  );
   await page.route("**/api/v1/curriculum/guides/*", (route) =>
     route.fulfill({ json: MOCK_GUIDE_DETAIL }),
   );
@@ -451,6 +531,15 @@ export async function installApiMocks(page: Page) {
   );
   await page.route("**/api/v1/curriculum/today", (route) =>
     route.fulfill({ json: MOCK_TODAY }),
+  );
+  await page.route("**/api/v1/curriculum/review/retry?limit=20", (route) =>
+    route.fulfill({ json: MOCK_RETRY_REVIEW_ITEMS }),
+  );
+  await page.route("**/api/v1/curriculum/review/due?limit=20", (route) =>
+    route.fulfill({ json: [] }),
+  );
+  await page.route("**/api/v1/curriculum/review/*/grade", (route) =>
+    route.fulfill({ json: { grade: 4 } }),
   );
   await page.route("**/api/v1/curriculum/tree", (route) =>
     route.fulfill({ json: MOCK_TREE }),

@@ -856,6 +856,39 @@ class CurriculumStore:
                 ).fetchall()
             return [dict(r) for r in rows]
 
+    def get_retry_review_items(
+        self,
+        user_id: str,
+        limit: int = 20,
+        guide_id: str | None = None,
+    ) -> list[dict]:
+        """Return recently graded items that still look weak and worth retrying."""
+        with wal_connect(self.db_path, row_factory=True) as conn:
+            if guide_id:
+                rows = conn.execute(
+                    """SELECT * FROM review_items
+                       WHERE user_id=?
+                       AND guide_id=?
+                       AND item_type != 'pre_reading'
+                       AND last_reviewed IS NOT NULL
+                       AND (repetitions = 0 OR easiness_factor < 2.4)
+                       ORDER BY last_reviewed DESC
+                       LIMIT ?""",
+                    (user_id, guide_id, limit),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """SELECT * FROM review_items
+                       WHERE user_id=?
+                       AND item_type != 'pre_reading'
+                       AND last_reviewed IS NOT NULL
+                       AND (repetitions = 0 OR easiness_factor < 2.4)
+                       ORDER BY last_reviewed DESC
+                       LIMIT ?""",
+                    (user_id, limit),
+                ).fetchall()
+            return [dict(r) for r in rows]
+
     def get_review_item(self, review_id: str) -> dict | None:
         with wal_connect(self.db_path, row_factory=True) as conn:
             row = conn.execute("SELECT * FROM review_items WHERE id=?", (review_id,)).fetchone()

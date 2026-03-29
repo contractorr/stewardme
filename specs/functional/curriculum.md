@@ -69,6 +69,11 @@ recommendations, and authoring QA.
   - guide detail can create a persisted draft in Journal
   - launch also creates a linked learning goal for the deliverable
   - existing drafts reopen from guide detail and the Today queue
+  - Journal drafts can be edited and submitted for rubric feedback
+  - stronger submissions close the loop; weaker ones stay active for revision
+- Learn now closes a weak-recall loop:
+  - the Today queue can surface `retry weak items`
+  - `/learn/review?mode=retry` focuses on recently weak recall items
 - Curriculum visuals are no longer markdown-only:
   - typed visual blocks render as web-native components
   - legacy ASCII diagrams and plain data tables still fall back safely
@@ -95,6 +100,7 @@ recommendations, and authoring QA.
 - The daily queue can recommend:
   - continuing a chapter
   - clearing due reviews
+  - retrying recently weak review items
   - starting an unlocked guide
   - opening applied-practice work for the current guide or its existing draft
 
@@ -112,6 +118,7 @@ recommendations, and authoring QA.
   - create a draft artifact in Journal
   - create a linked learning goal with default milestones
   - reopen an existing draft instead of duplicating it
+  - show status and latest feedback when the deliverable has already been reviewed
 - Enrolling in a guide persists enrollment and can auto-create a linked learning goal with
   non-glossary chapters as milestones.
 
@@ -139,6 +146,9 @@ recommendations, and authoring QA.
   - retry/resubmit flow
 - After completion, teach-back can be generated and graded separately.
 - Due items appear in `/learn/review` and are scheduled using SM-2.
+- Recently weak recall items can be retried in a separate retry-mode review session.
+- Applied deliverables can be edited in Journal and submitted for rubric feedback.
+- Feedback keeps weaker deliverables active for revision and marks stronger submissions complete.
 
 ### Test out
 
@@ -184,6 +194,9 @@ recommendations, and authoring QA.
 - [x] Recommendation and guide payloads surface applied-assessment pilot data.
 - [x] Applied-assessment cards can create persisted Journal drafts and linked learning goals.
 - [x] Existing applied-assessment drafts reopen instead of creating duplicate artifacts.
+- [x] Applied-assessment drafts can be edited in Journal and submitted for rubric feedback.
+- [x] Strong applied-assessment submissions complete their linked learning goal.
+- [x] Recently weak review items can resurface through a retry-specific review queue.
 - [x] Typed visual blocks render as web-native visuals.
 - [x] Legacy markdown diagrams and data blocks still degrade gracefully.
 - [x] Internal curriculum links navigate correctly inside the app.

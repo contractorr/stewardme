@@ -399,6 +399,11 @@ async def list_entries(
             created=e.get("created"),
             tags=e.get("tags", []),
             preview=e.get("preview", ""),
+            metadata={
+                k: v
+                for k, v in e.items()
+                if k not in {"path", "title", "type", "created", "tags", "preview"}
+            },
         )
         for e in entries
     ]
@@ -449,6 +454,7 @@ async def create_entry(
         created=post.get("created"),
         tags=post.get("tags", []),
         content=post.content,
+        metadata=dict(post.metadata),
     )
 
 
@@ -497,6 +503,7 @@ async def quick_capture(
         created=post.get("created"),
         tags=post.get("tags", []),
         content=post.content,
+        metadata=dict(post.metadata),
     )
 
 
@@ -604,6 +611,7 @@ async def read_entry(
         created=post.get("created"),
         tags=post.get("tags", []),
         content=post.content,
+        metadata=dict(post.metadata),
     )
 
 
@@ -634,6 +642,7 @@ async def update_entry(
         created=post.get("created"),
         tags=post.get("tags", []),
         content=post.content,
+        metadata=dict(post.metadata),
     )
 
 

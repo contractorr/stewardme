@@ -150,6 +150,7 @@ class JournalEntry(BaseModel):
     tags: list[str] = []
     preview: str = ""
     content: str | None = None
+    metadata: dict = {}
 
 
 class JournalMindMapNode(BaseModel):

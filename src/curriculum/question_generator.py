@@ -136,6 +136,33 @@ Output JSON with fields:
 
 Output ONLY valid JSON, no other text."""
 
+_APPLIED_ASSESSMENT_GRADING_PROMPT = """Grade this applied learning deliverable.
+
+Guide: {guide_title}
+Assessment type: {assessment_type}
+Prompt: {assessment_prompt}
+Evaluation focus:
+{evaluation_focus}
+
+Student submission:
+{student_answer}
+
+Evaluate on a 0-5 scale:
+0 = empty or off-topic
+1 = weak, mostly unsupported, major gaps
+2 = partial, but important reasoning gaps remain
+3 = solid draft with clear but incomplete judgment
+4 = strong, defensible submission with good use of the framework
+5 = excellent, decision-ready submission with clear trade-offs and failure modes
+
+Output JSON with fields:
+- "grade": integer 0-5
+- "feedback": brief constructive feedback (1-3 sentences)
+- "correct_points": array of strengths
+- "missing_points": array of missing or weak areas
+
+Output ONLY valid JSON, no other text."""
+
 
 class QuestionGenerator:
     """Generate questions and grade answers using LLM."""
@@ -409,6 +436,36 @@ class QuestionGenerator:
             logger.exception("curriculum.teachback.grading_failed")
             return self._keyword_grade(expected_answer, student_answer)
 
+    async def grade_applied_assessment(
+        self,
+        *,
+        guide_title: str,
+        assessment_type: str,
+        assessment_prompt: str,
+        evaluation_focus: list[str],
+        student_answer: str,
+    ) -> ReviewGradeResult:
+        """Grade a longform applied assessment draft."""
+        provider = self.llm or self.cheap_llm
+        if not provider:
+            return self._fallback_applied_assessment_grade(student_answer, evaluation_focus)
+
+        focus_lines = "\n".join(f"- {item}" for item in evaluation_focus)
+        prompt = _APPLIED_ASSESSMENT_GRADING_PROMPT.format(
+            guide_title=guide_title,
+            assessment_type=assessment_type.replace("_", " "),
+            assessment_prompt=assessment_prompt,
+            evaluation_focus=focus_lines,
+            student_answer=student_answer,
+        )
+
+        try:
+            response = await provider.generate(prompt)
+            return self._parse_grade(response)
+        except Exception:
+            logger.exception("curriculum.applied_assessment.grading_failed")
+            return self._fallback_applied_assessment_grade(student_answer, evaluation_focus)
+
     def _strip_code_fences(self, text: str) -> str:
         """Strip markdown code fences from LLM response."""
         text = text.strip()
@@ -500,3 +557,40 @@ class QuestionGenerator:
         except (json.JSONDecodeError, TypeError, ValueError):
             logger.warning("curriculum.grading.parse_failed", text=text[:200])
             return ReviewGradeResult(grade=0, feedback="Could not parse grading response.")
+
+    def _fallback_applied_assessment_grade(
+        self,
+        student_answer: str,
+        evaluation_focus: list[str],
+    ) -> ReviewGradeResult:
+        words = [word for word in student_answer.strip().split() if word]
+        lowered = student_answer.lower()
+        matched_focus = [
+            item
+            for item in evaluation_focus
+            if any(token in lowered for token in item.lower().split() if len(token) > 4)
+        ]
+
+        if len(words) < 40:
+            return ReviewGradeResult(
+                grade=1 if words else 0,
+                feedback="The submission needs substantially more detail before it can be evaluated well.",
+                correct_points=[],
+                missing_points=evaluation_focus[:3],
+            )
+
+        coverage_ratio = len(matched_focus) / len(evaluation_focus) if evaluation_focus else 0
+        if len(words) >= 220 and coverage_ratio >= 0.75:
+            grade = 4
+        elif len(words) >= 140 and coverage_ratio >= 0.5:
+            grade = 3
+        else:
+            grade = 2
+
+        missing = [item for item in evaluation_focus if item not in matched_focus]
+        return ReviewGradeResult(
+            grade=grade,
+            feedback="Fallback grading used. Add clearer reasoning, trade-offs, and explicit use of the rubric areas.",
+            correct_points=matched_focus[:4],
+            missing_points=missing[:4],
+        )
