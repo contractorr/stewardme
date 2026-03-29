@@ -12,6 +12,13 @@ function formatTime(minutes: number): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
+function formatCategory(category: Guide["category"]): string {
+  return category
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 export function GuideCard({ guide }: { guide: Guide }) {
   const pct = guide.progress_pct ?? 0;
   return (
@@ -22,8 +29,9 @@ export function GuideCard({ guide }: { guide: Guide }) {
             <CardTitle className="text-base leading-snug">{guide.title}</CardTitle>
             {pct > 0 && <ProgressRing progress={pct} size={36} />}
           </div>
-          <div className="pt-1">
+          <div className="flex items-center gap-2 pt-1">
             <DifficultyBadge level={guide.difficulty} />
+            <span className="text-xs text-muted-foreground">{formatCategory(guide.category)}</span>
           </div>
         </CardHeader>
         <CardContent className="pt-0">

@@ -180,7 +180,7 @@ export default function ChapterReaderPage() {
   const isCompleted = chapter.progress?.status === "completed";
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4 pb-12">
+    <div className="mx-auto max-w-5xl space-y-4 pb-28 md:pb-32">
       <div className="sticky top-0 z-10 -mx-4 flex items-center justify-between gap-2 border-b bg-background/95 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <div className="flex min-w-0 items-center gap-2">
           <Link href={`/learn/${resolvedGuideId}`}>
@@ -208,34 +208,36 @@ export default function ChapterReaderPage() {
         <CurriculumRenderer content={chapter.content} guideId={resolvedGuideId} />
       </article>
 
-      <div className="rounded-xl border bg-card p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="space-y-1">
-            <p className="text-sm font-medium">
-              {isCompleted ? "Chapter complete" : "Finish this chapter"}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {isCompleted
-                ? "Move on when you're ready, or do one quick review session."
-                : "Mark the chapter complete when you're done reading."}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {!isCompleted ? (
-              <Button onClick={handleComplete} disabled={completing}>
-                <Check className="mr-1.5 h-3.5 w-3.5" />
-                {completing ? "Completing..." : "Mark complete"}
-              </Button>
-            ) : (
-              <>
-                <Button asChild>
-                  <Link href="/learn/review">Start review</Link>
+      <div className="sticky bottom-4 z-20">
+        <div className="rounded-xl border bg-background/95 p-4 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/85">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">
+                {isCompleted ? "Chapter complete" : "Finish this chapter"}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {isCompleted
+                  ? "Move on when you're ready, or do one quick review session."
+                  : "Mark the chapter complete when you're done reading."}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {!isCompleted ? (
+                <Button onClick={handleComplete} disabled={completing}>
+                  <Check className="mr-1.5 h-3.5 w-3.5" />
+                  {completing ? "Completing..." : "Mark complete"}
                 </Button>
-                <Button variant="outline" asChild>
-                  <Link href={`/learn/${resolvedGuideId}`}>Review later</Link>
-                </Button>
-              </>
-            )}
+              ) : (
+                <>
+                  <Button asChild>
+                    <Link href="/learn/review">Start review</Link>
+                  </Button>
+                  <Button variant="outline" asChild>
+                    <Link href={`/learn/${resolvedGuideId}`}>Review later</Link>
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>

@@ -21,6 +21,7 @@ export const MOCK_GUIDE = {
   title: "Python Basics",
   category: "technology",
   difficulty: "introductory",
+  prerequisites: [],
   chapter_count: 5,
   total_reading_time_minutes: 45,
   enrolled: true,
@@ -35,8 +36,21 @@ export const MOCK_GUIDES = [
     title: "System Design",
     category: "technology",
     difficulty: "advanced",
+    prerequisites: ["python-basics"],
     chapter_count: 12,
     total_reading_time_minutes: 180,
+    enrolled: false,
+    progress_pct: 0,
+    chapters_completed: 0,
+  },
+  {
+    id: "market-analysis",
+    title: "Market Analysis",
+    category: "business",
+    difficulty: "introductory",
+    prerequisites: [],
+    chapter_count: 4,
+    total_reading_time_minutes: 55,
     enrolled: false,
     progress_pct: 0,
     chapters_completed: 0,
@@ -65,7 +79,7 @@ export const MOCK_NEXT = {
 };
 
 export const MOCK_TODAY = {
-  headline: "Today in Learn",
+  headline: "Today in Library",
   summary: "Today: Resume Functions and Scope • 2 reviews due • 1 active path",
   recommended_action: {
     guide_id: "python-basics",
