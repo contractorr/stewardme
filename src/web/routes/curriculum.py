@@ -1150,7 +1150,7 @@ def _build_learning_today(
     if summary_parts:
         summary = "Today: " + " • ".join(summary_parts[:3])
     else:
-        summary = "Choose a program path or guide to start building momentum in Learn."
+        summary = "Choose a guide to start building momentum in Learn."
 
     return {
         "headline": "Today in Learn",

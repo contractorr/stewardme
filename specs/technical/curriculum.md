@@ -97,10 +97,12 @@ This spec describes the current shipped architecture rather than the earlier pro
 
 - Supports:
   - guide aliases
+  - curated display titles
   - tracks
   - curated prerequisites
   - learning programs
 - Canonicalizes guide IDs through alias mappings before graph assignment.
+- Applies optional manifest-driven `guide_titles` so consumer-facing guide names can be curated without changing stable IDs.
 - Loads typed chapter metadata from the content schema layer rather than only from raw markdown.
 - Falls back to directory-order prerequisite inference only when no manifest metadata is present.
 

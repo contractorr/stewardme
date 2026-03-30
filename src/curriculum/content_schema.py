@@ -390,6 +390,7 @@ def audit_curriculum_root(source_root: Path) -> CurriculumAuditReport:
     aliases = (
         manifest.get("guide_aliases", {}) if isinstance(manifest.get("guide_aliases"), dict) else {}
     )
+    guide_titles = load_manifest_guide_titles(source_root)
     tracks = manifest.get("tracks", {}) if isinstance(manifest.get("tracks"), dict) else {}
     programs = manifest.get("programs", []) if isinstance(manifest.get("programs"), list) else []
 
@@ -445,7 +446,7 @@ def audit_curriculum_root(source_root: Path) -> CurriculumAuditReport:
                 guides.append(
                     _build_audit_guide(
                         guide_id=guide_id,
-                        title=f"{industry_dir.name} Industry",
+                        title=guide_titles.get(guide_id, f"{industry_dir.name} Industry"),
                         files=files,
                         track=track_by_guide.get(guide_id, "industry"),
                         program_ids=sorted(programs_by_guide.get(guide_id, set())),
@@ -463,7 +464,7 @@ def audit_curriculum_root(source_root: Path) -> CurriculumAuditReport:
         guides.append(
             _build_audit_guide(
                 guide_id=guide_id,
-                title=_title_from_guide_id(guide_id),
+                title=guide_titles.get(guide_id, _title_from_guide_id(guide_id)),
                 files=files,
                 track=track_by_guide.get(guide_id, ""),
                 program_ids=sorted(programs_by_guide.get(guide_id, set())),
@@ -765,6 +766,7 @@ def _lint_curriculum_manifest(
     available_guides = set(guide_documents.keys())
     raw_aliases = data.get("guide_aliases", {})
     aliases = raw_aliases if isinstance(raw_aliases, dict) else {}
+    raw_guide_titles = data.get("guide_titles", {})
     tracks = data.get("tracks", {})
     programs = data.get("programs", [])
     issues: list[CurriculumLintIssue] = []
@@ -781,6 +783,32 @@ def _lint_curriculum_manifest(
                     message=f"Guide alias '{alias}' points to missing guide '{target}'",
                 )
             )
+
+    if isinstance(raw_guide_titles, dict):
+        for raw_guide_id, raw_title in raw_guide_titles.items():
+            if not isinstance(raw_guide_id, str):
+                continue
+            guide_id = _canonicalize_manifest_guide_id(raw_guide_id, aliases)
+            if guide_id not in available_guides:
+                issues.append(
+                    CurriculumLintIssue(
+                        code="unknown_guide_title",
+                        path=str(manifest_path),
+                        message=(
+                            f"Guide title override '{raw_guide_id}' points to missing guide "
+                            f"'{raw_guide_id}'"
+                        ),
+                    )
+                )
+                continue
+            if not _normalize_scalar(raw_title):
+                issues.append(
+                    CurriculumLintIssue(
+                        code="empty_guide_title",
+                        path=str(manifest_path),
+                        message=f"Guide title override '{raw_guide_id}' is empty",
+                    )
+                )
 
     graph: dict[str, list[str]] = {}
     track_assignments: dict[str, str] = {}
@@ -939,6 +967,29 @@ def _load_curriculum_manifest(source_root: Path) -> dict[str, object]:
     except yaml.YAMLError:
         return {}
     return data if isinstance(data, dict) else {}
+
+
+def load_manifest_guide_titles(source_root: Path) -> dict[str, str]:
+    data = _load_curriculum_manifest(source_root)
+    if not data:
+        return {}
+
+    raw_aliases = data.get("guide_aliases", {})
+    aliases = raw_aliases if isinstance(raw_aliases, dict) else {}
+    raw_titles = data.get("guide_titles", {})
+    if not isinstance(raw_titles, dict):
+        return {}
+
+    titles: dict[str, str] = {}
+    for raw_guide_id, raw_title in raw_titles.items():
+        if not isinstance(raw_guide_id, str):
+            continue
+        title = _normalize_scalar(raw_title)
+        if not title:
+            continue
+        guide_id = _canonicalize_manifest_guide_id(raw_guide_id, aliases)
+        titles[guide_id] = title
+    return titles
 
 
 def _build_audit_guide(

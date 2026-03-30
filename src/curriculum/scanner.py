@@ -13,6 +13,7 @@ from .content_schema import (
     extract_title_from_body,
     list_curriculum_content_files,
     load_curriculum_document,
+    load_manifest_guide_titles,
 )
 from .models import Chapter, DifficultyLevel, Guide, GuideCategory, GuideKind, GuideOrigin
 from .user_content import load_guide_metadata
@@ -392,14 +393,17 @@ class CurriculumScanner:
         self._skill_tree: tuple[dict[str, list[str]], dict[str, str], dict[str, dict]] | None = None
         self._learning_programs: list[dict] = []
         self._guide_aliases: dict[str, str] = {}
+        self._guide_titles: dict[str, str] = {}
         for d in self.content_dirs:
             result = load_skill_tree(d)
             programs = load_learning_programs(d)
             aliases = load_guide_aliases(d)
-            if result is not None or programs or aliases:
+            guide_titles = load_manifest_guide_titles(d)
+            if result is not None or programs or aliases or guide_titles:
                 self._skill_tree = result
                 self._learning_programs = programs
                 self._guide_aliases = aliases
+                self._guide_titles = guide_titles
                 break
 
     def get_track_metadata(self) -> dict[str, dict]:
@@ -496,7 +500,7 @@ class CurriculumScanner:
             guide, guide_chapters = self._build_guide(
                 entry, guide_id, chapter_files, is_industry=True
             )
-            guide.title = f"{entry.name} Industry"
+            guide.title = self._guide_titles.get(guide_id, f"{entry.name} Industry")
             guides.append(guide)
             chapters.extend(guide_chapters)
 
@@ -577,7 +581,11 @@ class CurriculumScanner:
         kind = _coerce_kind(guide_metadata.get("kind"), inferred_kind)
         guide = Guide(
             id=guide_id,
-            title=str(guide_metadata.get("title") or _guide_title_from_dir(guide_id)),
+            title=str(
+                guide_metadata.get("title")
+                or self._guide_titles.get(guide_id)
+                or _guide_title_from_dir(guide_id)
+            ),
             category=_coerce_category(guide_metadata.get("category"), inferred_category),
             difficulty=_coerce_difficulty(guide_metadata.get("difficulty"), inferred_difficulty),
             source_dir=str(guide_dir),

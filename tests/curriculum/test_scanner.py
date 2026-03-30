@@ -2,9 +2,8 @@
 
 from pathlib import Path
 
-import yaml
-
 import pytest
+import yaml
 
 from curriculum.models import GuideCategory
 from curriculum.scanner import (
@@ -15,6 +14,7 @@ from curriculum.scanner import (
     build_tree_layout,
     load_guide_aliases,
     load_learning_programs,
+    load_manifest_guide_titles,
     load_skill_tree,
 )
 
@@ -196,6 +196,10 @@ def content_dir_with_manifest(content_dir):
         """version: 1
 guide_aliases:
   "03-legacy-econ-guide": "02-economics-guide"
+guide_titles:
+  "01-philosophy-guide": "Philosophy"
+  "02-economics-guide": "Economics Essentials"
+  "industry-healthcare": "Healthcare Industry Essentials"
 tracks:
   foundations:
     title: "Foundations"
@@ -316,6 +320,27 @@ def test_get_learning_programs(content_dir_with_manifest):
     assert programs[0]["id"] == "starter"
     assert programs[0]["guide_ids"] == ["01-philosophy-guide", "02-economics-guide"]
     assert programs[0]["applied_module_ids"] == ["industry-healthcare"]
+
+
+def test_manifest_guide_titles_override_defaults(content_dir_with_manifest):
+    scanner = CurriculumScanner([content_dir_with_manifest])
+    guides, _ = scanner.scan()
+
+    phil = next(g for g in guides if g.id == "01-philosophy-guide")
+    econ = next(g for g in guides if g.id == "02-economics-guide")
+    hc = next(g for g in guides if g.id == "industry-healthcare")
+
+    assert phil.title == "Philosophy"
+    assert econ.title == "Economics Essentials"
+    assert hc.title == "Healthcare Industry Essentials"
+
+
+def test_load_manifest_guide_titles_canonicalizes_aliases(content_dir_with_manifest):
+    titles = load_manifest_guide_titles(content_dir_with_manifest)
+
+    assert titles["01-philosophy-guide"] == "Philosophy"
+    assert titles["02-economics-guide"] == "Economics Essentials"
+    assert titles["industry-healthcare"] == "Healthcare Industry Essentials"
 
 
 def test_repo_manifest_has_no_deprecated_alias_references():
