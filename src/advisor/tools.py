@@ -445,40 +445,15 @@ def _register_curriculum_tools(registry: ToolRegistry, components: dict) -> None
         return bool(components.get("user_id"))
 
     def curriculum_list_guides(args: dict) -> dict:
-        from curriculum.assistant_actions import find_matching_guides
-        from web.routes import curriculum as curriculum_routes
+        from curriculum.assistant_actions import list_guides_for_user
 
-        user_id = components["user_id"]
-        store = curriculum_routes._get_store(user_id)
-        scanner = curriculum_routes._get_scanner(user_id, store)
-        program_lookup = curriculum_routes._build_program_lookup(scanner.get_learning_programs())
-
-        category = args.get("category")
-        origin = args.get("origin")
-        query = (args.get("query") or "").strip()
-        limit = args.get("limit", 20)
-
-        guides = store.list_guides(category=category, user_id=user_id, origin=origin)
-        if query:
-            match_ids = {
-                match["id"] for match in find_matching_guides(store, query, limit=max(limit, 5))
-            }
-            guides = [guide for guide in guides if guide["id"] in match_ids]
-
-        guides = guides[:limit]
-        return {
-            "guides": [
-                curriculum_routes._decorate_guide_payload(
-                    guide,
-                    scanner,
-                    program_lookup,
-                    store=store,
-                    user_id=user_id,
-                )
-                for guide in guides
-            ],
-            "count": len(guides),
-        }
+        return list_guides_for_user(
+            components["user_id"],
+            query=args.get("query", ""),
+            category=args.get("category"),
+            origin=args.get("origin"),
+            limit=args.get("limit", 20),
+        )
 
     registry.register(
         name="curriculum_list_guides",
