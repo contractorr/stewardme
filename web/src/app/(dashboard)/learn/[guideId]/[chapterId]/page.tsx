@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -34,6 +34,28 @@ function restoreScrollPosition(scrollPosition: number): void {
   const scrollableHeight = document.documentElement.scrollHeight - window.innerHeight;
   const top = scrollableHeight > 0 ? scrollableHeight * scrollPosition : 0;
   window.scrollTo({ top, behavior: "auto" });
+}
+
+function LearningAidPanel({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  children: ReactNode;
+}) {
+  return (
+    <details className="rounded-xl border bg-card shadow-sm">
+      <summary className="cursor-pointer list-none px-5 py-4">
+        <div className="space-y-1">
+          <p className="text-sm font-medium">{title}</p>
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
+        </div>
+      </summary>
+      <div className="border-t px-5 py-4">{children}</div>
+    </details>
+  );
 }
 
 export default function ChapterReaderPage() {
@@ -349,6 +371,117 @@ export default function ChapterReaderPage() {
       <article className="rounded-xl border bg-card p-6 shadow-sm">
         <CurriculumRenderer content={chapter.content} guideId={resolvedGuideId} />
       </article>
+
+      {chapter.causal_lens || chapter.misconception_card ? (
+        <div className="space-y-3">
+          {chapter.causal_lens ? (
+            <LearningAidPanel
+              title="How it works"
+              subtitle="A compact causal lens for the chapter."
+            >
+              <div className="space-y-4">
+                {chapter.causal_lens.drivers.length > 0 ? (
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                      Drivers
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {chapter.causal_lens.drivers.map((driver) => (
+                        <span
+                          key={driver}
+                          className="rounded-full border border-border/70 bg-muted/30 px-2.5 py-1 text-xs text-foreground/80"
+                        >
+                          {driver}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {chapter.causal_lens.mechanism ? (
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                      Mechanism
+                    </p>
+                    <p className="text-sm leading-relaxed text-foreground/85">
+                      {chapter.causal_lens.mechanism}
+                    </p>
+                  </div>
+                ) : null}
+                {chapter.causal_lens.effects.length > 0 ? (
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                      Effects
+                    </p>
+                    <ul className="ml-5 list-disc space-y-1 text-sm text-foreground/80">
+                      {chapter.causal_lens.effects.map((effect) => (
+                        <li key={effect}>{effect}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {chapter.causal_lens.second_order_effects.length > 0 ? (
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                      Second-order effects
+                    </p>
+                    <ul className="ml-5 list-disc space-y-1 text-sm text-foreground/80">
+                      {chapter.causal_lens.second_order_effects.map((effect) => (
+                        <li key={effect}>{effect}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+            </LearningAidPanel>
+          ) : null}
+
+          {chapter.misconception_card ? (
+            <LearningAidPanel
+              title="Common mistake"
+              subtitle="A fast way to avoid the wrong model while this chapter is still fresh."
+            >
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    Wrong model
+                  </p>
+                  <p className="text-sm leading-relaxed text-foreground/85">
+                    {chapter.misconception_card.misconception}
+                  </p>
+                </div>
+                {chapter.misconception_card.why_it_seems_true ? (
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                      Why it feels plausible
+                    </p>
+                    <p className="text-sm leading-relaxed text-foreground/85">
+                      {chapter.misconception_card.why_it_seems_true}
+                    </p>
+                  </div>
+                ) : null}
+                <div className="space-y-1">
+                  <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    What corrects it
+                  </p>
+                  <p className="text-sm leading-relaxed text-foreground/85">
+                    {chapter.misconception_card.correction}
+                  </p>
+                </div>
+                {chapter.misconception_card.counterexample ? (
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                      Counterexample
+                    </p>
+                    <p className="text-sm leading-relaxed text-foreground/85">
+                      {chapter.misconception_card.counterexample}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            </LearningAidPanel>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="sticky bottom-4 z-20">
         <div className="rounded-xl border bg-background/95 p-4 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/85">

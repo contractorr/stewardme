@@ -2,6 +2,9 @@
 
 from curriculum.content_schema import (
     audit_curriculum_root,
+    derive_causal_lens,
+    derive_guide_synthesis,
+    derive_misconception_card,
     iter_curriculum_content_files,
     lint_curriculum_paths,
     load_curriculum_document,
@@ -77,6 +80,99 @@ Induction content.
     assert document.schema_version == 0
 
 
+def test_load_curriculum_document_parses_learning_aids_frontmatter(tmp_path):
+    chapter = tmp_path / "01-systems.mdx"
+    chapter.write_text(
+        """---
+schema_version: 1
+title: Systems Intro
+summary: Prices, incentives, and institutions shape how markets behave.
+objectives:
+  - Understand the system.
+checkpoints:
+  - Explain the system.
+causal_lens:
+  drivers:
+    - Prices
+    - Incentives
+  mechanism: Signals travel through markets and reallocate effort.
+  effects:
+    - Supply responds over time.
+misconception_card:
+  misconception: Markets are just a list of prices.
+  correction: Markets coordinate behavior through incentives and constraints.
+---
+
+# Systems Intro
+
+Body text.
+""",
+        encoding="utf-8",
+    )
+
+    document = load_curriculum_document(chapter)
+
+    assert document.causal_lens is not None
+    assert document.causal_lens.drivers == ["Prices", "Incentives"]
+    assert document.causal_lens.mechanism == "Signals travel through markets and reallocate effort."
+    assert document.misconception_card is not None
+    assert document.misconception_card.misconception == "Markets are just a list of prices."
+
+
+def test_derive_learning_aids_from_existing_content_shape(tmp_path):
+    chapter = tmp_path / "01-geography.mdx"
+    chapter.write_text(
+        """---
+title: Geography Basics
+summary: Geography, history, and politics shape how countries operate.
+objectives:
+  - Learn how geography, history, and politics shape countries.
+checkpoints:
+  - Explain the model.
+---
+
+# Geography Basics
+
+One of the most common mistakes in geography is treating countries as flat units.
+In reality, internal regions often explain culture, economy, and politics better than borders alone.
+A country's position shapes trade and security choices.
+Over time, that also changes where population and power concentrate.
+""",
+        encoding="utf-8",
+    )
+
+    document = load_curriculum_document(chapter)
+    causal_lens = derive_causal_lens(document)
+    misconception_card = derive_misconception_card(document)
+
+    assert causal_lens is not None
+    assert "Geography" in causal_lens.drivers
+    assert causal_lens.mechanism == "Geography, history, and politics shape how countries operate."
+    assert causal_lens.second_order_effects
+    assert misconception_card is not None
+    assert "common mistakes" in misconception_card.misconception.lower()
+    assert misconception_card.correction
+
+
+def test_derive_guide_synthesis_falls_back_to_summary_and_chapters():
+    synthesis = derive_guide_synthesis(
+        guide_title="Geography",
+        guide_summary="Understand how geography, history, and politics combine.",
+        chapters=[
+            {"title": "Africa", "is_glossary": False},
+            {"title": "Europe", "is_glossary": False},
+            {"title": "Glossary", "is_glossary": True},
+        ],
+    )
+
+    assert synthesis is not None
+    assert (
+        synthesis.what_this_explains == "Understand how geography, history, and politics combine."
+    )
+    assert synthesis.where_it_applies == ["Africa", "Europe"]
+    assert synthesis.where_it_breaks
+
+
 def test_lint_curriculum_paths_flags_missing_schema_fields_and_broken_refs(tmp_path):
     guide_dir = tmp_path / "01-philosophy-guide"
     guide_dir.mkdir()
@@ -136,7 +232,8 @@ checkpoints:
 
 # Introduction
 
-""" + ("word " * 140),
+"""
+        + ("word " * 140),
         encoding="utf-8",
     )
     (core / "03-dup-a.mdx").write_text(
@@ -151,7 +248,8 @@ checkpoints:
 
 # Repeated Concept
 
-""" + ("word " * 80),
+"""
+        + ("word " * 80),
         encoding="utf-8",
     )
     (core / "04-dup-b.mdx").write_text(
@@ -166,7 +264,8 @@ checkpoints:
 
 # Repeated Concept
 
-""" + ("word " * 90),
+"""
+        + ("word " * 90),
         encoding="utf-8",
     )
 
@@ -184,7 +283,8 @@ checkpoints:
 
 # Cycle Start
 
-""" + ("word " * 130),
+"""
+        + ("word " * 130),
         encoding="utf-8",
     )
 
@@ -202,7 +302,8 @@ checkpoints:
 
 # Overview
 
-""" + ("word " * 130),
+"""
+        + ("word " * 130),
         encoding="utf-8",
     )
 
@@ -299,7 +400,9 @@ def test_audit_curriculum_root_ranks_thin_guides_and_capstones(tmp_path):
 
     guide_dir2 = root / "02-foundation-guide"
     guide_dir2.mkdir()
-    (guide_dir2 / "01-introduction.md").write_text("# Intro\n\n" + ("word " * 3000), encoding="utf-8")
+    (guide_dir2 / "01-introduction.md").write_text(
+        "# Intro\n\n" + ("word " * 3000), encoding="utf-8"
+    )
     (guide_dir2 / "02-next.md").write_text("# Next\n\n" + ("word " * 3000), encoding="utf-8")
 
     industry_dir = root / "Industries" / "Healthcare"

@@ -24,6 +24,7 @@ class DifficultyLevel(str, Enum):
 
 class ReviewItemType(str, Enum):
     QUIZ = "quiz"
+    PREDICTION = "prediction"
     TEACHBACK = "teachback"
     PRE_READING = "pre_reading"
 
@@ -82,6 +83,26 @@ class Chapter(BaseModel):
     has_formulas: bool = False
     is_glossary: bool = False
     content_hash: str = ""
+
+
+class CausalLens(BaseModel):
+    drivers: list[str] = Field(default_factory=list)
+    mechanism: str = ""
+    effects: list[str] = Field(default_factory=list)
+    second_order_effects: list[str] = Field(default_factory=list)
+
+
+class MisconceptionCard(BaseModel):
+    misconception: str = ""
+    why_it_seems_true: str = ""
+    correction: str = ""
+    counterexample: str = ""
+
+
+class GuideSynthesis(BaseModel):
+    what_this_explains: str = ""
+    where_it_applies: list[str] = Field(default_factory=list)
+    where_it_breaks: str = ""
 
 
 class Guide(BaseModel):

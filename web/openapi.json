@@ -976,6 +976,739 @@
         "title": "CriticData",
         "type": "object"
       },
+      "CurriculumCausalLensResponse": {
+        "properties": {
+          "drivers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Drivers",
+            "type": "array"
+          },
+          "effects": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Effects",
+            "type": "array"
+          },
+          "mechanism": {
+            "default": "",
+            "title": "Mechanism",
+            "type": "string"
+          },
+          "second_order_effects": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Second Order Effects",
+            "type": "array"
+          }
+        },
+        "title": "CurriculumCausalLensResponse",
+        "type": "object"
+      },
+      "CurriculumChapterDetailResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "causal_lens": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CurriculumCausalLensResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "checkpoints": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Checkpoints",
+            "type": "array"
+          },
+          "content": {
+            "default": "",
+            "title": "Content",
+            "type": "string"
+          },
+          "content_format": {
+            "default": "markdown",
+            "title": "Content Format",
+            "type": "string"
+          },
+          "content_hash": {
+            "default": "",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "content_references": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Content References",
+            "type": "array"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "guide_id": {
+            "title": "Guide Id",
+            "type": "string"
+          },
+          "has_diagrams": {
+            "default": false,
+            "title": "Has Diagrams",
+            "type": "boolean"
+          },
+          "has_formulas": {
+            "default": false,
+            "title": "Has Formulas",
+            "type": "boolean"
+          },
+          "has_tables": {
+            "default": false,
+            "title": "Has Tables",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_glossary": {
+            "default": false,
+            "title": "Is Glossary",
+            "type": "boolean"
+          },
+          "misconception_card": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CurriculumMisconceptionCardResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "next_chapter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Chapter"
+          },
+          "objectives": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Objectives",
+            "type": "array"
+          },
+          "order": {
+            "title": "Order",
+            "type": "integer"
+          },
+          "prev_chapter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prev Chapter"
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CurriculumChapterProgressResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reading_time_minutes": {
+            "default": 0,
+            "title": "Reading Time Minutes",
+            "type": "integer"
+          },
+          "reading_time_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reading Time Seconds"
+          },
+          "schema_version": {
+            "default": 0,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "summary": {
+            "default": "",
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "word_count": {
+            "default": 0,
+            "title": "Word Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "guide_id",
+          "title",
+          "filename",
+          "order"
+        ],
+        "title": "CurriculumChapterDetailResponse",
+        "type": "object"
+      },
+      "CurriculumChapterProgressResponse": {
+        "properties": {
+          "chapter_id": {
+            "default": "",
+            "title": "Chapter Id",
+            "type": "string"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "guide_id": {
+            "default": "",
+            "title": "Guide Id",
+            "type": "string"
+          },
+          "reading_time_seconds": {
+            "default": 0,
+            "title": "Reading Time Seconds",
+            "type": "integer"
+          },
+          "scroll_position": {
+            "default": 0.0,
+            "title": "Scroll Position",
+            "type": "number"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "default": "not_started",
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "user_id": {
+            "default": "",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "title": "CurriculumChapterProgressResponse",
+        "type": "object"
+      },
+      "CurriculumChapterResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "causal_lens": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CurriculumCausalLensResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "checkpoints": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Checkpoints",
+            "type": "array"
+          },
+          "content_format": {
+            "default": "markdown",
+            "title": "Content Format",
+            "type": "string"
+          },
+          "content_hash": {
+            "default": "",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "content_references": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Content References",
+            "type": "array"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "guide_id": {
+            "title": "Guide Id",
+            "type": "string"
+          },
+          "has_diagrams": {
+            "default": false,
+            "title": "Has Diagrams",
+            "type": "boolean"
+          },
+          "has_formulas": {
+            "default": false,
+            "title": "Has Formulas",
+            "type": "boolean"
+          },
+          "has_tables": {
+            "default": false,
+            "title": "Has Tables",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_glossary": {
+            "default": false,
+            "title": "Is Glossary",
+            "type": "boolean"
+          },
+          "misconception_card": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CurriculumMisconceptionCardResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "objectives": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Objectives",
+            "type": "array"
+          },
+          "order": {
+            "title": "Order",
+            "type": "integer"
+          },
+          "reading_time_minutes": {
+            "default": 0,
+            "title": "Reading Time Minutes",
+            "type": "integer"
+          },
+          "reading_time_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reading Time Seconds"
+          },
+          "schema_version": {
+            "default": 0,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "summary": {
+            "default": "",
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "word_count": {
+            "default": 0,
+            "title": "Word Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "guide_id",
+          "title",
+          "filename",
+          "order"
+        ],
+        "title": "CurriculumChapterResponse",
+        "type": "object"
+      },
+      "CurriculumGuideDetailResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "base_guide_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Guide Id"
+          },
+          "category": {
+            "default": "",
+            "title": "Category",
+            "type": "string"
+          },
+          "chapter_count": {
+            "default": 0,
+            "title": "Chapter Count",
+            "type": "integer"
+          },
+          "chapters": {
+            "items": {
+              "$ref": "#/components/schemas/CurriculumChapterResponse"
+            },
+            "title": "Chapters",
+            "type": "array"
+          },
+          "chapters_completed": {
+            "default": 0,
+            "title": "Chapters Completed",
+            "type": "integer"
+          },
+          "chapters_total": {
+            "default": 0,
+            "title": "Chapters Total",
+            "type": "integer"
+          },
+          "difficulty": {
+            "default": "",
+            "title": "Difficulty",
+            "type": "string"
+          },
+          "enrolled": {
+            "default": false,
+            "title": "Enrolled",
+            "type": "boolean"
+          },
+          "enrollment_completed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enrollment Completed At"
+          },
+          "guide_synthesis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CurriculumGuideSynthesisResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_glossary": {
+            "default": false,
+            "title": "Has Glossary",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "default": "",
+            "title": "Kind",
+            "type": "string"
+          },
+          "mastery_score": {
+            "default": 0.0,
+            "title": "Mastery Score",
+            "type": "number"
+          },
+          "origin": {
+            "default": "",
+            "title": "Origin",
+            "type": "string"
+          },
+          "owner_user_id": {
+            "default": "",
+            "title": "Owner User Id",
+            "type": "string"
+          },
+          "prerequisites": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Prerequisites",
+            "type": "array"
+          },
+          "progress_pct": {
+            "default": 0.0,
+            "title": "Progress Pct",
+            "type": "number"
+          },
+          "source_dir": {
+            "default": "",
+            "title": "Source Dir",
+            "type": "string"
+          },
+          "summary": {
+            "default": "",
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "total_reading_time_minutes": {
+            "default": 0,
+            "title": "Total Reading Time Minutes",
+            "type": "integer"
+          },
+          "total_word_count": {
+            "default": 0,
+            "title": "Total Word Count",
+            "type": "integer"
+          },
+          "track": {
+            "default": "",
+            "title": "Track",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "CurriculumGuideDetailResponse",
+        "type": "object"
+      },
+      "CurriculumGuideSynthesisResponse": {
+        "properties": {
+          "what_this_explains": {
+            "default": "",
+            "title": "What This Explains",
+            "type": "string"
+          },
+          "where_it_applies": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Where It Applies",
+            "type": "array"
+          },
+          "where_it_breaks": {
+            "default": "",
+            "title": "Where It Breaks",
+            "type": "string"
+          }
+        },
+        "title": "CurriculumGuideSynthesisResponse",
+        "type": "object"
+      },
+      "CurriculumMisconceptionCardResponse": {
+        "properties": {
+          "correction": {
+            "default": "",
+            "title": "Correction",
+            "type": "string"
+          },
+          "counterexample": {
+            "default": "",
+            "title": "Counterexample",
+            "type": "string"
+          },
+          "misconception": {
+            "default": "",
+            "title": "Misconception",
+            "type": "string"
+          },
+          "why_it_seems_true": {
+            "default": "",
+            "title": "Why It Seems True",
+            "type": "string"
+          }
+        },
+        "title": "CurriculumMisconceptionCardResponse",
+        "type": "object"
+      },
+      "CurriculumReviewItemResponse": {
+        "additionalProperties": true,
+        "properties": {
+          "bloom_level": {
+            "default": "remember",
+            "title": "Bloom Level",
+            "type": "string"
+          },
+          "chapter_id": {
+            "default": "",
+            "title": "Chapter Id",
+            "type": "string"
+          },
+          "content_hash": {
+            "default": "",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "easiness_factor": {
+            "default": 2.5,
+            "title": "Easiness Factor",
+            "type": "number"
+          },
+          "expected_answer": {
+            "default": "",
+            "title": "Expected Answer",
+            "type": "string"
+          },
+          "guide_id": {
+            "default": "",
+            "title": "Guide Id",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "interval_days": {
+            "default": 1,
+            "title": "Interval Days",
+            "type": "integer"
+          },
+          "item_type": {
+            "default": "quiz",
+            "title": "Item Type",
+            "type": "string"
+          },
+          "last_reviewed": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Reviewed"
+          },
+          "next_review": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Review"
+          },
+          "question": {
+            "default": "",
+            "title": "Question",
+            "type": "string"
+          },
+          "repetitions": {
+            "default": 0,
+            "title": "Repetitions",
+            "type": "integer"
+          },
+          "user_id": {
+            "default": "",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "CurriculumReviewItemResponse",
+        "type": "object"
+      },
       "CustomProviderCreate": {
         "properties": {
           "api_key": {
@@ -6610,7 +7343,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CurriculumGuideDetailResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -6772,7 +7507,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CurriculumChapterDetailResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -7287,7 +8024,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CurriculumReviewItemResponse"
+                  },
+                  "title": "Response Get Due Reviews Api Curriculum Review Due Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"
@@ -7351,7 +8094,13 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CurriculumReviewItemResponse"
+                  },
+                  "title": "Response Get Retry Reviews Api Curriculum Review Retry Get",
+                  "type": "array"
+                }
               }
             },
             "description": "Successful Response"

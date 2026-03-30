@@ -22,7 +22,27 @@ export type BloomLevel =
 
 export type ChapterStatus = "not_started" | "in_progress" | "completed";
 
-export type ReviewItemType = "quiz" | "teachback" | "pre_reading";
+export type ReviewItemType = "quiz" | "prediction" | "teachback" | "pre_reading";
+
+export interface CausalLens {
+  drivers: string[];
+  mechanism: string;
+  effects: string[];
+  second_order_effects: string[];
+}
+
+export interface MisconceptionCard {
+  misconception: string;
+  why_it_seems_true?: string;
+  correction: string;
+  counterexample?: string;
+}
+
+export interface GuideSynthesis {
+  what_this_explains: string;
+  where_it_applies: string[];
+  where_it_breaks: string;
+}
 
 export interface Guide {
   id: string;
@@ -55,6 +75,7 @@ export interface Guide {
   learning_programs?: LearningProgram[];
   applied_assessments?: AppliedAssessment[];
   linked_extensions?: Guide[];
+  guide_synthesis?: GuideSynthesis;
 }
 
 export interface Chapter {
@@ -76,6 +97,8 @@ export interface Chapter {
   has_formulas: boolean;
   is_glossary: boolean;
   content_hash: string;
+  causal_lens?: CausalLens | null;
+  misconception_card?: MisconceptionCard | null;
   // Progress
   status?: ChapterStatus;
   reading_time_seconds?: number;

@@ -1,6 +1,6 @@
 // This file is generated. Do not edit manually.
 // Source: web/openapi.json
-// OpenAPI SHA256: fe513ae8df1cd66b9da8fe29085a47bb9bbd46354e5c85c82fe193a1358005bb
+// OpenAPI SHA256: ca4526077d10f0f313b2a6424396e3d055cad1a7fd6e3e29c048521f913570c8
 export interface paths {
     "/api/admin/stats": {
         parameters: {
@@ -3039,6 +3039,432 @@ export interface components {
              * @default
              */
             missing_context: string;
+        };
+        /** CurriculumCausalLensResponse */
+        CurriculumCausalLensResponse: {
+            /** Drivers */
+            drivers?: string[];
+            /** Effects */
+            effects?: string[];
+            /**
+             * Mechanism
+             * @default
+             */
+            mechanism: string;
+            /** Second Order Effects */
+            second_order_effects?: string[];
+        };
+        /** CurriculumChapterDetailResponse */
+        CurriculumChapterDetailResponse: {
+            causal_lens?: components["schemas"]["CurriculumCausalLensResponse"] | null;
+            /** Checkpoints */
+            checkpoints?: string[];
+            /**
+             * Content
+             * @default
+             */
+            content: string;
+            /**
+             * Content Format
+             * @default markdown
+             */
+            content_format: string;
+            /**
+             * Content Hash
+             * @default
+             */
+            content_hash: string;
+            /** Content References */
+            content_references?: string[];
+            /** Filename */
+            filename: string;
+            /** Guide Id */
+            guide_id: string;
+            /**
+             * Has Diagrams
+             * @default false
+             */
+            has_diagrams: boolean;
+            /**
+             * Has Formulas
+             * @default false
+             */
+            has_formulas: boolean;
+            /**
+             * Has Tables
+             * @default false
+             */
+            has_tables: boolean;
+            /** Id */
+            id: string;
+            /**
+             * Is Glossary
+             * @default false
+             */
+            is_glossary: boolean;
+            misconception_card?: components["schemas"]["CurriculumMisconceptionCardResponse"] | null;
+            /** Next Chapter */
+            next_chapter?: string | null;
+            /** Objectives */
+            objectives?: string[];
+            /** Order */
+            order: number;
+            /** Prev Chapter */
+            prev_chapter?: string | null;
+            progress?: components["schemas"]["CurriculumChapterProgressResponse"] | null;
+            /**
+             * Reading Time Minutes
+             * @default 0
+             */
+            reading_time_minutes: number;
+            /** Reading Time Seconds */
+            reading_time_seconds?: number | null;
+            /**
+             * Schema Version
+             * @default 0
+             */
+            schema_version: number;
+            /** Status */
+            status?: string | null;
+            /**
+             * Summary
+             * @default
+             */
+            summary: string;
+            /** Title */
+            title: string;
+            /**
+             * Word Count
+             * @default 0
+             */
+            word_count: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /** CurriculumChapterProgressResponse */
+        CurriculumChapterProgressResponse: {
+            /**
+             * Chapter Id
+             * @default
+             */
+            chapter_id: string;
+            /** Completed At */
+            completed_at?: string | null;
+            /**
+             * Guide Id
+             * @default
+             */
+            guide_id: string;
+            /**
+             * Reading Time Seconds
+             * @default 0
+             */
+            reading_time_seconds: number;
+            /**
+             * Scroll Position
+             * @default 0
+             */
+            scroll_position: number;
+            /** Started At */
+            started_at?: string | null;
+            /**
+             * Status
+             * @default not_started
+             */
+            status: string;
+            /** Updated At */
+            updated_at?: string | null;
+            /**
+             * User Id
+             * @default
+             */
+            user_id: string;
+        };
+        /** CurriculumChapterResponse */
+        CurriculumChapterResponse: {
+            causal_lens?: components["schemas"]["CurriculumCausalLensResponse"] | null;
+            /** Checkpoints */
+            checkpoints?: string[];
+            /**
+             * Content Format
+             * @default markdown
+             */
+            content_format: string;
+            /**
+             * Content Hash
+             * @default
+             */
+            content_hash: string;
+            /** Content References */
+            content_references?: string[];
+            /** Filename */
+            filename: string;
+            /** Guide Id */
+            guide_id: string;
+            /**
+             * Has Diagrams
+             * @default false
+             */
+            has_diagrams: boolean;
+            /**
+             * Has Formulas
+             * @default false
+             */
+            has_formulas: boolean;
+            /**
+             * Has Tables
+             * @default false
+             */
+            has_tables: boolean;
+            /** Id */
+            id: string;
+            /**
+             * Is Glossary
+             * @default false
+             */
+            is_glossary: boolean;
+            misconception_card?: components["schemas"]["CurriculumMisconceptionCardResponse"] | null;
+            /** Objectives */
+            objectives?: string[];
+            /** Order */
+            order: number;
+            /**
+             * Reading Time Minutes
+             * @default 0
+             */
+            reading_time_minutes: number;
+            /** Reading Time Seconds */
+            reading_time_seconds?: number | null;
+            /**
+             * Schema Version
+             * @default 0
+             */
+            schema_version: number;
+            /** Status */
+            status?: string | null;
+            /**
+             * Summary
+             * @default
+             */
+            summary: string;
+            /** Title */
+            title: string;
+            /**
+             * Word Count
+             * @default 0
+             */
+            word_count: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /** CurriculumGuideDetailResponse */
+        CurriculumGuideDetailResponse: {
+            /** Base Guide Id */
+            base_guide_id?: string | null;
+            /**
+             * Category
+             * @default
+             */
+            category: string;
+            /**
+             * Chapter Count
+             * @default 0
+             */
+            chapter_count: number;
+            /** Chapters */
+            chapters?: components["schemas"]["CurriculumChapterResponse"][];
+            /**
+             * Chapters Completed
+             * @default 0
+             */
+            chapters_completed: number;
+            /**
+             * Chapters Total
+             * @default 0
+             */
+            chapters_total: number;
+            /**
+             * Difficulty
+             * @default
+             */
+            difficulty: string;
+            /**
+             * Enrolled
+             * @default false
+             */
+            enrolled: boolean;
+            /** Enrollment Completed At */
+            enrollment_completed_at?: string | null;
+            guide_synthesis?: components["schemas"]["CurriculumGuideSynthesisResponse"] | null;
+            /**
+             * Has Glossary
+             * @default false
+             */
+            has_glossary: boolean;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @default
+             */
+            kind: string;
+            /**
+             * Mastery Score
+             * @default 0
+             */
+            mastery_score: number;
+            /**
+             * Origin
+             * @default
+             */
+            origin: string;
+            /**
+             * Owner User Id
+             * @default
+             */
+            owner_user_id: string;
+            /** Prerequisites */
+            prerequisites?: string[];
+            /**
+             * Progress Pct
+             * @default 0
+             */
+            progress_pct: number;
+            /**
+             * Source Dir
+             * @default
+             */
+            source_dir: string;
+            /**
+             * Summary
+             * @default
+             */
+            summary: string;
+            /** Title */
+            title: string;
+            /**
+             * Total Reading Time Minutes
+             * @default 0
+             */
+            total_reading_time_minutes: number;
+            /**
+             * Total Word Count
+             * @default 0
+             */
+            total_word_count: number;
+            /**
+             * Track
+             * @default
+             */
+            track: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** CurriculumGuideSynthesisResponse */
+        CurriculumGuideSynthesisResponse: {
+            /**
+             * What This Explains
+             * @default
+             */
+            what_this_explains: string;
+            /** Where It Applies */
+            where_it_applies?: string[];
+            /**
+             * Where It Breaks
+             * @default
+             */
+            where_it_breaks: string;
+        };
+        /** CurriculumMisconceptionCardResponse */
+        CurriculumMisconceptionCardResponse: {
+            /**
+             * Correction
+             * @default
+             */
+            correction: string;
+            /**
+             * Counterexample
+             * @default
+             */
+            counterexample: string;
+            /**
+             * Misconception
+             * @default
+             */
+            misconception: string;
+            /**
+             * Why It Seems True
+             * @default
+             */
+            why_it_seems_true: string;
+        };
+        /** CurriculumReviewItemResponse */
+        CurriculumReviewItemResponse: {
+            /**
+             * Bloom Level
+             * @default remember
+             */
+            bloom_level: string;
+            /**
+             * Chapter Id
+             * @default
+             */
+            chapter_id: string;
+            /**
+             * Content Hash
+             * @default
+             */
+            content_hash: string;
+            /** Created At */
+            created_at?: string | null;
+            /**
+             * Easiness Factor
+             * @default 2.5
+             */
+            easiness_factor: number;
+            /**
+             * Expected Answer
+             * @default
+             */
+            expected_answer: string;
+            /**
+             * Guide Id
+             * @default
+             */
+            guide_id: string;
+            /** Id */
+            id: string;
+            /**
+             * Interval Days
+             * @default 1
+             */
+            interval_days: number;
+            /**
+             * Item Type
+             * @default quiz
+             */
+            item_type: string;
+            /** Last Reviewed */
+            last_reviewed?: string | null;
+            /** Next Review */
+            next_review?: string | null;
+            /**
+             * Question
+             * @default
+             */
+            question: string;
+            /**
+             * Repetitions
+             * @default 0
+             */
+            repetitions: number;
+            /**
+             * User Id
+             * @default
+             */
+            user_id: string;
+        } & {
+            [key: string]: unknown;
         };
         /** CustomProviderCreate */
         CustomProviderCreate: {
@@ -6096,7 +6522,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CurriculumGuideDetailResponse"];
                 };
             };
             /** @description Validation Error */
@@ -6223,7 +6649,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CurriculumChapterDetailResponse"];
                 };
             };
             /** @description Validation Error */
@@ -6559,7 +6985,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CurriculumReviewItemResponse"][];
                 };
             };
             /** @description Validation Error */
@@ -6591,7 +7017,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CurriculumReviewItemResponse"][];
                 };
             };
             /** @description Validation Error */

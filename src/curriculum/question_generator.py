@@ -33,6 +33,7 @@ For each question, output JSON array of objects with fields:
 - "question": the question text
 - "expected_answer": a concise model answer (2-4 sentences)
 - "bloom_level": one of {bloom_values}
+- optional "prediction": true when the question asks the learner to predict what would happen in a plausible scenario by applying the chapter's model
 
 {extra_instructions}
 
@@ -198,9 +199,9 @@ class QuestionGenerator:
             bloom_levels = [
                 BloomLevel.REMEMBER,
                 BloomLevel.REMEMBER,
-                BloomLevel.REMEMBER,
                 BloomLevel.UNDERSTAND,
                 BloomLevel.UNDERSTAND,
+                BloomLevel.APPLY,
             ]
 
         bloom_str = ", ".join(f"{bl.value} ({_BLOOM_DESCRIPTIONS[bl]})" for bl in set(bloom_levels))
@@ -221,6 +222,16 @@ class QuestionGenerator:
                 'Mark these with "pre_reading": true in the JSON output.\n'
                 "Pre-reading questions do NOT need expected_answer or bloom_level fields."
             )
+        prediction_instruction = ""
+        if count >= 4:
+            prediction_instruction = (
+                '\nAlso make exactly 1 of the study questions a "prediction" question that:\n'
+                "- describes a short plausible scenario or change in conditions\n"
+                "- asks what the learner would expect to happen, and why\n"
+                '- uses bloom_level "apply"\n'
+                'Mark it with "prediction": true in the JSON output.\n'
+            )
+        extra += prediction_instruction
 
         prompt = _GENERATION_PROMPT.format(
             count=count,
@@ -279,7 +290,11 @@ class QuestionGenerator:
                         question=q.get("question", ""),
                         expected_answer=q.get("expected_answer", ""),
                         bloom_level=bloom_enum,
-                        item_type=ReviewItemType.QUIZ,
+                        item_type=(
+                            ReviewItemType.PREDICTION
+                            if q.get("prediction", False)
+                            else ReviewItemType.QUIZ
+                        ),
                         content_hash=content_hash,
                         next_review=now,
                         created_at=now,

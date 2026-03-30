@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 # --- Settings ---
 
@@ -121,6 +121,127 @@ class UsageStatsResponse(BaseModel):
     total_queries: int = 0
     total_estimated_cost_usd: float = 0.0
     by_model: list[UsageModelStats] = Field(default_factory=list)
+
+
+# --- Curriculum ---
+
+
+class CurriculumCausalLensResponse(BaseModel):
+    drivers: list[str] = Field(default_factory=list)
+    mechanism: str = ""
+    effects: list[str] = Field(default_factory=list)
+    second_order_effects: list[str] = Field(default_factory=list)
+
+
+class CurriculumMisconceptionCardResponse(BaseModel):
+    misconception: str = ""
+    why_it_seems_true: str = ""
+    correction: str = ""
+    counterexample: str = ""
+
+
+class CurriculumGuideSynthesisResponse(BaseModel):
+    what_this_explains: str = ""
+    where_it_applies: list[str] = Field(default_factory=list)
+    where_it_breaks: str = ""
+
+
+class CurriculumChapterProgressResponse(BaseModel):
+    user_id: str = ""
+    chapter_id: str = ""
+    guide_id: str = ""
+    status: str = "not_started"
+    reading_time_seconds: int = 0
+    scroll_position: float = 0.0
+    started_at: str | None = None
+    completed_at: str | None = None
+    updated_at: str | None = None
+
+
+class CurriculumChapterResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id: str
+    guide_id: str
+    title: str
+    filename: str
+    order: int
+    summary: str = ""
+    objectives: list[str] = Field(default_factory=list)
+    checkpoints: list[str] = Field(default_factory=list)
+    content_references: list[str] = Field(default_factory=list)
+    content_format: str = "markdown"
+    schema_version: int = 0
+    word_count: int = 0
+    reading_time_minutes: int = 0
+    has_diagrams: bool = False
+    has_tables: bool = False
+    has_formulas: bool = False
+    is_glossary: bool = False
+    content_hash: str = ""
+    status: str | None = None
+    reading_time_seconds: int | None = None
+    causal_lens: CurriculumCausalLensResponse | None = None
+    misconception_card: CurriculumMisconceptionCardResponse | None = None
+
+
+class CurriculumGuideResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id: str
+    title: str
+    summary: str = ""
+    category: str = ""
+    difficulty: str = ""
+    source_dir: str = ""
+    origin: str = ""
+    kind: str = ""
+    owner_user_id: str = ""
+    base_guide_id: str | None = None
+    chapter_count: int = 0
+    total_word_count: int = 0
+    total_reading_time_minutes: int = 0
+    has_glossary: bool = False
+    prerequisites: list[str] = Field(default_factory=list)
+    track: str = ""
+    enrolled: bool = False
+    enrollment_completed_at: str | None = None
+    chapters_total: int = 0
+    chapters_completed: int = 0
+    progress_pct: float = 0.0
+    mastery_score: float = 0.0
+    guide_synthesis: CurriculumGuideSynthesisResponse | None = None
+
+
+class CurriculumGuideDetailResponse(CurriculumGuideResponse):
+    chapters: list[CurriculumChapterResponse] = Field(default_factory=list)
+
+
+class CurriculumChapterDetailResponse(CurriculumChapterResponse):
+    content: str = ""
+    progress: CurriculumChapterProgressResponse | None = None
+    prev_chapter: str | None = None
+    next_chapter: str | None = None
+
+
+class CurriculumReviewItemResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id: str
+    user_id: str = ""
+    chapter_id: str = ""
+    guide_id: str = ""
+    question: str = ""
+    expected_answer: str = ""
+    bloom_level: str = "remember"
+    item_type: str = "quiz"
+    easiness_factor: float = 2.5
+    interval_days: int = 1
+    repetitions: int = 0
+    next_review: str | None = None
+    last_reviewed: str | None = None
+    content_hash: str = ""
+    created_at: str | None = None
 
 
 # --- Journal ---

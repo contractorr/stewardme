@@ -120,6 +120,8 @@ export default function GuideDetailPage() {
 
   const chaptersCompleted = guide.chapters_completed ?? 0;
   const chaptersTotal = guide.chapters_total ?? guide.chapter_count;
+  const showGuideSynthesis =
+    Boolean(guide.guide_synthesis) && chaptersTotal > 0 && chaptersCompleted >= chaptersTotal;
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-4 md:p-6">
@@ -169,6 +171,50 @@ export default function GuideDetailPage() {
           </Button>
         </CardContent>
       </Card>
+
+      {showGuideSynthesis && guide.guide_synthesis ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">What this guide changes</CardTitle>
+            <CardDescription>
+              A short synthesis to keep the model reusable after the reading is done.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                What it explains
+              </p>
+              <p className="text-sm leading-relaxed text-foreground/85">
+                {guide.guide_synthesis.what_this_explains}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                Where it applies
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {guide.guide_synthesis.where_it_applies.map((item) => (
+                  <span
+                    key={item}
+                    className="rounded-full border border-border/70 bg-muted/30 px-2.5 py-1 text-xs text-foreground/80"
+                  >
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                Where it breaks
+              </p>
+              <p className="text-sm leading-relaxed text-foreground/85">
+                {guide.guide_synthesis.where_it_breaks}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>

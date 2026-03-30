@@ -40,8 +40,9 @@ export function ReviewCard({
   nextLabel,
   showAnswer = false,
 }: ReviewCardProps) {
-  const isTeachback =
-    (item as ReviewItem & { item_type?: ReviewItemType }).item_type === "teachback";
+  const itemType = (item as ReviewItem & { item_type?: ReviewItemType }).item_type;
+  const isTeachback = itemType === "teachback";
+  const isPrediction = itemType === "prediction";
   const isQuickRecall = !isTeachback && ["remember", "understand"].includes(item.bloom_level);
   const [answer, setAnswer] = useState("");
   const [grading, setGrading] = useState(false);
@@ -80,6 +81,11 @@ export function ReviewCard({
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-medium leading-relaxed">{item.question}</p>
         <div className="flex shrink-0 gap-1">
+          {isPrediction && (
+            <Badge className="bg-sky-100 text-[10px] text-sky-800 dark:bg-sky-900/40 dark:text-sky-300">
+              Prediction
+            </Badge>
+          )}
           {isTeachback && (
             <Badge className="bg-violet-100 text-[10px] text-violet-800 dark:bg-violet-900/40 dark:text-violet-300">
               Teach-back
@@ -91,6 +97,11 @@ export function ReviewCard({
         </div>
       </div>
       {isTeachback && <p className="text-xs text-muted-foreground">Explain in your own words</p>}
+      {isPrediction && (
+        <p className="text-xs text-muted-foreground">
+          Make your best prediction from the model in the chapter, then compare it with the expected answer.
+        </p>
+      )}
 
       {!result ? (
         <div className="space-y-3">
@@ -156,13 +167,19 @@ export function ReviewCard({
               <Textarea
                 value={answer}
                 onChange={(e) => setAnswer(e.target.value)}
-                placeholder={isTeachback ? "Explain in your own words..." : "Type your answer..."}
+                placeholder={
+                  isTeachback
+                    ? "Explain in your own words..."
+                    : isPrediction
+                      ? "State what you expect and why..."
+                      : "Type your answer..."
+                }
                 rows={isTeachback ? 6 : 3}
                 className="text-sm"
               />
               <div className="flex items-center gap-2">
                 <Button size="sm" onClick={handleSubmit} disabled={!answer.trim() || grading}>
-                  {grading ? "Grading..." : "Submit"}
+                  {grading ? "Grading..." : isPrediction ? "Submit prediction" : "Submit"}
                 </Button>
                 {!isQuickRecall ? (
                   <Button

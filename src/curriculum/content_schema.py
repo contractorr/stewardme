@@ -9,6 +9,8 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, Field
 
+from .models import CausalLens, GuideSynthesis, MisconceptionCard
+
 SCHEMA_VERSION = 1
 SUPPORTED_CONTENT_SUFFIXES = (".md", ".mdx")
 
@@ -20,10 +22,65 @@ _MARKDOWN_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 _CHAPTER_REF_RE = re.compile(r"curriculum:([A-Za-z0-9._/-]+)")
 _SECTION_TITLE_NORMALIZE_RE = re.compile(r"[^a-z0-9]+")
 _TITLE_NORMALIZE_RE = re.compile(r"[^a-z0-9]+")
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+_DRIVER_VERB_RE = re.compile(
+    r"(?P<subject>[A-Za-z][A-Za-z0-9 ,/&()-]{3,}?)\s+"
+    r"(?P<verb>shape|shapes|drive|drives|influence|influences|explain|explains|"
+    r"determine|determines|govern|governs|structure|structures|produce|produces)\b",
+    re.IGNORECASE,
+)
 
 _OBJECTIVE_SECTION_TOKENS = ("objective", "outcome", "learn", "key question")
 _CHECKPOINT_SECTION_TOKENS = ("checkpoint", "review", "practice", "quiz", "self-check")
 THIN_CHAPTER_WORD_THRESHOLD = 500
+_CAUSAL_MARKERS = (
+    "because",
+    "driven by",
+    "shaped by",
+    "shape",
+    "shapes",
+    "drive",
+    "drives",
+    "influence",
+    "influences",
+    "produce",
+    "produces",
+    "results in",
+    "result in",
+    "leads to",
+    "lead to",
+    "helps explain",
+    "depends on",
+    "matters because",
+    "in turn",
+)
+_SECOND_ORDER_MARKERS = (
+    "second-order",
+    "in turn",
+    "feedback",
+    "spillover",
+    "over time",
+    "which then",
+    "later",
+    "knock-on",
+)
+_MISCONCEPTION_MARKERS = (
+    "common mistake",
+    "common mistakes",
+    "wrong way",
+    "mistake",
+    "misconception",
+    "too narrow",
+    "myth",
+)
+_CORRECTION_MARKERS = (
+    "instead",
+    "better way",
+    "in reality",
+    "rather",
+    "the better way",
+    "the point is",
+)
 
 
 class CurriculumDocument(BaseModel):
@@ -33,6 +90,8 @@ class CurriculumDocument(BaseModel):
     objectives: list[str] = Field(default_factory=list)
     checkpoints: list[str] = Field(default_factory=list)
     content_references: list[str] = Field(default_factory=list)
+    causal_lens: CausalLens | None = None
+    misconception_card: MisconceptionCard | None = None
     body: str = ""
     content_format: str = "markdown"
     schema_version: int = 0
@@ -127,6 +186,14 @@ def load_curriculum_document(path: Path) -> CurriculumDocument:
         )
         + extract_content_references(body)
     )
+    causal_lens = _normalize_causal_lens(
+        metadata.get("causal_lens") or metadata.get("how_it_works")
+    )
+    misconception_card = _normalize_misconception_card(
+        metadata.get("misconception_card")
+        or metadata.get("misconception")
+        or metadata.get("common_mistake")
+    )
     content_format = _normalize_scalar(metadata.get("content_format")) or _infer_content_format(
         path
     )
@@ -141,6 +208,8 @@ def load_curriculum_document(path: Path) -> CurriculumDocument:
         objectives=objectives,
         checkpoints=checkpoints,
         content_references=references,
+        causal_lens=causal_lens,
+        misconception_card=misconception_card,
         body=body,
         content_format=content_format,
         schema_version=schema_version,
@@ -256,9 +325,128 @@ def build_content_signature(document: CurriculumDocument) -> str:
         "objectives": document.objectives,
         "checkpoints": document.checkpoints,
         "content_references": document.content_references,
+        "causal_lens": document.causal_lens.model_dump() if document.causal_lens else None,
+        "misconception_card": (
+            document.misconception_card.model_dump() if document.misconception_card else None
+        ),
         "body": document.body,
     }
     return json.dumps(payload, ensure_ascii=False, sort_keys=True)
+
+
+def derive_causal_lens(document: CurriculumDocument) -> CausalLens | None:
+    if document.causal_lens:
+        return document.causal_lens
+
+    sentences = _split_sentences(document.body)
+    mechanism = document.summary or next(
+        (sentence for sentence in sentences if _contains_any(sentence, _CAUSAL_MARKERS)),
+        "",
+    )
+    drivers = _extract_driver_list(document.summary)
+    if not drivers:
+        for objective in document.objectives:
+            drivers = _extract_driver_list(objective)
+            if drivers:
+                break
+    effects = [
+        sentence
+        for sentence in sentences
+        if sentence != mechanism and _contains_any(sentence, _CAUSAL_MARKERS)
+    ]
+    second_order_effects = [
+        sentence for sentence in sentences if _contains_any(sentence, _SECOND_ORDER_MARKERS)
+    ]
+
+    if not drivers and not effects and not second_order_effects:
+        return None
+
+    return CausalLens(
+        drivers=drivers[:4],
+        mechanism=mechanism,
+        effects=effects[:3],
+        second_order_effects=second_order_effects[:2],
+    )
+
+
+def derive_misconception_card(document: CurriculumDocument) -> MisconceptionCard | None:
+    if document.misconception_card:
+        return document.misconception_card
+
+    sentences = _split_sentences(document.body)
+    misconception = next(
+        (sentence for sentence in sentences if _contains_any(sentence, _MISCONCEPTION_MARKERS)),
+        "",
+    )
+    correction = next(
+        (
+            sentence
+            for sentence in sentences
+            if sentence != misconception and _contains_any(sentence, _CORRECTION_MARKERS)
+        ),
+        "",
+    )
+    counterexample = next(
+        (
+            sentence
+            for sentence in sentences
+            if sentence != misconception
+            and sentence.lower().startswith(("for example", "in reality"))
+        ),
+        "",
+    )
+    why_it_seems_true = ""
+    if misconception:
+        misconception_index = sentences.index(misconception)
+        for sentence in sentences[misconception_index + 1 : misconception_index + 3]:
+            if "because" in sentence.lower() or "often" in sentence.lower():
+                why_it_seems_true = sentence
+                break
+
+    if not misconception and not correction:
+        return None
+    if not misconception:
+        misconception = "A common mistake is using an oversimplified model for this topic."
+    if not correction:
+        correction = (
+            "Use it as a compact model for tracing forces, constraints, and consequences instead."
+        )
+
+    return MisconceptionCard(
+        misconception=misconception,
+        why_it_seems_true=why_it_seems_true,
+        correction=correction,
+        counterexample=counterexample,
+    )
+
+
+def derive_guide_synthesis(
+    guide_title: str,
+    guide_summary: str,
+    chapters: list[dict[str, object]] | list[object],
+    raw_value: object | None = None,
+) -> GuideSynthesis | None:
+    authored = _normalize_guide_synthesis(raw_value)
+    if authored:
+        return authored
+
+    chapter_titles = [
+        str(chapter.get("title") or "").strip()
+        for chapter in chapters
+        if isinstance(chapter, dict) and not chapter.get("is_glossary")
+    ]
+    chapter_titles = [title for title in chapter_titles if title][:3]
+    if not guide_summary and not chapter_titles:
+        return None
+
+    what_this_explains = guide_summary or f"{guide_title} as a practical first-pass model."
+    where_it_applies = chapter_titles or [guide_title]
+    where_it_breaks = "This is a first-pass model. Re-check it when the local history, institutions, or incentives differ from the guide's main examples."
+    return GuideSynthesis(
+        what_this_explains=what_this_explains,
+        where_it_applies=where_it_applies,
+        where_it_breaks=where_it_breaks,
+    )
 
 
 def lint_curriculum_paths(paths: list[Path], root: Path | None = None) -> CurriculumLintReport:
@@ -522,6 +710,12 @@ def render_mdx_document(document: CurriculumDocument) -> str:
         "objectives": document.objectives,
         "checkpoints": document.checkpoints,
         "references": document.content_references,
+        **({"causal_lens": document.causal_lens.model_dump()} if document.causal_lens else {}),
+        **(
+            {"misconception_card": document.misconception_card.model_dump()}
+            if document.misconception_card
+            else {}
+        ),
         "content_format": "mdx",
     }
     frontmatter_text = yaml.safe_dump(
@@ -598,11 +792,101 @@ def _normalize_string_list(value: object) -> list[str]:
     return []
 
 
+def _normalize_causal_lens(value: object) -> CausalLens | None:
+    if not isinstance(value, dict):
+        return None
+    mechanism = _normalize_scalar(value.get("mechanism"))
+    drivers = _normalize_string_list(value.get("drivers"))
+    effects = _normalize_string_list(value.get("effects"))
+    second_order_effects = _normalize_string_list(
+        value.get("second_order_effects") or value.get("second_order")
+    )
+    if not mechanism and not drivers and not effects and not second_order_effects:
+        return None
+    return CausalLens(
+        drivers=drivers,
+        mechanism=mechanism,
+        effects=effects,
+        second_order_effects=second_order_effects,
+    )
+
+
+def _normalize_misconception_card(value: object) -> MisconceptionCard | None:
+    if isinstance(value, str):
+        text = _normalize_scalar(value)
+        if not text:
+            return None
+        return MisconceptionCard(misconception=text)
+    if not isinstance(value, dict):
+        return None
+    misconception = _normalize_scalar(
+        value.get("misconception") or value.get("common_wrong_model") or value.get("common_mistake")
+    )
+    why_it_seems_true = _normalize_scalar(value.get("why_it_seems_true") or value.get("why"))
+    correction = _normalize_scalar(value.get("correction") or value.get("what_corrects_it"))
+    counterexample = _normalize_scalar(value.get("counterexample"))
+    if not misconception and not correction and not counterexample:
+        return None
+    return MisconceptionCard(
+        misconception=misconception,
+        why_it_seems_true=why_it_seems_true,
+        correction=correction,
+        counterexample=counterexample,
+    )
+
+
+def _normalize_guide_synthesis(value: object) -> GuideSynthesis | None:
+    if not isinstance(value, dict):
+        return None
+    what_this_explains = _normalize_scalar(value.get("what_this_explains"))
+    where_it_applies = _normalize_string_list(value.get("where_it_applies"))
+    where_it_breaks = _normalize_scalar(value.get("where_it_breaks"))
+    if not what_this_explains and not where_it_applies and not where_it_breaks:
+        return None
+    return GuideSynthesis(
+        what_this_explains=what_this_explains,
+        where_it_applies=where_it_applies,
+        where_it_breaks=where_it_breaks,
+    )
+
+
 def _normalize_scalar(value: object) -> str:
     if value is None:
         return ""
     text = str(value).strip()
     return text
+
+
+def _split_sentences(text: str) -> list[str]:
+    sentences = []
+    for block in _SENTENCE_SPLIT_RE.split(text.replace("\n", " ").strip()):
+        sentence = " ".join(block.split()).strip()
+        if len(sentence) < 24:
+            continue
+        sentences.append(sentence)
+    return sentences
+
+
+def _contains_any(text: str, markers: tuple[str, ...]) -> bool:
+    lowered = text.lower()
+    return any(marker in lowered for marker in markers)
+
+
+def _extract_driver_list(text: str) -> list[str]:
+    if not text:
+        return []
+    match = _DRIVER_VERB_RE.search(text)
+    if not match:
+        return []
+    subject = match.group("subject")
+    raw_parts = re.split(r",| and | or |/|&", subject)
+    parts = []
+    for raw_part in raw_parts:
+        part = raw_part.strip(" -")
+        if len(part.split()) > 5 or len(part) < 3:
+            continue
+        parts.append(part)
+    return _dedupe(parts)
 
 
 def _dedupe(values: list[str]) -> list[str]:

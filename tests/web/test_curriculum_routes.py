@@ -168,6 +168,21 @@ def test_get_guide_resolves_superseded_alias_to_canonical_guide(client, auth_hea
     assert payload["chapter_count"] >= 1
 
 
+def test_get_guide_includes_synthesis_card_payload(client, auth_headers):
+    client.post("/api/curriculum/sync", headers=auth_headers)
+
+    resp = client.get(
+        "/api/curriculum/guides/40-classics-fundamentals-guide",
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload["guide_synthesis"]["what_this_explains"]
+    assert payload["guide_synthesis"]["where_it_applies"]
+    assert payload["guide_synthesis"]["where_it_breaks"]
+
+
 def test_get_chapter_resolves_superseded_alias_to_canonical_chapter(client, auth_headers):
     client.post("/api/curriculum/sync", headers=auth_headers)
 
@@ -179,6 +194,21 @@ def test_get_chapter_resolves_superseded_alias_to_canonical_chapter(client, auth
     payload = resp.json()
     assert payload["guide_id"] == "35-engineering-guide"
     assert payload["id"] == "35-engineering-guide/01-introduction"
+
+
+def test_get_chapter_includes_learning_aids(client, auth_headers):
+    client.post("/api/curriculum/sync", headers=auth_headers)
+
+    resp = client.get(
+        "/api/curriculum/guides/40-classics-fundamentals-guide/chapters/01-introduction",
+        headers=auth_headers,
+    )
+
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload["causal_lens"]["mechanism"]
+    assert payload["misconception_card"]["misconception"]
+    assert payload["misconception_card"]["correction"]
 
 
 def test_generate_user_guide_creates_separate_user_owned_guide(client, auth_headers):
@@ -948,6 +978,51 @@ def test_quiz_generation_replaces_stale_cached_questions(client, auth_headers):
     assert [item["id"] for item in payload["questions"]] == ["fresh-quiz"]
     assert store.get_review_item("stale-quiz") is None
     assert store.get_review_item("fresh-quiz") is not None
+
+
+def test_quiz_generation_returns_prediction_items(client, auth_headers):
+    client.post("/api/curriculum/sync", headers=auth_headers)
+
+    store = _curriculum_store()
+    chapter = store.get_guide("01-philosophy-guide", user_id="user-123")["chapters"][0]
+    generated_items = [
+        ReviewItem(
+            id="quiz-1",
+            user_id="user-123",
+            chapter_id=chapter["id"],
+            guide_id=chapter["guide_id"],
+            question="What is philosophy?",
+            expected_answer="The study of fundamental questions.",
+            bloom_level=BloomLevel.REMEMBER,
+            item_type=ReviewItemType.QUIZ,
+            content_hash=chapter["content_hash"],
+            next_review=datetime.utcnow(),
+        ),
+        ReviewItem(
+            id="prediction-1",
+            user_id="user-123",
+            chapter_id=chapter["id"],
+            guide_id=chapter["guide_id"],
+            question="If a society rewards rhetoric over evidence, what would you expect to happen?",
+            expected_answer="Persuasion can dominate truth-seeking and decision quality can degrade.",
+            bloom_level=BloomLevel.APPLY,
+            item_type=ReviewItemType.PREDICTION,
+            content_hash=chapter["content_hash"],
+            next_review=datetime.utcnow(),
+        ),
+    ]
+    fake_generator = SimpleNamespace(generate_questions=AsyncMock(return_value=generated_items))
+
+    with patch("web.routes.curriculum._build_question_generator", return_value=fake_generator):
+        resp = client.post(
+            f"/api/curriculum/quiz/{chapter['id']}/generate",
+            headers=auth_headers,
+        )
+
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert [item["item_type"] for item in payload["questions"]] == ["quiz", "prediction"]
+    assert store.get_review_item("prediction-1")["item_type"] == "prediction"
 
 
 def test_pre_reading_generation_reuses_current_quiz_without_duplication(client, auth_headers):

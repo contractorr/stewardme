@@ -607,6 +607,32 @@ def test_pre_reading_excluded_from_due_reviews(store, sample_guide, sample_chapt
     assert "pr-not-due" not in due_ids
 
 
+def test_prediction_items_appear_in_due_reviews(store, sample_guide, sample_chapters):
+    store.sync_catalog([sample_guide], sample_chapters)
+    user_id = "test-user"
+    now = datetime.utcnow()
+
+    store.add_review_items(
+        [
+            ReviewItem(
+                id="prediction-due",
+                user_id=user_id,
+                chapter_id="01-philosophy-guide/01-introduction",
+                guide_id="01-philosophy-guide",
+                question="If public debate rewards rhetoric over evidence, what would you expect?",
+                expected_answer="Persuasion can outrun truth-seeking and decisions can degrade.",
+                bloom_level=BloomLevel.APPLY,
+                item_type=ReviewItemType.PREDICTION,
+                next_review=now,
+                created_at=now,
+            )
+        ]
+    )
+
+    due = store.get_due_reviews(user_id)
+    assert due[0]["item_type"] == "prediction"
+
+
 # --- Skill tree / mastery tests ---
 
 

@@ -8,7 +8,13 @@ from pathlib import Path
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from curriculum.content_schema import load_curriculum_document, resolve_chapter_content_path
+from curriculum.content_schema import (
+    derive_causal_lens,
+    derive_guide_synthesis,
+    derive_misconception_card,
+    load_curriculum_document,
+    resolve_chapter_content_path,
+)
 from curriculum.guide_generator import GuideGenerationService
 from curriculum.models import (
     BloomLevel,
@@ -29,7 +35,7 @@ from curriculum.personalization import (
 from curriculum.question_generator import QuestionGenerator
 from curriculum.scanner import CurriculumScanner, build_tree_layout
 from curriculum.store import CurriculumStore
-from curriculum.user_content import ensure_user_curriculum_dirs
+from curriculum.user_content import ensure_user_curriculum_dirs, load_guide_metadata
 from llm import LLMError, create_cheap_provider, create_llm_provider
 from web.auth import get_current_user
 from web.deps import (
@@ -38,6 +44,11 @@ from web.deps import (
     get_profile_path,
     get_user_paths,
     resolve_llm_credentials_for_user,
+)
+from web.models import (
+    CurriculumChapterDetailResponse,
+    CurriculumGuideDetailResponse,
+    CurriculumReviewItemResponse,
 )
 from web.user_store import log_event
 
@@ -1139,6 +1150,30 @@ def _load_chapter_document(
     return content_path, load_curriculum_document(content_path)
 
 
+def _attach_guide_synthesis(guide: dict) -> dict:
+    source_dir = str(guide.get("source_dir") or "").strip()
+    guide_metadata = load_guide_metadata(Path(source_dir)) if source_dir else {}
+    synthesis = derive_guide_synthesis(
+        guide_title=str(guide.get("title") or ""),
+        guide_summary=str(guide.get("summary") or ""),
+        chapters=guide.get("chapters", []),
+        raw_value=guide_metadata.get("synthesis"),
+    )
+    if synthesis:
+        guide["guide_synthesis"] = synthesis.model_dump()
+    return guide
+
+
+def _attach_chapter_learning_aids(chapter: dict, document) -> dict:
+    causal_lens = derive_causal_lens(document)
+    misconception_card = derive_misconception_card(document)
+    if causal_lens:
+        chapter["causal_lens"] = causal_lens.model_dump()
+    if misconception_card:
+        chapter["misconception_card"] = misconception_card.model_dump()
+    return chapter
+
+
 # --- Endpoints ---
 
 
@@ -1427,7 +1462,7 @@ async def restore_user_guide(
     return {"restored": True, "guide_id": resolved_guide_id}
 
 
-@router.get("/guides/{guide_id}")
+@router.get("/guides/{guide_id}", response_model=CurriculumGuideDetailResponse)
 async def get_guide(
     guide_id: str,
     user: dict = Depends(get_current_user),
@@ -1457,10 +1492,13 @@ async def get_guide(
         payload.get("applied_assessments", []),
         _list_assessment_drafts(user_id, guide_id=payload["id"]),
     )
-    return payload
+    return _attach_guide_synthesis(payload)
 
 
-@router.get("/guides/{guide_id}/chapters/{chapter_id:path}")
+@router.get(
+    "/guides/{guide_id}/chapters/{chapter_id:path}",
+    response_model=CurriculumChapterDetailResponse,
+)
 async def get_chapter(
     guide_id: str,
     chapter_id: str,
@@ -1499,13 +1537,14 @@ async def get_chapter(
                     next_chapter = chapters_list[i + 1]["id"]
                 break
 
-    return {
+    payload = {
         **chapter,
         "content": document.body,
         "progress": progress,
         "prev_chapter": prev_chapter,
         "next_chapter": next_chapter,
     }
+    return _attach_chapter_learning_aids(payload, document)
 
 
 @router.post("/guides/{guide_id}/enroll", status_code=status.HTTP_201_CREATED)
@@ -1672,7 +1711,7 @@ def _is_guide_just_completed(store: CurriculumStore, user_id: str, guide_id: str
     return True
 
 
-@router.get("/review/due")
+@router.get("/review/due", response_model=list[CurriculumReviewItemResponse])
 async def get_due_reviews(
     guide_id: str | None = Query(None),
     limit: int = Query(20, ge=1, le=100),
@@ -1682,7 +1721,7 @@ async def get_due_reviews(
     return store.get_due_reviews(user["id"], limit=limit, guide_id=guide_id)
 
 
-@router.get("/review/retry")
+@router.get("/review/retry", response_model=list[CurriculumReviewItemResponse])
 async def get_retry_reviews(
     guide_id: str | None = Query(None),
     limit: int = Query(20, ge=1, le=100),
@@ -1778,10 +1817,16 @@ async def generate_quiz(
         user_id=user_id,
         chapter_id=resolved_chapter_id,
         content_hash=chapter["content_hash"],
-        item_types={ReviewItemType.QUIZ.value, ReviewItemType.PRE_READING.value},
+        item_types={
+            ReviewItemType.QUIZ.value,
+            ReviewItemType.PREDICTION.value,
+            ReviewItemType.PRE_READING.value,
+        },
     )
     existing = [
-        item for item in existing_artifacts if item.get("item_type") == ReviewItemType.QUIZ.value
+        item
+        for item in existing_artifacts
+        if item.get("item_type") in {ReviewItemType.QUIZ.value, ReviewItemType.PREDICTION.value}
     ]
     if existing:
         return {"questions": existing, "cached": True}
@@ -1812,7 +1857,11 @@ async def generate_quiz(
     if items:
         store.add_review_items(items)
 
-    quiz_items = [i.model_dump() for i in items if i.item_type == ReviewItemType.QUIZ]
+    quiz_items = [
+        i.model_dump()
+        for i in items
+        if i.item_type in {ReviewItemType.QUIZ, ReviewItemType.PREDICTION}
+    ]
     return {"questions": quiz_items, "cached": False}
 
 
@@ -2004,7 +2053,11 @@ async def get_pre_reading(
         user_id=user_id,
         chapter_id=resolved_chapter_id,
         content_hash=chapter["content_hash"],
-        item_types={ReviewItemType.QUIZ.value, ReviewItemType.PRE_READING.value},
+        item_types={
+            ReviewItemType.QUIZ.value,
+            ReviewItemType.PREDICTION.value,
+            ReviewItemType.PRE_READING.value,
+        },
     )
     existing = [
         item
@@ -2038,8 +2091,15 @@ async def get_pre_reading(
         pre_reading_count=config.curriculum.pre_reading_count,
     )
 
-    if any(item.get("item_type") == ReviewItemType.QUIZ.value for item in existing_artifacts):
-        items = [item for item in items if item.item_type != ReviewItemType.QUIZ]
+    if any(
+        item.get("item_type") in {ReviewItemType.QUIZ.value, ReviewItemType.PREDICTION.value}
+        for item in existing_artifacts
+    ):
+        items = [
+            item
+            for item in items
+            if item.item_type not in {ReviewItemType.QUIZ, ReviewItemType.PREDICTION}
+        ]
 
     if items:
         store.add_review_items(items)
