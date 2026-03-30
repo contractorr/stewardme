@@ -107,6 +107,62 @@ Geopolitics examines how geography, resources, and spatial relationships shape i
 - **Outer Space**: Satellite networks, space weapons, lunar/asteroid resources
 - **Economic Statecraft**: Sanctions, export controls, weaponized interdependence
 
+```diagram
+{
+  "title": "The basic geopolitical loop",
+  "note": "Geopolitics is about how physical position and material constraints flow into strategy, alliances, and conflict.",
+  "nodes": [
+    {
+      "id": "geography",
+      "title": "Geography",
+      "detail": "Terrain, coasts, rivers, borders, climate, and distance shape what is possible.",
+      "column": 1,
+      "row": 2,
+      "tone": "muted"
+    },
+    {
+      "id": "resources",
+      "title": "Resources and demography",
+      "detail": "Energy, food, water, population scale, and industrial base determine staying power.",
+      "column": 2,
+      "row": 1,
+      "tone": "default"
+    },
+    {
+      "id": "strategy",
+      "title": "Strategy and state behavior",
+      "detail": "States seek buffers, chokepoints, sea lanes, allies, and strategic depth.",
+      "column": 3,
+      "row": 2,
+      "tone": "accent"
+    },
+    {
+      "id": "order",
+      "title": "Regional order",
+      "detail": "Alliance structures, spheres of influence, and trade architecture emerge from repeated competition.",
+      "column": 4,
+      "row": 1,
+      "tone": "default"
+    },
+    {
+      "id": "conflict",
+      "title": "Conflict and feedback",
+      "detail": "War, sanctions, and coercion redraw power balances and reset strategic assumptions.",
+      "column": 5,
+      "row": 2,
+      "tone": "accent"
+    }
+  ],
+  "edges": [
+    { "from": "geography", "to": "resources", "label": "constraints" },
+    { "from": "resources", "to": "strategy", "label": "capabilities" },
+    { "from": "strategy", "to": "order", "label": "alliances + deterrence" },
+    { "from": "order", "to": "conflict", "label": "competition" },
+    { "from": "conflict", "to": "strategy", "label": "recalibration" }
+  ]
+}
+```
+
 ## Key Terms
 
 | Term | Definition |

@@ -70,6 +70,51 @@ Combines both perspectives: ideas matter AND context matters. Most contemporary 
 
 ## Major Themes in History of Science
 
+```timeline
+{
+  "title": "History of science in one pass",
+  "note": "The guide tracks how methods, institutions, and worldviews change together rather than treating discovery as a single straight line.",
+  "entries": [
+    {
+      "period": "Ancient world",
+      "title": "Natural philosophy begins",
+      "detail": "Greek, Indian, Chinese, and other traditions start systematic inquiry into nature, medicine, and mathematics.",
+      "emphasis": "Foundations"
+    },
+    {
+      "period": "Medieval era",
+      "title": "Knowledge preserved and expanded",
+      "detail": "Islamic scholars, monasteries, and universities transmit, critique, and extend earlier learning.",
+      "emphasis": "Transmission"
+    },
+    {
+      "period": "1500 - 1700",
+      "title": "Scientific Revolution",
+      "detail": "Observation, experiment, and mathematics reconfigure astronomy, physics, anatomy, and method.",
+      "emphasis": "Method shift"
+    },
+    {
+      "period": "1700 - 1900",
+      "title": "Institutional science",
+      "detail": "Academies, laboratories, industrialization, and professional careers expand research capacity.",
+      "emphasis": "Scaling up"
+    },
+    {
+      "period": "1900 - 2000",
+      "title": "Big science",
+      "detail": "Physics, chemistry, medicine, and computing become deeply tied to states, war, and industry.",
+      "emphasis": "State + lab power"
+    },
+    {
+      "period": "2000 - present",
+      "title": "Networked science",
+      "detail": "Global collaboration, computation, biotech, and replication debates reshape how knowledge is produced.",
+      "emphasis": "Complex institutions"
+    }
+  ]
+}
+```
+
 ### Continuity vs. Revolution
 
 - **Continuity**: Science builds gradually on previous work

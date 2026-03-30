@@ -87,6 +87,61 @@ Statistics and probability form the foundation of data analysis, scientific rese
 6. **Interpret Results**: Draw conclusions and assess limitations
 7. **Communicate Findings**: Present results clearly to stakeholders
 
+```diagram
+{
+  "title": "How statistical reasoning works",
+  "note": "The core loop is not just calculation. It moves from uncertainty to sampling to estimation to decision, with error checking at each step.",
+  "nodes": [
+    {
+      "id": "question",
+      "title": "Question",
+      "detail": "Specify the claim, choice, or uncertainty you actually care about.",
+      "column": 1,
+      "row": 2,
+      "tone": "muted"
+    },
+    {
+      "id": "sample",
+      "title": "Sample data",
+      "detail": "Collect observations from a subset of the population rather than the whole world.",
+      "column": 2,
+      "row": 1,
+      "tone": "default"
+    },
+    {
+      "id": "estimate",
+      "title": "Estimate pattern",
+      "detail": "Summaries, models, and test statistics convert raw data into signal.",
+      "column": 3,
+      "row": 2,
+      "tone": "accent"
+    },
+    {
+      "id": "uncertainty",
+      "title": "Quantify uncertainty",
+      "detail": "Confidence intervals, standard errors, and probability keep you from overclaiming.",
+      "column": 4,
+      "row": 1,
+      "tone": "default"
+    },
+    {
+      "id": "decision",
+      "title": "Decision or belief update",
+      "detail": "Use the result to choose, predict, or revise what you think is true.",
+      "column": 5,
+      "row": 2,
+      "tone": "accent"
+    }
+  ],
+  "edges": [
+    { "from": "question", "to": "sample", "label": "measure" },
+    { "from": "sample", "to": "estimate", "label": "analyze" },
+    { "from": "estimate", "to": "uncertainty", "label": "check noise" },
+    { "from": "uncertainty", "to": "decision", "label": "act cautiously" }
+  ]
+}
+```
+
 ## Real-World Examples
 
 ### Example 1: Coffee and Health

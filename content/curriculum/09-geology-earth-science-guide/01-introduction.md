@@ -241,6 +241,51 @@ Geology deals with extremes humans don't intuitively grasp.
 
 Earth's 4.54-billion-year history is divided into hierarchical time units based on major events (mass extinctions, climate changes, evolutionary innovations).
 
+```timeline
+{
+  "title": "Earth history in one pass",
+  "note": "Geology becomes easier once deep time is chunked into a few durable transitions rather than thousands of isolated dates.",
+  "entries": [
+    {
+      "period": "4.54 - 4.0 Ga",
+      "title": "Hadean Earth forms",
+      "detail": "Accretion, differentiation, magma oceans, and the Moon-forming impact establish the basic planet.",
+      "emphasis": "Planet assembly"
+    },
+    {
+      "period": "4.0 - 2.5 Ga",
+      "title": "Archean stabilization",
+      "detail": "First continents, oldest rock record, and early life appear on a hotter young Earth.",
+      "emphasis": "Crust + life"
+    },
+    {
+      "period": "2.5 - 0.541 Ga",
+      "title": "Proterozoic transformation",
+      "detail": "Oxygen rises, eukaryotes emerge, and multicellular life begins under major climate swings.",
+      "emphasis": "Atmosphere shift"
+    },
+    {
+      "period": "541 - 252 Ma",
+      "title": "Paleozoic world",
+      "detail": "Cambrian diversification, land colonization, coal forests, and the Permian mass extinction.",
+      "emphasis": "Ancient life"
+    },
+    {
+      "period": "252 - 66 Ma",
+      "title": "Mesozoic world",
+      "detail": "Dinosaurs dominate, oceans and continents reorganize, and many key oil source rocks form.",
+      "emphasis": "Reptiles + rifting"
+    },
+    {
+      "period": "66 Ma - present",
+      "title": "Cenozoic to human world",
+      "detail": "Mammals diversify, ice ages cycle, and humans arrive extremely late in Earth's story.",
+      "emphasis": "Recent Earth"
+    }
+  ]
+}
+```
+
 ### Time Scale Structure
 
 **Eon** (largest division) → **Era** → **Period** → **Epoch** (smallest division typically used)

@@ -101,6 +101,62 @@ Prices aggregate information from millions of buyers and sellers, coordinating e
 ### 7. Government Role
 Markets can fail due to externalities, public goods, asymmetric information, or monopolies. Government intervention may improve outcomes but can also create inefficiencies.
 
+```diagram
+{
+  "title": "The basic economic coordination loop",
+  "note": "Economics starts with scarcity, but the interesting part is how incentives and prices coordinate millions of decentralized choices.",
+  "nodes": [
+    {
+      "id": "scarcity",
+      "title": "Scarcity",
+      "detail": "Limited land, labor, capital, time, and information force trade-offs.",
+      "column": 1,
+      "row": 2,
+      "tone": "muted"
+    },
+    {
+      "id": "incentives",
+      "title": "Incentives",
+      "detail": "Households, firms, and governments respond to costs, benefits, and constraints.",
+      "column": 2,
+      "row": 1,
+      "tone": "default"
+    },
+    {
+      "id": "markets",
+      "title": "Markets and institutions",
+      "detail": "Prices, contracts, laws, and norms coordinate exchange and production.",
+      "column": 3,
+      "row": 2,
+      "tone": "accent"
+    },
+    {
+      "id": "outcomes",
+      "title": "Output and distribution",
+      "detail": "Growth, inflation, wages, profits, inequality, and trade balances emerge from those interactions.",
+      "column": 4,
+      "row": 1,
+      "tone": "default"
+    },
+    {
+      "id": "policy",
+      "title": "Policy feedback",
+      "detail": "Taxes, spending, regulation, and monetary policy try to correct failures or stabilize the system.",
+      "column": 5,
+      "row": 2,
+      "tone": "accent"
+    }
+  ],
+  "edges": [
+    { "from": "scarcity", "to": "incentives", "label": "trade-offs" },
+    { "from": "incentives", "to": "markets", "label": "choices" },
+    { "from": "markets", "to": "outcomes", "label": "prices + production" },
+    { "from": "outcomes", "to": "policy", "label": "stability + fairness" },
+    { "from": "policy", "to": "markets", "label": "rules" }
+  ]
+}
+```
+
 ## Real-World Examples
 
 **Scarcity in Action**: During the COVID-19 pandemic, scarcity of personal protective equipment (PPE) forced hospitals to ration supplies and governments to compete for limited resources.

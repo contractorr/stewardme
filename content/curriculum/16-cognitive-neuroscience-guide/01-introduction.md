@@ -117,6 +117,61 @@ Cognitive neuroscience operates across multiple scales:
 - Right hemisphere: spatial, holistic processing
 - But extensive cross-hemisphere communication
 
+```diagram
+{
+  "title": "From neurons to mind",
+  "note": "Cognitive neuroscience works by linking physical mechanisms at lower levels to observable behavior and subjective mental functions at higher levels.",
+  "nodes": [
+    {
+      "id": "cells",
+      "title": "Neurons and synapses",
+      "detail": "Electrochemical signaling provides the basic units of computation.",
+      "column": 1,
+      "row": 2,
+      "tone": "muted"
+    },
+    {
+      "id": "circuits",
+      "title": "Circuits",
+      "detail": "Groups of neurons form pathways for memory, perception, action, and control.",
+      "column": 2,
+      "row": 1,
+      "tone": "default"
+    },
+    {
+      "id": "networks",
+      "title": "Large-scale networks",
+      "detail": "Distributed brain systems coordinate across regions rather than one area doing everything.",
+      "column": 3,
+      "row": 2,
+      "tone": "accent"
+    },
+    {
+      "id": "cognition",
+      "title": "Cognitive functions",
+      "detail": "Attention, perception, language, memory, and decision-making emerge from those networks.",
+      "column": 4,
+      "row": 1,
+      "tone": "default"
+    },
+    {
+      "id": "behavior",
+      "title": "Behavior and experience",
+      "detail": "Reaction time, speech, recall, errors, and conscious reports are the measurable outputs.",
+      "column": 5,
+      "row": 2,
+      "tone": "accent"
+    }
+  ],
+  "edges": [
+    { "from": "cells", "to": "circuits", "label": "local computation" },
+    { "from": "circuits", "to": "networks", "label": "integration" },
+    { "from": "networks", "to": "cognition", "label": "mental function" },
+    { "from": "cognition", "to": "behavior", "label": "observable output" }
+  ]
+}
+```
+
 ## Real-World Examples
 
 - **Patient H.M.** - Bilateral hippocampus removal → severe amnesia; revealed memory systems

@@ -18,6 +18,61 @@ Oceans cover 71% of Earth's surface, contain 97% of its water, regulate global c
 - **Resources:** Deep-sea polymetallic nodules contain cobalt, nickel, copper, rare earths; offshore oil/gas = 30% of global production
 - **Frontiers:** 80% of ocean unmapped at high resolution; more people have been to space than Mariana Trench
 
+```diagram
+{
+  "title": "Why the ocean matters to the human world",
+  "note": "The ocean is one connected system that links climate regulation, food webs, trade routes, and strategic resources.",
+  "nodes": [
+    {
+      "id": "climate",
+      "title": "Climate regulator",
+      "detail": "Heat storage, evaporation, currents, and carbon absorption shape weather and warming.",
+      "column": 1,
+      "row": 1,
+      "tone": "accent"
+    },
+    {
+      "id": "ecosystems",
+      "title": "Marine ecosystems",
+      "detail": "Phytoplankton, reefs, fisheries, and deep-ocean food webs support life and protein supply.",
+      "column": 1,
+      "row": 3,
+      "tone": "default"
+    },
+    {
+      "id": "ocean",
+      "title": "Ocean system",
+      "detail": "One fluid planet-scale medium moving heat, nutrients, carbon, ships, and strategic access.",
+      "column": 2,
+      "row": 2,
+      "tone": "accent"
+    },
+    {
+      "id": "trade",
+      "title": "Trade superhighway",
+      "detail": "Ports, chokepoints, shipping lanes, and subsea infrastructure carry globalization.",
+      "column": 3,
+      "row": 1,
+      "tone": "default"
+    },
+    {
+      "id": "resources",
+      "title": "Resource frontier",
+      "detail": "Offshore energy, minerals, fisheries, and coastal real estate create geopolitical pressure.",
+      "column": 3,
+      "row": 3,
+      "tone": "muted"
+    }
+  ],
+  "edges": [
+    { "from": "climate", "to": "ocean", "label": "heat + carbon" },
+    { "from": "ecosystems", "to": "ocean", "label": "nutrients + life" },
+    { "from": "ocean", "to": "trade", "label": "routes + chokepoints" },
+    { "from": "ocean", "to": "resources", "label": "access + extraction" }
+  ]
+}
+```
+
 ---
 
 ## Key Frameworks

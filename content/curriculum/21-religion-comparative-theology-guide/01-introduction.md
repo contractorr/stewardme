@@ -232,6 +232,42 @@ Religion: Single largest force shaping human civilization yet often underanalyze
 
 ## Types of Religious Systems
 
+```framework
+{
+  "title": "Major religious system types",
+  "note": "This guide compares religions by what they treat as ultimate reality, authority, and the main problem of human life.",
+  "pillars": [
+    {
+      "title": "Animist and local traditions",
+      "detail": "Sacred power is embedded in places, ancestors, animals, and ritual relationships.",
+      "bullets": [
+        "Often localized rather than universal",
+        "Practice-centered rather than doctrine-centered",
+        "Strong overlap between religion, kinship, and ecology"
+      ]
+    },
+    {
+      "title": "Polytheist and civic systems",
+      "detail": "Multiple divine powers govern domains of life, often tied to city, empire, or ritual order.",
+      "bullets": [
+        "Specialized gods and pantheons",
+        "Public ritual maintains social order",
+        "Syncretism across cultures is common"
+      ]
+    },
+    {
+      "title": "Monotheist and universal systems",
+      "detail": "One highest God frames morality, law, salvation, and universal truth claims.",
+      "bullets": [
+        "Scripture and prophecy matter strongly",
+        "Missionary or universal ambitions are common",
+        "Doctrine, law, and identity often intertwine"
+      ]
+    }
+  ]
+}
+```
+
 ### Animism
 - All entities (animals, plants, rocks, rivers) have spirits/souls
 - Prevalent in pre-agricultural, indigenous societies

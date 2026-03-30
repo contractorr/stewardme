@@ -102,6 +102,62 @@ Behavioral psychology studies how humans make decisions, form habits, and respon
 - Machine learning identifies behavioral predictors
 - Network analysis reveals social influence structures
 
+```diagram
+{
+  "title": "A simple behavioral psychology model",
+  "note": "Behavior usually emerges from an interaction between environment, attention, incentives, and repetition rather than from abstract intention alone.",
+  "nodes": [
+    {
+      "id": "environment",
+      "title": "Environment and cues",
+      "detail": "Defaults, framing, timing, social context, and visible triggers shape what gets noticed.",
+      "column": 1,
+      "row": 2,
+      "tone": "muted"
+    },
+    {
+      "id": "attention",
+      "title": "Attention and interpretation",
+      "detail": "Cognitive biases, salience, and mental shortcuts filter how the situation is perceived.",
+      "column": 2,
+      "row": 1,
+      "tone": "default"
+    },
+    {
+      "id": "decision",
+      "title": "Choice and motivation",
+      "detail": "Loss aversion, effort, rewards, and social proof shape what seems worth doing.",
+      "column": 3,
+      "row": 2,
+      "tone": "accent"
+    },
+    {
+      "id": "behavior",
+      "title": "Observable behavior",
+      "detail": "Clicks, purchases, avoidance, adherence, or cooperation are the measurable outputs.",
+      "column": 4,
+      "row": 1,
+      "tone": "default"
+    },
+    {
+      "id": "habit",
+      "title": "Reinforcement and habit",
+      "detail": "Repeated reward or relief makes the behavior easier to repeat next time.",
+      "column": 5,
+      "row": 2,
+      "tone": "accent"
+    }
+  ],
+  "edges": [
+    { "from": "environment", "to": "attention", "label": "salience" },
+    { "from": "attention", "to": "decision", "label": "bias + framing" },
+    { "from": "decision", "to": "behavior", "label": "action" },
+    { "from": "behavior", "to": "habit", "label": "consequence" },
+    { "from": "habit", "to": "environment", "label": "future defaults" }
+  ]
+}
+```
+
 ## Real-World Applications
 
 **E-commerce:** Amazon uses scarcity cues ("Only 3 left!"), social proof (reviews), and default options (subscribe & save) to increase conversions.
