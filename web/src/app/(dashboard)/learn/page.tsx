@@ -409,34 +409,29 @@ export default function LearnPage() {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_220px]">
+            <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_220px] sm:items-end">
               <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  className="pl-9"
+                  className="h-10 pl-9"
                   placeholder="Search guides"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                 />
               </div>
 
-              <div className="space-y-2">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                  Order
-                </p>
-                <Select
-                  value={sortMode}
-                  onValueChange={(value) => setSortMode(value as GuideSortMode)}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="recommended">Recommended order</SelectItem>
-                    <SelectItem value="alphabetical">A-Z</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <Select
+                value={sortMode}
+                onValueChange={(value) => setSortMode(value as GuideSortMode)}
+              >
+                <SelectTrigger className="h-10 w-full" aria-label="Guide order">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recommended">Recommended order</SelectItem>
+                  <SelectItem value="alphabetical">A-Z</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
