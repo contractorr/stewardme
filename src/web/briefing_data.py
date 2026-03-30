@@ -159,7 +159,7 @@ def assemble_briefing_data(user_id: str) -> dict:
         if rec_dir:
             rec_storage = create_recommendation_storage(paths)
             harvester = OutcomeHarvester(get_outcome_store(user_id), rec_storage)
-            recs = rec_storage.get_top_by_score(limit=5)
+            recs = rec_storage.get_top_by_score(limit=5, exclude_status=["completed", "dismissed"])
             for r in recs:
                 meta = r.metadata or {}
                 critic = None
@@ -191,6 +191,21 @@ def assemble_briefing_data(user_id: str) -> dict:
                         "description": r.description[:200] if r.description else "",
                         "score": r.score,
                         "status": r.status,
+                        "recommendation_kind": meta.get("recommendation_kind"),
+                        "guide_candidate": (
+                            {
+                                "topic": meta.get("topic"),
+                                "depth": meta.get("depth"),
+                                "audience": meta.get("audience"),
+                                "time_budget": meta.get("time_budget"),
+                                "instruction": meta.get("instruction"),
+                                "confidence": meta.get("confidence"),
+                                "rationale": meta.get("rationale"),
+                                "approval_required": meta.get("approval_required", False),
+                            }
+                            if meta.get("recommendation_kind") == "learning_guide_candidate"
+                            else None
+                        ),
                         "reasoning_trace": meta.get("reasoning_trace"),
                         "critic": critic,
                         "harvested_outcome": harvested_outcome,

@@ -1,7 +1,7 @@
 """Tests for suggestions API routes."""
 
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 
 def test_suggestions_merge_brief_and_recommendations(client, auth_headers):
@@ -231,3 +231,131 @@ def test_suggestions_suppress_dossier_escalation_when_active_dossier_exists(clie
 
     assert response.status_code == 200
     assert all(item["kind"] != "dossier_escalation" for item in response.json())
+
+
+def test_suggestions_include_learning_guide_candidates(client, auth_headers):
+    briefing_data = {
+        "stale_goals": [],
+        "all_goals": [],
+        "goal_intel_matches": [],
+        "recommendations": [
+            {
+                "id": "rec-guide-1",
+                "category": "learning",
+                "title": "AI Pricing Strategy",
+                "description": "You keep returning to pricing questions that the current catalog does not cover.",
+                "score": 8.9,
+                "recommendation_kind": "learning_guide_candidate",
+                "guide_candidate": {
+                    "topic": "AI Pricing Strategy",
+                    "depth": "practitioner",
+                    "audience": "Product or strategy operators",
+                    "time_budget": "3 focused sessions",
+                    "instruction": "Focus on SaaS and usage-based pricing trade-offs.",
+                    "confidence": 0.91,
+                    "rationale": "The user keeps returning to pricing questions.",
+                    "approval_required": True,
+                },
+            }
+        ],
+    }
+
+    thread_service = MagicMock()
+    thread_service.list_inbox = AsyncMock(return_value=[])
+    watchlist_store = MagicMock()
+    watchlist_store.list_items.return_value = []
+
+    with (
+        patch("web.routes.suggestions.assemble_briefing_data", return_value=briefing_data),
+        patch("web.routes.suggestions.build_daily_brief_payload", return_value={"items": []}),
+        patch("web.routes.suggestions.get_thread_inbox_service", return_value=thread_service),
+        patch("web.routes.suggestions.get_watchlist_store", return_value=watchlist_store),
+        patch("curriculum.assistant_actions.find_matching_guides", return_value=[]),
+    ):
+        response = client.get("/api/suggestions?limit=10", headers=auth_headers)
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "source": "learning_guide_candidate",
+            "kind": "learning_guide_candidate",
+            "title": "AI Pricing Strategy",
+            "description": "You keep returning to pricing questions that the current catalog does not cover.",
+            "action": "Ask the assistant to create this guide",
+            "priority": 1,
+            "score": 8.9,
+            "why_now": [
+                {
+                    "code": "missing_learning_topic",
+                    "label": "Missing topic worth studying",
+                    "severity": "info",
+                    "detail": {
+                        "topic": "AI Pricing Strategy",
+                        "rationale": "You keep returning to pricing questions that the current catalog does not cover.",
+                    },
+                },
+                {
+                    "code": "high_confidence_candidate",
+                    "label": "High-confidence proposal",
+                    "severity": "info",
+                    "detail": {"confidence": 0.91},
+                },
+            ],
+            "payload": {
+                "recommendation_id": "rec-guide-1",
+                "topic": "AI Pricing Strategy",
+                "depth": "practitioner",
+                "audience": "Product or strategy operators",
+                "time_budget": "3 focused sessions",
+                "instruction": "Focus on SaaS and usage-based pricing trade-offs.",
+                "confidence": 0.91,
+                "approval_required": True,
+            },
+        }
+    ]
+
+
+def test_suggestions_suppress_learning_guide_candidate_when_guide_exists(client, auth_headers):
+    briefing_data = {
+        "stale_goals": [],
+        "all_goals": [],
+        "goal_intel_matches": [],
+        "recommendations": [
+            {
+                "id": "rec-guide-1",
+                "category": "learning",
+                "title": "AI Pricing Strategy",
+                "description": "Missing topic suggestion.",
+                "score": 8.9,
+                "recommendation_kind": "learning_guide_candidate",
+                "guide_candidate": {
+                    "topic": "AI Pricing Strategy",
+                    "depth": "practitioner",
+                    "audience": "Operators",
+                    "time_budget": "3 focused sessions",
+                    "confidence": 0.91,
+                    "approval_required": True,
+                },
+            }
+        ],
+    }
+
+    thread_service = MagicMock()
+    thread_service.list_inbox = AsyncMock(return_value=[])
+    watchlist_store = MagicMock()
+    watchlist_store.list_items.return_value = []
+
+    with (
+        patch("web.routes.suggestions.assemble_briefing_data", return_value=briefing_data),
+        patch("web.routes.suggestions.build_daily_brief_payload", return_value={"items": []}),
+        patch("web.routes.suggestions.get_thread_inbox_service", return_value=thread_service),
+        patch("web.routes.suggestions.get_watchlist_store", return_value=watchlist_store),
+        patch(
+            "curriculum.assistant_actions.find_matching_guides",
+            return_value=[{"id": "existing-guide", "title": "AI Pricing Strategy", "score": 0.94}],
+        ),
+    ):
+        response = client.get("/api/suggestions?limit=10", headers=auth_headers)
+
+    assert response.status_code == 200
+    assert response.json() == []

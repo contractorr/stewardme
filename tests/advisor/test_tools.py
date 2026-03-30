@@ -259,6 +259,66 @@ class TestToolExecution:
         parsed = json.loads(result)
         assert parsed["error"] == "Invalid path"
 
+    def test_curriculum_tools_register_when_user_id_available(self, mock_components):
+        components = {**mock_components, "user_id": "user-123"}
+        registry = build_tool_registry(components)
+        names = {d.name for d in registry.get_definitions()}
+        assert {
+            "curriculum_list_guides",
+            "curriculum_generate_guide",
+            "curriculum_extend_guide",
+            "curriculum_suggest_guide",
+        }.issubset(names)
+
+    def test_curriculum_generate_guide_tool(self, mock_components):
+        from unittest.mock import patch
+
+        components = {**mock_components, "user_id": "user-123"}
+        registry = build_tool_registry(components)
+
+        with patch(
+            "curriculum.assistant_actions.generate_guide_for_user",
+            return_value={"created": True, "guide": {"id": "user-agent-systems-abc123"}},
+        ) as generate_mock:
+            result = registry.execute(
+                "curriculum_generate_guide",
+                {"topic": "Agent Systems", "depth": "survey"},
+            )
+
+        parsed = json.loads(result)
+        assert parsed["created"] is True
+        assert parsed["guide"]["id"] == "user-agent-systems-abc123"
+        generate_mock.assert_called_once()
+
+    def test_curriculum_suggest_guide_tool(self, mock_components):
+        from unittest.mock import patch
+
+        components = {**mock_components, "user_id": "user-123"}
+        registry = build_tool_registry(components)
+
+        with patch(
+            "curriculum.assistant_actions.suggest_guide_for_user",
+            return_value={
+                "created": True,
+                "recommendation_id": "rec-123",
+                "confidence": 0.92,
+                "approval_required": True,
+            },
+        ) as suggest_mock:
+            result = registry.execute(
+                "curriculum_suggest_guide",
+                {
+                    "topic": "AI Pricing Strategy",
+                    "rationale": "The user keeps asking pricing questions.",
+                    "confidence": 0.92,
+                },
+            )
+
+        parsed = json.loads(result)
+        assert parsed["created"] is True
+        assert parsed["approval_required"] is True
+        suggest_mock.assert_called_once()
+
 
 class TestToolResultTruncation:
     def test_large_result_truncated(self, mock_components):

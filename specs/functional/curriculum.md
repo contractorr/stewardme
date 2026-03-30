@@ -10,6 +10,9 @@ Learn is the app's lightweight learning workspace. Its job is simple:
 - help them continue where they left off
 - help them remember the important parts
 
+The assistant may still create or propose additional user-owned guides when the catalog is missing
+something important, but that capability should stay secondary to the core Learn flow.
+
 It should feel calm, obvious, and low-friction. It should not feel like a learning operating
 system.
 
@@ -32,6 +35,8 @@ system.
   - learning should not require Goals to make sense
   - learning should not require Journal to make sense
   - learning should not require Radar or Research context to make sense
+  - assistant-created guides may exist, but guide creation should happen through assistant and
+    suggestion flows rather than the default Learn landing page
 
 ## Simplified Product Model
 
@@ -201,6 +206,7 @@ Optional support can exist below the core reading flow, but it must stay seconda
 - Lightweight synthesis and model aids that stay secondary to reading
 - Home handoff into learning
 - Basic search across guides
+- Assistant-triggered creation or extension of user-owned guides when the catalog has a clear gap
 
 ## What We Should Simplify Hard
 
@@ -223,11 +229,22 @@ Optional support can exist below the core reading flow, but it must stay seconda
 - Placement / test-out
 - Related chapter suggestions in the primary flow
 - Retry-specific review mode in the main UI
-- User-authored guide generation and guide extensions
 - Complex performance signals exposed directly in the UI
 
 These may remain technically possible, but they should not shape the core experience until the
 minimal loop proves useful.
+
+## Assistant-Created Guides
+
+User-authored guides are supported, but they are not a primary Learn-page concept.
+
+Rules:
+
+- explicit guide creation and extension should happen through the assistant
+- proactive missing-topic behavior should surface as an assistant or suggestions proposal first
+- generated guides should join the normal guide catalog after creation instead of creating a
+  separate parallel learning product
+- the Learn landing page should stay browse-and-study focused rather than becoming a content editor
 
 ## Acceptance Criteria
 

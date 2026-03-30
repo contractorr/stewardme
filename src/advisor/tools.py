@@ -24,6 +24,7 @@ def register_advisor_tools(registry: ToolRegistry, components: dict) -> None:
     """Register advisor tools onto a shared registry instance."""
     _register_journal_tools(registry, components)
     _register_goal_tools(registry, components)
+    _register_curriculum_tools(registry, components)
     _register_intel_tools(registry, components)
     _register_entity_tools(registry, components)
     _register_rss_tools(registry, components)
@@ -435,6 +436,226 @@ def _register_goal_tools(registry: ToolRegistry, components: dict) -> None:
             "required": ["goal_path"],
         },
         handler=goal_next_steps,
+        check_fn=check_fn,
+    )
+
+
+def _register_curriculum_tools(registry: ToolRegistry, components: dict) -> None:
+    def check_fn():
+        return bool(components.get("user_id"))
+
+    def curriculum_list_guides(args: dict) -> dict:
+        from curriculum.assistant_actions import find_matching_guides
+        from web.routes import curriculum as curriculum_routes
+
+        user_id = components["user_id"]
+        store = curriculum_routes._get_store(user_id)
+        scanner = curriculum_routes._get_scanner(user_id, store)
+        program_lookup = curriculum_routes._build_program_lookup(scanner.get_learning_programs())
+
+        category = args.get("category")
+        origin = args.get("origin")
+        query = (args.get("query") or "").strip()
+        limit = args.get("limit", 20)
+
+        guides = store.list_guides(category=category, user_id=user_id, origin=origin)
+        if query:
+            match_ids = {
+                match["id"] for match in find_matching_guides(store, query, limit=max(limit, 5))
+            }
+            guides = [guide for guide in guides if guide["id"] in match_ids]
+
+        guides = guides[:limit]
+        return {
+            "guides": [
+                curriculum_routes._decorate_guide_payload(
+                    guide,
+                    scanner,
+                    program_lookup,
+                    store=store,
+                    user_id=user_id,
+                )
+                for guide in guides
+            ],
+            "count": len(guides),
+        }
+
+    registry.register(
+        name="curriculum_list_guides",
+        toolset="curriculum",
+        description="List learning guides in the user's curriculum catalog. Use before proposing or creating a new guide so you can avoid duplicating existing content.",
+        schema={
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Optional topic/title query to narrow guides by likely relevance.",
+                },
+                "category": {
+                    "type": "string",
+                    "enum": [
+                        "science",
+                        "humanities",
+                        "business",
+                        "technology",
+                        "industry",
+                        "social_science",
+                        "professional",
+                    ],
+                },
+                "origin": {
+                    "type": "string",
+                    "enum": ["builtin", "user"],
+                    "description": "Optional origin filter.",
+                },
+                "limit": {"type": "integer", "default": 20},
+            },
+            "required": [],
+        },
+        handler=curriculum_list_guides,
+        check_fn=check_fn,
+    )
+
+    def curriculum_generate_guide(args: dict) -> dict:
+        from curriculum.assistant_actions import generate_guide_for_user
+        from curriculum.models import GuideDepth
+
+        return generate_guide_for_user(
+            components["user_id"],
+            topic=args["topic"],
+            depth=GuideDepth(args.get("depth", "practitioner")),
+            audience=args.get("audience", "A motivated learner"),
+            time_budget=args.get("time_budget", "2-4 focused sessions"),
+            instruction=args.get("instruction"),
+            allow_similar=bool(args.get("allow_similar", False)),
+        )
+
+    registry.register(
+        name="curriculum_generate_guide",
+        toolset="curriculum",
+        description="Generate a new user-owned learning guide. Use this only when the user explicitly asks for a new guide or has already approved one.",
+        schema={
+            "type": "object",
+            "properties": {
+                "topic": {"type": "string", "description": "Topic for the new guide."},
+                "depth": {
+                    "type": "string",
+                    "enum": ["survey", "practitioner", "deep_dive"],
+                    "default": "practitioner",
+                },
+                "audience": {
+                    "type": "string",
+                    "description": "Who the guide is for.",
+                    "default": "A motivated learner",
+                },
+                "time_budget": {
+                    "type": "string",
+                    "description": "Expected study budget or pacing.",
+                    "default": "2-4 focused sessions",
+                },
+                "instruction": {
+                    "type": "string",
+                    "description": "Optional additional guidance for the generated guide.",
+                },
+                "allow_similar": {
+                    "type": "boolean",
+                    "description": "Override the duplicate guard when the user explicitly wants a distinct but similar guide.",
+                    "default": False,
+                },
+            },
+            "required": ["topic"],
+        },
+        handler=curriculum_generate_guide,
+        check_fn=check_fn,
+    )
+
+    def curriculum_extend_guide(args: dict) -> dict:
+        from curriculum.assistant_actions import extend_guide_for_user
+        from curriculum.models import GuideDepth
+
+        depth = args.get("depth")
+        return extend_guide_for_user(
+            components["user_id"],
+            guide_id_or_title=args["guide_id_or_title"],
+            prompt=args["prompt"],
+            depth=GuideDepth(depth) if depth else None,
+            audience=args.get("audience"),
+            time_budget=args.get("time_budget"),
+            instruction=args.get("instruction"),
+        )
+
+    registry.register(
+        name="curriculum_extend_guide",
+        toolset="curriculum",
+        description="Generate a user-owned extension for an existing guide. Use when the user wants more depth, a missing angle, or domain-specific examples on top of an existing guide.",
+        schema={
+            "type": "object",
+            "properties": {
+                "guide_id_or_title": {
+                    "type": "string",
+                    "description": "Guide id or exact/fuzzy guide title to extend.",
+                },
+                "prompt": {
+                    "type": "string",
+                    "description": "What additional angle or material to add.",
+                },
+                "depth": {
+                    "type": "string",
+                    "enum": ["survey", "practitioner", "deep_dive"],
+                },
+                "audience": {"type": "string"},
+                "time_budget": {"type": "string"},
+                "instruction": {"type": "string"},
+            },
+            "required": ["guide_id_or_title", "prompt"],
+        },
+        handler=curriculum_extend_guide,
+        check_fn=check_fn,
+    )
+
+    def curriculum_suggest_guide(args: dict) -> dict:
+        from curriculum.assistant_actions import suggest_guide_for_user
+        from curriculum.models import GuideDepth
+
+        return suggest_guide_for_user(
+            components["user_id"],
+            topic=args["topic"],
+            rationale=args["rationale"],
+            confidence=float(args["confidence"]),
+            depth=GuideDepth(args.get("depth", "practitioner")),
+            audience=args.get("audience", "A learner with the user's current goals and context"),
+            time_budget=args.get("time_budget", "2-4 focused sessions"),
+            instruction=args.get("instruction"),
+        )
+
+    registry.register(
+        name="curriculum_suggest_guide",
+        toolset="curriculum",
+        description="Create an approval-first learning guide candidate for the suggestions feed. Use this proactively only when you have high confidence a missing topic would help the user. Do not use it when the user has already explicitly asked for creation; generate the guide directly instead.",
+        schema={
+            "type": "object",
+            "properties": {
+                "topic": {"type": "string", "description": "Proposed guide topic."},
+                "rationale": {
+                    "type": "string",
+                    "description": "Why this guide would help the user now.",
+                },
+                "confidence": {
+                    "type": "number",
+                    "description": "Assistant confidence from 0.0 to 1.0. Only high-confidence proposals should be saved.",
+                },
+                "depth": {
+                    "type": "string",
+                    "enum": ["survey", "practitioner", "deep_dive"],
+                    "default": "practitioner",
+                },
+                "audience": {"type": "string"},
+                "time_budget": {"type": "string"},
+                "instruction": {"type": "string"},
+            },
+            "required": ["topic", "rationale", "confidence"],
+        },
+        handler=curriculum_suggest_guide,
         check_fn=check_fn,
     )
 

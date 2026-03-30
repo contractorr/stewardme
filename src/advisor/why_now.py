@@ -65,6 +65,27 @@ class WhyNowReasoner:
                     }
                 )
 
+        if kind == "learning_guide_candidate":
+            confidence = payload.get("confidence")
+            detail = suggestion.get("description") or payload.get("rationale") or ""
+            chips.append(
+                {
+                    "code": "missing_learning_topic",
+                    "label": "Missing topic worth studying",
+                    "severity": "info",
+                    "detail": {"topic": payload.get("topic"), "rationale": detail},
+                }
+            )
+            if confidence is not None:
+                chips.append(
+                    {
+                        "code": "high_confidence_candidate",
+                        "label": "High-confidence proposal",
+                        "severity": "info",
+                        "detail": {"confidence": confidence},
+                    }
+                )
+
         if any(
             title and label.lower() in title for label in user_context.get("watchlist_labels") or []
         ):

@@ -74,8 +74,51 @@ async def get_suggestions(
 
     # Add remaining recommendations not already in brief
     brief_titles = {s.title for s in suggestions if s.source == "brief"}
+    curriculum_store = None
     for rec in data["recommendations"]:
         if rec["title"] in brief_titles:
+            continue
+        if rec.get("recommendation_kind") == "learning_guide_candidate":
+            candidate = rec.get("guide_candidate") or {}
+            topic = str(candidate.get("topic") or rec["title"]).strip()
+            if topic:
+                try:
+                    from curriculum.assistant_actions import find_matching_guides
+                    from web.routes import curriculum as curriculum_routes
+
+                    curriculum_store = curriculum_store or curriculum_routes._get_store(user["id"])
+                    curriculum_routes._get_scanner(user["id"], curriculum_store)
+                    existing_matches = find_matching_guides(
+                        curriculum_store,
+                        topic,
+                        min_score=0.86,
+                    )
+                    if existing_matches:
+                        continue
+                except Exception as e:
+                    logger.warning("suggestions.guide_candidate_match_check_failed", error=str(e))
+
+            suggestions.append(
+                SuggestionItem(
+                    source="learning_guide_candidate",
+                    kind="learning_guide_candidate",
+                    title=rec["title"],
+                    description=rec.get("description", ""),
+                    action="Ask the assistant to create this guide",
+                    priority=1,
+                    score=rec.get("score", 0.0),
+                    payload={
+                        "recommendation_id": rec.get("id"),
+                        "topic": topic,
+                        "depth": candidate.get("depth"),
+                        "audience": candidate.get("audience"),
+                        "time_budget": candidate.get("time_budget"),
+                        "instruction": candidate.get("instruction"),
+                        "confidence": candidate.get("confidence"),
+                        "approval_required": candidate.get("approval_required", True),
+                    },
+                )
+            )
             continue
         suggestions.append(
             SuggestionItem(
