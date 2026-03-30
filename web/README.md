@@ -25,16 +25,19 @@ uv run uvicorn src.web.app:app --reload --port 8000
 
 Open `http://localhost:3000` and sign in.
 
-## Main dashboard areas
+## Route map
 
-- `/` - Home for capture, ask, greeting/return brief, and top next steps
-- `/focus` - Focus for goals, weekly plan, and best next moves
-- `/radar` - Radar for signals, threads, dossiers, saved follow-ups, and tracked topics
-- `/library` - Research for documents, reports, and archived dossiers
-- `/learn` - Library for daily learning, guides, and reviews
-- `/settings` - Profile, keys, tracked topics, memory, and advanced controls
-- `/journal` - Deeper Journal workspace reached from the sidebar shortcut
-- Secondary deep links: `/advisor`, `/intel`, `/projects`
+- `/`: marketing landing page
+- `/login`, `/privacy`, `/terms`: unauthenticated support pages
+- `/home`: dashboard for capture, ask, briefing, and top next steps
+- `/focus`: active goals, weekly plan, and recommendation follow-through
+- `/radar`: signals, threads, dossiers, saved follow-ups, and tracked topics
+- `/library`: documents, reports, and archived research artifacts
+- `/learn`, `/learn/review`, `/learn/[guideId]`, `/learn/[guideId]/[chapterId]`: curriculum hub, reviews, and guide detail
+- `/journal`: journal workspace for capture and retrieval
+- `/research`: research workspace
+- `/settings`: profile, keys, tracked topics, memory, and advanced controls
+- Secondary deep links: `/advisor`, `/intel`, `/projects`, `/onboarding`, `/goals`, `/admin/stats`
 
 ## Focus workspace
 
@@ -91,6 +94,7 @@ The Research page is the durable reference workspace:
 npm run lint
 npm run typecheck
 npm run build
+npm run test:e2e
 ```
 
 For payload changes, regenerate API contracts from the repo root with

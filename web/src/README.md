@@ -7,6 +7,7 @@ Dashboard pages, shared UI, hooks, and API-facing types live here.
 - `app/`: route-level pages and layouts
 - `components/`: reusable UI and workspace widgets
 - `hooks/`: frontend state helpers
+- `lib/`: API clients, auth helpers, feature flags, and shared frontend utilities
 - `types/`: manual workspace types plus generated API contracts
 
 ## Invariants

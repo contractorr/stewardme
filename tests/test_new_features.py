@@ -4,7 +4,7 @@ import json
 
 from journal.sentiment import analyze_sentiment
 from journal.storage import JournalStorage
-from journal.templates import get_template, list_templates
+from journal.templates import BUILTIN_TEMPLATES, get_template, list_templates
 
 
 class TestJournalTemplates:
@@ -30,6 +30,15 @@ class TestJournalTemplates:
     def test_unknown_template_returns_none(self):
         assert get_template("nonexistent") is None
 
+    def test_all_builtin_templates_are_available(self):
+        templates = list_templates()
+
+        assert set(BUILTIN_TEMPLATES).issubset(templates)
+        for name, template in BUILTIN_TEMPLATES.items():
+            assert templates[name] == template
+            assert template["type"]
+            assert template["content"].startswith("## ")
+
 
 class TestSentiment:
     def test_positive_sentiment(self):
@@ -50,6 +59,14 @@ class TestSentiment:
     def test_mixed_sentiment(self):
         result = analyze_sentiment("Good progress on the project but stressed about deadline.")
         assert result["label"] in ("mixed", "positive", "negative")
+
+    def test_empty_input_is_neutral(self):
+        result = analyze_sentiment("")
+
+        assert result["label"] == "neutral"
+        assert result["score"] == 0
+        assert result["positive_count"] == 0
+        assert result["negative_count"] == 0
 
 
 class TestExportBackup:

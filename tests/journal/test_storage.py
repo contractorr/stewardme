@@ -115,6 +115,14 @@ class TestJournalStorage:
         with pytest.raises(ValueError, match="Path escapes journal directory"):
             storage.delete(outside)
 
+    def test_delete_nonexistent_entry_returns_false(self, temp_dirs):
+        """Test deleting a missing entry is a safe no-op."""
+        from journal.storage import JournalStorage
+
+        storage = JournalStorage(temp_dirs["journal_dir"])
+
+        assert storage.delete("missing.md") is False
+
     def test_list_entries(self, populated_journal):
         """Test listing all entries."""
         storage = populated_journal["storage"]
@@ -130,6 +138,36 @@ class TestJournalStorage:
         entries = storage.list_entries(limit=1)
 
         assert len(entries) == 1
+
+    def test_list_entries_filters_by_entry_type(self, temp_dirs):
+        """Test listing can filter by entry type."""
+        from journal.storage import JournalStorage
+
+        storage = JournalStorage(temp_dirs["journal_dir"])
+        storage.create(content="Daily entry", entry_type="daily", title="Daily")
+        storage.create(content="Goal entry", entry_type="goal", title="Goal")
+
+        entries = storage.list_entries(entry_type="goal")
+
+        assert len(entries) == 1
+        assert entries[0]["type"] == "goal"
+        assert entries[0]["title"] == "Goal"
+
+    def test_list_entries_filters_by_tags(self, temp_dirs):
+        """Test listing can filter by tags."""
+        from journal.storage import JournalStorage
+
+        storage = JournalStorage(temp_dirs["journal_dir"])
+        storage.create(
+            content="Work note", entry_type="daily", title="Work", tags=["work", "focus"]
+        )
+        storage.create(content="Home note", entry_type="daily", title="Home", tags=["home"])
+
+        entries = storage.list_entries(tags=["focus"])
+
+        assert len(entries) == 1
+        assert entries[0]["title"] == "Work"
+        assert "focus" in entries[0]["tags"]
 
     def test_frontmatter_preserved(self, temp_dirs):
         """Test that YAML frontmatter is preserved."""
