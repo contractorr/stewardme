@@ -8,6 +8,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useToken } from "@/hooks/useToken";
 import { BookOpen, Plus, Calendar, Search, Tag, X } from "lucide-react";
+import { DashboardPageContainer } from "@/components/DashboardPageContainer";
 import { WorkspacePageHeader } from "@/components/WorkspacePageHeader";
 import { MindMapCard } from "@/components/journal/MindMapCard";
 import { Button } from "@/components/ui/button";
@@ -387,7 +388,7 @@ export default function JournalPage() {
   })();
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-6">
+    <DashboardPageContainer className="space-y-6 py-4 md:py-6">
       <WorkspacePageHeader
         eyebrow="Capture"
         title="Journal"
@@ -829,6 +830,6 @@ export default function JournalPage() {
           </SheetContent>
         </Sheet>
       )}
-    </div>
+    </DashboardPageContainer>
   );
 }

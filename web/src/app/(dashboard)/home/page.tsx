@@ -6,6 +6,7 @@ import { Check, ExternalLink, PenLine, Send, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { ChatAttachmentBadges, ChatPdfAttachmentPicker } from "@/components/ChatPdfAttachments";
+import { DashboardPageContainer } from "@/components/DashboardPageContainer";
 import { LearningSnapshotCard } from "@/components/home/LearningSnapshotCard";
 import { ReturnBriefCard } from "@/components/home/ReturnBriefCard";
 import { WhyNowChip } from "@/components/shared/WhyNowChip";
@@ -356,11 +357,11 @@ export default function HomePage() {
   if (!token || !greetingLoaded) {
     return (
       <div className="flex h-full flex-col">
-        <div className="mx-auto w-full max-w-7xl flex-1 animate-pulse space-y-4 px-4 py-8">
+        <DashboardPageContainer className="flex-1 animate-pulse space-y-4 py-8">
           <div className="h-28 rounded-2xl bg-muted" />
           <div className="h-44 rounded-2xl bg-muted" />
           <div className="h-52 rounded-2xl bg-muted" />
-        </div>
+        </DashboardPageContainer>
       </div>
     );
   }
@@ -378,8 +379,8 @@ export default function HomePage() {
 
   return (
     <div className="flex h-full flex-col">
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
-        <div className="mx-auto max-w-7xl space-y-4 pb-8">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto">
+        <DashboardPageContainer className="space-y-4 py-4 pb-8 md:py-6">
           {showReturnBrief && returnBrief ? (
             <ReturnBriefCard
               brief={returnBrief}
@@ -651,7 +652,7 @@ export default function HomePage() {
               Write a note, ask a question, or pick up your next lesson in <Link href="/learn" className="underline underline-offset-4">Guide Library</Link>.
             </div>
           ) : null}
-        </div>
+        </DashboardPageContainer>
       </div>
     </div>
   );

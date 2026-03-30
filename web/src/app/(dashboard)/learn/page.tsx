@@ -5,6 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { ArrowRight, RefreshCcw, RotateCcw, Search } from "lucide-react";
 
+import { DashboardPageContainer } from "@/components/DashboardPageContainer";
 import { WorkspacePageHeader } from "@/components/WorkspacePageHeader";
 import { GuideCard } from "@/components/curriculum/GuideCard";
 import { Button } from "@/components/ui/button";
@@ -298,7 +299,7 @@ export default function LearnPage() {
   }, [guides, recommendedGuideId, search, selectedCategory, sortMode]);
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-6">
+    <DashboardPageContainer className="space-y-6 py-4 md:py-6">
       <WorkspacePageHeader
         title="Learn"
         description="Use your Guide Library to start a guide, continue the next chapter, and clear reviews when they are due."
@@ -504,6 +505,6 @@ export default function LearnPage() {
           </div>
         )}
       </section>
-    </div>
+    </DashboardPageContainer>
   );
 }

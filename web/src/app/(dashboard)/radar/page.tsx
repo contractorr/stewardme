@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { DashboardPageContainer } from "@/components/DashboardPageContainer";
 import { WorkspacePageHeader } from "@/components/WorkspacePageHeader";
 import { WhyNowChip } from "@/components/shared/WhyNowChip";
 import { Badge } from "@/components/ui/badge";
@@ -256,7 +257,7 @@ export default function RadarPage() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-6">
+    <DashboardPageContainer className="space-y-6 py-4 md:py-6">
       <WorkspacePageHeader
         eyebrow="Monitor"
         title="Radar"
@@ -594,6 +595,6 @@ export default function RadarPage() {
           )}
         </TabsContent>
       </Tabs>
-    </div>
+    </DashboardPageContainer>
   );
 }
