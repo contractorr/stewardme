@@ -127,6 +127,8 @@ def test_infer_category():
     assert _infer_category("economics-guide") == GuideCategory.BUSINESS
     assert _infer_category("physics-fundamentals") == GuideCategory.SCIENCE
     assert _infer_category("computer-science-algorithms") == GuideCategory.TECHNOLOGY
+    assert _infer_category("world-geography-fundamentals-guide") == GuideCategory.SOCIAL_SCIENCE
+    assert _infer_category("classics-fundamentals-guide") == GuideCategory.HUMANITIES
     assert _infer_category("unknown-topic") == GuideCategory.PROFESSIONAL
 
 

@@ -42,6 +42,8 @@ guide_titles:
   "36-computer-science-algorithms-guide": "Computer Science & Algorithms"
   "37-ai-ml-fundamentals-guide": "AI & Machine Learning"
   "38-cybersecurity-guide": "Cybersecurity"
+  "39-world-geography-fundamentals-guide": "World Geography Through Country Profiles"
+  "40-classics-fundamentals-guide": "The Classical World"
   "industry-accounting": "Accounting in Practice"
   "industry-construction": "Construction & the Built Environment"
   "industry-energy": "Energy Industry"
@@ -128,6 +130,10 @@ tracks:
         prerequisites: ["23-sociology-institutional-design-guide", "04-statistics-probability-guide"]
       - id: "35-geopolitics-guide"
         prerequisites: ["24-government-politics-guide", "22-world-history-civilizational-dynamics-guide"]
+      - id: "39-world-geography-fundamentals-guide"
+        prerequisites: []
+      - id: "40-classics-fundamentals-guide"
+        prerequisites: ["01-philosophy-guide"]
 
   business_economics:
     title: "Business & Economics"

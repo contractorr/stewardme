@@ -46,6 +46,7 @@ _CATEGORY_KEYWORDS: dict[str, GuideCategory] = {
     "statistics": GuideCategory.SCIENCE,
     "physics": GuideCategory.SCIENCE,
     "chemistry": GuideCategory.SCIENCE,
+    "classics": GuideCategory.HUMANITIES,
     "biology": GuideCategory.SCIENCE,
     "genetics": GuideCategory.SCIENCE,
     "ecology": GuideCategory.SCIENCE,
