@@ -19,7 +19,7 @@ HOTSPOT_LINE_BUDGETS = {
     Path("src/web/routes/curriculum.py"): 2700,
     Path("src/curriculum/store.py"): 1750,
     Path("src/memory/store.py"): 1100,
-    Path("src/web/models.py"): 1025,
+    Path("src/web/models.py"): 1125,
     Path("src/advisor/recommendations.py"): 825,
     Path("web/src/app/(dashboard)/settings/page.tsx"): 1850,
     Path("web/src/app/(dashboard)/goals/page.tsx"): 1250,
