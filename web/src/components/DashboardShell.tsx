@@ -90,7 +90,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       )}
-      <main className={`h-full overflow-y-auto pt-12 lg:pl-60 ${showBanner ? "mt-8" : ""}`}>
+      <main className={`h-full overflow-y-auto [scrollbar-gutter:stable] pt-12 lg:pl-60 ${showBanner ? "mt-8" : ""}`}>
         {(gateChecked || skipGate) ? children : null}
       </main>
     </div>
