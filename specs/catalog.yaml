@@ -201,6 +201,7 @@ functional_specs:
     - specs/functional/trending-radar.md
     - specs/functional/unified-tool-registry.md
     - specs/functional/usage-cost-estimation.md
+    - specs/functional/web-visual-redesign.md
     - specs/functional/x-list-scraper.md
   archived: []
 technical_specs:
@@ -395,5 +396,6 @@ technical_specs:
     - specs/technical/unified-tool-registry.md
     - specs/technical/usage-cost-estimation.md
     - specs/technical/user-data-storage.md
+    - specs/technical/web-visual-redesign.md
     - specs/technical/x-list-scraper.md
   archived: []
