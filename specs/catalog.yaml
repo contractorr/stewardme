@@ -208,6 +208,7 @@ functional_specs:
     - specs/functional/memory-parent-score-propagation.md
     - specs/functional/notifications.md
     - specs/functional/nudge-engine.md
+    - specs/functional/objectives-gate-pulse.md
     - specs/functional/observability-export.md
     - specs/functional/outcome-harvester.md
     - specs/functional/projects-opportunities.md
