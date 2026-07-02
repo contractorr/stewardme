@@ -142,7 +142,9 @@ class TestCreatesNewThread:
         match = await detector.detect("e3", entries["e3"], datetime(2026, 2, 12))
 
         thread_entries = await store.get_thread_entries(match.thread_id)
-        assert [(entry.entry_id, entry.entry_date.strftime("%Y-%m-%d")) for entry in thread_entries] == [
+        assert [
+            (entry.entry_id, entry.entry_date.strftime("%Y-%m-%d")) for entry in thread_entries
+        ] == [
             ("e1", "2026-01-05"),
             ("e2", "2026-01-07"),
             ("e3", "2026-02-12"),
@@ -248,7 +250,9 @@ class TestReindex:
     @pytest.mark.asyncio
     async def test_reindex_with_real_embedding_manager(self, temp_dirs, tmp_path):
         embeddings = EmbeddingManager(temp_dirs["chroma_dir"])
-        embeddings.add_entry("e1", "career planning distributed systems", {"created": "2026-01-01T00:00:00"})
+        embeddings.add_entry(
+            "e1", "career planning distributed systems", {"created": "2026-01-01T00:00:00"}
+        )
         embeddings.add_entry(
             "e2",
             "career planning distributed systems next steps",

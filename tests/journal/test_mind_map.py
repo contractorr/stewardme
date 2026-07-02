@@ -160,8 +160,7 @@ def test_mind_map_generator_still_builds_local_map_when_external_context_fails(t
             "path": "journal/career.md",
             "title": "Career planning",
             "content": (
-                "I need to focus on PM portfolio work this month. "
-                "I am working on career direction."
+                "I need to focus on PM portfolio work this month. I am working on career direction."
             ),
             "tags": ["career", "portfolio"],
         },
@@ -268,8 +267,7 @@ def test_mind_map_generator_ignores_assistant_only_conversation_matches(tmp_path
             "path": "journal/career.md",
             "title": "Career planning",
             "content": (
-                "I need to focus on PM portfolio work this month. "
-                "I am working on career direction."
+                "I need to focus on PM portfolio work this month. I am working on career direction."
             ),
             "tags": ["career", "portfolio"],
         },

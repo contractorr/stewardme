@@ -3,9 +3,9 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import frontmatter
 import pytest
 
+import frontmatter
 from coach_mcp.bootstrap import reset_components, set_components
 
 

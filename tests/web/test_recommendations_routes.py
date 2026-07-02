@@ -47,7 +47,9 @@ def test_create_goal_linked_action_item(client, auth_headers, tmp_path):
 @pytest.mark.parametrize("entry_type", ["daily", "quick", "research"])
 def test_create_action_item_rejects_non_goal_entries(client, auth_headers, tmp_path, entry_type):
     journal = JournalStorage(tmp_path / "users" / "user-123" / "journal")
-    entry_path = journal.create(content="Not a goal", entry_type=entry_type, title=f"{entry_type} note")
+    entry_path = journal.create(
+        content="Not a goal", entry_type=entry_type, title=f"{entry_type} note"
+    )
 
     storage = _storage_for(tmp_path)
     rec_id = storage.save(Recommendation(category="projects", title="Ship MVP", score=9.0))

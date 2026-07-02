@@ -3,7 +3,6 @@ from pathlib import Path
 from threading import Barrier
 
 import frontmatter
-
 from library.reports import ReportStore
 
 

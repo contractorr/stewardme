@@ -62,4 +62,4 @@ def test_execute_truncates_large_results():
     parsed = json.loads(result)
     assert parsed["truncated"] is True
     assert parsed["original_length"] > registry.TOOL_RESULT_MAX_CHARS
-    assert parsed["result_preview"].startswith("{\"payload\":")
+    assert parsed["result_preview"].startswith('{"payload":')

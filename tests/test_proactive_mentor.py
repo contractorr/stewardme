@@ -258,8 +258,8 @@ class TestEventScoring:
     def test_score_accepts_z_suffix_event_dates(self):
         from advisor.events import score_event
 
-        z_timestamp = (datetime.now(timezone.utc) + timedelta(days=20)).isoformat().replace(
-            "+00:00", "Z"
+        z_timestamp = (
+            (datetime.now(timezone.utc) + timedelta(days=20)).isoformat().replace("+00:00", "Z")
         )
         event = {
             "tags": "event",

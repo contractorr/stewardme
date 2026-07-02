@@ -1,15 +1,15 @@
 """Tests for profile interview — extraction, building, interactive flow."""
 
-import pytest
-
 from profile.interview import (
     ProfileInterviewAborted,
-    ProfileInterviewError,
     ProfileInterviewer,
+    ProfileInterviewError,
     _build_profile,
     _extract_profile_json,
 )
 from profile.storage import ProfileStorage, UserProfile
+
+import pytest
 
 # ── _extract_profile_json ──
 

@@ -4,6 +4,7 @@ import sqlite3
 
 from cryptography.fernet import Fernet
 
+from web.conversation_store import create_conversation
 from web.user_store import (
     delete_user,
     delete_user_secret,
@@ -16,7 +17,6 @@ from web.user_store import (
     log_event,
     set_user_secret,
 )
-from web.conversation_store import create_conversation
 
 
 def test_create_user(tmp_path):

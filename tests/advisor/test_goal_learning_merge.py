@@ -3,9 +3,9 @@
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
-import frontmatter
 import pytest
 
+import frontmatter
 from advisor.goals import GoalTracker, get_goal_defaults
 from advisor.migrate_learning_paths import (
     _parse_modules,

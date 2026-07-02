@@ -170,7 +170,11 @@ class TestIntelSearchFTSRouting:
         from intelligence.search import IntelSearch
 
         search = IntelSearch(populated_intel)
-        monkeypatch.setattr(populated_intel, "fts_search", lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("fts unavailable")))
+        monkeypatch.setattr(
+            populated_intel,
+            "fts_search",
+            lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("fts unavailable")),
+        )
 
         results = search.keyword_search("AI", source_filter="hackernews")
 
