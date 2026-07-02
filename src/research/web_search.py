@@ -8,6 +8,8 @@ import structlog
 
 from rate_limit import TokenBucketRateLimiter
 
+from .outbound import OutboundLogger, sanitize_outbound_query
+
 logger = structlog.get_logger()
 
 
@@ -30,6 +32,7 @@ class WebSearchClient:
         provider: str = "tavily",
         max_results: int = 8,
         max_content_chars: int = 3000,
+        outbound_logger: OutboundLogger | None = None,
     ):
         self.api_key = api_key or os.getenv("TAVILY_API_KEY")
         self.provider = provider
@@ -37,9 +40,29 @@ class WebSearchClient:
         self.max_content_chars = max_content_chars
         self.client = httpx.Client(timeout=30.0)
         self._closed = False
+        self._outbound = outbound_logger or OutboundLogger()
+        # Audit trail of queries actually sent in this client's lifetime.
+        self.issued_queries: list[dict] = []
 
         # Rate limiting
         self._limiter = TokenBucketRateLimiter(requests_per_second=1.0, burst=1)
+
+    def _resolve_provider(self) -> str | None:
+        if self.provider == "tavily" and self.api_key:
+            return "tavily"
+        if self.provider == "duckduckgo" or not self.api_key:
+            if not self.api_key:
+                logger.info("No TAVILY_API_KEY, falling back to DuckDuckGo")
+            return "duckduckgo"
+        logger.error("Unknown search provider: %s", self.provider)
+        return None
+
+    def _prepare_query(self, query: str) -> str | None:
+        """Hygiene pass: journal-derived queries must not leak personal text."""
+        sanitized = sanitize_outbound_query(query)
+        if sanitized is None:
+            logger.warning("outbound_query_dropped", original_chars=len(query or ""))
+        return sanitized
 
     def search(self, query: str, search_depth: str = "advanced") -> list[SearchResult]:
         """Search for a topic and return results.
@@ -51,17 +74,20 @@ class WebSearchClient:
         Returns:
             List of SearchResult with extracted content
         """
-        self._rate_limit()
-
-        if self.provider == "tavily" and self.api_key:
-            return self._tavily_search(query, search_depth)
-        elif self.provider == "duckduckgo" or not self.api_key:
-            if not self.api_key:
-                logger.info("No TAVILY_API_KEY, falling back to DuckDuckGo")
-            return self._duckduckgo_search(query)
-        else:
-            logger.error("Unknown search provider: %s", self.provider)
+        sanitized = self._prepare_query(query)
+        if sanitized is None:
             return []
+        provider = self._resolve_provider()
+        if provider is None:
+            return []
+
+        self._rate_limit()
+        # Record before sending — an unlogged query is a bug, so IO errors abort.
+        self.issued_queries.append(self._outbound.record(sanitized, provider))
+
+        if provider == "tavily":
+            return self._tavily_search(sanitized, search_depth)
+        return self._duckduckgo_search(sanitized)
 
     def _rate_limit(self):
         """Enforce rate limiting between requests."""
@@ -174,6 +200,7 @@ class AsyncWebSearchClient:
         provider: str = "tavily",
         max_results: int = 8,
         max_content_chars: int = 3000,
+        outbound_logger: OutboundLogger | None = None,
     ):
         self.api_key = api_key or os.getenv("TAVILY_API_KEY")
         self.provider = provider
@@ -181,15 +208,23 @@ class AsyncWebSearchClient:
         self.max_content_chars = max_content_chars
         self.client = httpx.AsyncClient(timeout=30.0)
         self._closed = False
+        self._outbound = outbound_logger or OutboundLogger()
+        self.issued_queries: list[dict] = []
 
     async def search(self, query: str, search_depth: str = "advanced") -> list[SearchResult]:
         """Async search for a topic."""
+        sanitized = sanitize_outbound_query(query)
+        if sanitized is None:
+            logger.warning("outbound_query_dropped", original_chars=len(query or ""))
+            return []
         if self.provider == "tavily" and self.api_key:
-            return await self._tavily_search(query, search_depth)
+            self.issued_queries.append(self._outbound.record(sanitized, "tavily"))
+            return await self._tavily_search(sanitized, search_depth)
         elif self.provider == "duckduckgo" or not self.api_key:
             if not self.api_key:
                 logger.info("No TAVILY_API_KEY, falling back to DuckDuckGo")
-            return await self._duckduckgo_search(query)
+            self.issued_queries.append(self._outbound.record(sanitized, "duckduckgo"))
+            return await self._duckduckgo_search(sanitized)
         return []
 
     async def _duckduckgo_search(self, query: str) -> list[SearchResult]:

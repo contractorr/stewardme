@@ -178,6 +178,7 @@ class DeepResearchAgent:
             topic = topic_info["topic"]
             logger.info("research_topic_started", topic=topic, source=topic_info.get("source"))
             try:
+                marker = self._outbound_marker()
                 search_results = self.search_client.search(topic)
                 if not search_results:
                     results.append(
@@ -193,6 +194,8 @@ class DeepResearchAgent:
                 report = self.synthesizer.synthesize(
                     topic=topic, results=search_results, user_context=user_context
                 )
+                outbound = self._issued_queries_since(marker)
+                report = self._append_outbound_section(report, outbound)
                 filepath = self._store_journal_entry(topic, report, topic_info)
                 self._store_intel_item(topic, report, search_results)
                 self._add_embeddings(
@@ -207,6 +210,7 @@ class DeepResearchAgent:
                         "summary": report[:400],
                         "content": report,
                         "sources": [r.url for r in search_results],
+                        "outbound_queries": outbound,
                         "saved_path": filepath,
                         "filepath": filepath,
                         "success": True,
@@ -221,6 +225,7 @@ class DeepResearchAgent:
 
     def _run_dossier(self, dossier: dict, run_source: str) -> dict:
         topic = dossier["topic"]
+        marker = self._outbound_marker()
         search_results = self.search_client.search(topic)
         if not search_results:
             return {
@@ -240,6 +245,8 @@ class DeepResearchAgent:
             previous_change_summary=dossier.get("latest_change_summary", ""),
             user_context=user_context,
         )
+        outbound = self._issued_queries_since(marker)
+        report = self._append_outbound_section(report, outbound)
         metadata = self._build_update_metadata(report, search_results, run_source)
         update = self.dossiers.append_update(dossier["dossier_id"], report, metadata)
         refreshed = self.dossiers.get_dossier(dossier["dossier_id"]) or dossier
@@ -280,6 +287,7 @@ class DeepResearchAgent:
             "summary": metadata.get("change_summary", report[:400]),
             "content": report,
             "sources": [r.url for r in search_results],
+            "outbound_queries": outbound,
             "saved_path": update["path"],
             "filepath": update["path"],
             "dossier_id": dossier["dossier_id"],
@@ -335,6 +343,31 @@ class DeepResearchAgent:
             "sources_count": len(search_results),
             "run_source": run_source,
         }
+
+    def _issued_queries_since(self, marker: int) -> list[dict]:
+        """Audit entries recorded by the real search client since marker.
+
+        Injected/mocked clients without the audit list yield [] by design.
+        """
+        issued = getattr(self.search_client, "issued_queries", None)
+        if not isinstance(issued, list):
+            return []
+        return [entry for entry in issued[marker:] if isinstance(entry, dict)]
+
+    def _outbound_marker(self) -> int:
+        issued = getattr(self.search_client, "issued_queries", None)
+        return len(issued) if isinstance(issued, list) else 0
+
+    @staticmethod
+    def _append_outbound_section(report: str, queries: list[dict]) -> str:
+        """Every report carries the verbatim queries its run sent off-machine."""
+        if not queries:
+            return report
+        lines = [
+            f"- {q.get('timestamp', '?')} [{q.get('provider', '?')}] {q.get('query', '')}"
+            for q in queries
+        ]
+        return report.rstrip() + "\n\n## Outbound Queries\n" + "\n".join(lines) + "\n"
 
     def _get_user_context(self) -> str:
         context_parts = []
@@ -488,6 +521,7 @@ class AsyncDeepResearchAgent(DeepResearchAgent):
         for topic_info in topics:
             topic = topic_info["topic"]
             try:
+                marker = self._outbound_marker()
                 search_results = await self.search_client.search(topic)
                 if not search_results:
                     results.append(
@@ -502,6 +536,8 @@ class AsyncDeepResearchAgent(DeepResearchAgent):
                 report = self.synthesizer.synthesize(
                     topic=topic, results=search_results, user_context=user_context
                 )
+                outbound = self._issued_queries_since(marker)
+                report = self._append_outbound_section(report, outbound)
                 filepath = self._store_journal_entry(topic, report, topic_info)
                 self._store_intel_item(topic, report, search_results)
                 self._add_embeddings(
@@ -516,6 +552,7 @@ class AsyncDeepResearchAgent(DeepResearchAgent):
                         "summary": report[:400],
                         "content": report,
                         "sources": [r.url for r in search_results],
+                        "outbound_queries": outbound,
                         "saved_path": filepath,
                         "filepath": filepath,
                         "success": True,
@@ -530,6 +567,7 @@ class AsyncDeepResearchAgent(DeepResearchAgent):
 
     async def _run_dossier_async(self, dossier: dict, run_source: str) -> dict:
         topic = dossier["topic"]
+        marker = self._outbound_marker()
         search_results = await self.search_client.search(topic)
         if not search_results:
             return {
@@ -548,6 +586,7 @@ class AsyncDeepResearchAgent(DeepResearchAgent):
             previous_change_summary=dossier.get("latest_change_summary", ""),
             user_context=self._build_dossier_user_context(dossier),
         )
+        report = self._append_outbound_section(report, self._issued_queries_since(marker))
         metadata = self._build_update_metadata(report, search_results, run_source)
         update = self.dossiers.append_update(dossier["dossier_id"], report, metadata)
         refreshed = self.dossiers.get_dossier(dossier["dossier_id"]) or dossier
@@ -584,6 +623,7 @@ class AsyncDeepResearchAgent(DeepResearchAgent):
             "summary": metadata.get("change_summary", ""),
             "content": report,
             "sources": [r.url for r in search_results],
+            "outbound_queries": self._issued_queries_since(marker),
             "saved_path": update["path"],
             "filepath": update["path"],
             "dossier_id": dossier["dossier_id"],
