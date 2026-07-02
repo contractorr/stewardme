@@ -49,15 +49,15 @@ RAG-based personal AI advisor. Journal entries + external intelligence scrapers 
 
 - **advisor/** — `AdvisorEngine` with two modes and dual LLM instances (see below)
 - **journal/** — Markdown files with YAML frontmatter, ChromaDB embeddings, semantic+keyword search, KMeans trend detection, sentiment analysis, entry templates
-- **intelligence/** — 14 source files in `sources/` (19 scraper classes — `ai_capabilities.py` contains 6) inheriting `BaseScraper` (HN, GitHub, arXiv, Reddit, RSS, Product Hunt, YC Jobs, Google Patents, AI capabilities, events, GitHub issues, Crunchbase, Google Trends, Indeed). Only HN+RSS enabled by default. SQLite storage with URL+content-hash dedup, APScheduler
-- **research/** — Deep research: topic selection → web search (Tavily or DuckDuckGo fallback) → LLM synthesis → reports
+- **intelligence/** — 15 source files in `sources/` (20 scraper classes — `ai_capabilities.py` contains 6) inheriting `BaseScraper` (HN, GitHub, arXiv, Reddit, RSS, Product Hunt, YC Jobs, Google Patents, AI capabilities, events, GitHub issues, Crunchbase, Google Trends, Indeed, local drop-folder). Only HN+RSS enabled by default. SQLite storage with URL+content-hash dedup, APScheduler. `LocalDropScraper` ingests `.md`/`.json` files from `~/coach/intel_dropbox/` (external pipelines feed items without credentials; processed files move to `processed/`)
+- **research/** — Deep research: topic selection → web search (Tavily or DuckDuckGo fallback) → LLM synthesis → reports. Outbound queries pass a hygiene filter (`research/outbound.py`: first-person/feelings text stripped or dropped) and every issued query is audit-logged to `~/coach/research/outbound_log.jsonl` and into the report's "Outbound Queries" section
 - **llm/** — Provider factory with auto-detection from env vars. Unified `LLMProvider` interface: Claude/OpenAI/Gemini
 - **profile/** — `UserProfile` Pydantic model (YAML-backed). `ProfileInterviewer` for LLM-driven onboarding (5-7 turns, force-extraction fallback). Two rendering modes: `summary()` (compact) and `structured_summary()` (multi-section XML)
 - **cli/** — Click CLI (`coach` command). Pydantic config validation. Structlog logging
 - **memory/** — Standalone memory package for persistent user memory (facts, context)
 - **library/** — Content library management
 - **services/** — Shared service layer
-- **web/** — FastAPI backend: JWT auth (python-jose), Fernet-encrypted secret storage, per-user data isolation at `~/coach/users/{safe_user_id}/`. Global intel DB stays shared. 24 route modules. `get_or_create_user()` auto-registers on first request
+- **web/** — FastAPI backend: JWT auth (python-jose), Fernet-encrypted secret storage, per-user data isolation at `~/coach/users/{safe_user_id}/` (`safe_user_id` is allowlist-sanitized — `[A-Za-z0-9_-]` only, ValueError on empty/punctuation-only). Global intel DB stays shared. 24 route modules. `get_or_create_user()` auto-registers on first request. Per-user rate limits on all users (`web/rate_limit.py`): LLM routes 20/min, general API 120/min, configurable via `web.rate_limit` in config.yaml; 429 + Retry-After
 - **curriculum/** — Structured learning system: content scanner, SQLite store, SM-2 spaced repetition, LLM question generation, Bloom's taxonomy grading, teach-back prompts, pre-reading questions, cross-guide chapter connections (ChromaDB embeddings)
 - **coach_mcp/** — 52 MCP tools across 13 modules (journal, goals, intel, recommendations, research, reflect, profile, projects, insights, brief, memory, threads, curriculum)
 
@@ -68,6 +68,10 @@ Two modes in `AdvisorEngine.ask()`:
 - **Classic RAG** — single-shot `RAGRetriever.get_combined_context()` + LLM
 
 Dual LLM instances: `self.llm` (expensive) + `self.cheap_llm` (critic/scoring). Dynamic journal:intel weighting (default 70:30, adjusted from engagement data via `compute_dynamic_weight()`). SQLite-backed `ContextCache`. Memory (`<user_memory>` XML) and recurring thoughts (`<recurring_thoughts>` XML) injected into prompts.
+
+Prompt-injection hardening (`advisor/untrusted.py`): all scraped/intel content is wrapped in `<untrusted_external_content source="...">` at retrieval/assembly time with breakout tags escaped; the system prompts carry a standing data-not-instructions rule; the agentic orchestrator blocks outbound tool calls (web_search, intel_add_rss_feed) whose arguments copy ≥8 consecutive words from untrusted tool results.
+
+Advisory discipline: prompts default to nothing (no mandated counts; "no qualifying opportunities" is a complete answer), patterns require ≥3 dated verbatim journal quotes, reflect-don't-diagnose framing, ≤3 items per section, actions phrased as hypotheses. `weekly_review()` leads with a deterministic GATE PULSE rendered from user-maintained `~/coach/objectives.yaml` (`services/objectives.py`; absent file → omitted; the advisor never writes it).
 
 ### Web frontend (`web/`)
 
