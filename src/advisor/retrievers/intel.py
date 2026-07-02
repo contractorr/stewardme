@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 import structlog
 
+from advisor.untrusted import wrap_untrusted
 from db import wal_connect
 
 if TYPE_CHECKING:
@@ -61,12 +62,18 @@ class IntelRetriever:
         max_items: int = 5,
         max_chars: int = 3000,
     ) -> str:
-        """Get intel context without cache layer."""
+        """Get intel context without cache layer.
+
+        Results are scraped third-party content, so they are wrapped in the
+        untrusted-content envelope before entering any prompt.
+        """
         if self.intel_search:
-            return self.intel_search.get_context_for_query(
-                query=query,
-                max_items=max_items,
-                max_chars=max_chars,
+            return wrap_untrusted(
+                self.intel_search.get_context_for_query(
+                    query=query,
+                    max_items=max_items,
+                    max_chars=max_chars,
+                )
             )
 
         if not self.intel_db_path or not self.intel_db_path.exists():
@@ -121,7 +128,9 @@ class IntelRetriever:
                 context_parts.append(entry)
                 total_chars += len(entry)
 
-            return "\n".join(context_parts) if context_parts else "No relevant intelligence found."
+            if not context_parts:
+                return "No relevant intelligence found."
+            return wrap_untrusted("\n".join(context_parts))
 
         except sqlite3.OperationalError:
             return "No external intelligence available."
@@ -139,12 +148,14 @@ class IntelRetriever:
 
         profile_terms = self._load_profile_terms()
 
-        return self.intel_search.get_filtered_context_for_query(
-            query=query,
-            profile_terms=profile_terms,
-            max_items=max_items,
-            max_chars=max_chars,
-            min_relevance=min_relevance,
+        return wrap_untrusted(
+            self.intel_search.get_filtered_context_for_query(
+                query=query,
+                profile_terms=profile_terms,
+                max_items=max_items,
+                max_chars=max_chars,
+                min_relevance=min_relevance,
+            )
         )
 
     def _load_profile_terms(self):

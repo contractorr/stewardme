@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from advisor.untrusted import ensure_closed
 from services.tokens import count_tokens
 
 
@@ -36,5 +37,7 @@ def truncate_to_token_budget(
     intel_budget = max_tokens - journal_budget
 
     journal_ctx = truncate_lines_to_tokens(journal_ctx, journal_budget)
-    intel_ctx = truncate_lines_to_tokens(intel_ctx, intel_budget)
+    # Truncation can drop the untrusted-content closing tag — repair it so
+    # trusted prompt text after the intel slot never lands inside the wrapper.
+    intel_ctx = ensure_closed(truncate_lines_to_tokens(intel_ctx, intel_budget))
     return journal_ctx, intel_ctx

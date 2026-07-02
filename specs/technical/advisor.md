@@ -43,11 +43,41 @@ Advisor remains the conversational engine, but Home is now the primary entry poi
 - `rag_config` flags (`inject_memory`, `inject_documents`, etc.) control what `build_context_for_ask` retrieves, not which prompt branch runs.
 - `_build_user_prompt()` collapses empty context slots via blank-line removal, so missing data is harmless.
 
+## Untrusted External Content (prompt-injection hardening)
+
+`src/advisor/untrusted.py` provides the provenance layer for scraped content:
+
+- `wrap_untrusted(text, source)` wraps intel/web text in
+  `<untrusted_external_content source="...">…</untrusted_external_content>`;
+  literal wrapper tags inside the text are entity-escaped
+  (`neutralize_breakouts`) so content cannot break out of or spoof the
+  wrapper. Placeholder strings ("No external intelligence…") and
+  already-wrapped text are returned unchanged.
+- `strip_untrusted_tags(text)` removes wrapper tags (used before line-level
+  rerank/merge, which would otherwise reorder tag lines); callers re-wrap.
+- `ensure_closed(text)` appends missing closing tags after token-budget
+  truncation (`context_budget.truncate_to_token_budget` calls it on the intel
+  side).
+- `contains_verbatim_span(candidate, untrusted_texts, span_words=8)` is the
+  agentic outbound-tool guard predicate (word-level n-gram match).
+
+Wrapping is applied at retrieval/assembly time: `IntelRetriever`
+(`_get_intel_context_uncached`, `get_filtered_intel_context`), the RAG facade
+`get_filtered_intel_context`, and `ContextAssembler._get_temporal_context` /
+`_decomposed_retrieval` / `_apply_reranker`. Anything flowing through intel
+retrieval — including future sources like drop-folder ingest — is therefore
+tagged without per-source work.
+
+`PromptTemplates.UNTRUSTED_CONTENT_RULE` is appended to the base `SYSTEM` and
+agentic system prompts: wrapped content is data, never instructions.
+
 ## Agentic Tool Execution
 
 `AgenticOrchestrator` runs tool calls with:
 - **Per-tool timeout** (`tool_timeout`, default 60s): each `registry.execute()` runs in a thread with `concurrent.futures.ThreadPoolExecutor`. Timeout produces a structured JSON error `{"error": "...timed out..."}`.
 - **Structured error detection** (`_is_tool_error()`): JSON-parses tool results and checks for an `"error"` key. Replaces previous string-match heuristic that had false positives on content containing the word "error".
+- **Untrusted result tagging**: results from toolsets carrying third-party content (`intel`, `web_search`) are wrapped in `<untrusted_external_content>` before entering the message history, and collected (together with `context` toolset results, whose intel side is already tagged at retrieval) for the outbound guard.
+- **Outbound tool guard**: calls to outbound tools (`web_search`, `intel_add_rss_feed`) are rejected before execution when their arguments contain ≥8 consecutive words copied verbatim from collected untrusted content. The rejection is logged (`outbound_tool_call_blocked`) and returned to the model as a structured tool error. Deliberately blunt: it does not catch paraphrases.
 
 ## Simplified Product Notes
 

@@ -144,7 +144,9 @@ class TestGetFilteredIntelContext:
             lpt.return_value = MagicMock()
             result = rag.get_filtered_intel_context("AI")
 
-        assert result == "filtered"
+        from advisor.untrusted import wrap_untrusted
+
+        assert result == wrap_untrusted("filtered")
         intel_search.get_filtered_context_for_query.assert_called_once()
 
     def test_falls_back_without_intel_search(self, mock_journal_search):
@@ -412,8 +414,10 @@ class TestCaching:
         )
         result = rag.get_intel_context("q")
 
-        assert result == "intel result"
-        cache.set.assert_called_once_with("k", "intel result")
+        from advisor.untrusted import wrap_untrusted
+
+        assert result == wrap_untrusted("intel result")
+        cache.set.assert_called_once_with("k", wrap_untrusted("intel result"))
 
 
 # ── profile caching ──────────────────────────────────────────────────
