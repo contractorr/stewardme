@@ -440,6 +440,7 @@ context that includes:
   - `Next up` section with a single recommended action
   - `Reviews` section with a single review entry point
   - `Browse guides` section with simple search, lightweight topic filters, a minimal order control, and guide cards
+  - search matching treats `summary` as possibly absent (`(guide.summary ?? "")`) so a malformed guide record cannot crash the page
 - guide detail:
   - chapter list
   - simple progress summary

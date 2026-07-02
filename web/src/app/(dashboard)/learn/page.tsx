@@ -152,7 +152,7 @@ export default function LearnPage() {
       const categoryLabel = guideCategoryLabels[guide.category].toLowerCase();
       return (
         guide.title.toLowerCase().includes(query) ||
-        guide.summary.toLowerCase().includes(query) ||
+        (guide.summary ?? "").toLowerCase().includes(query) ||
         categoryLabel.includes(query)
       );
     });

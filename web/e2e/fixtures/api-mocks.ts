@@ -19,6 +19,7 @@ export const MOCK_GREETING = {
 export const MOCK_GUIDE = {
   id: "python-basics",
   title: "Python Basics",
+  summary: "Learn core Python syntax, data structures, and functions.",
   category: "technology",
   difficulty: "introductory",
   prerequisites: [],
@@ -34,6 +35,7 @@ export const MOCK_GUIDES = [
   {
     id: "system-design",
     title: "System Design",
+    summary: "Design scalable systems with queues, caches, and sharding.",
     category: "technology",
     difficulty: "advanced",
     prerequisites: ["python-basics"],
@@ -46,6 +48,7 @@ export const MOCK_GUIDES = [
   {
     id: "market-analysis",
     title: "Market Analysis",
+    summary: "Size markets and analyze competitors before you build.",
     category: "business",
     difficulty: "introductory",
     prerequisites: [],
@@ -332,6 +335,7 @@ export const MOCK_TREE = {
 export const MOCK_GUIDE_DETAIL = {
   id: "python-basics",
   title: "Python Basics",
+  summary: "Learn core Python syntax, data structures, and functions.",
   category: "technology",
   difficulty: "introductory",
   chapter_count: 5,
