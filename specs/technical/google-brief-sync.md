@@ -58,18 +58,23 @@ No Google SDK dependency — plain `httpx` against the REST endpoints.
   -category:promotions -category:social`, then per-message metadata
   (`From`, `Subject`, `Date`) + snippet. Normalized:
   `{from, subject, date, snippet}`.
-- State token: JWS (`jose`) `{sub, purpose:"google_oauth", exp: +10min}`
-  signed with `NEXTAUTH_SECRET`.
+- State token: JWS (`jose`) `{sub, purpose:"google_oauth", return_to,
+  exp: +10min}` signed with `NEXTAUTH_SECRET`. `return_to` is one of the
+  whitelisted keys in `RETURN_PATHS` (`brief` -> `/brief`, `onboarding` ->
+  `/onboarding`); unknown values fall back to `/brief`.
 - Secrets: `google_refresh_token`, `google_account_email`.
 
 ### Routes (`src/web/routes/google.py`) — `APIRouter(prefix="/api/google")`
 
 - `GET /api/google/status` → `{available, connected, email}` (auth required).
-- `GET /api/google/auth-url` → `{url}`; 503 when not `is_configured()`.
+- `GET /api/google/auth-url?return_to=brief|onboarding` → `{url}`; 503 when
+  not `is_configured()`. `return_to` (default `brief`) is embedded in the
+  signed state.
 - `GET /api/google/callback?code&state` — **unauthenticated** (browser
   redirect); validates the signed `state`, exchanges the code, stores
-  secrets, then 302 → `FRONTEND_ORIGIN + "/brief?google=connected"`
-  (`?google=error` on failure — never 500s to the browser).
+  secrets, then 302 → `FRONTEND_ORIGIN + <return path>` with
+  `?google=connected` (`?google=error` on failure — never 500s to the
+  browser). The return path comes from the state's whitelisted `return_to`.
 - `POST /api/google/disconnect` → deletes both secrets, `{ok: true}`.
 
 ### Brief integration
@@ -107,6 +112,12 @@ No Google SDK dependency — plain `httpx` against the REST endpoints.
   connected), Connect (`window.location.href = auth-url`), Disconnect;
   toggles for the two sections. Hidden entirely when `available` is false.
 - `/brief?google=connected|error` shows a toast once and cleans the query.
+- Onboarding (`web/src/app/(dashboard)/onboarding/page.tsx`): new `google`
+  phase after feeds are saved, shown only when `/api/google/status` reports
+  `available && !connected`; Connect uses `auth-url?return_to=onboarding`,
+  Skip completes onboarding. On return, `/onboarding?google=connected|error`
+  toasts and redirects to Home (profile + feeds were already persisted
+  before the redirect, so no onboarding state is lost).
 
 ## Validation Strategy
 

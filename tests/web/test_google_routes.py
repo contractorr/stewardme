@@ -39,6 +39,42 @@ def test_auth_url_shape(client, auth_headers, google_env):
     assert "state=" in url
 
 
+def test_state_token_return_to_roundtrip():
+    state = google_sync.make_state_token("test:u", return_to="onboarding")
+    assert google_sync.decode_state_token(state) == ("test:u", "/onboarding")
+
+    # Unknown return_to values fall back to the brief page.
+    state = google_sync.make_state_token("test:u", return_to="https://evil.example")
+    assert google_sync.decode_state_token(state) == ("test:u", "/brief")
+
+
+def test_auth_url_embeds_return_to(client, auth_headers, google_env):
+    resp = client.get("/api/v1/google/auth-url?return_to=onboarding", headers=auth_headers)
+    assert resp.status_code == 200
+    from urllib.parse import parse_qs, urlparse
+
+    state = parse_qs(urlparse(resp.json()["url"]).query)["state"][0]
+    _user, path = google_sync.decode_state_token(state)
+    assert path == "/onboarding"
+
+
+def test_callback_redirects_to_onboarding_return_path(client, google_env):
+    state = google_sync.make_state_token("test:user-ob", return_to="onboarding")
+    with (
+        patch(
+            "web.google_sync.exchange_code",
+            return_value={"refresh_token": "rt-ob", "access_token": "at-ob"},
+        ),
+        patch("web.google_sync.fetch_profile_email", return_value="ob@gmail.test"),
+    ):
+        resp = client.get(
+            f"/api/v1/google/callback?code=abc&state={state}",
+            follow_redirects=False,
+        )
+    assert resp.status_code == 302
+    assert "/onboarding?google=connected" in resp.headers["location"]
+
+
 def test_callback_rejects_bad_state(client, google_env):
     resp = client.get(
         "/api/v1/google/callback?code=abc&state=not-a-valid-token",

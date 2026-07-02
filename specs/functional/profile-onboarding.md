@@ -35,7 +35,13 @@ Onboarding should get the user to a personalized Home quickly. The goal is enoug
 
 - Save a display name.
 - Choose model-access mode and complete the onboarding chat.
-- Pick feed topics and land directly on Home.
+- Pick feed topics.
+- Optionally connect Google (Gmail + Calendar, read-only) so the brief can
+  plan the day and watch important email (see
+  `specs/functional/google-brief-sync.md`). The step only appears when the
+  server has the Google integration configured and the account is not
+  already connected; it is skippable, and completing or skipping it lands
+  on Home.
 
 ## Key System Components
 
