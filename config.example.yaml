@@ -70,6 +70,9 @@ sources:
     enabled: false  # requires Indeed API access
     change_threshold: 5.0
     max_items: 8
+  local_drop:
+    enabled: false  # ingest .md/.json files dropped by external pipelines
+    # directory: ~/coach/intel_dropbox  # processed files move to processed/
   google_trends:
     enabled: false  # requires: pip install stewardme[google-trends]
     keywords: [AI agents, LLM fine-tuning, rust programming]
