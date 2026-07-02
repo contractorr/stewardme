@@ -88,6 +88,29 @@ unlogged — private journal-derived text could leave the machine silently.
 **Deployment impact:** none to configure. Expect the new JSONL file under
 `$COACH_HOME/research/` after the first research run.
 
+## 5. Outbound URL SSRF guard (F5) — `src/url_guard.py`
+
+**What was vulnerable:** authenticated users could make the server fetch
+arbitrary URLs — `POST /api/intel/rss-feeds` fetched the supplied URL with
+redirects enabled and only a scheme check, and custom LLM provider
+`base_url`s were called by `test-custom-provider` — allowing probes of
+internal services and cloud metadata (`169.254.169.254`).
+
+**What changed:**
+- New `src/url_guard.py`: URLs must be `http(s)` and every resolved address
+  must be publicly routable (loopback, RFC 1918, link-local/metadata,
+  CGNAT, IPv6 unique-local all refused; literal IPs checked without DNS).
+- Enforced at RSS-feed add (including each redirect hop via httpx event
+  hooks), custom-provider add/update/test (stored `base_url`s are
+  re-validated at call time), and `BaseScraper.fetch_html`.
+- Escape hatch: `COACH_ALLOW_PRIVATE_URLS=1` disables the guard for
+  single-user/local deployments (e.g. Ollama at `localhost:11434` as a
+  custom provider).
+
+**Deployment impact:** do NOT set `COACH_ALLOW_PRIVATE_URLS` in production.
+Existing stored custom providers pointing at private hosts will start
+returning 400 on use.
+
 ## Rollout checklist
 
 1. Deploy the branch (standard `docker compose ... up -d --build`).

@@ -159,6 +159,47 @@ privacy, and API spend depend on these controls.
 | Log directory missing | Created on first write |
 | Mocked search client in tests | Hygiene/logging live in the real client; mocks bypass them by design |
 
+## 5. Outbound URL SSRF guard (F5)
+
+### Desired Behavior
+
+1. Any URL that an authenticated user can make the server fetch — adding an
+   RSS feed, configuring or testing a custom LLM provider endpoint — is
+   rejected unless it is an `http(s)` URL whose host resolves only to
+   publicly-routable addresses. Loopback, private (RFC 1918), link-local
+   (including cloud metadata at 169.254.169.254), carrier-grade NAT, and
+   other non-global ranges are refused with a clear 400 error.
+2. Redirects are validated hop-by-hop: a public URL that redirects to an
+   internal address is refused at the redirect, not followed.
+3. The same guard applies where scrapers fetch external content
+   (`BaseScraper.fetch_html`), so a stored feed URL cannot be used to reach
+   internal services later. Research issues queries only to fixed search
+   endpoints and needs no per-URL guard.
+4. Escape hatch for single-user/local deployments: setting
+   `COACH_ALLOW_PRIVATE_URLS=1` disables the guard (e.g. an Ollama or
+   LM Studio endpoint on localhost as a custom provider). The hosted
+   multi-user deployment never sets it.
+
+### Acceptance Criteria
+
+- [ ] Adding an RSS feed pointing at `http://169.254.169.254/...`,
+      `http://localhost:8000/...`, or `http://10.0.0.5/...` returns 400
+      without the server issuing the request.
+- [ ] Saving or testing a custom provider with a private `base_url` returns
+      400 (unless the escape hatch is set).
+- [ ] A public feed URL that 302-redirects to a private address is refused.
+- [ ] With `COACH_ALLOW_PRIVATE_URLS=1`, localhost custom providers work.
+
+### Edge Cases
+
+| Scenario | Expected Behavior |
+|----------|-------------------|
+| Hostname resolves to multiple addresses, one private | Refused — every resolved address must be public |
+| Literal IP URL (`http://127.0.0.1/`) | Refused without DNS lookup |
+| IPv6 loopback/unique-local (`[::1]`, `fc00::/7`) | Refused |
+| DNS resolution fails | Refused (cannot prove the target is public) |
+| DNS rebinding between check and fetch | Out of scope — accepted residual risk for this threat model |
+
 ## Out of Scope
 
 - Migration of directories for user IDs that previously contained path

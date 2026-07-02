@@ -390,3 +390,40 @@ def test_rss_feeds_includes_health(client, auth_headers):
     data = res.json()
     assert len(data) == 1
     assert data[0]["health"]["feed_url"] == "https://a.com/rss"
+
+
+class TestAddRSSFeedSSRFGuard:
+    """SSRF guard (security-hardening §5): feed URLs must be public."""
+
+    def test_private_literal_ip_rejected(self, client, auth_headers, monkeypatch):
+        monkeypatch.delenv("COACH_ALLOW_PRIVATE_URLS", raising=False)
+        res = client.post(
+            "/api/intel/rss-feeds",
+            headers=auth_headers,
+            json={"url": "http://169.254.169.254/latest/meta-data/", "name": "probe"},
+        )
+        assert res.status_code == 400
+        assert "non-public" in res.json()["detail"]
+
+    def test_localhost_rejected(self, client, auth_headers, monkeypatch):
+        monkeypatch.delenv("COACH_ALLOW_PRIVATE_URLS", raising=False)
+        import socket
+
+        def fake_addrinfo(host, port, **kwargs):
+            return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 0))]
+
+        monkeypatch.setattr(socket, "getaddrinfo", fake_addrinfo)
+        res = client.post(
+            "/api/intel/rss-feeds",
+            headers=auth_headers,
+            json={"url": "http://localhost:8000/feed", "name": "probe"},
+        )
+        assert res.status_code == 400
+
+    def test_non_http_scheme_rejected(self, client, auth_headers):
+        res = client.post(
+            "/api/intel/rss-feeds",
+            headers=auth_headers,
+            json={"url": "file:///etc/passwd", "name": "probe"},
+        )
+        assert res.status_code == 400

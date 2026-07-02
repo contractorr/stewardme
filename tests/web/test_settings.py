@@ -162,3 +162,31 @@ def _real_delete_user_secret(db_path):
         return _original(user_id, key, db_path)
 
     return _wrapper
+
+
+def test_add_custom_provider_private_base_url_rejected(
+    client, auth_headers, secret_key, users_db, monkeypatch
+):
+    """SSRF guard (security-hardening §5): private base_url refused at save time."""
+    monkeypatch.delenv("COACH_ALLOW_PRIVATE_URLS", raising=False)
+    with patch.dict(os.environ, {"SECRET_KEY": secret_key}):
+        from web.user_store import get_or_create_user, init_db
+
+        init_db(users_db)
+        get_or_create_user("user-123", db_path=users_db)
+
+        with patch("web.user_store.get_default_db_path", return_value=users_db):
+            res = client.put(
+                "/api/settings",
+                headers=auth_headers,
+                json={
+                    "llm_custom_provider_add": {
+                        "display_name": "internal probe",
+                        "base_url": "http://169.254.169.254/latest",
+                        "api_key": "k",
+                        "model": "m",
+                    }
+                },
+            )
+        assert res.status_code == 400
+        assert "rejected" in res.json()["detail"].lower()

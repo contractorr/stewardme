@@ -90,6 +90,50 @@ Wiring:
   `/api/health`), keyed on a hash of the Authorization header, falling back
   to client IP.
 
+## Outbound URL Guard (SSRF)
+
+**File:** `src/url_guard.py`
+
+- `validate_public_url(url)` — raises `UnsafeURLError` unless the URL is
+  `http(s)` with a hostname whose EVERY resolved address is publicly
+  routable (`ipaddress.is_global`, plus explicit loopback/private/
+  link-local/reserved refusals). Literal IPs are checked without DNS.
+  Blocking (does `socket.getaddrinfo`) — call from async code via
+  `await ensure_public_url(url)`.
+- `public_url_event_hooks()` — httpx event hooks that re-validate every
+  request in a redirect chain; pass to `httpx.AsyncClient(event_hooks=...)`
+  wherever `follow_redirects=True` fetches user-supplied URLs.
+- `COACH_ALLOW_PRIVATE_URLS=1` disables all checks (single-user/local
+  deployments with localhost LLM endpoints).
+- Enforced at: `intel.py:add_rss_feed` (URL + redirect hops),
+  `settings.py` custom-provider add/update/test (`base_url`), and
+  `BaseScraper.fetch_html`. Research needs no guard: `web_search.py` only
+  calls fixed search endpoints (Tavily/DuckDuckGo), never result URLs.
+- DNS-rebinding TOCTOU between validation and fetch is accepted residual
+  risk; internal schemes (`research://`, `localdrop://`) never hit the
+  network and are exempt upstream.
+
+## Async Handler Conventions
+
+The backend is a single-process asyncio server: any synchronous LLM,
+embedding, or bulk-file call executed directly inside an `async def` route
+(or an `asyncio.create_task` coroutine) stalls EVERY user until it returns.
+
+Rules:
+
+- Sync LLM provider calls (`LLMProvider.generate`), embedding calls, and
+  embedding-manager construction (which parses the whole vector store JSON)
+  must run via `asyncio.to_thread` when invoked from async request paths.
+  Reference patterns: `advisor.py` `_run_in_thread`, `greeting.py`,
+  `notes.py:polish_note`, `settings.py:test-llm`.
+- Background coroutines scheduled with `asyncio.create_task` share the
+  request event loop — the same rule applies inside them (journal
+  post-create hooks). Task handles must be kept (module-level set) so
+  in-flight work isn't garbage-collected.
+- `GuideGenerationService._generate_text` and `QuestionGenerator._call_llm`
+  wrap their sync providers in `asyncio.to_thread` internally, so curriculum
+  routes may await them directly.
+
 ## Simplified Product Notes
 
 - Home is the default landing page after onboarding.

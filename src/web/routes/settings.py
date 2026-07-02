@@ -5,6 +5,7 @@ import asyncio
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from url_guard import UnsafeURLError, ensure_public_url
 from web.auth import get_current_user
 from web.deps import (
     SUPPORTED_LLM_PROVIDERS,
@@ -198,6 +199,10 @@ async def update_settings(
             raise HTTPException(
                 status_code=400, detail="Base URL must start with http:// or https://"
             )
+        try:
+            await ensure_public_url(new_provider["base_url"])
+        except UnsafeURLError as e:
+            raise HTTPException(status_code=400, detail=f"Base URL rejected: {e}")
         custom_providers.append(new_provider)
         set_user_secret(user_id, "llm_custom_providers", json.dumps(custom_providers), fernet_key)
         updated_keys.append("llm_custom_provider_add")
@@ -217,6 +222,10 @@ async def update_settings(
                         raise HTTPException(
                             status_code=400, detail="Base URL must start with http:// or https://"
                         )
+                    try:
+                        await ensure_public_url(url)
+                    except UnsafeURLError as e:
+                        raise HTTPException(status_code=400, detail=f"Base URL rejected: {e}")
                     cp["base_url"] = url
                 if body.llm_custom_provider_update.api_key:
                     cp["api_key"] = body.llm_custom_provider_update.api_key.strip()
@@ -306,6 +315,12 @@ async def test_custom_provider(
 
     if not provider_config:
         raise HTTPException(status_code=404, detail="Custom provider not found")
+
+    # Re-validate at call time — the stored base_url may predate the guard
+    try:
+        await ensure_public_url(provider_config["base_url"])
+    except UnsafeURLError as e:
+        raise HTTPException(status_code=400, detail=f"Base URL rejected: {e}")
 
     try:
         provider = OpenAICompatibleProvider(

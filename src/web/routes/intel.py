@@ -1,5 +1,6 @@
 """Intelligence feed routes."""
 
+import asyncio
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
@@ -374,13 +375,23 @@ async def list_rss_feeds(user: dict = Depends(get_current_user)):
 @router.post("/rss-feeds")
 async def add_rss_feed(body: RSSFeedAdd, user: dict = Depends(get_current_user)):
     """Validate and add an RSS feed."""
+    from url_guard import UnsafeURLError, ensure_public_url, public_url_event_hooks
+
     parsed = urlparse(body.url)
     if parsed.scheme not in ("http", "https"):
         raise HTTPException(status_code=400, detail="URL must be http or https")
 
-    # Validate feed is reachable and looks like RSS/Atom
     try:
-        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+        await ensure_public_url(body.url)
+    except UnsafeURLError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # Validate feed is reachable and looks like RSS/Atom (redirect hops
+    # re-validated by the event hook so a 302 can't reach internal hosts)
+    try:
+        async with httpx.AsyncClient(
+            timeout=10, follow_redirects=True, event_hooks=public_url_event_hooks()
+        ) as client:
             resp = await client.get(body.url, headers={"User-Agent": "CoachBot/1.0"})
             resp.raise_for_status()
             snippet = resp.text[:2048].lower()
@@ -389,6 +400,8 @@ async def add_rss_feed(body: RSSFeedAdd, user: dict = Depends(get_current_user))
                     status_code=400,
                     detail="URL does not appear to be a valid RSS/Atom feed",
                 )
+    except UnsafeURLError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except httpx.HTTPError as e:
         raise HTTPException(status_code=400, detail=f"Failed to fetch feed: {e}")
 
@@ -528,7 +541,8 @@ async def scrape_now(user: dict = Depends(get_admin_user)):
         paths = get_coach_paths()
         storage = _get_storage()
         journal_storage = JournalStorage(paths["journal_dir"])
-        embeddings = EmbeddingManager(paths["chroma_dir"])
+        # Construction parses the whole vector store — keep it off the loop
+        embeddings = await asyncio.to_thread(EmbeddingManager, paths["chroma_dir"])
 
         full = config.to_dict()
 

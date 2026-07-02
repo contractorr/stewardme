@@ -423,6 +423,13 @@ class BaseScraper(ABC):
     async def fetch_html(self, url: str) -> BeautifulSoup | None:
         """Fetch and parse HTML asynchronously."""
         try:
+            from url_guard import UnsafeURLError, ensure_public_url
+
+            try:
+                await ensure_public_url(url)
+            except UnsafeURLError as e:
+                logger.warning("Blocked non-public URL %s: %s", url, e)
+                return None
             logger.debug("Fetching %s", url)
             response = await self.client.get(url)
             response.raise_for_status()
