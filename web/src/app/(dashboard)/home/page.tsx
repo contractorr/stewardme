@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { ChatAttachmentBadges, ChatPdfAttachmentPicker } from "@/components/ChatPdfAttachments";
 import { DashboardPageContainer } from "@/components/DashboardPageContainer";
+import { BriefCard } from "@/components/home/BriefCard";
 import { LearningSnapshotCard } from "@/components/home/LearningSnapshotCard";
 import { ReturnBriefCard } from "@/components/home/ReturnBriefCard";
 import { WhyNowChip } from "@/components/shared/WhyNowChip";
@@ -105,6 +106,7 @@ function sourceWorkspace(item: SuggestionItem) {
 }
 
 const HOME_LINKS = [
+  { href: "/brief", label: "Brief" },
   { href: "/goals", label: "Goals" },
   { href: "/research", label: "Research" },
   { href: "/learn", label: "Guide Library" },
@@ -406,6 +408,8 @@ export default function HomePage() {
           </div>
         </div>
       ) : null}
+
+      <BriefCard />
 
       <Card className="animate-in gap-4 border-primary/10 bg-card/70 py-5 shadow-sm fade-in-0 slide-in-from-bottom-2 duration-400 fill-mode-both delay-100">
         <CardHeader className="space-y-3 px-5 pb-0 sm:px-6">
