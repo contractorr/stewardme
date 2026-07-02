@@ -139,26 +139,32 @@ Notable config: `llm.extended_thinking`, `sources.deduplicate_rss_sources` (auto
 
 ## CI
 
-- **test.yml** — Python 3.11 + 3.12 matrix, `pytest --cov-fail-under=50`, Codecov on 3.12
+- **test.yml** — PRs: contracts check (`scripts/check_contracts.py` — run `just contracts-generate` after any backend route/model change), specs harness, fast tests (3.11 + 3.12 matrix), `test-web` (web-marker suite), coverage (`-m "not slow"`, `fail_under=55` in pyproject) + Codecov. Main pushes additionally run `extended-tests` (`web or integration or slow`)
 - **lint.yml** — `ruff check` + `ruff format --check` + `mypy` (continue-on-error). Separate job: `npm ci && npm run lint && npm run build` in `web/`
-- **deploy.yml** — push to main triggers test then SSH docker compose deploy
-- **validate-deploy.yml** — validates docker-compose files have required volume mounts (curriculum content, etc.)
+- **deploy.yml** — push to main → tests + validation → SSH runs `scripts/deploy-remote.sh` (queued, never cancelled mid-run)
+- **validate-deploy.yml** — generates a stub `.env` then `docker compose config` on both compose files + volume-mount checks
+- **audit.yml** — weekly `pip-audit` + `npm audit` (notification, not a merge gate); Dependabot opens weekly grouped update PRs (uv/npm/actions)
 
 ## Deployment
 
-**Pre-deployment validation:**
-```bash
-./scripts/validate-deployment.sh
-```
+Push to main deploys automatically via `scripts/deploy-remote.sh` on the server: config validation → **pre-deploy backup** (`scripts/backup.sh`) → rollback-tag current images → build → `up -d --wait` (health-gated) → external `https://$DOMAIN/api/health` check → prune dangling images older than 7 days.
 
 **Critical docker-compose requirements:**
 - Backend MUST mount `./content:/app/content:ro` for curriculum guides
 - Both `docker-compose.yml` and `docker-compose.prod.yml` must have identical backend volume mounts
-- Run validation script before any deployment to catch missing mounts
 
-**Remote deployment:**
+**Rollback (on the server):** re-tag the preserved images and restart —
 ```bash
-ssh root@<server> "cd /root/stewardme && git pull && docker compose -f docker-compose.prod.yml up -d --build"
+docker tag stewardme-backend:rollback stewardme-backend:latest
+docker tag stewardme-frontend:rollback stewardme-frontend:latest
+docker compose -f docker-compose.prod.yml up -d
+```
+
+**Backups:** `scripts/backup.sh` snapshots every SQLite DB (sqlite backup API, WAL-safe) + journal/chroma/users/config to `$HOME/coach-backups/` with 14-day rotation; runs before every deploy. Nightly cron on the server: `0 3 * * * cd /root/stewardme && ./scripts/backup.sh >> /var/log/coach-backup.log 2>&1`. Restore procedure is documented in the script header. Offsite replication (restic/rclone of `$HOME/coach-backups`) is a recommended manual addition.
+
+**Manual deployment (fallback):**
+```bash
+ssh root@<server> "cd /root/stewardme && git pull && bash scripts/deploy-remote.sh"
 ```
 
 ## Output Conventions

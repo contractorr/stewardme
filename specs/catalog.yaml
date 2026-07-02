@@ -184,6 +184,7 @@ functional_specs:
     - specs/functional/api-versioning.md
     - specs/functional/assumption-watchlist.md
     - specs/functional/attach-to-ask-bridge.md
+    - specs/functional/ci-deploy-hardening.md
     - specs/functional/company-movement-pipeline.md
     - specs/functional/configurable-brief.md
     - specs/functional/configurable-embeddings.md
@@ -405,6 +406,7 @@ technical_specs:
     - specs/technical/api-versioning.md
     - specs/technical/assumption-watchlist.md
     - specs/technical/attach-to-ask-bridge.md
+    - specs/technical/ci-deploy-hardening.md
     - specs/technical/company-movement-pipeline.md
     - specs/technical/configurable-brief.md
     - specs/technical/configurable-embeddings.md

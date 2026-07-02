@@ -1,0 +1,32 @@
+name: Dependency Audit
+
+# Weekly vulnerability scan — failures notify via the workflow run;
+# this is intentionally not a merge gate.
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  pip-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Audit Python dependencies
+        run: |
+          uv export --frozen --no-emit-project --all-extras --format requirements-txt > /tmp/requirements.txt
+          uvx pip-audit -r /tmp/requirements.txt --no-deps
+
+  npm-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Audit npm dependencies
+        run: npm audit --prefix web --audit-level=high
