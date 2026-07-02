@@ -203,6 +203,7 @@ functional_specs:
     - specs/functional/hybrid-retrieval.md
     - specs/functional/infra-hardening.md
     - specs/functional/llm-council.md
+    - specs/functional/local-drop-ingest.md
     - specs/functional/memory-graph-activation.md
     - specs/functional/memory-observation-consolidation.md
     - specs/functional/memory-parent-score-propagation.md

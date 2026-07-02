@@ -17,6 +17,7 @@ from .google_patents import GooglePatentsScraper
 from .google_trends import GoogleTrendsScraper
 from .hn import HackerNewsScraper
 from .indeed_hiring_lab import IndeedHiringLabScraper
+from .local_drop import LocalDropScraper
 from .producthunt import ProductHuntScraper
 from .reddit import RedditScraper
 from .rss import RSSFeedScraper
@@ -43,5 +44,6 @@ __all__ = [
     "IndeedHiringLabScraper",
     "GoogleTrendsScraper",
     "CrunchbaseScraper",
+    "LocalDropScraper",
     "XListScraper",
 ]

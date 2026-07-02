@@ -38,6 +38,25 @@ The intelligence layer powers Radar, the Home next-step feed, and part of Goals 
 - Radar is now the default intelligence UX.
 - The advanced Intel page remains available for deeper filtering and power-user workflows.
 
+## Local Drop-Folder Ingest
+
+`src/intelligence/sources/local_drop.py` — `LocalDropScraper(BaseScraper)`,
+`source_name = "local_drop"`. Reads `.md`/`.json` files from
+`sources.local_drop.directory` (default `$COACH_HOME/intel_dropbox/`);
+disabled by default, registered in `scraper_factory.py` when
+`sources.local_drop.enabled` is true or `local_drop` is in
+`sources.enabled`. Markdown: first `#` heading (else filename) as title,
+optional frontmatter `title`/`url`/`source`/`published`/`date`. JSON:
+`{title, url?, source, published_at?, content}` with `title`/`source`/
+`content` required. Successfully parsed files move to `processed/` (numeric
+suffix on collision, never deleted); malformed files log
+`local_drop_file_skipped` and stay put. Items without a URL get
+`localdrop://{content_hash}` (scheme added to `_INTERNAL_SCHEMES`), so
+standard URL + content-hash dedup applies. Declared origin is preserved as
+an `origin:{source}` tag. Untrusted-content tagging happens downstream at
+context assembly (see specs/technical/advisor.md), so drop-folder content
+is wrapped automatically.
+
 ## Heartbeat: Hybrid Heuristic + On-demand LLM
 
 The heartbeat pipeline has two execution modes:

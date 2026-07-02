@@ -20,7 +20,7 @@ logger = structlog.get_logger().bind(source="intel_storage")
 SCHEMA_VERSION = 4
 
 _ALLOWED_SCHEMES = {"http", "https"}
-_INTERNAL_SCHEMES = {"research"}
+_INTERNAL_SCHEMES = {"research", "localdrop"}
 
 
 def validate_url(url: str) -> bool:

@@ -23,6 +23,7 @@ from .sources import (
     GoogleTrendsScraper,
     HackerNewsScraper,
     IndeedHiringLabScraper,
+    LocalDropScraper,
     METRScraper,
     ProductHuntScraper,
     RedditScraper,
@@ -81,6 +82,7 @@ class ScraperFactory:
         self._add_google_trends(scrapers, enabled)
         self._add_crunchbase(scrapers, enabled)
         self._add_x_list(scrapers, enabled)
+        self._add_local_drop(scrapers, enabled)
 
         # Attach shared embedding manager for semantic dedup + goal matching
         if intel_embedding_mgr:
@@ -339,3 +341,13 @@ class ScraperFactory:
                         max_tweets=x_list_config.get("max_tweets", 100),
                     )
                 )
+
+    def _add_local_drop(self, scrapers, enabled):
+        drop_config = self.config.get("local_drop", {})
+        if "local_drop" in enabled or drop_config.get("enabled", False):
+            scrapers.append(
+                LocalDropScraper(
+                    self.storage,
+                    dropbox_dir=drop_config.get("directory"),
+                )
+            )
