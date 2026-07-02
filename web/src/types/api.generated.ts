@@ -1,6 +1,6 @@
 // This file is generated. Do not edit manually.
 // Source: web/openapi.json
-// OpenAPI SHA256: d90a8bb2256b5710d0177c761c85b04125b3d653b4c79e54c62d26e0735cae90
+// OpenAPI SHA256: 5c99bcd06ccfe5a7c0d487219c839b756b068e3d5e0efe5303d996678527bbfd
 export interface paths {
     "/api/admin/stats": {
         parameters: {
@@ -159,92 +159,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/assumptions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Assumptions */
-        get: operations["list_assumptions_api_assumptions_get"];
-        put?: never;
-        /** Create Assumption */
-        post: operations["create_assumption_api_assumptions_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/assumptions/{assumption_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Update Assumption */
-        patch: operations["update_assumption_api_assumptions__assumption_id__patch"];
-        trace?: never;
-    };
-    "/api/assumptions/{assumption_id}/activate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Activate Assumption */
-        post: operations["activate_assumption_api_assumptions__assumption_id__activate_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/assumptions/{assumption_id}/archive": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Archive Assumption */
-        post: operations["archive_assumption_api_assumptions__assumption_id__archive_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/assumptions/{assumption_id}/resolve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Resolve Assumption */
-        post: operations["resolve_assumption_api_assumptions__assumption_id__resolve_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/brief": {
         parameters: {
             query?: never;
@@ -342,23 +256,6 @@ export interface paths {
         put?: never;
         /** Mark Brief Read */
         post: operations["mark_brief_read_api_brief__brief_id__read_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/briefing": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Briefing */
-        get: operations["get_briefing_api_briefing_get"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1504,23 +1401,6 @@ export interface paths {
         };
         /** Health */
         get: operations["health_api_health_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/insights": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Insights */
-        get: operations["get_insights_api_insights_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3011,132 +2891,6 @@ export interface components {
             /** Degradations */
             degradations?: components["schemas"]["DegradationItem"][];
         };
-        /** AssumptionAlertResponse */
-        AssumptionAlertResponse: {
-            /**
-             * Detail
-             * @default
-             */
-            detail: string;
-            /**
-             * Id
-             * @default
-             */
-            id: string;
-            /**
-             * Status
-             * @default active
-             */
-            status: string;
-            /**
-             * Title
-             * @default
-             */
-            title: string;
-            /** Updated At */
-            updated_at?: string | null;
-        };
-        /** AssumptionCreate */
-        AssumptionCreate: {
-            /** Extraction Confidence */
-            extraction_confidence?: number | null;
-            /** Linked Dossier Id */
-            linked_dossier_id?: string | null;
-            /**
-             * Linked Entities
-             * @default []
-             */
-            linked_entities: string[];
-            /** Linked Goal Path */
-            linked_goal_path?: string | null;
-            /**
-             * Source Id
-             * @default manual
-             */
-            source_id: string;
-            /**
-             * Source Type
-             * @default manual
-             */
-            source_type: string;
-            /** Statement */
-            statement: string;
-            /**
-             * Status
-             * @default active
-             */
-            status: string;
-        };
-        /** AssumptionResponse */
-        AssumptionResponse: {
-            /**
-             * Created At
-             * @default
-             */
-            created_at: string;
-            /**
-             * Evidence
-             * @default []
-             */
-            evidence: {
-                [key: string]: unknown;
-            }[];
-            /** Extraction Confidence */
-            extraction_confidence?: number | null;
-            /**
-             * Id
-             * @default
-             */
-            id: string;
-            /** Last Evaluated At */
-            last_evaluated_at?: string | null;
-            /**
-             * Latest Evidence Summary
-             * @default
-             */
-            latest_evidence_summary: string;
-            /** Linked Dossier Id */
-            linked_dossier_id?: string | null;
-            /**
-             * Linked Entities
-             * @default []
-             */
-            linked_entities: string[];
-            /** Linked Goal Path */
-            linked_goal_path?: string | null;
-            /**
-             * Source Id
-             * @default
-             */
-            source_id: string;
-            /**
-             * Source Type
-             * @default manual
-             */
-            source_type: string;
-            /**
-             * Statement
-             * @default
-             */
-            statement: string;
-            /**
-             * Status
-             * @default active
-             */
-            status: string;
-            /**
-             * Updated At
-             * @default
-             */
-            updated_at: string;
-        };
-        /** AssumptionUpdate */
-        AssumptionUpdate: {
-            /** Latest Evidence Summary */
-            latest_evidence_summary?: string | null;
-            /** Status */
-            status?: string | null;
-        };
         /** Body_import_deck_api_curriculum_decks_import_post */
         Body_import_deck_api_curriculum_decks_import_post: {
             /** File */
@@ -3266,29 +3020,6 @@ export interface components {
              */
             summary: string;
         };
-        /** BriefingGoal */
-        BriefingGoal: {
-            /**
-             * Days Since Check
-             * @default 0
-             */
-            days_since_check: number;
-            /**
-             * Path
-             * @default
-             */
-            path: string;
-            /**
-             * Status
-             * @default
-             */
-            status: string;
-            /**
-             * Title
-             * @default
-             */
-            title: string;
-        };
         /** BriefingRecommendation */
         BriefingRecommendation: {
             action_item?: components["schemas"]["RecommendationActionItem"] | null;
@@ -3346,67 +3077,6 @@ export interface components {
             why_now: {
                 [key: string]: unknown;
             }[];
-        };
-        /** BriefingResponse */
-        BriefingResponse: {
-            /**
-             * Adaptation Count
-             * @default 0
-             */
-            adaptation_count: number;
-            /**
-             * Assumptions
-             * @default []
-             */
-            assumptions: components["schemas"]["AssumptionAlertResponse"][];
-            /**
-             * Company Movements
-             * @default []
-             */
-            company_movements: components["schemas"]["CompanyMovementResponse"][];
-            daily_brief?: components["schemas"]["DailyBrief"] | null;
-            /** Degradations */
-            degradations?: components["schemas"]["DegradationItem"][];
-            /**
-             * Dossier Escalations
-             * @default []
-             */
-            dossier_escalations: components["schemas"]["DossierEscalationResponse"][];
-            /**
-             * Goal Intel Matches
-             * @default []
-             */
-            goal_intel_matches: components["schemas"]["GoalIntelMatch"][];
-            /**
-             * Goals
-             * @default []
-             */
-            goals: components["schemas"]["BriefingGoal"][];
-            /**
-             * Has Data
-             * @default false
-             */
-            has_data: boolean;
-            /**
-             * Hiring Signals
-             * @default []
-             */
-            hiring_signals: components["schemas"]["HiringSignalResponse"][];
-            /**
-             * Recommendations
-             * @default []
-             */
-            recommendations: components["schemas"]["BriefingRecommendation"][];
-            /**
-             * Regulatory Alerts
-             * @default []
-             */
-            regulatory_alerts: components["schemas"]["RegulatoryAlertResponse"][];
-            /**
-             * Stale Goals
-             * @default []
-             */
-            stale_goals: components["schemas"]["BriefingGoal"][];
         };
         /**
          * ChapterStatus
@@ -4032,62 +3702,6 @@ export interface components {
             /** Model */
             model?: string | null;
         };
-        /** DailyBrief */
-        DailyBrief: {
-            /**
-             * Budget Minutes
-             * @default 0
-             */
-            budget_minutes: number;
-            /**
-             * Generated At
-             * @default
-             */
-            generated_at: string;
-            /**
-             * Items
-             * @default []
-             */
-            items: components["schemas"]["DailyBriefItem"][];
-            /**
-             * Used Minutes
-             * @default 0
-             */
-            used_minutes: number;
-        };
-        /** DailyBriefItem */
-        DailyBriefItem: {
-            /**
-             * Action
-             * @default
-             */
-            action: string;
-            /**
-             * Description
-             * @default
-             */
-            description: string;
-            /**
-             * Kind
-             * @default
-             */
-            kind: string;
-            /**
-             * Priority
-             * @default 0
-             */
-            priority: number;
-            /**
-             * Time Minutes
-             * @default 0
-             */
-            time_minutes: number;
-            /**
-             * Title
-             * @default
-             */
-            title: string;
-        };
         /** DeckCreate */
         DeckCreate: {
             /**
@@ -4467,64 +4081,6 @@ export interface components {
             /** Title */
             title: string;
         };
-        /** GoalIntelMatch */
-        GoalIntelMatch: {
-            /**
-             * Created At
-             * @default
-             */
-            created_at: string;
-            /**
-             * Goal Path
-             * @default
-             */
-            goal_path: string;
-            /**
-             * Goal Title
-             * @default
-             */
-            goal_title: string;
-            /**
-             * Id
-             * @default 0
-             */
-            id: number;
-            /**
-             * Llm Evaluated
-             * @default false
-             */
-            llm_evaluated: boolean;
-            /**
-             * Match Reasons
-             * @default []
-             */
-            match_reasons: string[];
-            /**
-             * Score
-             * @default 0
-             */
-            score: number;
-            /**
-             * Summary
-             * @default
-             */
-            summary: string;
-            /**
-             * Title
-             * @default
-             */
-            title: string;
-            /**
-             * Urgency
-             * @default
-             */
-            urgency: string;
-            /**
-             * Url
-             * @default
-             */
-            url: string;
-        };
         /** GoalStatusUpdate */
         GoalStatusUpdate: {
             /** Status */
@@ -4639,66 +4195,6 @@ export interface components {
              * @default
              */
             title: string;
-        };
-        /** InsightResponse */
-        InsightResponse: {
-            /**
-             * Created At
-             * @default
-             */
-            created_at: string;
-            /**
-             * Detail
-             * @default
-             */
-            detail: string;
-            /**
-             * Evidence
-             * @default []
-             */
-            evidence: string[];
-            /** Expires At */
-            expires_at?: string | null;
-            /**
-             * Id
-             * @default 0
-             */
-            id: number;
-            /**
-             * Insight Hash
-             * @default
-             */
-            insight_hash: string;
-            /**
-             * Severity
-             * @default 0
-             */
-            severity: number;
-            /**
-             * Source Url
-             * @default
-             */
-            source_url: string;
-            /**
-             * Suggested Actions
-             * @default []
-             */
-            suggested_actions: string[];
-            /**
-             * Title
-             * @default
-             */
-            title: string;
-            /**
-             * Type
-             * @default
-             */
-            type: string;
-            /**
-             * Watchlist Evidence
-             * @default []
-             */
-            watchlist_evidence: string[];
         };
         /** IntelFollowUp */
         IntelFollowUp: {
@@ -6952,187 +6448,6 @@ export interface operations {
             };
         };
     };
-    list_assumptions_api_assumptions_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AssumptionResponse"][];
-                };
-            };
-        };
-    };
-    create_assumption_api_assumptions_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AssumptionCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AssumptionResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_assumption_api_assumptions__assumption_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                assumption_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AssumptionUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AssumptionResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    activate_assumption_api_assumptions__assumption_id__activate_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                assumption_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AssumptionResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    archive_assumption_api_assumptions__assumption_id__archive_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                assumption_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AssumptionResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    resolve_assumption_api_assumptions__assumption_id__resolve_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                assumption_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AssumptionResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     list_briefs_api_brief_get: {
         parameters: {
             query?: {
@@ -7318,37 +6633,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_briefing_api_briefing_get: {
-        parameters: {
-            query?: {
-                max_recommendations?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BriefingResponse"];
                 };
             };
             /** @description Validation Error */
@@ -9367,40 +8651,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
-                };
-            };
-        };
-    };
-    get_insights_api_insights_get: {
-        parameters: {
-            query?: {
-                /** @description Filter by insight type */
-                type?: string | null;
-                min_severity?: number;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InsightResponse"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
