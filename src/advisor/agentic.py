@@ -20,8 +20,20 @@ from .trace import (
     make_tool_done_entry,
     make_tool_start_entry,
 )
+from .untrusted import contains_verbatim_span, wrap_untrusted
 
 logger = structlog.get_logger()
+
+# Toolsets whose results carry third-party scraped/web content: wrapped in the
+# untrusted envelope before entering messages, and collected for the guard.
+UNTRUSTED_RESULT_TOOLSETS = {"intel", "web_search"}
+# Results whose intel side is already tagged at retrieval time (get_context):
+# collected for the guard, not re-wrapped.
+COLLECT_ONLY_TOOLSETS = {"context"}
+# Tools that send data off the machine.
+OUTBOUND_TOOLS = {"web_search", "intel_add_rss_feed"}
+# Minimum verbatim word span that trips the outbound guard.
+GUARD_SPAN_WORDS = 8
 
 
 def _is_tool_error(result_text: str) -> bool:
@@ -73,6 +85,39 @@ class AgenticOrchestrator:
         self._total_usage: dict = {"input_tokens": 0, "output_tokens": 0, "billed_input_tokens": 0}
         self._session_id: str = ""
         self._trace: list[dict] = []
+        self._untrusted_texts: list[str] = []
+
+    def _is_blocked_outbound_call(self, tool_name: str, arguments: dict) -> bool:
+        """Guard outbound tools against arguments steered by untrusted content.
+
+        Blunt by design: rejects calls whose arguments contain >= GUARD_SPAN_WORDS
+        consecutive words copied verbatim from untrusted tool results seen in
+        this run. Paraphrased injections are not caught — the standing system
+        prompt rule is the only defense there.
+        """
+        if tool_name not in OUTBOUND_TOOLS or not self._untrusted_texts:
+            return False
+        args_text = json.dumps(arguments, default=str)
+        if contains_verbatim_span(args_text, self._untrusted_texts, GUARD_SPAN_WORDS):
+            logger.warning(
+                "outbound_tool_call_blocked",
+                tool=tool_name,
+                session=self._session_id,
+                arg_keys=list(arguments.keys()),
+            )
+            return True
+        return False
+
+    def _track_untrusted_result(self, tool_name: str, result_text: str, is_error: bool) -> str:
+        """Collect third-party tool results for the guard; wrap them for the model."""
+        if is_error:
+            return result_text
+        toolset = self.registry.get_toolset_for_tool(tool_name)
+        if toolset in UNTRUSTED_RESULT_TOOLSETS or toolset in COLLECT_ONLY_TOOLSETS:
+            self._untrusted_texts.append(result_text)
+        if toolset in UNTRUSTED_RESULT_TOOLSETS:
+            return wrap_untrusted(result_text, source=tool_name)
+        return result_text
 
     def _build_nudge(self, used_tools: set[str], available_tools: list[str]) -> str:
         unused = sorted(set(available_tools) - used_tools)
@@ -92,6 +137,7 @@ class AgenticOrchestrator:
         self._session_id = uuid.uuid4().hex[:16]
         self._trace = [make_session_entry(self._session_id, user_message)]
         self._total_usage = {"input_tokens": 0, "output_tokens": 0, "billed_input_tokens": 0}
+        self._untrusted_texts: list[str] = []
 
         messages = list(conversation_history or [])
         messages.append({"role": "user", "content": user_message})
@@ -178,16 +224,28 @@ class AgenticOrchestrator:
                     event_callback({"type": "tool_start", "tool": tc.name})
                 self._trace.append(make_tool_start_entry(tc.name, tc.id, list(tc.arguments.keys())))
 
-                try:
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                        future = pool.submit(self.registry.execute, tc.name, tc.arguments)
-                        result_text = future.result(timeout=self.tool_timeout)
-                except concurrent.futures.TimeoutError:
-                    logger.error("tool_timeout", tool=tc.name, timeout=self.tool_timeout)
+                if self._is_blocked_outbound_call(tc.name, tc.arguments):
                     result_text = json.dumps(
-                        {"error": f"{tc.name}: timed out after {self.tool_timeout}s"}
+                        {
+                            "error": (
+                                f"{tc.name}: call blocked — its arguments repeat text "
+                                "from untrusted external content in this conversation. "
+                                "Rephrase in your own words if the lookup is genuinely needed."
+                            )
+                        }
                     )
+                else:
+                    try:
+                        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                            future = pool.submit(self.registry.execute, tc.name, tc.arguments)
+                            result_text = future.result(timeout=self.tool_timeout)
+                    except concurrent.futures.TimeoutError:
+                        logger.error("tool_timeout", tool=tc.name, timeout=self.tool_timeout)
+                        result_text = json.dumps(
+                            {"error": f"{tc.name}: timed out after {self.tool_timeout}s"}
+                        )
                 is_error = _is_tool_error(result_text)
+                result_text = self._track_untrusted_result(tc.name, result_text, is_error)
 
                 logger.info(
                     "tool_result",

@@ -3,6 +3,7 @@
 from unittest.mock import MagicMock, patch
 
 from advisor.retrievers.intel import IntelRetriever
+from advisor.untrusted import wrap_untrusted
 
 
 class TestIntelRetriever:
@@ -15,7 +16,7 @@ class TestIntelRetriever:
         isearch = MagicMock()
         isearch.get_context_for_query.return_value = "semantic result"
         ir = IntelRetriever(intel_search=isearch)
-        assert ir.get_intel_context("q") == "semantic result"
+        assert ir.get_intel_context("q") == wrap_untrusted("semantic result")
 
     def test_get_intel_context_cache_hit(self):
         cache = MagicMock()
@@ -32,8 +33,8 @@ class TestIntelRetriever:
         isearch.get_context_for_query.return_value = "fresh"
         ir = IntelRetriever(intel_search=isearch, cache=cache)
         result = ir.get_intel_context("q")
-        assert result == "fresh"
-        cache.set.assert_called_once_with("k", "fresh")
+        assert result == wrap_untrusted("fresh")
+        cache.set.assert_called_once_with("k", wrap_untrusted("fresh"))
 
     def test_get_filtered_intel_context_with_search(self):
         isearch = MagicMock()
@@ -41,7 +42,7 @@ class TestIntelRetriever:
         loader = MagicMock(return_value=None)
         ir = IntelRetriever(intel_search=isearch, profile_loader=loader)
         result = ir.get_filtered_intel_context("q")
-        assert result == "filtered"
+        assert result == wrap_untrusted("filtered")
 
     def test_get_filtered_intel_context_fallback(self):
         ir = IntelRetriever()

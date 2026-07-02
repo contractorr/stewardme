@@ -256,13 +256,17 @@ class RAGRetriever:
         """Facade version — calls self.get_intel_context for fallback compat."""
         if not self._intel.intel_search:
             return self.get_intel_context(query, max_items=max_items, max_chars=max_chars)
+        from advisor.untrusted import wrap_untrusted
+
         profile_terms = self._profile.load_profile_terms()
-        return self._intel.intel_search.get_filtered_context_for_query(
-            query=query,
-            profile_terms=profile_terms,
-            max_items=max_items,
-            max_chars=max_chars,
-            min_relevance=min_relevance,
+        return wrap_untrusted(
+            self._intel.intel_search.get_filtered_context_for_query(
+                query=query,
+                profile_terms=profile_terms,
+                max_items=max_items,
+                max_chars=max_chars,
+                min_relevance=min_relevance,
+            )
         )
 
     def get_ai_capabilities_context(self, query: str, max_chars: int = 1500) -> str:

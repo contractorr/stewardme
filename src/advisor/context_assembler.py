@@ -19,6 +19,7 @@ from advisor.retrievers.journal import JournalRetriever
 from advisor.retrievers.memory import MemoryRetriever
 from advisor.retrievers.profile import ProfileRetriever
 from advisor.retrievers.supplementary import SupplementaryRetriever
+from advisor.untrusted import strip_untrusted_tags, wrap_untrusted
 from db import wal_connect
 
 if TYPE_CHECKING:
@@ -310,7 +311,9 @@ class ContextAssembler:
                         break
                     parts.append(entry)
                     total += len(entry)
-                intel_ctx = "\n".join(parts) if parts else "No relevant intelligence found."
+                intel_ctx = (
+                    wrap_untrusted("\n".join(parts)) if parts else "No relevant intelligence found."
+                )
             else:
                 intel_ctx = "No relevant intelligence found."
         else:
@@ -341,7 +344,9 @@ class ContextAssembler:
             if isinstance(result, Exception):
                 continue
             journal_parts.append(result[0])
-            intel_parts.append(result[1])
+            # Strip untrusted wrappers before line-level merge (tag lines would
+            # otherwise be deduplicated/reordered); re-wrap the merged result.
+            intel_parts.append(strip_untrusted_tags(result[1]))
         if not journal_parts and not intel_parts:
             return self._get_text_context_for_budget(query, total_chars)
 
@@ -350,7 +355,7 @@ class ContextAssembler:
         intel_budget = total_chars - journal_budget
         return (
             self._merge_context_lines(journal_parts, journal_budget),
-            self._merge_context_lines(intel_parts, intel_budget),
+            wrap_untrusted(self._merge_context_lines(intel_parts, intel_budget)),
         )
 
     def _merge_context_lines(self, contexts: list[str], max_chars: int) -> str:
@@ -385,10 +390,12 @@ class ContextAssembler:
     def _apply_reranker(self, query: str, journal_ctx: str, intel_ctx: str) -> tuple[str, str]:
         """Rerank context passages using cross-encoder."""
         try:
-            intel_lines = [line for line in intel_ctx.split("\n") if line.strip()]
+            # Unwrap before reordering lines so wrapper tags stay in place.
+            raw_intel = strip_untrusted_tags(intel_ctx)
+            intel_lines = [line for line in raw_intel.split("\n") if line.strip()]
             if len(intel_lines) > 1:
                 indices = self.reranker.rerank(query, intel_lines, top_k=len(intel_lines))
-                intel_ctx = "\n".join(intel_lines[i] for i in indices)
+                intel_ctx = wrap_untrusted("\n".join(intel_lines[i] for i in indices))
         except Exception as exc:
             logger.debug("reranker_apply_failed", error=str(exc))
         return journal_ctx, intel_ctx
