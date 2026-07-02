@@ -40,7 +40,12 @@ $COACH_HOME/
         └── ...
 ```
 
-`safe_user_id` converts `google:12345` → `google_12345` (colons replaced with underscores).
+`safe_user_id` is allowlist-based: every character outside `[A-Za-z0-9_-]` is
+replaced with `_` (so `google:12345` → `google_12345`, unchanged from the
+legacy `:` → `_` mapping for the OAuth `sub` formats in use). IDs that are
+empty or sanitize to only `_`/`.` characters raise `ValueError` — callers must
+not create a directory for them. This blocks path-traversal-shaped IDs
+(`../`, `/etc/passwd`, null bytes) from escaping `$COACH_HOME/users/`.
 
 ## Path TypedDicts
 

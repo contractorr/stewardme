@@ -1,6 +1,7 @@
 """Shared path helpers for user-scoped and single-user storage."""
 
 import os
+import re
 from pathlib import Path
 from typing import TypedDict
 
@@ -43,8 +44,21 @@ def get_coach_home(coach_home: Path | None = None) -> Path:
 
 
 def safe_user_id(user_id: str) -> str:
-    """Sanitize a user ID for file paths and collection names."""
-    return user_id.replace(":", "_")
+    """Sanitize a user ID for file paths and collection names.
+
+    Allowlist-based: every character outside ``[A-Za-z0-9_-]`` becomes ``_``.
+    For the OAuth ``sub`` formats in use (alphanumerics plus ``:``), this
+    produces the same output as the legacy ``:`` -> ``_`` mapping, so existing
+    user directories remain reachable.
+
+    Raises:
+        ValueError: if the sanitized result is empty or consists only of
+            ``_``/``.`` characters (e.g. ``".."``, ``"../"``).
+    """
+    sanitized = re.sub(r"[^A-Za-z0-9_-]", "_", user_id)
+    if not sanitized or set(sanitized) <= {"_", "."}:
+        raise ValueError(f"User ID {user_id!r} does not sanitize to a usable identifier")
+    return sanitized
 
 
 def _build_paths(data_dir: Path, profile_path: Path, intel_db: Path) -> StoragePaths:

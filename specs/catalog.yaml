@@ -215,6 +215,7 @@ functional_specs:
     - specs/functional/recurring-thread-inbox.md
     - specs/functional/regulatory-change-pipeline.md
     - specs/functional/scheduler-refactor.md
+    - specs/functional/security-hardening.md
     - specs/functional/signals.md
     - specs/functional/since-you-were-away-why-now.md
     - specs/functional/suggestions-engine.md
