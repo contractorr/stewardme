@@ -67,7 +67,8 @@ SQLite store at `get_user_paths(user_id)["briefs_db"]` (`briefs.db`, new
 
 Sections JSON element shape:
 `{kind, title, body, items?: list[dict], sources?: list[{title,url}], researched?: bool}`.
-Kinds: `signals`, `journal`, `custom`.
+Kinds: `signals`, `journal`, `custom`, `calendar`, `email` (the last two per
+`specs/technical/google-brief-sync.md`).
 
 #### Invariants
 
@@ -90,6 +91,8 @@ class BriefConfig(BaseModel):
     min_interval_hours: int = 12      # 1..168
     include_signals: bool = True
     include_journal: bool = True
+    include_calendar: bool = True     # Google Calendar "Coming up" (see google-brief-sync)
+    include_email: bool = True        # Gmail "Inbox watch" (see google-brief-sync)
     max_items_per_section: int = 8    # 3..20
     custom_sections: list[BriefCustomSection] = []
 
