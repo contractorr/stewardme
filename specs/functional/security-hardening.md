@@ -122,6 +122,43 @@ privacy, and API spend depend on these controls.
 | Config file absent | Defaults apply (20/min LLM, 120/min general) |
 | `/api/health` | Never rate-limited |
 
+## 4. Outbound research query hygiene + audit log (F3)
+
+### Desired Behavior
+
+1. Research topics are derived from journal themes and goals; before any
+   query leaves the machine (Tavily or DuckDuckGo), it passes a hygiene
+   filter: queries must be topic/entity phrases. First-person pronouns are
+   stripped; sentence-like queries (>10 words or containing first-person
+   markers) are reduced to their content-word core; queries containing
+   feelings vocabulary are dropped entirely.
+2. Every query actually sent is logged verbatim (post-sanitization) with a
+   UTC timestamp and the provider used — appended to
+   `~/coach/research/outbound_log.jsonl` AND included in the research
+   report/dossier update as an "Outbound Queries" section. Logging happens
+   before the query is issued; if the log cannot be written, the query is
+   not sent.
+3. Dropped queries are logged locally (structlog warning), never sent.
+
+### Acceptance Criteria
+
+- [ ] A personal sentence in ("I am worried my startup is failing") is
+      dropped; a topical sentence is reduced to its topic core.
+- [ ] After a research run, `outbound_log.jsonl` contains exactly the
+      queries that were issued, with timestamp and provider.
+- [ ] The generated report contains the same queries in an
+      "Outbound Queries" section.
+
+### Edge Cases
+
+| Scenario | Expected Behavior |
+|----------|-------------------|
+| Empty/whitespace query | Dropped, nothing sent |
+| Query already a clean topic phrase | Sent unchanged |
+| Feelings vocabulary anywhere in query | Dropped |
+| Log directory missing | Created on first write |
+| Mocked search client in tests | Hygiene/logging live in the real client; mocks bypass them by design |
+
 ## Out of Scope
 
 - Migration of directories for user IDs that previously contained path
