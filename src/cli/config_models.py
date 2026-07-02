@@ -218,6 +218,20 @@ class HeartbeatWeightsConfig(BaseModel):
     source_affinity: float = 0.3
 
 
+class WebRateLimitConfig(BaseModel):
+    """Per-user request rate limits for the web backend."""
+
+    enabled: bool = True
+    llm_per_minute: int = Field(default=20, ge=1)
+    general_per_minute: int = Field(default=120, ge=1)
+
+
+class WebConfig(BaseModel):
+    """Web backend configuration."""
+
+    rate_limit: WebRateLimitConfig = Field(default_factory=WebRateLimitConfig)
+
+
 class HeartbeatConfig(BaseModel):
     """Heartbeat proactive intel-to-goal matching."""
 
@@ -386,6 +400,7 @@ class CoachConfig(BaseModel):
     regulatory: RegulatoryPipelineConfig = Field(default_factory=RegulatoryPipelineConfig)
     github_monitoring: GitHubMonitoringConfig = Field(default_factory=GitHubMonitoringConfig)
     curriculum: CurriculumConfig = Field(default_factory=CurriculumConfig)
+    web: WebConfig = Field(default_factory=WebConfig)
 
     @model_validator(mode="after")
     def expand_env_vars(self):

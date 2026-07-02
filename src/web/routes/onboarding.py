@@ -30,6 +30,7 @@ from web.models import (
     OnboardingResponse,
     ProfileStatus,
 )
+from web.rate_limit import enforce_llm_rate_limit
 from web.user_store import (
     add_user_rss_feed,
     clear_onboarding_responses,
@@ -270,6 +271,7 @@ def _strip_json_block(text: str) -> str:
 async def start_onboarding(
     user: dict = Depends(get_current_user),
     _rate_limit: None = Depends(enforce_onboarding_shared_key_usage_limit),
+    _llm_rate_limit: None = Depends(enforce_llm_rate_limit),
 ):
     user_id = user["id"]
 
@@ -310,6 +312,7 @@ async def chat_onboarding(
     body: OnboardingChat,
     user: dict = Depends(get_current_user),
     _rate_limit: None = Depends(enforce_onboarding_shared_key_usage_limit),
+    _llm_rate_limit: None = Depends(enforce_llm_rate_limit),
 ):
     user_id = user["id"]
 

@@ -53,6 +53,7 @@ from web.models import (
     TraceDetail,
     TraceListItem,
 )
+from web.rate_limit import enforce_llm_rate_limit
 from web.user_store import get_default_db_path, log_event
 
 router = APIRouter(prefix="/api/advisor", tags=["advisor"])
@@ -311,6 +312,7 @@ async def ask_advisor(
     use_tools: bool = Query(True),
     user: dict = Depends(get_current_user),
     _rate_limit: None = Depends(enforce_shared_key_usage_limit),
+    _llm_rate_limit: None = Depends(enforce_llm_rate_limit),
 ):
     created_conversation = body.conversation_id is None
     conv_id: str | None = None
@@ -388,6 +390,7 @@ async def ask_advisor_stream(
     use_tools: bool = Query(True),
     user: dict = Depends(get_current_user),
     _rate_limit: None = Depends(enforce_shared_key_usage_limit),
+    _llm_rate_limit: None = Depends(enforce_llm_rate_limit),
 ):
     """SSE streaming version of /ask — emits tool_start/tool_done/answer events."""
     user_id = user["id"]

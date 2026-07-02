@@ -64,6 +64,30 @@ The FastAPI surface now boots a single canonical user-state schema from `src/use
 - Conversation persistence includes attachment rows in `conversation_message_attachments`
 - Shared journal-entry validation for goal-linked flows lives in `src/web/services/journal_entries.py`
 
+## Rate Limiting
+
+`src/web/rate_limit.py` holds two layers of in-memory sliding-window limits
+(process-local, reset on deploy):
+
+1. **Shared-key ("lite mode") limits** — unchanged: 30/day + 10s burst for
+   users on the shared key, separate onboarding budget.
+2. **Per-user route limits** (all users): `check_route_rate_limit(user_id,
+   bucket)` with buckets `"llm"` and `"general"`. Configured via
+   `web.rate_limit` in `config.yaml` (`enabled`, `llm_per_minute` default 20,
+   `general_per_minute` default 120 — see `config.example.yaml`); settings
+   are cached after first read and cleared by `reset_rate_limits()`.
+   Exceeding a limit raises HTTP 429 with a `Retry-After` header.
+
+Wiring:
+- `enforce_llm_rate_limit` dependency on advisor `/ask` + `/ask/stream`,
+  research `/run` + `POST /dossiers`, onboarding `/start` + `/chat`.
+- Curriculum applies the LLM bucket inside `_build_question_generator` (only
+  when credentials resolve) and `_build_guide_generation_service`, covering
+  every quiz/teachback/assessment/placement/guide endpoint at one chokepoint.
+- The general bucket runs as an app middleware on `/api/*` (except
+  `/api/health`), keyed on a hash of the Authorization header, falling back
+  to client IP.
+
 ## Simplified Product Notes
 
 - Home is the default landing page after onboarding.

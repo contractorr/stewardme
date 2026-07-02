@@ -90,6 +90,38 @@ privacy, and API spend depend on these controls.
 | Outbound call with paraphrased (not verbatim) injection | Not blocked — documented limitation of the blunt guard |
 | Reranker / decomposed retrieval reorders intel lines | Tags stripped before reorder, re-applied after |
 
+## 3. Web backend rate limiting (F4)
+
+### Desired Behavior
+
+1. Every authenticated user is rate-limited per user, regardless of whether
+   they bring their own API key (the existing "lite mode" limit only covered
+   shared-key users).
+2. Routes that trigger paid LLM calls (advisor ask, research runs, curriculum
+   question/guide generation and grading, onboarding chat) have a stricter
+   limit than general API traffic.
+3. Limits are configurable in `config.yaml` under `web.rate_limit`
+   (`enabled`, `llm_per_minute` — default 20, `general_per_minute` — default
+   120) and documented in `config.example.yaml`.
+4. Exceeding a limit returns HTTP 429 with a `Retry-After` header.
+5. One user hitting their limit never affects another user.
+
+### Acceptance Criteria
+
+- [ ] Hitting an LLM route past `llm_per_minute` returns 429 with
+      `Retry-After`.
+- [ ] A second user is unaffected while the first is limited.
+- [ ] General API traffic past `general_per_minute` returns 429.
+- [ ] `enabled: false` disables route limits (shared-key lite limits remain).
+
+### Edge Cases
+
+| Scenario | Expected Behavior |
+|----------|-------------------|
+| Unauthenticated request to general route | Keyed by client IP for the general limit; auth still returns 401 |
+| Config file absent | Defaults apply (20/min LLM, 120/min general) |
+| `/api/health` | Never rate-limited |
+
 ## Out of Scope
 
 - Migration of directories for user IDs that previously contained path

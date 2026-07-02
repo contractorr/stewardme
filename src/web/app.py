@@ -137,6 +137,23 @@ def create_app() -> FastAPI:
             clear_collector()
 
     @app.middleware("http")
+    async def general_rate_limit_middleware(request: Request, call_next) -> Response:
+        from fastapi.responses import JSONResponse
+
+        from web.rate_limit import general_request_retry_after
+
+        path = request.scope["path"]
+        if path.startswith("/api/") and path not in ("/api/health", "/api/v1/health"):
+            retry_after = general_request_retry_after(request)
+            if retry_after is not None:
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": "Rate limit exceeded — try again shortly"},
+                    headers={"Retry-After": str(retry_after)},
+                )
+        return await call_next(request)
+
+    @app.middleware("http")
     async def api_version_rewrite(request: Request, call_next) -> Response:
         path = request.scope["path"]
         if path.startswith("/api/v1/"):
