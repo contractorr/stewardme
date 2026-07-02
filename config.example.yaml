@@ -66,29 +66,9 @@ sources:
     enabled: true
     sources: [metr, chatbot_arena, helm]
     max_items_per_source: 10
-  indeed_hiring_lab:
-    enabled: false  # requires Indeed API access
-    change_threshold: 5.0
-    max_items: 8
   local_drop:
     enabled: false  # ingest .md/.json files dropped by external pipelines
     # directory: ~/coach/intel_dropbox  # processed files move to processed/
-  google_trends:
-    enabled: false  # requires: pip install stewardme[google-trends]
-    keywords: [AI agents, LLM fine-tuning, rust programming]
-    spike_threshold: 20.0
-    timeframe: "today 1-m"
-  crunchbase:
-    enabled: false  # requires API key — get free key at crunchbase.com/api
-    # api_key: ${CRUNCHBASE_API_KEY}
-    categories: [artificial-intelligence, developer-tools, saas]
-    days_back: 7
-    max_items: 20
-  x_list:
-    enabled: false  # requires X API v2 bearer token
-    # bearer_token: ${X_BEARER_TOKEN}
-    # list_id: "1234567890"    # your X List ID
-    # max_tweets: 100
   enabled:
     - hn_top
     - rss_feeds
@@ -100,9 +80,6 @@ sources:
     - yc_jobs
     - google_patents
     - ai_capabilities
-    # - google_trends      # requires: pip install stewardme[google-trends]
-    # - indeed_hiring_lab  # requires Indeed API access
-    # - crunchbase         # requires API key
 
 schedule:
   weekly_review: "sunday 9am"
@@ -163,11 +140,6 @@ events:
   rss_feeds:
     - https://confs.tech/rss
   eventbrite_token: ${EVENTBRITE_TOKEN}  # optional — set in Settings or env
-
-# --- Learning Paths ---
-learning_paths:
-  dir: ~/coach/learning_paths
-  default_weekly_hours: 5
 
 # --- Project Discovery ---
 projects:

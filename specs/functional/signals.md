@@ -10,7 +10,7 @@ Users need proactive alerts when important patterns emerge across their data —
 
 ## Users
 
-All users. Signals feed into suggestions, insights, and advisor context.
+All users. Signals feed into suggestions, insights, and advisor context. (The unused `/api/insights` web route was removed 2026-07; insights reach users via MCP `get_insights` and journal reflect.)
 
 ## Desired Behavior
 

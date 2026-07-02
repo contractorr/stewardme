@@ -1,4 +1,4 @@
-"""Tests for Phase 2: goal-learning merge — type field, milestones, migration."""
+"""Tests for Phase 2: goal-learning merge — type field, milestones, removals."""
 
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
@@ -7,11 +7,6 @@ import pytest
 
 import frontmatter
 from advisor.goals import GoalTracker, get_goal_defaults
-from advisor.migrate_learning_paths import (
-    _parse_modules,
-    migrate_learning_paths,
-    run_migration_if_needed,
-)
 
 # === Goal type field ===
 
@@ -277,104 +272,6 @@ class TestGenerateMilestones:
 
 
 # === Migration ===
-
-
-class TestMigration:
-    def _make_lp(self, lp_dir, skill, modules, completed=0, status="active"):
-        """Create a learning path file in the given directory."""
-        lp_dir.mkdir(parents=True, exist_ok=True)
-        content = "\n".join(f"### Module {i + 1}: {m}" for i, m in enumerate(modules))
-        post = frontmatter.Post(content)
-        post.metadata = {
-            "skill": skill,
-            "status": status,
-            "progress": round(completed / max(len(modules), 1) * 100),
-            "total_modules": len(modules),
-            "completed_modules": completed,
-        }
-        filepath = lp_dir / f"2024-01-01_{skill.lower().replace(' ', '-')}.md"
-        filepath.write_text(frontmatter.dumps(post))
-        return filepath
-
-    def test_migrate_creates_goals(self, tmp_path):
-        lp_dir = tmp_path / "learning_paths"
-        self._make_lp(lp_dir, "Rust", ["Ownership", "Borrowing", "Lifetimes"])
-
-        storage = MagicMock()
-        storage.create.return_value = str(tmp_path / "goal.md")
-        # Create the goal file so tracker can load it
-        goal_file = tmp_path / "goal.md"
-        post = frontmatter.Post("")
-        post.metadata = {"title": "Rust", "status": "active", "milestones": []}
-        goal_file.write_text(frontmatter.dumps(post))
-
-        tracker = GoalTracker(storage)
-        result = migrate_learning_paths(tmp_path, storage, tracker)
-
-        assert result["migrated"] == 1
-        assert result["errors"] == []
-        storage.create.assert_called_once()
-        call_kwargs = storage.create.call_args
-        assert call_kwargs[1]["entry_type"] == "goal"
-        assert call_kwargs[1]["title"] == "Rust"
-
-    def test_migrate_missing_dir(self, tmp_path):
-        storage = MagicMock()
-        tracker = GoalTracker(storage)
-        result = migrate_learning_paths(tmp_path, storage, tracker)
-        assert result["migrated"] == 0
-
-    def test_migration_idempotent(self, tmp_path):
-        lp_dir = tmp_path / "learning_paths"
-        self._make_lp(lp_dir, "Go", ["Goroutines"])
-
-        storage = MagicMock()
-        storage.create.return_value = str(tmp_path / "goal.md")
-        goal_file = tmp_path / "goal.md"
-        post = frontmatter.Post("")
-        post.metadata = {"title": "Go", "status": "active", "milestones": []}
-        goal_file.write_text(frontmatter.dumps(post))
-
-        tracker = GoalTracker(storage)
-
-        result1 = run_migration_if_needed(tmp_path, storage, tracker)
-        assert result1 is not None
-        assert result1["migrated"] == 1
-
-        result2 = run_migration_if_needed(tmp_path, storage, tracker)
-        assert result2 is None  # already migrated
-
-    def test_parse_modules(self):
-        content = "### Module 1: Intro\n### Module 2: Advanced\n### Module 3: Expert"
-        assert _parse_modules(content) == ["Intro", "Advanced", "Expert"]
-
-    def test_parse_modules_numbered_list(self):
-        content = "1. First thing\n2. Second thing\n3. Third thing"
-        assert _parse_modules(content) == ["First thing", "Second thing", "Third thing"]
-
-    def test_parse_modules_empty(self):
-        assert _parse_modules("") == []
-
-    def test_completed_path_migration(self, tmp_path):
-        lp_dir = tmp_path / "learning_paths"
-        self._make_lp(lp_dir, "Python", ["Basics", "Advanced"], completed=2, status="completed")
-
-        storage = MagicMock()
-        storage.create.return_value = str(tmp_path / "goal.md")
-        goal_file = tmp_path / "goal.md"
-        post = frontmatter.Post("")
-        post.metadata = {"title": "Python", "status": "active", "milestones": []}
-        goal_file.write_text(frontmatter.dumps(post))
-
-        tracker = GoalTracker(storage)
-        result = migrate_learning_paths(tmp_path, storage, tracker)
-
-        assert result["migrated"] == 1
-        # Should have called update_goal_status to completed
-        assert tracker.update_goal_status
-
-
-# === Removal verification ===
 
 
 class TestRemovals:

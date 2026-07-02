@@ -28,7 +28,7 @@ Users making strategic plans, monitoring markets or companies, or using dossiers
 - Can extract assumptions from journals, action plans, and dossier context from `specs/functional/journaling.md`, `specs/functional/action-plans.md`, and `specs/functional/research-dossiers.md`.
 - Can consume signals from `specs/functional/company-movement-pipeline.md`, `specs/functional/hiring-activity-pipeline.md`, and `specs/functional/regulatory-change-pipeline.md`.
 - Can surface in return briefings from `specs/functional/since-you-were-away-why-now.md`.
-- Current implementation includes a per-user assumption store, journal-based suggestion extraction, signal refresh against company/hiring/regulatory intel, manual CRUD plus activate/resolve/archive flows, and alert surfacing in suggestions and return briefings. Follow-up work is mainly richer review UX and deeper dossier-native authoring.
+- Current implementation includes a per-user assumption store, journal-based suggestion extraction, signal refresh against company/hiring/regulatory intel, and alert surfacing in suggestions and return briefings (the unused standalone CRUD API was removed 2026-07; manual management UX is future work). Follow-up work is mainly richer review UX and deeper dossier-native authoring.
 
 ## Detailed Behavior
 

@@ -479,24 +479,6 @@ class GreetingResponse(BaseModel):
     degradations: list["DegradationItem"] = Field(default_factory=list)
 
 
-# --- Briefing ---
-
-
-class InsightResponse(BaseModel):
-    id: int = 0
-    type: str = ""
-    severity: int = 0
-    title: str = ""
-    detail: str = ""
-    suggested_actions: list[str] = []
-    evidence: list[str] = []
-    source_url: str = ""
-    created_at: str = ""
-    expires_at: str | None = None
-    insight_hash: str = ""
-    watchlist_evidence: list[str] = []
-
-
 class ReasoningTrace(BaseModel):
     source_signal: str = ""
     profile_match: str = ""
@@ -623,29 +605,6 @@ class IntelFollowUp(BaseModel):
     updated_at: str = ""
 
 
-class BriefingGoal(BaseModel):
-    path: str = ""
-    title: str = ""
-    status: str = ""
-    days_since_check: int = 0
-
-
-class DailyBriefItem(BaseModel):
-    kind: str = ""
-    title: str = ""
-    description: str = ""
-    time_minutes: int = 0
-    action: str = ""
-    priority: int = 0
-
-
-class DailyBrief(BaseModel):
-    items: list[DailyBriefItem] = []
-    budget_minutes: int = 0
-    used_minutes: int = 0
-    generated_at: str = ""
-
-
 class SuggestionItem(BaseModel):
     """Unified suggestion — either from daily brief or recommendations."""
 
@@ -658,36 +617,6 @@ class SuggestionItem(BaseModel):
     score: float = 0.0
     why_now: list[dict] | None = None
     payload: dict | None = None
-
-
-class GoalIntelMatch(BaseModel):
-    id: int = 0
-    goal_path: str = ""
-    goal_title: str = ""
-    url: str = ""
-    title: str = ""
-    summary: str = ""
-    score: float = 0.0
-    urgency: str = ""
-    match_reasons: list[str] = []
-    created_at: str = ""
-    llm_evaluated: bool = False
-
-
-class BriefingResponse(BaseModel):
-    recommendations: list[BriefingRecommendation] = []
-    stale_goals: list[BriefingGoal] = []
-    goals: list[BriefingGoal] = []
-    has_data: bool = False
-    adaptation_count: int = 0
-    daily_brief: DailyBrief | None = None
-    goal_intel_matches: list[GoalIntelMatch] = []
-    dossier_escalations: list["DossierEscalationResponse"] = []
-    company_movements: list["CompanyMovementResponse"] = []
-    hiring_signals: list["HiringSignalResponse"] = []
-    regulatory_alerts: list["RegulatoryAlertResponse"] = []
-    assumptions: list["AssumptionAlertResponse"] = []
-    degradations: list["DegradationItem"] = Field(default_factory=list)
 
 
 # --- Trends ---
@@ -997,51 +926,6 @@ class RegulatoryAlertResponse(BaseModel):
     source_url: str = ""
     observed_at: str = ""
     metadata: dict = {}
-
-
-class AssumptionAlertResponse(BaseModel):
-    id: str = ""
-    title: str = ""
-    detail: str = ""
-    status: str = "active"
-    updated_at: str | None = None
-
-
-class AssumptionCreate(BaseModel):
-    statement: str = Field(..., min_length=3, max_length=500)
-    status: str = Field(
-        "active", pattern=r"^(suggested|active|confirmed|invalidated|resolved|archived)$"
-    )
-    source_type: str = "manual"
-    source_id: str = "manual"
-    extraction_confidence: float | None = None
-    linked_goal_path: str | None = None
-    linked_dossier_id: str | None = None
-    linked_entities: list[str] = []
-
-
-class AssumptionUpdate(BaseModel):
-    status: str | None = Field(
-        None, pattern=r"^(suggested|active|confirmed|invalidated|resolved|archived)$"
-    )
-    latest_evidence_summary: str | None = Field(None, max_length=500)
-
-
-class AssumptionResponse(BaseModel):
-    id: str = ""
-    statement: str = ""
-    status: str = "active"
-    source_type: str = "manual"
-    source_id: str = ""
-    extraction_confidence: float | None = None
-    linked_goal_path: str | None = None
-    linked_dossier_id: str | None = None
-    linked_entities: list[str] = []
-    latest_evidence_summary: str = ""
-    last_evaluated_at: str | None = None
-    created_at: str = ""
-    updated_at: str = ""
-    evidence: list[dict] = []
 
 
 # --- GitHub Repo Monitoring ---

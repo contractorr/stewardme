@@ -1,4 +1,4 @@
-"""Tests for proactive mentor upgrade — profile, events, learning, projects, nudges."""
+"""Tests for proactive mentor upgrade — profile, events, learning, projects."""
 
 import json
 import sys
@@ -7,7 +7,6 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-import yaml
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -434,61 +433,6 @@ class TestProjectMatching:
         issues = get_matching_issues(storage, profile=profile, days=7)
         # Python issue should be ranked higher
         assert issues[0]["title"] == "Add Python type hints"
-
-
-# === Phase 5: Nudges ===
-
-
-class TestNudges:
-    def test_no_profile_nudge(self, tmp_path):
-        from profile.storage import ProfileStorage
-
-        from advisor.nudges import NudgeEngine
-
-        ps = ProfileStorage(tmp_path / "noprofile.yaml")
-        engine = NudgeEngine(profile_storage=ps)
-        nudges = engine.get_nudges()
-        assert any("profile" in n.lower() for n in nudges)
-
-    def test_stale_profile_nudge(self, tmp_path):
-        from profile.storage import ProfileStorage, UserProfile
-
-        from advisor.nudges import NudgeEngine
-
-        ps = ProfileStorage(tmp_path / "profile.yaml")
-        p = UserProfile()
-        p.updated_at = (datetime.now() - timedelta(days=100)).isoformat()
-        # Write with plain types to avoid YAML tag issues
-        data = p.model_dump()
-        data["career_stage"] = str(data["career_stage"])
-        ps.path.parent.mkdir(parents=True, exist_ok=True)
-        with open(ps.path, "w") as f:
-            yaml.dump(data, f)
-
-        engine = NudgeEngine(profile_storage=ps)
-        nudges = engine.get_nudges()
-        assert any(">90" in n or "profile" in n.lower() for n in nudges)
-
-    def test_journal_streak(self, tmp_path):
-        from advisor.nudges import NudgeEngine
-
-        mock_storage = MagicMock()
-        mock_storage.list_entries.return_value = []
-        engine = NudgeEngine(journal_storage=mock_storage)
-        nudges = engine.get_nudges()
-        assert any("journal" in n.lower() for n in nudges)
-
-    def test_max_nudges_limit(self, tmp_path):
-        from profile.storage import ProfileStorage
-
-        from advisor.nudges import NudgeEngine
-
-        ps = ProfileStorage(tmp_path / "noprofile.yaml")
-        mock_storage = MagicMock()
-        mock_storage.list_entries.return_value = []
-        engine = NudgeEngine(journal_storage=mock_storage, profile_storage=ps)
-        nudges = engine.get_nudges(max_nudges=1)
-        assert len(nudges) <= 1
 
 
 # === RAG Profile Context ===

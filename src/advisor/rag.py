@@ -17,7 +17,6 @@ from journal.search import JournalSearch
 if TYPE_CHECKING:
     from advisor.entity_retriever import EntityRetriever
     from advisor.query_analyzer import QueryAnalyzer
-    from advisor.query_decomposer import QueryDecomposer
     from intelligence.search import IntelSearch
     from services.reranker import CrossEncoderReranker
 
@@ -46,7 +45,6 @@ class RAGRetriever:
         library_index=None,
         entity_store: EntityStore | None = None,
         query_analyzer: QueryAnalyzer | None = None,
-        query_decomposer: QueryDecomposer | None = None,
         entity_retriever: EntityRetriever | None = None,
         reranker: CrossEncoderReranker | None = None,
     ):
@@ -76,7 +74,6 @@ class RAGRetriever:
             users_db_path=users_db_path,
             user_id=user_id,
             query_analyzer=query_analyzer,
-            query_decomposer=query_decomposer,
             entity_retriever=entity_retriever,
             reranker=reranker,
             cache=cache,
@@ -85,7 +82,6 @@ class RAGRetriever:
         # Public attrs accessed directly by callers
         self.entity_store = entity_store
         self.query_analyzer = query_analyzer
-        self.query_decomposer = query_decomposer
         self.entity_retriever = entity_retriever
         self.reranker = reranker
 

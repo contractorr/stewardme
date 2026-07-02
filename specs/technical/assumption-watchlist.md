@@ -8,10 +8,16 @@ Tracked topics and assumption data remain advanced configuration inputs that fee
 
 ## Key Modules
 
-- `src/web/routes/assumptions.py`
 - `src/web/routes/intel.py`
 - `src/web/routes/suggestions.py`
 - `web/src/app/(dashboard)/settings/page.tsx`
+
+Note (2026-07): the standalone `/api/assumptions` CRUD route module
+(`src/web/routes/assumptions.py`) was removed — no frontend ever called it.
+Assumptions are still extracted from journal entries at save time
+(`advisor/assumptions.py` + per-user `AssumptionStore`) and surface through
+suggestion payloads and return briefings; management UX, if built, should
+come back through those surfaces rather than a bare CRUD API.
 
 ## Interfaces
 

@@ -5,7 +5,7 @@ import time
 
 import pytest
 
-from cli.rate_limit import TokenBucketRateLimiter
+from rate_limit import TokenBucketRateLimiter
 
 
 class TestTokenBucketRateLimiter:

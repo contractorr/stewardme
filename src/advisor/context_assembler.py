@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
-import re
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,7 +9,6 @@ from typing import TYPE_CHECKING
 
 import structlog
 
-from advisor.async_bridge import run_async
 from advisor.context_budget import truncate_to_token_budget
 from advisor.query_analyzer import QueryAnalysis, RetrievalMode
 from advisor.retrievers.intel import IntelRetriever
@@ -25,7 +22,6 @@ from db import wal_connect
 if TYPE_CHECKING:
     from advisor.entity_retriever import EntityRetriever
     from advisor.query_analyzer import QueryAnalyzer
-    from advisor.query_decomposer import QueryDecomposer
     from services.reranker import CrossEncoderReranker
 
 logger = structlog.get_logger()
@@ -63,7 +59,6 @@ class ContextAssembler:
         users_db_path: Path | None = None,
         user_id: str | None = None,
         query_analyzer: QueryAnalyzer | None = None,
-        query_decomposer: QueryDecomposer | None = None,
         entity_retriever: EntityRetriever | None = None,
         reranker: CrossEncoderReranker | None = None,
         cache=None,
@@ -81,7 +76,6 @@ class ContextAssembler:
         self._users_db_path = users_db_path
         self._user_id = user_id
         self.query_analyzer = query_analyzer
-        self.query_decomposer = query_decomposer
         self.entity_retriever = entity_retriever
         self.reranker = reranker
         self.cache = cache
@@ -170,13 +164,6 @@ class ContextAssembler:
 
         if analysis.temporal_filter:
             journal_ctx, intel_ctx = self._get_temporal_context(query, analysis, text_budget)
-        elif (
-            analysis.mode in {RetrievalMode.DECOMPOSED, RetrievalMode.COMBINED}
-            and self.query_decomposer
-        ):
-            journal_ctx, intel_ctx = run_async(
-                self._decomposed_retrieval(query, total_chars=text_budget)
-            )
         else:
             journal_ctx, intel_ctx = self._get_text_context_for_budget(query, text_budget)
 
@@ -320,72 +307,6 @@ class ContextAssembler:
             intel_ctx = self._intel.get_intel_context(search_query, max_chars=intel_chars)
 
         return truncate_to_token_budget(journal_ctx, intel_ctx, weight, self.max_context_tokens)
-
-    async def _decomposed_retrieval(
-        self,
-        query: str,
-        total_chars: int,
-    ) -> tuple[str, str]:
-        sub_questions = await self.query_decomposer.decompose(query)
-        if len(sub_questions) == 1:
-            return self._get_text_context_for_budget(sub_questions[0], total_chars)
-
-        sub_budget = total_chars // max(len(sub_questions), 1)
-        results = await asyncio.gather(
-            *[
-                asyncio.to_thread(self._get_text_context_for_budget, sub_query, sub_budget)
-                for sub_query in sub_questions
-            ],
-            return_exceptions=True,
-        )
-        journal_parts = []
-        intel_parts = []
-        for result in results:
-            if isinstance(result, Exception):
-                continue
-            journal_parts.append(result[0])
-            # Strip untrusted wrappers before line-level merge (tag lines would
-            # otherwise be deduplicated/reordered); re-wrap the merged result.
-            intel_parts.append(strip_untrusted_tags(result[1]))
-        if not journal_parts and not intel_parts:
-            return self._get_text_context_for_budget(query, total_chars)
-
-        weight = self._resolve_journal_weight(query)
-        journal_budget = int(total_chars * weight)
-        intel_budget = total_chars - journal_budget
-        return (
-            self._merge_context_lines(journal_parts, journal_budget),
-            wrap_untrusted(self._merge_context_lines(intel_parts, intel_budget)),
-        )
-
-    def _merge_context_lines(self, contexts: list[str], max_chars: int) -> str:
-        scores: dict[str, int] = {}
-        lines_by_key: dict[str, str] = {}
-        order: list[str] = []
-        for context in contexts:
-            for raw_line in context.splitlines():
-                line = raw_line.strip()
-                if not line:
-                    continue
-                key = self._line_key(line)
-                if key not in lines_by_key:
-                    lines_by_key[key] = line
-                    order.append(key)
-                scores[key] = scores.get(key, 0) + 1
-        merged = []
-        total = 0
-        for key in sorted(order, key=lambda value: (-scores[value], order.index(value))):
-            line = lines_by_key[key]
-            if total + len(line) + 1 > max_chars:
-                break
-            merged.append(line)
-            total += len(line) + 1
-        return "\n".join(merged)
-
-    @staticmethod
-    def _line_key(line: str) -> str:
-        match = re.search(r"\((https?://[^)]+)\)", line)
-        return match.group(1) if match else line.lower()
 
     def _apply_reranker(self, query: str, journal_ctx: str, intel_ctx: str) -> tuple[str, str]:
         """Rerank context passages using cross-encoder."""

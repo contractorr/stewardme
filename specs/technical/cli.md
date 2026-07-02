@@ -138,7 +138,7 @@ No config keys. Module exposes two module-level constants for backwards compat:
 
 #### Behavior
 
-Pydantic v2 model hierarchy that validates and normalises `config.yaml`. Root model is `CoachConfig`; all sub-models are composed via `Field(default_factory=...)`. Env-var interpolation (`${VAR}`) is applied at the root validator level for `llm.api_key`, `research.tavily_api_key`, and `sources.crunchbase.api_key`.
+Pydantic v2 model hierarchy that validates and normalises `config.yaml`. Root model is `CoachConfig`; all sub-models are composed via `Field(default_factory=...)`. Env-var interpolation (`${VAR}`) is applied at the root validator level for `llm.api_key` and `research.tavily_api_key`.
 
 **Sub-models and their fields:**
 
@@ -146,7 +146,7 @@ Pydantic v2 model hierarchy that validates and normalises `config.yaml`. Root mo
 |-------|-----------|
 | `LLMConfig` | `provider` (`auto`/`claude`/`openai`/`gemini`), `model`, `api_key`, `extended_thinking=True`, `max_tokens=16000`, `cheap_max_tokens=4000` |
 | `PathsConfig` | `journal_dir`, `chroma_dir`, `intel_db`, `log_file` — all `Path`, all `expanduser()`'d in `model_validator` |
-| `SourcesConfig` | `custom_blogs=[]`, `rss_feeds=["https://news.ycombinator.com/rss"]`, `enabled=["hn_top","rss_feeds"]`, `github_trending={}`, `indeed_hiring_lab={}`, `google_trends={}`, `crunchbase={}` |
+| `SourcesConfig` | `custom_blogs=[]`, `rss_feeds=["https://news.ycombinator.com/rss"]`, `enabled=["hn_top","rss_feeds"]`, `github_trending={}` (credential-gated scraper fields — crunchbase, indeed_hiring_lab, google_trends — removed 2026-07 with their scrapers) |
 | `ResearchConfig` | `enabled=False`, `max_topics=3`, `tavily_api_key=None`, `schedule="0 21 * * 0"` |
 | `ScoringConfig` | `min_threshold=6.0`, `max_per_category=3`, `weights={relevance:0.3, urgency:0.25, feasibility:0.25, impact:0.2}` |
 | `RAGConfig` | `max_context_chars=8000`, `journal_weight=0.7`, `structured_profile=False`, `inject_memory=False`, `inject_recurring_thoughts=False`, `xml_delimiters=False` |
@@ -163,7 +163,7 @@ Pydantic v2 model hierarchy that validates and normalises `config.yaml`. Root mo
 | `ThreadsConfig` | `enabled=True`, `similarity_threshold=0.78`, `min_entries_for_thread=2`, `candidate_count=10` |
 | `TrendingRadarConfig` | `enabled=True`, `min_sources=2`, `days=7`, `max_topics=15`, `interval_hours=6` |
 
-**Env-var interpolation (`expand_env_vars` validator):** pattern `${VAR_NAME}` (exact match: starts with `${`, ends with `}`) → `os.getenv(VAR_NAME, "")`. Applied only to `llm.api_key`, `research.tavily_api_key`, `sources.crunchbase["api_key"]`.
+**Env-var interpolation (`expand_env_vars` validator):** pattern `${VAR_NAME}` (exact match: starts with `${`, ends with `}`) → `os.getenv(VAR_NAME, "")`. Applied only to `llm.api_key` and `research.tavily_api_key`.
 
 **`validate_cron(expr)` standalone function:** validates that cron has exactly 5 space-separated fields using per-field regex patterns; also accepts any string matching `r"^[\d\-,\*/]+$"` as a catch-all. Used by `ResearchConfig.schedule` and `DeliveryConfig.schedule`.
 

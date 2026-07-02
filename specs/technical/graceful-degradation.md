@@ -66,10 +66,6 @@ _log_and_count(metric: str, log_level: str, qualname: str | None = None) -> None
 | advisor/tools.py | graceful.tools.embed_goal | N/A (ctx mgr) | warning | (Exception,) |
 | advisor/tools.py | graceful.tools.goal_intel_match | N/A (ctx mgr) | warning | (Exception,) |
 | advisor/tools.py | graceful.tools.goal_search | N/A (ctx mgr) | warning | (Exception,) |
-| advisor/nudges.py | graceful.nudges.profile_stale | N/A (ctx mgr) | warning | (Exception,) |
-| advisor/nudges.py | graceful.nudges.stale_goals | N/A (ctx mgr) | warning | (Exception,) |
-| advisor/nudges.py | graceful.nudges.journal_streak | N/A (ctx mgr) | warning | (Exception,) |
-| advisor/nudges.py | graceful.nudges.profile_init | N/A (ctx mgr) | warning | (Exception,) |
 | advisor/recommendations.py | graceful.recs.journal_check | N/A (ctx mgr) | warning | (Exception,) |
 | advisor/recommendations.py | graceful.recs.profile_hours | N/A (ctx mgr) | warning | (Exception,) |
 | advisor/action_brief.py | graceful.action_brief.profile_load | N/A (ctx mgr) | warning | (Exception,) |

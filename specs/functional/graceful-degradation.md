@@ -16,7 +16,7 @@ When a non-critical subsystem fails (cache init, goal loading, profile lookup, e
 
 - [ ] Two reusable primitives: `@graceful` decorator and `graceful_context` context manager
 - [x] All 9 Phase 1 sites replaced (engine.py, advice.py, scheduler.py)
-- [ ] All 20 Phase 2 sites replaced (tools, nudges, recs, threads, trends, MCP)
+- [ ] All remaining Phase 2 sites replaced (tools, recs, threads, trends, MCP; the nudges sites were removed with advisor/nudges.py in 2026-07)
 - [ ] Each site produces a structlog warning (or debug) with `exc_info=True` on failure
 - [ ] Each site increments a named `metrics.counter()` on failure
 - [ ] Zero behavioral change: all fallback values remain identical to current code

@@ -104,12 +104,18 @@ The agentic `goals_add` tool gains an optional `type` parameter (default `"gener
 
 ---
 
-### Learning Path Migration
+### Learning Path Migration — REMOVED (2026-07)
 
-**File:** `src/advisor/migrate_learning_paths.py` (new)
-**Status:** One-time migration
+`src/advisor/migrate_learning_paths.py` was deleted along with the
+`learning_paths` key in `config.example.yaml`: the migration was never wired
+into any startup path, so it could never run. Any legacy learning-path data
+was migrated manually long ago or never existed. The historical design below
+is retained for reference.
 
-#### Behavior
+**File:** `src/advisor/migrate_learning_paths.py` (deleted)
+**Status:** Removed without ever running
+
+#### Behavior (historical)
 
 `migrate_learning_paths(user_base_dir: Path, journal_storage: JournalStorage, tracker: GoalTracker) -> dict`:
 

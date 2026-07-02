@@ -52,7 +52,7 @@ Home is the default entry point for both note capture and grounded advice. The p
 The user makes high-stakes decisions on this advice; always-produce advice is
 a defect because it manufactures opportunities and patterns whether or not
 evidence exists. Every advisory template (weekly review, opportunities, goal
-analysis, recommendations, briefs, nudges) must encode:
+analysis, recommendations, briefs) must encode:
 
 - **Default to nothing.** If the evidence doesn't clear the bar, say so in
   one line and stop. "No qualifying opportunities this period" is a correct,

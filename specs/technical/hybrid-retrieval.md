@@ -2,11 +2,11 @@
 
 ## Overview
 
-Upgrades the advisor's retrieval pipeline with three capabilities: sub-question decomposition for complex queries, entity graph traversal for relational queries, and unified hybrid search in the agentic tool path. All changes are internal to the retrieval layer — the advisor prompt interface (`AskContext`) and response format are unchanged.
+Upgrades the advisor's retrieval pipeline with entity graph traversal for relational queries and unified hybrid search in the agentic tool path. (A third capability, sub-question decomposition, was removed 2026-07 — see below.) All changes are internal to the retrieval layer — the advisor prompt interface (`AskContext`) and response format are unchanged.
 
 ## Dependencies
 
-**Depends on:** `intelligence/search` (IntelSearch, hybrid_search), `intelligence/entity_store` (EntityStore), `advisor/rag` (RAGRetriever), `llm` (cheap LLM for decomposition + classification)
+**Depends on:** `intelligence/search` (IntelSearch, hybrid_search), `intelligence/entity_store` (EntityStore), `advisor/rag` (RAGRetriever), `llm` (cheap LLM for classification)
 **Depended on by:** `advisor/engine` (AdvisorEngine.ask_result), `advisor/agentic` (tool definitions), `web/routes/advisor` (no changes needed — transparent)
 
 ---
@@ -87,56 +87,14 @@ Additional retrieval notes:
 
 ---
 
-### QueryDecomposer
+### QueryDecomposer — REMOVED (2026-07)
 
-**File:** `src/advisor/query_decomposer.py`
-**Status:** Draft
-
-#### Behavior
-
-Splits a complex query into 2–4 sub-questions using the cheap LLM.
-
-Constructor:
-```python
-QueryDecomposer(
-    llm: LLMProvider,    # cheap LLM
-    max_sub_questions: int = 4,
-)
-```
-
-Prompt template:
-```
-Split this question into 2-{max} independent sub-questions that together cover the full scope.
-Each sub-question should be self-contained and searchable.
-
-Question: {query}
-
-Return JSON array of strings. No explanations.
-```
-
-#### Inputs / Outputs
-
-```python
-async def decompose(self, query: str) -> list[str]
-    # Returns 2-4 sub-question strings.
-    # On any failure, returns [query] (original query as single-element list).
-```
-
-#### Invariants
-
-- Always returns at least 1 sub-question (the original query as fallback).
-- Never returns more than `max_sub_questions`.
-- Deduplicates sub-questions (case-insensitive exact match).
-- Uses cheap LLM only.
-
-#### Error Handling
-
-| Trigger | Action |
-|---------|--------|
-| LLM returns non-JSON | Return [query] |
-| LLM returns empty array | Return [query] |
-| LLM returns > max_sub_questions | Truncate to max |
-| LLM timeout | Return [query] |
+`src/advisor/query_decomposer.py` was deleted: no production code ever
+constructed it, so `_decomposed_retrieval` was unreachable from the day it
+landed. `RetrievalMode.DECOMPOSED`/`COMBINED` classifications remain in
+`QueryAnalyzer` but retrieve via the SIMPLE path (plus entity context for
+COMBINED). The prompt/merge design is preserved in this file's git history
+if decomposition is revisited.
 
 ---
 
@@ -206,7 +164,7 @@ Output format:
 
 #### Behavior
 
-Extends `RAGRetriever` with new retrieval modes. The existing `get_combined_context()` method is preserved as the `SIMPLE` mode path. New methods handle decomposed and entity-augmented retrieval.
+Extends `RAGRetriever` with new retrieval modes. The existing `get_combined_context()` method is preserved as the `SIMPLE` mode path.
 
 New constructor params (all optional, backward-compatible):
 ```python
@@ -214,7 +172,6 @@ RAGRetriever(
     ...,                          # all existing params
     entity_store: EntityStore | None = None,
     query_analyzer: QueryAnalyzer | None = None,
-    query_decomposer: QueryDecomposer | None = None,
     entity_retriever: EntityRetriever | None = None,
 )
 ```
@@ -224,21 +181,9 @@ New public method:
 def get_enhanced_context(self, query: str) -> AskContext
     # 1. analyzer.analyze(query) → QueryAnalysis
     # 2. Dispatch by mode:
-    #    SIMPLE → existing get_combined_context() + empty entity_context
-    #    DECOMPOSED → _decomposed_retrieval(query)
-    #    ENTITY → existing get_combined_context() + entity_retriever.retrieve()
-    #    COMBINED → _decomposed_retrieval(query) + entity_retriever.retrieve()
+    #    SIMPLE / DECOMPOSED → existing get_combined_context() + empty entity_context
+    #    ENTITY / COMBINED → existing get_combined_context() + entity_retriever.retrieve()
     # 3. Build AskContext with journal, intel, profile, memory, thoughts, documents, entity_context
-```
-
-`_decomposed_retrieval(query)`:
-```python
-async def _decomposed_retrieval(self, query: str) -> tuple[str, str]:
-    sub_questions = await self.query_decomposer.decompose(query)
-    # Run get_combined_context(sub_q) for each sub_q concurrently
-    # Merge results: parse formatted lines, dedup by URL, re-rank by occurrence count
-    # Re-truncate to budget
-    return (merged_journal_context, merged_intel_context)
 ```
 
 **AskContext addition:**
@@ -277,9 +222,7 @@ Entity ceiling is 20% of total budget. Remaining 80% uses existing journal:intel
 | Trigger | Action |
 |---------|--------|
 | QueryAnalyzer fails | Fall back to SIMPLE mode |
-| Decomposition fails | Fall back to SIMPLE mode (single query) |
 | Entity retrieval fails | Continue with text-only context |
-| Any sub-question search fails | Merge results from successful searches |
 
 ---
 
@@ -547,21 +490,17 @@ reranker: CrossEncoderReranker | None = None
 
 **Backward compatibility:** All new components are optional. When not configured, the entire retrieval path falls back to current behavior. No existing tests should break.
 
-**Latency budget:** Sub-question decomposition adds one cheap LLM call (~200ms). Entity lookup adds one SQLite query (~5ms). Parallel sub-question searches run concurrently. Worst case (COMBINED mode): ~200ms decomposition + parallel searches (same as single search if IO-bound) + 5ms entity lookup.
-
-**Concurrency:** `_decomposed_retrieval` uses `asyncio.gather` for parallel sub-question searches. `RAGRetriever` methods are currently sync — will need `async` wrappers or `loop.run_in_executor` for the concurrent path.
+**Latency budget:** Entity lookup adds one SQLite query (~5ms).
 
 **Config integration:**
 
 | Key | Default | Source |
 |-----|---------|--------|
 | `retrieval.mode` | `"auto"` | config.yaml |
-| `retrieval.decomposition_enabled` | `true` | config.yaml |
 | `retrieval.entity_budget_ratio` | `0.2` | config.yaml |
-| `retrieval.max_sub_questions` | `4` | config.yaml |
 | `retrieval.complexity_threshold` | `2` | config.yaml |
 
-`retrieval.mode` overrides: `"auto"` (default), `"simple"`, `"decomposed"`, `"entity"`, `"combined"`.
+`retrieval.mode` overrides: `"auto"` (default), `"simple"`, `"entity"`.
 
 ## Test Expectations
 
@@ -572,12 +511,6 @@ reranker: CrossEncoderReranker | None = None
 - No entity_store → entity modes never selected
 - Heuristic score boundary cases (score=1 with/without LLM fallback)
 
-**QueryDecomposer:**
-- Known complex query → 2-4 sub-questions
-- LLM failure → returns [original_query]
-- Duplicate sub-questions are deduplicated
-- Mock: LLM calls
-
 **EntityRetriever:**
 - Known entities → formatted XML with relationships and items
 - Empty entity list → empty string
@@ -585,10 +518,8 @@ reranker: CrossEncoderReranker | None = None
 - Mock: EntityStore
 
 **EnhancedRAGRetriever:**
-- SIMPLE mode → identical to current get_combined_context()
-- DECOMPOSED mode → merged results from sub-questions, deduped by URL
-- ENTITY mode → text context + entity XML block
-- COMBINED mode → both decomposed + entity context
+- SIMPLE / DECOMPOSED modes → identical to current get_combined_context()
+- ENTITY / COMBINED modes → text context + entity XML block
 - Budget never exceeded in any mode
 - All-None components → falls back to get_combined_context()
 - Mock: LLM calls, IntelSearch, EntityStore, JournalSearch

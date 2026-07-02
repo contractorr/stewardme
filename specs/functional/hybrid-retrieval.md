@@ -18,13 +18,16 @@ All users who ask the advisor multi-faceted or relational questions. Most impact
 
 ## Desired Behavior
 
-### Sub-question decomposition
+### Sub-question decomposition — REMOVED (2026-07)
 
-1. When a user asks a complex question, the system detects whether decomposition would help (heuristic: contains conjunctions, comparisons, multiple named entities, or explicit multi-part phrasing).
-2. The system splits the query into 2–4 sub-questions using the cheap LLM.
-3. Each sub-question runs through the existing hybrid retrieval pipeline in parallel.
-4. Results are merged, deduplicated by URL, and re-ranked by aggregate relevance.
-5. The merged context is passed to the advisor prompt as usual — the user sees no difference in the response format.
+The decomposition path (`QueryDecomposer`, 2–4 LLM-split sub-questions,
+parallel search + merge) was implemented but never wired into any caller —
+no production code ever constructed a `QueryDecomposer`, so the branch was
+unreachable since it landed. The dead module and its plumbing were deleted.
+Queries the analyzer classifies as complex fall through to the standard
+single hybrid search (plus entity context when entities match). If
+decomposition is revisited, start from this spec's history rather than the
+removed code.
 
 ### Entity graph retrieval
 
@@ -41,17 +44,12 @@ All users who ask the advisor multi-faceted or relational questions. Most impact
 
 1. The system auto-selects retrieval mode based on query analysis:
    - **Simple** — single hybrid search (current behavior). Used for straightforward factual lookups.
-   - **Decomposed** — sub-question split + parallel search + merge. Used for complex/comparative questions.
    - **Entity-traversal** — entity graph lookup + connected items. Used when query matches known entities.
-   - **Combined** — decomposed + entity-traversal. Used for complex questions involving known entities.
+   - The analyzer still labels complex queries (`decomposed`/`combined`), but those modes retrieve identically to simple/entity since decomposition was removed.
 2. Mode selection is automatic; no user action required. Override via config for testing.
 
 ## Acceptance Criteria
 
-- [ ] Sub-question decomposition activates for qualifying complex queries (conjunction/comparison heuristic or LLM classification).
-- [ ] Decomposition produces 2–4 sub-questions; never more than 4.
-- [ ] Sub-question searches run concurrently (asyncio.gather or equivalent).
-- [ ] Merged results are deduplicated by URL; items appearing in multiple sub-query results rank higher.
 - [ ] Total context stays within the existing `max_context_chars` budget (default 8000) regardless of retrieval mode.
 - [ ] Entity graph retrieval returns entities + relationships + linked item summaries when entity extraction is enabled.
 - [ ] Entity context is injected as a distinct `<entity_context>` XML block in the advisor prompt.
@@ -59,19 +57,14 @@ All users who ask the advisor multi-faceted or relational questions. Most impact
 - [ ] A new `intel_entity_search` agentic tool exists for entity-specific queries.
 - [ ] Retrieval mode auto-selection adds < 500ms latency (one cheap LLM call for classification, or heuristic-only).
 - [ ] When entity extraction is disabled, entity-traversal mode is skipped silently — no errors, falls back to text-only retrieval.
-- [ ] Decomposition uses the cheap LLM instance.
 
 ## Edge Cases
 
 | Scenario | Expected Behavior |
 |----------|-------------------|
-| Query is simple ("latest HN posts") | No decomposition; single hybrid search as today |
-| Decomposition produces duplicate sub-questions | Dedup sub-questions before searching; skip exact matches |
-| Sub-question search returns zero results for one sub-query | Merge results from remaining sub-queries; do not fail |
 | Entity referenced in query does not exist in graph | Fall back to text-only retrieval for that entity term |
 | Context budget exceeded after merging all retrieval modes | Truncate lowest-ranked items first; entity context gets 20% budget ceiling |
 | Agentic tool calls `intel_search` with a query matching entities | Returns hybrid results enriched with entity tags, same as classic RAG path |
-| All sub-questions return the same items | Deduplicated result set is smaller; that's fine — items rank higher from multi-match boost |
 
 ### RRF standardization
 
@@ -134,6 +127,5 @@ All users who ask the advisor multi-faceted or relational questions. Most impact
 
 ## Open Questions
 
-- Should decomposition use a heuristic classifier (regex/keyword) or a cheap LLM call? Heuristic is faster but less accurate.
 - What is the right budget split between entity context and text context? Proposed: 20% entity ceiling, remainder split by existing journal:intel ratio.
 - Should entity-traversal depth be configurable (1-hop vs 2-hop relationships)?

@@ -63,8 +63,6 @@ items per section, hypothesis phrasing. Per-template specifics:
 - `TOP_PICKS`, `WEEKLY_ACTION_BRIEF`, `EVENT_RECOMMENDATIONS`,
   `PROJECT_RECOMMENDATIONS`, `SIDE_PROJECT_IDEAS`: caps at 3 / "fewer if
   fewer clear the bar".
-- `nudges.py`: fires only on actionable conditions (stale profile, stale
-  goal, zero recent entries); no praise/streak nudges.
 
 ## Objectives Gate Pulse
 
@@ -100,7 +98,7 @@ advisor never writes the file. See
 Wrapping is applied at retrieval/assembly time: `IntelRetriever`
 (`_get_intel_context_uncached`, `get_filtered_intel_context`), the RAG facade
 `get_filtered_intel_context`, and `ContextAssembler._get_temporal_context` /
-`_decomposed_retrieval` / `_apply_reranker`. Anything flowing through intel
+`_apply_reranker`. Anything flowing through intel
 retrieval — including future sources like drop-folder ingest — is therefore
 tagged without per-source work.
 

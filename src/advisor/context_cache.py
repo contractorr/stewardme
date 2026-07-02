@@ -14,6 +14,12 @@ class ContextCache:
         self.db_path = db_path
         self.default_ttl = default_ttl
         self._init_db()
+        # Keys are query hashes, so expired rows are only ever re-read by the
+        # exact same query — sweep on construction or the DB grows forever.
+        try:
+            self.clear_expired()
+        except Exception:
+            pass
 
     def _init_db(self):
         with wal_connect(self.db_path) as conn:

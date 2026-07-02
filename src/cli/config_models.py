@@ -52,9 +52,6 @@ class SourcesConfig(BaseModel):
     rss_feeds: list[str] = Field(default_factory=lambda: ["https://news.ycombinator.com/rss"])
     enabled: list[str] = Field(default_factory=lambda: ["hn_top", "rss_feeds"])
     github_trending: dict = Field(default_factory=dict)
-    indeed_hiring_lab: dict = Field(default_factory=dict)
-    google_trends: dict = Field(default_factory=dict)
-    crunchbase: dict = Field(default_factory=dict)
 
 
 def validate_cron(expr: str) -> str:
@@ -415,9 +412,6 @@ class CoachConfig(BaseModel):
             if key.startswith("${") and key.endswith("}"):
                 env_var = key[2:-1]
                 self.research.tavily_api_key = os.getenv(env_var, "")
-        cb_key = self.sources.crunchbase.get("api_key", "")
-        if isinstance(cb_key, str) and cb_key.startswith("${") and cb_key.endswith("}"):
-            self.sources.crunchbase["api_key"] = os.getenv(cb_key[2:-1], "")
         return self
 
     @classmethod

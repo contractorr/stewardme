@@ -1,7 +1,5 @@
 """Factory for creating and configuring intelligence scrapers."""
 
-import os
-
 import structlog
 
 from graceful import graceful_context
@@ -13,22 +11,18 @@ from .sources import (
     AIIndexScraper,
     ARCEvalsScraper,
     ArxivScraper,
-    CrunchbaseScraper,
     EpochAIScraper,
     EventScraper,
     FrontierEvalsGitHubScraper,
     GitHubIssuesScraper,
     GitHubTrendingScraper,
     GooglePatentsScraper,
-    GoogleTrendsScraper,
     HackerNewsScraper,
-    IndeedHiringLabScraper,
     LocalDropScraper,
     METRScraper,
     ProductHuntScraper,
     RedditScraper,
     RSSFeedScraper,
-    XListScraper,
     YCJobsScraper,
 )
 
@@ -78,10 +72,6 @@ class ScraperFactory:
         self._add_ai_capabilities(scrapers, enabled)
         self._add_github_issues(scrapers)
         self._add_capability_horizon_scrapers(scrapers, enabled)
-        self._add_indeed(scrapers, enabled)
-        self._add_google_trends(scrapers, enabled)
-        self._add_crunchbase(scrapers, enabled)
-        self._add_x_list(scrapers, enabled)
         self._add_local_drop(scrapers, enabled)
 
         # Attach shared embedding manager for semantic dedup + goal matching
@@ -289,57 +279,6 @@ class ScraperFactory:
             scrapers.append(ARCEvalsScraper(self.storage))
             gh_token = self.full_config.get("projects", {}).get("github_issues", {}).get("token")
             scrapers.append(FrontierEvalsGitHubScraper(self.storage, token=gh_token))
-
-    def _add_indeed(self, scrapers, enabled):
-        indeed_config = self.config.get("indeed_hiring_lab", {})
-        if "indeed_hiring_lab" in enabled or indeed_config.get("enabled", False):
-            scrapers.append(
-                IndeedHiringLabScraper(
-                    self.storage,
-                    change_threshold=indeed_config.get("change_threshold", 5.0),
-                    max_items=indeed_config.get("max_items", 8),
-                )
-            )
-
-    def _add_google_trends(self, scrapers, enabled):
-        trends_config = self.config.get("google_trends", {})
-        if "google_trends" in enabled or trends_config.get("enabled", False):
-            scrapers.append(
-                GoogleTrendsScraper(
-                    self.storage,
-                    keywords=trends_config.get("keywords"),
-                    spike_threshold=trends_config.get("spike_threshold", 20.0),
-                    timeframe=trends_config.get("timeframe", "today 1-m"),
-                )
-            )
-
-    def _add_crunchbase(self, scrapers, enabled):
-        cb_config = self.config.get("crunchbase", {})
-        if "crunchbase" in enabled or cb_config.get("enabled", False):
-            scrapers.append(
-                CrunchbaseScraper(
-                    self.storage,
-                    api_key=cb_config.get("api_key"),
-                    categories=cb_config.get("categories"),
-                    days_back=cb_config.get("days_back", 7),
-                    max_items=cb_config.get("max_items", 20),
-                )
-            )
-
-    def _add_x_list(self, scrapers, enabled):
-        x_list_config = self.config.get("x_list", {})
-        if "x_list" in enabled or x_list_config.get("enabled", False):
-            bearer = x_list_config.get("bearer_token") or os.environ.get("X_BEARER_TOKEN")
-            list_id = x_list_config.get("list_id")
-            if bearer and list_id:
-                scrapers.append(
-                    XListScraper(
-                        self.storage,
-                        bearer_token=bearer,
-                        list_id=list_id,
-                        max_tweets=x_list_config.get("max_tweets", 100),
-                    )
-                )
 
     def _add_local_drop(self, scrapers, enabled):
         drop_config = self.config.get("local_drop", {})

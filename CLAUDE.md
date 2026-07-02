@@ -49,7 +49,7 @@ RAG-based personal AI advisor. Journal entries + external intelligence scrapers 
 
 - **advisor/** — `AdvisorEngine` with two modes and dual LLM instances (see below)
 - **journal/** — Markdown files with YAML frontmatter, ChromaDB embeddings, semantic+keyword search, KMeans trend detection, sentiment analysis, entry templates
-- **intelligence/** — 15 source files in `sources/` (20 scraper classes — `ai_capabilities.py` contains 6) inheriting `BaseScraper` (HN, GitHub, arXiv, Reddit, RSS, Product Hunt, YC Jobs, Google Patents, AI capabilities, events, GitHub issues, Crunchbase, Google Trends, Indeed, local drop-folder). Only HN+RSS enabled by default. SQLite storage with URL+content-hash dedup, APScheduler. `LocalDropScraper` ingests `.md`/`.json` files from `~/coach/intel_dropbox/` (external pipelines feed items without credentials; processed files move to `processed/`)
+- **intelligence/** — 12 source files in `sources/` (17 scraper classes — `ai_capabilities.py` contains 6) inheriting `BaseScraper` (HN, GitHub, arXiv, Reddit, RSS, Product Hunt, YC Jobs, Google Patents, AI capabilities, events, GitHub issues, local drop-folder). Only HN+RSS enabled by default (code default; config.example.yaml ships more). SQLite storage with URL+content-hash dedup, APScheduler. `LocalDropScraper` ingests `.md`/`.json` files from `~/coach/intel_dropbox/` (external pipelines feed items without credentials; processed files move to `processed/`)
 - **research/** — Deep research: topic selection → web search (Tavily or DuckDuckGo fallback) → LLM synthesis → reports. Outbound queries pass a hygiene filter (`research/outbound.py`: first-person/feelings text stripped or dropped) and every issued query is audit-logged to `~/coach/research/outbound_log.jsonl` and into the report's "Outbound Queries" section
 - **llm/** — Provider factory with auto-detection from env vars. Unified `LLMProvider` interface: Claude/OpenAI/Gemini
 - **profile/** — `UserProfile` Pydantic model (YAML-backed). `ProfileInterviewer` for LLM-driven onboarding (5-7 turns, force-extraction fallback). Two rendering modes: `summary()` (compact) and `structured_summary()` (multi-section XML)
@@ -57,7 +57,7 @@ RAG-based personal AI advisor. Journal entries + external intelligence scrapers 
 - **memory/** — Standalone memory package for persistent user memory (facts, context)
 - **library/** — Content library management
 - **services/** — Shared service layer
-- **web/** — FastAPI backend: JWT auth (python-jose), Fernet-encrypted secret storage, per-user data isolation at `~/coach/users/{safe_user_id}/` (`safe_user_id` is allowlist-sanitized — `[A-Za-z0-9_-]` only, ValueError on empty/punctuation-only). Global intel DB stays shared. 24 route modules. `get_or_create_user()` auto-registers on first request. Per-user rate limits on all users (`web/rate_limit.py`): LLM routes 20/min, general API 120/min, configurable via `web.rate_limit` in config.yaml; 429 + Retry-After
+- **web/** — FastAPI backend: JWT auth (python-jose), Fernet-encrypted secret storage, per-user data isolation at `~/coach/users/{safe_user_id}/` (`safe_user_id` is allowlist-sanitized — `[A-Za-z0-9_-]` only, ValueError on empty/punctuation-only). Global intel DB stays shared. 28 route modules. `get_or_create_user()` auto-registers on first request. Per-user rate limits on all users (`web/rate_limit.py`): LLM routes 20/min, general API 120/min, configurable via `web.rate_limit` in config.yaml; 429 + Retry-After
 - **curriculum/** — Structured learning system: content scanner, SQLite store, SM-2 spaced repetition, LLM question generation, Bloom's taxonomy grading, teach-back prompts, pre-reading questions, cross-guide chapter connections (ChromaDB embeddings)
 - **coach_mcp/** — 52 MCP tools across 13 modules (journal, goals, intel, recommendations, research, reflect, profile, projects, insights, brief, memory, threads, curriculum)
 
@@ -87,9 +87,9 @@ Next.js 16 + React 19 + TypeScript + Tailwind v4 + shadcn/ui. NextAuth v5 beta (
 
 ### Cross-cutting
 
-- **Retries:** Tenacity exponential backoff on HTTP/LLM calls (`cli/retry.py`)
-- **Rate limiting:** Token bucket per source (`cli/rate_limit.py`)
-- **Security:** Path traversal protection, URL scheme validation, API key redaction, content length limits, Fernet encryption for user secrets in web mode
+- **Retries:** Tenacity exponential backoff on HTTP/LLM calls (`retry_utils.py`)
+- **Rate limiting:** Token bucket per source (`rate_limit.py`)
+- **Security:** Path traversal protection, URL scheme validation, SSRF private-IP blocking on user-supplied URLs (`url_guard.py`), API key redaction, content length limits, Fernet encryption for user secrets in web mode
 - **Observability:** `observability.py` counters/timers, structlog correlation IDs
 
 ## Specs
@@ -113,10 +113,9 @@ Never skip steps or reorder. Even small changes must flow: functional spec → t
 ## Feature Status
 
 Core (stable): journal, intelligence scrapers, RAG retrieval, advisor Q&A, recommendations, conversation storage, library (reports + PDF uploads)
-Experimental (enabled by default): goal tracking, deep research, trend clustering, memory, threads, insights, suggestions, signals, engagement scoring, nudges (CLI), trending radar, goal-intel matching, AI capabilities KB, capability horizon model, query analysis/decomposition, thread inbox state machine, curriculum/learn (SM-2 spaced repetition, Bloom's taxonomy quizzes, 327 chapters across 50 guides)
+Experimental (enabled by default): goal tracking, deep research, trend clustering, memory, threads, insights (MCP-only), suggestions, signals, engagement scoring, trending radar, goal-intel matching, AI capabilities KB, capability horizon model, query analysis, thread inbox state machine, curriculum/learn (SM-2 spaced repetition, Bloom's taxonomy quizzes, 327 chapters across 50 guides)
 Infrastructure: heartbeat (invisible), pageview tracking, feed catalog, user deletion, onboarding feeds, attachments
-Removed: mood analysis, burnout detection, momentum detection, predictions, skill gap analyzer (merged into advisor prompt mode)
-Legacy config present: `learning_paths` key in config.example.yaml + migration file (`advisor/migrate_learning_paths.py`) — feature merged into goal milestones
+Removed: mood analysis, burnout detection, momentum detection, predictions, skill gap analyzer (merged into advisor prompt mode); 2026-07 cleanup: nudge engine, query decomposition, learning_paths migration + config key, credential-gated scrapers (Crunchbase, Indeed, Google Trends, X list), dead web routes (`/api/assumptions` CRUD, `/api/briefing`, `/api/insights` — insights live on via MCP; assumptions still extracted at journal save and surfaced via suggestions/briefs)
 
 ## Adding a new intelligence source
 
