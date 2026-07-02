@@ -36,6 +36,7 @@ const primaryNav = [
 function resolvePrimaryPath(pathname: string) {
   if (
     pathname === "/home" ||
+    pathname === "/brief" ||
     pathname === "/focus" ||
     pathname === "/goals" ||
     pathname === "/projects" ||

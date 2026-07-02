@@ -1,6 +1,6 @@
 // This file is generated. Do not edit manually.
 // Source: web/openapi.json
-// OpenAPI SHA256: ca4526077d10f0f313b2a6424396e3d055cad1a7fd6e3e29c048521f913570c8
+// OpenAPI SHA256: 4fc2516de388e35a5d428e9af1fd3676ed7337fd11f6c7a8bc12e63f06782661
 export interface paths {
     "/api/admin/stats": {
         parameters: {
@@ -239,6 +239,109 @@ export interface paths {
         put?: never;
         /** Resolve Assumption */
         post: operations["resolve_assumption_api_assumptions__assumption_id__resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/brief": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Briefs */
+        get: operations["list_briefs_api_brief_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/brief/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Brief Config */
+        get: operations["get_brief_config_api_brief_config_get"];
+        /** Update Brief Config */
+        put: operations["update_brief_config_api_brief_config_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/brief/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate Brief Endpoint */
+        post: operations["generate_brief_endpoint_api_brief_generate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/brief/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Latest Brief */
+        get: operations["get_latest_brief_api_brief_latest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/brief/{brief_id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dismiss Brief */
+        post: operations["dismiss_brief_api_brief__brief_id__dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/brief/{brief_id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark Brief Read */
+        post: operations["mark_brief_read_api_brief__brief_id__read_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2734,6 +2837,102 @@ export interface components {
             file: string;
             /** Title */
             title?: string | null;
+        };
+        /**
+         * BriefConfig
+         * @description Per-user brief configuration.
+         */
+        BriefConfig: {
+            /**
+             * Custom Sections
+             * @default []
+             */
+            custom_sections: components["schemas"]["BriefCustomSection"][];
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Include Journal
+             * @default true
+             */
+            include_journal: boolean;
+            /**
+             * Include Signals
+             * @default true
+             */
+            include_signals: boolean;
+            /**
+             * Max Items Per Section
+             * @default 8
+             */
+            max_items_per_section: number;
+            /**
+             * Min Interval Hours
+             * @default 12
+             */
+            min_interval_hours: number;
+        };
+        /**
+         * BriefCustomSection
+         * @description A user-authored standing instruction the brief always honors.
+         */
+        BriefCustomSection: {
+            /**
+             * Id
+             * @default
+             */
+            id: string;
+            /**
+             * Instructions
+             * @default
+             */
+            instructions: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /**
+             * Use Research
+             * @default false
+             */
+            use_research: boolean;
+        };
+        /** BriefLatestResponse */
+        BriefLatestResponse: {
+            brief?: components["schemas"]["BriefResponse"] | null;
+            /**
+             * Should Generate
+             * @default false
+             */
+            should_generate: boolean;
+        };
+        /** BriefResponse */
+        BriefResponse: {
+            /** Created At */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Period End */
+            period_end: string;
+            /** Period Start */
+            period_start: string;
+            /**
+             * Sections
+             * @default []
+             */
+            sections: {
+                [key: string]: unknown;
+            }[];
+            /** Status */
+            status: string;
+            /**
+             * Summary
+             * @default
+             */
+            summary: string;
         };
         /** BriefingGoal */
         BriefingGoal: {
@@ -6312,6 +6511,204 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AssumptionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_briefs_api_brief_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                include_dismissed?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BriefResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_brief_config_api_brief_config_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BriefConfig"];
+                };
+            };
+        };
+    };
+    update_brief_config_api_brief_config_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BriefConfig"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BriefConfig"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_brief_endpoint_api_brief_generate_post: {
+        parameters: {
+            query?: {
+                force?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BriefResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_latest_brief_api_brief_latest_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BriefLatestResponse"];
+                };
+            };
+        };
+    };
+    dismiss_brief_api_brief__brief_id__dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_brief_read_api_brief__brief_id__read_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

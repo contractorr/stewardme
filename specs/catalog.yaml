@@ -167,6 +167,7 @@ functional_specs:
     - specs/functional/assumption-watchlist.md
     - specs/functional/attach-to-ask-bridge.md
     - specs/functional/company-movement-pipeline.md
+    - specs/functional/configurable-brief.md
     - specs/functional/configurable-embeddings.md
     - specs/functional/conversation-storage.md
     - specs/functional/curriculum-user-authored-guides.md
@@ -359,6 +360,7 @@ technical_specs:
     - specs/technical/assumption-watchlist.md
     - specs/technical/attach-to-ask-bridge.md
     - specs/technical/company-movement-pipeline.md
+    - specs/technical/configurable-brief.md
     - specs/technical/configurable-embeddings.md
     - specs/technical/conversation-storage.md
     - specs/technical/curriculum-user-authored-guides.md
