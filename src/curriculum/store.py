@@ -20,7 +20,7 @@ from .spaced_repetition import sm2_update
 
 logger = structlog.get_logger()
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 
 class CurriculumStore:
@@ -204,6 +204,12 @@ class CurriculumStore:
                         value TEXT NOT NULL DEFAULT ''
                     )
                 """)
+
+            # --- v7 -> v8 migration: flashcard decks (Anki import/export) ---
+            if current_ver < 8:
+                from .flashcards import create_flashcard_tables
+
+                create_flashcard_tables(conn)
 
             ensure_schema_version(conn, SCHEMA_VERSION)
             conn.commit()

@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import {
   BookOpen,
   Brain,
+  FileText,
   GraduationCap,
   HelpCircle,
   Home,
@@ -31,6 +32,7 @@ const primaryNav = [
   { href: "/radar", label: "Radar", icon: Newspaper },
   { href: "/learn", label: "Learn", icon: GraduationCap },
   { href: "/journal", label: "Journal", icon: BookOpen },
+  { href: "/notes", label: "Notes", icon: FileText },
 ];
 
 function resolvePrimaryPath(pathname: string) {
@@ -60,6 +62,10 @@ function resolvePrimaryPath(pathname: string) {
 
   if (pathname === "/journal") {
     return "/journal";
+  }
+
+  if (pathname === "/notes" || pathname.startsWith("/notes/")) {
+    return "/notes";
   }
 
   if (pathname === "/settings") {

@@ -9,6 +9,7 @@ truth is [specs/catalog.yaml](../catalog.yaml).
 | --- | --- | --- | --- |
 | `architecture` | [architecture.md](architecture.md) | `updated` | Cross-repo topology |
 | `advisor` | [advisor.md](advisor.md) | `updated` | `src/advisor/` and advisor routes |
+| `anki-decks` | [anki-decks.md](anki-decks.md) | `experimental` | flashcard decks + `.apkg` import/export |
 | `cli` | [cli.md](cli.md) | `stable` | `src/cli/` |
 | `curriculum` | [curriculum.md](curriculum.md) | `stable` | `src/curriculum/` and learn routes |
 | `intelligence` | [intelligence.md](intelligence.md) | `updated` | `src/intelligence/` and Radar routes |
@@ -17,6 +18,7 @@ truth is [specs/catalog.yaml](../catalog.yaml).
 | `llm` | [llm.md](llm.md) | `stable` | `src/llm/` |
 | `mcp` | [mcp.md](mcp.md) | `stable` | `src/coach_mcp/` |
 | `memory` | [memory.md](memory.md) | `stable` | `src/memory/` and memory routes |
+| `note-polish` | [note-polish.md](note-polish.md) | `experimental` | `src/notes/` and notes routes |
 | `profile` | [profile.md](profile.md) | `stable` | `src/profile/` and onboarding/profile routes |
 | `research` | [research.md](research.md) | `experimental` | `src/research/` |
 | `research-dossiers` | [research-dossiers.md](research-dossiers.md) | `experimental` | dossier storage and escalation |

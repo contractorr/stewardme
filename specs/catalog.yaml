@@ -41,6 +41,15 @@ functional_specs:
       foundations:
         - specs/foundations/design-system.md
         - specs/foundations/ux-guidelines.md
+    anki-decks:
+      path: specs/functional/anki-decks.md
+      status: experimental
+      technical_specs:
+        - specs/technical/anki-decks.md
+        - specs/technical/web.md
+      foundations:
+        - specs/foundations/design-system.md
+        - specs/foundations/ux-guidelines.md
     ask-advice:
       path: specs/functional/ask-advice.md
       status: stable
@@ -120,6 +129,15 @@ functional_specs:
         - specs/technical/memory.md
         - specs/technical/recurring-thread-inbox.md
       foundations:
+        - specs/foundations/ux-guidelines.md
+    note-polish:
+      path: specs/functional/note-polish.md
+      status: experimental
+      technical_specs:
+        - specs/technical/note-polish.md
+        - specs/technical/web.md
+      foundations:
+        - specs/foundations/design-system.md
         - specs/foundations/ux-guidelines.md
     profile-onboarding:
       path: specs/functional/profile-onboarding.md
@@ -227,6 +245,19 @@ technical_specs:
         - src/web/routes/advisor.py
         - web/src/app/(dashboard)/advisor/page.tsx
         - web/src/app/(dashboard)/home/page.tsx
+    anki-decks:
+      path: specs/technical/anki-decks.md
+      status: experimental
+      implements:
+        - anki-decks
+      code_paths:
+        - src/curriculum/anki.py
+        - src/curriculum/flashcards.py
+        - src/web/routes/decks.py
+        - web/src/app/(dashboard)/learn/decks
+        - tests/curriculum/test_anki.py
+        - tests/curriculum/test_flashcards.py
+        - tests/web/test_deck_routes.py
     cli:
       path: specs/technical/cli.md
       status: stable
@@ -300,6 +331,17 @@ technical_specs:
         - src/memory
         - src/web/routes/memory.py
         - tests/memory
+    note-polish:
+      path: specs/technical/note-polish.md
+      status: experimental
+      implements:
+        - note-polish
+      code_paths:
+        - src/notes
+        - src/web/routes/notes.py
+        - web/src/app/(dashboard)/notes
+        - tests/notes
+        - tests/web/test_notes_routes.py
     profile:
       path: specs/technical/profile.md
       status: stable
@@ -337,6 +379,7 @@ technical_specs:
       status: updated
       implements:
         - analytics-admin
+        - anki-decks
         - ask-advice
         - curriculum
         - deep-research
@@ -346,6 +389,7 @@ technical_specs:
         - landing-page
         - library-reports
         - memory-threads
+        - note-polish
         - profile-onboarding
         - settings-account
       code_paths:

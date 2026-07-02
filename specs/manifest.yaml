@@ -193,6 +193,50 @@ features:
       - tests/web/test_curriculum_routes.py
     validation_commands:
       - uv run pytest tests/curriculum/test_store.py tests/curriculum/test_scanner.py tests/web/test_curriculum_routes.py -q
+  anki-decks:
+    status: experimental
+    functional_spec: specs/functional/anki-decks.md
+    technical_specs:
+      - specs/technical/anki-decks.md
+      - specs/technical/web.md
+    backend:
+      - src/curriculum/anki.py
+      - src/curriculum/flashcards.py
+      - src/curriculum/models.py
+      - src/curriculum/store.py
+      - src/web/routes/decks.py
+    frontend:
+      - web/src/app/(dashboard)/learn/decks/page.tsx
+      - web/src/app/(dashboard)/learn/decks/review/page.tsx
+      - web/src/types/decks.ts
+    tests:
+      - tests/curriculum/test_anki.py
+      - tests/curriculum/test_flashcards.py
+      - tests/web/test_deck_routes.py
+    validation_commands:
+      - uv run pytest tests/curriculum/test_anki.py tests/curriculum/test_flashcards.py tests/web/test_deck_routes.py -q
+  note-polish:
+    status: experimental
+    functional_spec: specs/functional/note-polish.md
+    technical_specs:
+      - specs/technical/note-polish.md
+      - specs/technical/web.md
+    backend:
+      - src/notes/polisher.py
+      - src/notes/rendering.py
+      - src/notes/store.py
+      - src/notes/models.py
+      - src/web/routes/notes.py
+    frontend:
+      - web/src/app/(dashboard)/notes/page.tsx
+      - web/src/types/notes.ts
+    tests:
+      - tests/notes/test_polisher.py
+      - tests/notes/test_rendering.py
+      - tests/notes/test_store.py
+      - tests/web/test_notes_routes.py
+    validation_commands:
+      - uv run pytest tests/notes tests/web/test_notes_routes.py -q
   deep-research:
     status: experimental
     functional_spec: specs/functional/deep-research.md

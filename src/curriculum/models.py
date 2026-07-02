@@ -206,6 +206,42 @@ class QuizQuestion(BaseModel):
     expected_answer: str = ""
 
 
+# --- Flashcard decks (Anki import/export) ---
+
+
+class DeckSource(str, Enum):
+    CREATED = "created"
+    IMPORTED = "imported"
+
+
+class Deck(BaseModel):
+    id: str = ""
+    user_id: str = ""
+    title: str = ""
+    description: str = ""
+    source: DeckSource = DeckSource.CREATED
+    anki_deck_id: int | None = None
+    card_count: int = 0
+    due_count: int = 0
+    created_at: datetime | None = None
+
+
+class Flashcard(BaseModel):
+    id: str = ""
+    deck_id: str = ""
+    user_id: str = ""
+    front: str = ""
+    back: str = ""
+    tags: list[str] = Field(default_factory=list)
+    anki_note_guid: str = ""
+    easiness_factor: float = 2.5
+    interval_days: int = 1
+    repetitions: int = 0
+    next_review: datetime | None = None
+    last_reviewed: datetime | None = None
+    created_at: datetime | None = None
+
+
 # --- Stats ---
 
 
