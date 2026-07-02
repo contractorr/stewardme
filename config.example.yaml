@@ -232,3 +232,10 @@ agent:
   coaching:
     blind_spot_detection: true
     celebration: true
+
+# --- Web backend ---
+web:
+  rate_limit:
+    enabled: true            # per-user request limits (all users, 429 + Retry-After)
+    llm_per_minute: 20       # routes that trigger paid LLM calls (advisor ask, research, curriculum generation/grading, onboarding chat)
+    general_per_minute: 120  # all other /api/* routes, keyed per auth token

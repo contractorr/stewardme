@@ -50,6 +50,7 @@ from web.models import (
     CurriculumGuideDetailResponse,
     CurriculumReviewItemResponse,
 )
+from web.rate_limit import check_route_rate_limit
 from web.user_store import log_event
 
 logger = structlog.get_logger()
@@ -88,6 +89,10 @@ def _build_question_generator(user_id: str) -> QuestionGenerator:
     if not api_key:
         return QuestionGenerator()
 
+    # Single chokepoint for the LLM rate limit: every quiz/teachback/
+    # assessment/placement endpoint builds its generator here.
+    check_route_rate_limit(user_id, "llm")
+
     config = get_config()
     provider = provider_name or config.llm.provider
     model = SHARED_LLM_MODEL if source == "shared" else config.llm.model
@@ -108,6 +113,8 @@ def _build_guide_generation_service(user_id: str) -> GuideGenerationService:
             status_code=status.HTTP_424_FAILED_DEPENDENCY,
             detail="Guide generation requires configured LLM credentials.",
         )
+
+    check_route_rate_limit(user_id, "llm")
 
     config = get_config()
     provider = provider_name or config.llm.provider

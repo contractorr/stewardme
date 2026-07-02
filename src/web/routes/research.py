@@ -14,6 +14,7 @@ from web.deps import (
     resolve_llm_credentials_for_user,
     safe_user_id,
 )
+from web.rate_limit import enforce_llm_rate_limit
 
 router = APIRouter(prefix="/api/research", tags=["research"])
 
@@ -87,6 +88,7 @@ async def run_research(
     dossier_id: str | None = None,
     user: dict = Depends(get_current_user),
     _private_key: None = Depends(require_personal_research_key),
+    _rate_limit: None = Depends(enforce_llm_rate_limit),
 ):
     try:
         agent = _get_agent(user["id"])
@@ -117,6 +119,7 @@ async def create_dossier(
     payload: DossierCreateRequest,
     user: dict = Depends(get_current_user),
     _private_key: None = Depends(require_personal_research_key),
+    _rate_limit: None = Depends(enforce_llm_rate_limit),
 ):
     try:
         agent = _get_agent(user["id"])
