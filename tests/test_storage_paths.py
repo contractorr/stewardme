@@ -1,6 +1,8 @@
 """Tests for canonical user path resolution."""
 
-from storage_paths import get_single_user_paths, get_user_paths
+import pytest
+
+from storage_paths import get_single_user_paths, get_user_paths, safe_user_id
 
 
 def test_get_user_paths_returns_canonical_user_and_shared_paths(tmp_path):
@@ -36,3 +38,36 @@ def test_get_single_user_paths_returns_rooted_local_paths(tmp_path):
     assert paths["watchlist_path"] == tmp_path / "watchlist.json"
     assert paths["follow_up_path"] == tmp_path / "intel_follow_ups.json"
     assert paths["intel_db"] == tmp_path / "intel.db"
+
+
+@pytest.mark.parametrize(
+    "user_id",
+    ["12345", "github:12345", "google-oauth2:987"],
+)
+def test_safe_user_id_matches_legacy_mapping_for_deployed_id_formats(user_id):
+    # Existing user directories were created under the old `:` -> `_` mapping;
+    # the allowlist must keep mapping deployed OAuth sub formats identically.
+    assert safe_user_id(user_id) == user_id.replace(":", "_")
+
+
+@pytest.mark.parametrize(
+    "user_id",
+    ["/etc/passwd", "a/../../b", "a\x00b", "github:../../victim"],
+)
+def test_safe_user_id_neutralizes_path_characters(user_id, tmp_path):
+    sanitized = safe_user_id(user_id)
+    assert "/" not in sanitized
+    assert "\\" not in sanitized
+    assert "\x00" not in sanitized
+    assert "." not in sanitized
+
+    users_root = (tmp_path / "users").resolve()
+    data_dir = get_user_paths(user_id, coach_home=tmp_path)["data_dir"].resolve()
+    assert data_dir.is_relative_to(users_root)
+    assert data_dir != users_root
+
+
+@pytest.mark.parametrize("user_id", ["", "../", "..\\", "..", "___", ":::"])
+def test_safe_user_id_rejects_empty_or_punctuation_only_ids(user_id):
+    with pytest.raises(ValueError):
+        safe_user_id(user_id)
