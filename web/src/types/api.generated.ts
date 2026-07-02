@@ -1,6 +1,6 @@
 // This file is generated. Do not edit manually.
 // Source: web/openapi.json
-// OpenAPI SHA256: ca4526077d10f0f313b2a6424396e3d055cad1a7fd6e3e29c048521f913570c8
+// OpenAPI SHA256: d90a8bb2256b5710d0177c761c85b04125b3d653b4c79e54c62d26e0735cae90
 export interface paths {
     "/api/admin/stats": {
         parameters: {
@@ -245,6 +245,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/brief": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Briefs */
+        get: operations["list_briefs_api_brief_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/brief/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Brief Config */
+        get: operations["get_brief_config_api_brief_config_get"];
+        /** Update Brief Config */
+        put: operations["update_brief_config_api_brief_config_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/brief/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate Brief Endpoint */
+        post: operations["generate_brief_endpoint_api_brief_generate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/brief/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Latest Brief */
+        get: operations["get_latest_brief_api_brief_latest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/brief/{brief_id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dismiss Brief */
+        post: operations["dismiss_brief_api_brief__brief_id__dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/brief/{brief_id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark Brief Read */
+        post: operations["mark_brief_read_api_brief__brief_id__read_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/briefing": {
         parameters: {
             query?: never;
@@ -294,6 +397,111 @@ export interface paths {
          * @description Find related chapters from other enrolled guides.
          */
         get: operations["get_related_chapters_api_curriculum_chapters__chapter_id__related_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/curriculum/decks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Decks */
+        get: operations["list_decks_api_curriculum_decks_get"];
+        put?: never;
+        /** Create Deck */
+        post: operations["create_deck_api_curriculum_decks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/curriculum/decks/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import Deck */
+        post: operations["import_deck_api_curriculum_decks_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/curriculum/decks/{deck_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Deck */
+        get: operations["get_deck_api_curriculum_decks__deck_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Deck */
+        delete: operations["delete_deck_api_curriculum_decks__deck_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/curriculum/decks/{deck_id}/cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Card */
+        post: operations["add_card_api_curriculum_decks__deck_id__cards_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/curriculum/decks/{deck_id}/cards/{card_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Card */
+        delete: operations["delete_card_api_curriculum_decks__deck_id__cards__card_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Card */
+        patch: operations["update_card_api_curriculum_decks__deck_id__cards__card_id__patch"];
+        trace?: never;
+    };
+    "/api/curriculum/decks/{deck_id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Deck */
+        get: operations["export_deck_api_curriculum_decks__deck_id__export_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -615,6 +823,60 @@ export interface paths {
         get: operations["get_due_reviews_api_curriculum_review_due_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/curriculum/review/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Review Items
+         * @description Export the user's chapter review questions as an Anki deck.
+         */
+        get: operations["export_review_items_api_curriculum_review_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/curriculum/review/flashcards/due": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Due Flashcards */
+        get: operations["due_flashcards_api_curriculum_review_flashcards_due_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/curriculum/review/flashcards/{card_id}/grade": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Grade Flashcard */
+        post: operations["grade_flashcard_api_curriculum_review_flashcards__card_id__grade_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1138,6 +1400,77 @@ export interface paths {
         get?: never;
         /** Update Status */
         put: operations["update_status_api_goals__filepath__status_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/google/auth-url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Google Auth Url */
+        get: operations["google_auth_url_api_google_auth_url_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/google/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Google Callback
+         * @description OAuth redirect target - unauthenticated; identity comes from the signed state.
+         */
+        get: operations["google_callback_api_google_callback_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/google/disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Google Disconnect */
+        post: operations["google_disconnect_api_google_disconnect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/google/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Google Status */
+        get: operations["google_status_api_google_status_get"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -1820,6 +2153,91 @@ export interface paths {
         get: operations["get_stats_api_memory_stats_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Notes */
+        get: operations["list_notes_api_notes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notes/polish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Polish Note */
+        post: operations["polish_note_api_notes_polish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notes/{note_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Note */
+        get: operations["get_note_api_notes__note_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notes/{note_id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept Note */
+        post: operations["accept_note_api_notes__note_id__accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notes/{note_id}/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Discard Note */
+        post: operations["discard_note_api_notes__note_id__discard_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2719,6 +3137,13 @@ export interface components {
             /** Status */
             status?: string | null;
         };
+        /** Body_import_deck_api_curriculum_decks_import_post */
+        Body_import_deck_api_curriculum_decks_import_post: {
+            /** File */
+            file: string;
+            /** Title */
+            title?: string | null;
+        };
         /** Body_upload_chat_attachment_api_advisor_attachments_post */
         Body_upload_chat_attachment_api_advisor_attachments_post: {
             /** Conversation Id */
@@ -2734,6 +3159,112 @@ export interface components {
             file: string;
             /** Title */
             title?: string | null;
+        };
+        /**
+         * BriefConfig
+         * @description Per-user brief configuration.
+         */
+        BriefConfig: {
+            /**
+             * Custom Sections
+             * @default []
+             */
+            custom_sections: components["schemas"]["BriefCustomSection"][];
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Include Calendar
+             * @default true
+             */
+            include_calendar: boolean;
+            /**
+             * Include Email
+             * @default true
+             */
+            include_email: boolean;
+            /**
+             * Include Journal
+             * @default true
+             */
+            include_journal: boolean;
+            /**
+             * Include Signals
+             * @default true
+             */
+            include_signals: boolean;
+            /**
+             * Max Items Per Section
+             * @default 8
+             */
+            max_items_per_section: number;
+            /**
+             * Min Interval Hours
+             * @default 12
+             */
+            min_interval_hours: number;
+        };
+        /**
+         * BriefCustomSection
+         * @description A user-authored standing instruction the brief always honors.
+         */
+        BriefCustomSection: {
+            /**
+             * Id
+             * @default
+             */
+            id: string;
+            /**
+             * Instructions
+             * @default
+             */
+            instructions: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /**
+             * Use Research
+             * @default false
+             */
+            use_research: boolean;
+        };
+        /** BriefLatestResponse */
+        BriefLatestResponse: {
+            brief?: components["schemas"]["BriefResponse"] | null;
+            /**
+             * Should Generate
+             * @default false
+             */
+            should_generate: boolean;
+        };
+        /** BriefResponse */
+        BriefResponse: {
+            /** Created At */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Period End */
+            period_end: string;
+            /** Period Start */
+            period_start: string;
+            /**
+             * Sections
+             * @default []
+             */
+            sections: {
+                [key: string]: unknown;
+            }[];
+            /** Status */
+            status: string;
+            /**
+             * Summary
+             * @default
+             */
+            summary: string;
         };
         /** BriefingGoal */
         BriefingGoal: {
@@ -3557,6 +4088,124 @@ export interface components {
              */
             title: string;
         };
+        /** DeckCreate */
+        DeckCreate: {
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Title */
+            title: string;
+        };
+        /** DeckDetailResponse */
+        DeckDetailResponse: {
+            /**
+             * Card Count
+             * @default 0
+             */
+            card_count: number;
+            /** Cards */
+            cards?: components["schemas"]["FlashcardResponse"][];
+            /** Created At */
+            created_at?: string | null;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Due Count
+             * @default 0
+             */
+            due_count: number;
+            /** Id */
+            id: string;
+            /**
+             * Source
+             * @default created
+             */
+            source: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+        };
+        /** DeckImportResponse */
+        DeckImportResponse: {
+            /**
+             * Card Count
+             * @default 0
+             */
+            card_count: number;
+            /** Created At */
+            created_at?: string | null;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Due Count
+             * @default 0
+             */
+            due_count: number;
+            /** Id */
+            id: string;
+            /**
+             * Skipped Empty
+             * @default 0
+             */
+            skipped_empty: number;
+            /**
+             * Skipped Media
+             * @default 0
+             */
+            skipped_media: number;
+            /**
+             * Source
+             * @default created
+             */
+            source: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+        };
+        /** DeckResponse */
+        DeckResponse: {
+            /**
+             * Card Count
+             * @default 0
+             */
+            card_count: number;
+            /** Created At */
+            created_at?: string | null;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Due Count
+             * @default 0
+             */
+            due_count: number;
+            /** Id */
+            id: string;
+            /**
+             * Source
+             * @default created
+             */
+            source: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+        };
         /** DegradationItem */
         DegradationItem: {
             /** Component */
@@ -3709,6 +4358,75 @@ export interface components {
              * @default false
              */
             preselected: boolean;
+        };
+        /** FlashcardCreate */
+        FlashcardCreate: {
+            /**
+             * Back
+             * @default
+             */
+            back: string;
+            /** Front */
+            front: string;
+            /** Tags */
+            tags?: string[];
+        };
+        /** FlashcardGradeRequest */
+        FlashcardGradeRequest: {
+            /** Grade */
+            grade?: number | null;
+            /** Rating */
+            rating?: ("again" | "hard" | "good" | "easy") | null;
+        };
+        /** FlashcardResponse */
+        FlashcardResponse: {
+            /**
+             * Back
+             * @default
+             */
+            back: string;
+            /** Created At */
+            created_at?: string | null;
+            /**
+             * Deck Id
+             * @default
+             */
+            deck_id: string;
+            /**
+             * Easiness Factor
+             * @default 2.5
+             */
+            easiness_factor: number;
+            /**
+             * Front
+             * @default
+             */
+            front: string;
+            /** Id */
+            id: string;
+            /**
+             * Interval Days
+             * @default 1
+             */
+            interval_days: number;
+            /** Last Reviewed */
+            last_reviewed?: string | null;
+            /** Next Review */
+            next_review?: string | null;
+            /**
+             * Repetitions
+             * @default 0
+             */
+            repetitions: number;
+            /** Tags */
+            tags?: string[];
+        };
+        /** FlashcardUpdate */
+        FlashcardUpdate: {
+            /** Back */
+            back?: string | null;
+            /** Front */
+            front?: string | null;
         };
         /** FollowUpUpsert */
         FollowUpUpsert: {
@@ -4522,6 +5240,96 @@ export interface components {
              * @default
              */
             repo_full_name: string;
+        };
+        /** NoteCorrection */
+        NoteCorrection: {
+            /**
+             * Corrected
+             * @default
+             */
+            corrected: string;
+            /**
+             * Original
+             * @default
+             */
+            original: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /**
+             * Type
+             * @default rewording
+             */
+            type: string;
+        };
+        /** NotePolishRequest */
+        NotePolishRequest: {
+            /** Text */
+            text: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+        };
+        /** NoteResponse */
+        NoteResponse: {
+            /** Accepted At */
+            accepted_at?: string | null;
+            /** Corrections */
+            corrections?: components["schemas"]["NoteCorrection"][];
+            /** Created At */
+            created_at?: string | null;
+            /**
+             * Diff
+             * @default
+             */
+            diff: string;
+            /** Id */
+            id: string;
+            /** Original Text */
+            original_text?: string | null;
+            /**
+             * Polished Html
+             * @default
+             */
+            polished_html: string;
+            /**
+             * Polished Markdown
+             * @default
+             */
+            polished_markdown: string;
+            /**
+             * Status
+             * @default pending
+             */
+            status: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+        };
+        /** NoteSummaryResponse */
+        NoteSummaryResponse: {
+            /** Accepted At */
+            accepted_at?: string | null;
+            /** Created At */
+            created_at?: string | null;
+            /** Id */
+            id: string;
+            /**
+             * Status
+             * @default pending
+             */
+            status: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
         };
         /** OnboardingChat */
         OnboardingChat: {
@@ -6325,6 +7133,204 @@ export interface operations {
             };
         };
     };
+    list_briefs_api_brief_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                include_dismissed?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BriefResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_brief_config_api_brief_config_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BriefConfig"];
+                };
+            };
+        };
+    };
+    update_brief_config_api_brief_config_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BriefConfig"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BriefConfig"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_brief_endpoint_api_brief_generate_post: {
+        parameters: {
+            query?: {
+                force?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BriefResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_latest_brief_api_brief_latest_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BriefLatestResponse"];
+                };
+            };
+        };
+    };
+    dismiss_brief_api_brief__brief_id__dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_brief_read_api_brief__brief_id__read_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brief_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_briefing_api_briefing_get: {
         parameters: {
             query?: {
@@ -6395,6 +7401,284 @@ export interface operations {
             header?: never;
             path: {
                 chapter_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_decks_api_curriculum_decks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeckResponse"][];
+                };
+            };
+        };
+    };
+    create_deck_api_curriculum_decks_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeckCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeckResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_deck_api_curriculum_decks_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_deck_api_curriculum_decks_import_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeckImportResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_deck_api_curriculum_decks__deck_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deck_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeckDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_deck_api_curriculum_decks__deck_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deck_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_card_api_curriculum_decks__deck_id__cards_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deck_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FlashcardCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlashcardResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_card_api_curriculum_decks__deck_id__cards__card_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deck_id: string;
+                card_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_card_api_curriculum_decks__deck_id__cards__card_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deck_id: string;
+                card_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FlashcardUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlashcardResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_deck_api_curriculum_decks__deck_id__export_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deck_id: string;
             };
             cookie?: never;
         };
@@ -6986,6 +8270,93 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CurriculumReviewItemResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_review_items_api_curriculum_review_export_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    due_flashcards_api_curriculum_review_flashcards_due_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                deck_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlashcardResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    grade_flashcard_api_curriculum_review_flashcards__card_id__grade_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                card_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FlashcardGradeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlashcardResponse"];
                 };
             };
             /** @description Validation Error */
@@ -7852,6 +9223,110 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    google_auth_url_api_google_auth_url_get: {
+        parameters: {
+            query?: {
+                return_to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    google_callback_api_google_callback_get: {
+        parameters: {
+            query?: {
+                code?: string | null;
+                state?: string | null;
+                error?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    google_disconnect_api_google_disconnect_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    google_status_api_google_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };
@@ -9339,6 +10814,161 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemoryStats"];
+                };
+            };
+        };
+    };
+    list_notes_api_notes_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteSummaryResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    polish_note_api_notes_polish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotePolishRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_note_api_notes__note_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_note_api_notes__note_id__accept_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discard_note_api_notes__note_id__discard_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

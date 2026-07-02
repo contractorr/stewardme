@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import {
   BookOpen,
   Brain,
+  FileText,
   GraduationCap,
   HelpCircle,
   Home,
@@ -31,11 +32,13 @@ const primaryNav = [
   { href: "/radar", label: "Radar", icon: Newspaper },
   { href: "/learn", label: "Learn", icon: GraduationCap },
   { href: "/journal", label: "Journal", icon: BookOpen },
+  { href: "/notes", label: "Notes", icon: FileText },
 ];
 
 function resolvePrimaryPath(pathname: string) {
   if (
     pathname === "/home" ||
+    pathname === "/brief" ||
     pathname === "/focus" ||
     pathname === "/goals" ||
     pathname === "/projects" ||
@@ -59,6 +62,10 @@ function resolvePrimaryPath(pathname: string) {
 
   if (pathname === "/journal") {
     return "/journal";
+  }
+
+  if (pathname === "/notes" || pathname.startsWith("/notes/")) {
+    return "/notes";
   }
 
   if (pathname === "/settings") {
@@ -85,7 +92,7 @@ function NavItem({
 }) {
   if (disabled) {
     return (
-      <span className="group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/30 cursor-not-allowed">
+      <span className="group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-sidebar-foreground/30 cursor-not-allowed">
         <Icon className="h-[18px] w-[18px] shrink-0 text-sidebar-foreground/20" />
         {label}
       </span>
@@ -96,16 +103,13 @@ function NavItem({
       href={href}
       onClick={onClick}
       className={cn(
-        "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all",
+        "group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all",
         active
-          ? "bg-sidebar-accent text-sidebar-accent-foreground"
-          : "text-sidebar-foreground/60 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+          ? "bg-sidebar-primary/10 text-sidebar-primary"
+          : "text-sidebar-foreground/60 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
       )}
     >
-      {active && (
-        <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-sidebar-primary" />
-      )}
-      <Icon className={cn("h-[18px] w-[18px] shrink-0", active ? "text-sidebar-primary" : "text-sidebar-foreground/40 group-hover:text-sidebar-foreground/60")} />
+      <Icon className={cn("h-[18px] w-[18px] shrink-0 transition-colors", active ? "text-sidebar-primary" : "text-sidebar-foreground/40 group-hover:text-sidebar-foreground/60")} />
       {label}
     </Link>
   );
@@ -155,10 +159,10 @@ export function Sidebar({
             disabled={disabled}
             className="flex items-center gap-2.5 rounded-lg transition-opacity hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary/10">
-              <Brain className="h-[18px] w-[18px] text-sidebar-primary" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-sidebar-primary shadow-xs">
+              <Brain className="h-[18px] w-[18px] text-sidebar-primary-foreground" />
             </div>
-            <span className="text-[15px] font-semibold tracking-tight text-sidebar-foreground">StewardMe</span>
+            <span className="font-display text-[15px] font-semibold tracking-tight text-sidebar-foreground">StewardMe</span>
           </button>
           <Button
             variant="ghost"

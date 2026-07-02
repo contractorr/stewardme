@@ -7,7 +7,7 @@ from typing import TypedDict
 
 
 class StoragePaths(TypedDict):
-    """Canonical storage path dictionary (18 keys) returned by path builders."""
+    """Canonical storage path dictionary (19 keys) returned by path builders."""
 
     data_dir: Path
     journal_dir: Path
@@ -26,6 +26,7 @@ class StoragePaths(TypedDict):
     follow_up_path: Path  # legacy alias
     intel_follow_ups_path: Path  # canonical
     intel_db: Path
+    briefs_db: Path
     curriculum_dir: Path
     curriculum_archive_dir: Path
 
@@ -86,6 +87,7 @@ def _build_paths(data_dir: Path, profile_path: Path, intel_db: Path) -> StorageP
         follow_up_path=follow_up_path,
         intel_follow_ups_path=follow_up_path,
         intel_db=intel_db,
+        briefs_db=data_dir / "briefs.db",
         curriculum_dir=data_dir / "curriculum",
         curriculum_archive_dir=data_dir / "curriculum-archive",
     )

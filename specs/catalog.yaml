@@ -41,6 +41,15 @@ functional_specs:
       foundations:
         - specs/foundations/design-system.md
         - specs/foundations/ux-guidelines.md
+    anki-decks:
+      path: specs/functional/anki-decks.md
+      status: experimental
+      technical_specs:
+        - specs/technical/anki-decks.md
+        - specs/technical/web.md
+      foundations:
+        - specs/foundations/design-system.md
+        - specs/foundations/ux-guidelines.md
     ask-advice:
       path: specs/functional/ask-advice.md
       status: stable
@@ -121,6 +130,15 @@ functional_specs:
         - specs/technical/recurring-thread-inbox.md
       foundations:
         - specs/foundations/ux-guidelines.md
+    note-polish:
+      path: specs/functional/note-polish.md
+      status: experimental
+      technical_specs:
+        - specs/technical/note-polish.md
+        - specs/technical/web.md
+      foundations:
+        - specs/foundations/design-system.md
+        - specs/foundations/ux-guidelines.md
     profile-onboarding:
       path: specs/functional/profile-onboarding.md
       status: stable
@@ -167,6 +185,7 @@ functional_specs:
     - specs/functional/assumption-watchlist.md
     - specs/functional/attach-to-ask-bridge.md
     - specs/functional/company-movement-pipeline.md
+    - specs/functional/configurable-brief.md
     - specs/functional/configurable-embeddings.md
     - specs/functional/conversation-storage.md
     - specs/functional/curriculum-user-authored-guides.md
@@ -176,6 +195,7 @@ functional_specs:
     - specs/functional/extraction-receipt.md
     - specs/functional/github-project-monitoring.md
     - specs/functional/goal-intel-matching.md
+    - specs/functional/google-brief-sync.md
     - specs/functional/graceful-degradation-ui.md
     - specs/functional/graceful-degradation.md
     - specs/functional/heartbeat-hybrid.md
@@ -204,6 +224,7 @@ functional_specs:
     - specs/functional/trending-radar.md
     - specs/functional/unified-tool-registry.md
     - specs/functional/usage-cost-estimation.md
+    - specs/functional/web-visual-redesign.md
     - specs/functional/x-list-scraper.md
   archived: []
 technical_specs:
@@ -227,6 +248,19 @@ technical_specs:
         - src/web/routes/advisor.py
         - web/src/app/(dashboard)/advisor/page.tsx
         - web/src/app/(dashboard)/home/page.tsx
+    anki-decks:
+      path: specs/technical/anki-decks.md
+      status: experimental
+      implements:
+        - anki-decks
+      code_paths:
+        - src/curriculum/anki.py
+        - src/curriculum/flashcards.py
+        - src/web/routes/decks.py
+        - web/src/app/(dashboard)/learn/decks
+        - tests/curriculum/test_anki.py
+        - tests/curriculum/test_flashcards.py
+        - tests/web/test_deck_routes.py
     cli:
       path: specs/technical/cli.md
       status: stable
@@ -300,6 +334,17 @@ technical_specs:
         - src/memory
         - src/web/routes/memory.py
         - tests/memory
+    note-polish:
+      path: specs/technical/note-polish.md
+      status: experimental
+      implements:
+        - note-polish
+      code_paths:
+        - src/notes
+        - src/web/routes/notes.py
+        - web/src/app/(dashboard)/notes
+        - tests/notes
+        - tests/web/test_notes_routes.py
     profile:
       path: specs/technical/profile.md
       status: stable
@@ -337,6 +382,7 @@ technical_specs:
       status: updated
       implements:
         - analytics-admin
+        - anki-decks
         - ask-advice
         - curriculum
         - deep-research
@@ -346,6 +392,7 @@ technical_specs:
         - landing-page
         - library-reports
         - memory-threads
+        - note-polish
         - profile-onboarding
         - settings-account
       code_paths:
@@ -361,6 +408,7 @@ technical_specs:
     - specs/technical/assumption-watchlist.md
     - specs/technical/attach-to-ask-bridge.md
     - specs/technical/company-movement-pipeline.md
+    - specs/technical/configurable-brief.md
     - specs/technical/configurable-embeddings.md
     - specs/technical/conversation-storage.md
     - specs/technical/curriculum-user-authored-guides.md
@@ -372,6 +420,7 @@ technical_specs:
     - specs/technical/github-project-monitoring.md
     - specs/technical/goal-intel-matching.md
     - specs/technical/goal-learning-merge.md
+    - specs/technical/google-brief-sync.md
     - specs/technical/graceful-degradation-ui.md
     - specs/technical/graceful-degradation.md
     - specs/technical/greeting-cache.md
@@ -398,5 +447,6 @@ technical_specs:
     - specs/technical/unified-tool-registry.md
     - specs/technical/usage-cost-estimation.md
     - specs/technical/user-data-storage.md
+    - specs/technical/web-visual-redesign.md
     - specs/technical/x-list-scraper.md
   archived: []

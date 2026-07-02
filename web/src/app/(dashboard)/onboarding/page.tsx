@@ -1,10 +1,12 @@
 "use client";
 
 import { useRef, useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Brain,
   BookOpen,
+  CalendarDays,
+  Mail,
   FileText,
   GitMerge,
   GraduationCap,
@@ -45,7 +47,7 @@ import { useToken } from "@/hooks/useToken";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
 
-type Phase = "intro" | "name" | "welcome" | "chat" | "feeds" | "guide" | "done";
+type Phase = "intro" | "name" | "welcome" | "chat" | "feeds" | "google" | "guide" | "done";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -178,7 +180,10 @@ export const behindTheScenesCards = [
 export default function OnboardingPage() {
   const token = useToken();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [phase, setPhase] = useState<Phase>("name");
+  const [googleAvailable, setGoogleAvailable] = useState(false);
+  const [connectingGoogle, setConnectingGoogle] = useState(false);
   const [provider, setProvider] = useState("auto");
   const [apiKey, setApiKey] = useState("");
   const [saving, setSaving] = useState(false);
@@ -259,6 +264,45 @@ export default function OnboardingPage() {
   const handleDone = useCallback(() => {
     router.replace("/home");
   }, [router]);
+
+  // Returning from the Google consent flow: onboarding data was persisted
+  // before the redirect. Success shows the done screen (auto-redirects home);
+  // failure lands on Brief settings where the retry button lives.
+  useEffect(() => {
+    const result = searchParams.get("google");
+    if (!result) return;
+    if (result === "connected") {
+      toast.success("Google connected — your brief will plan your day and watch your inbox");
+      setPhase("done");
+    } else {
+      router.replace("/brief?google=error");
+    }
+  }, [searchParams, router]);
+
+  // Offer the Google step only when the server integration is configured
+  // and this account is not already connected.
+  useEffect(() => {
+    if (!token) return;
+    apiFetch<{ available: boolean; connected: boolean }>("/api/v1/google/status", {}, token)
+      .then((status) => setGoogleAvailable(status.available && !status.connected))
+      .catch(() => setGoogleAvailable(false));
+  }, [token]);
+
+  const handleConnectGoogle = async () => {
+    if (!token || connectingGoogle) return;
+    setConnectingGoogle(true);
+    try {
+      const { url } = await apiFetch<{ url: string }>(
+        "/api/v1/google/auth-url?return_to=onboarding",
+        {},
+        token,
+      );
+      window.location.href = url;
+    } catch (e) {
+      toast.error((e as Error).message);
+      setConnectingGoogle(false);
+    }
+  };
 
   // Auto-redirect after done
   useEffect(() => {
@@ -442,7 +486,11 @@ export default function OnboardingPage() {
         token,
       );
       setFeedsAdded(res.feeds_added);
-      handleDone();
+      if (googleAvailable) {
+        setPhase("google");
+      } else {
+        handleDone();
+      }
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -773,6 +821,72 @@ export default function OnboardingPage() {
               >
                 {savingFeeds ? "Adding feeds..." : "Continue"}
                 {!savingFeeds && <ArrowRight className="ml-2 h-4 w-4" />}
+              </Button>
+              <button
+                onClick={handleDone}
+                className="mt-2 w-full text-center text-xs text-muted-foreground hover:text-foreground"
+              >
+                Skip for now
+              </button>
+            </div>
+          </div>
+        )}
+
+        {phase === "google" && (
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <div className="px-6 pt-6 pb-2 text-center">
+              <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                <CalendarDays className="h-6 w-6 text-primary" />
+              </div>
+              <h2 className="text-lg font-semibold">Plan your day automatically</h2>
+              <p className="text-sm text-muted-foreground">
+                Connect Google so your brief knows what&apos;s coming up and
+                which emails matter.
+              </p>
+            </div>
+
+            <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
+              <div className="flex gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted">
+                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Coming up</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Each brief opens with today&apos;s schedule and a short
+                    outlook for the week — busy days, deadlines, open
+                    stretches.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Inbox watch</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Unread emails that actually need attention, prioritized —
+                    who it&apos;s from, what it&apos;s about, and what to do
+                    next.
+                  </p>
+                </div>
+              </div>
+              <div className="rounded-lg border bg-muted/50 p-3 text-xs text-muted-foreground leading-relaxed">
+                <span className="font-medium text-foreground">Read-only.</span>{" "}
+                StewardMe can never send email or change events, and you can
+                disconnect anytime from Brief settings.
+              </div>
+            </div>
+
+            <div className="border-t px-6 py-4">
+              <Button
+                onClick={handleConnectGoogle}
+                disabled={connectingGoogle}
+                className="w-full"
+              >
+                {connectingGoogle ? "Opening Google..." : "Connect Google"}
+                {!connectingGoogle && <ArrowRight className="ml-2 h-4 w-4" />}
               </Button>
               <button
                 onClick={handleDone}

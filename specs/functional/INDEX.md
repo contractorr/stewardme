@@ -9,6 +9,7 @@ Use this file for quick human scanning of the active tracked features.
 | Feature ID | File | Status | Primary Surface |
 | --- | --- | --- | --- |
 | `analytics-admin` | [analytics-admin.md](analytics-admin.md) | `stable` | Admin and settings analytics |
+| `anki-decks` | [anki-decks.md](anki-decks.md) | `experimental` | Learn (flashcard decks) |
 | `ask-advice` | [ask-advice.md](ask-advice.md) | `stable` | Home and advisor |
 | `curriculum` | [curriculum.md](curriculum.md) | `implemented` | Learn |
 | `deep-research` | [deep-research.md](deep-research.md) | `experimental` | Research |
@@ -18,6 +19,7 @@ Use this file for quick human scanning of the active tracked features.
 | `landing-page` | [landing-page.md](landing-page.md) | `stable` | Public root route |
 | `library-reports` | [library-reports.md](library-reports.md) | `partially_implemented` | Research library |
 | `memory-threads` | [memory-threads.md](memory-threads.md) | `experimental` | Settings and Radar |
+| `note-polish` | [note-polish.md](note-polish.md) | `experimental` | Notes |
 | `profile-onboarding` | [profile-onboarding.md](profile-onboarding.md) | `stable` | Onboarding |
 | `recommendations` | [recommendations.md](recommendations.md) | `stable` | Home and Goals |
 | `research-dossiers` | [research-dossiers.md](research-dossiers.md) | `experimental` | Radar and Research |

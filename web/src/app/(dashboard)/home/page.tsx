@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { ChatAttachmentBadges, ChatPdfAttachmentPicker } from "@/components/ChatPdfAttachments";
 import { DashboardPageContainer } from "@/components/DashboardPageContainer";
+import { BriefCard } from "@/components/home/BriefCard";
 import { LearningSnapshotCard } from "@/components/home/LearningSnapshotCard";
 import { ReturnBriefCard } from "@/components/home/ReturnBriefCard";
 import { WhyNowChip } from "@/components/shared/WhyNowChip";
@@ -105,6 +106,7 @@ function sourceWorkspace(item: SuggestionItem) {
 }
 
 const HOME_LINKS = [
+  { href: "/brief", label: "Brief" },
   { href: "/goals", label: "Goals" },
   { href: "/research", label: "Research" },
   { href: "/learn", label: "Guide Library" },
@@ -388,7 +390,7 @@ export default function HomePage() {
           <div className="relative rounded-2xl border bg-card/60 p-5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/70 sm:p-6">
             <div className="space-y-4">
               <div className="space-y-1">
-                <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                <h1 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">
                   {timeGreeting()}{userName ? `, ${userName.split(" ")[0]}` : ""}
                 </h1>
                 {greeting ? (
@@ -406,6 +408,8 @@ export default function HomePage() {
           </div>
         </div>
       ) : null}
+
+      <BriefCard />
 
       <Card className="animate-in gap-4 border-primary/10 bg-card/70 py-5 shadow-sm fade-in-0 slide-in-from-bottom-2 duration-400 fill-mode-both delay-100">
         <CardHeader className="space-y-3 px-5 pb-0 sm:px-6">
@@ -436,20 +440,6 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary" className="text-[11px]">
-              {modeLocked ? "Manual" : "Auto"}
-            </Badge>
-            <p className="text-xs text-muted-foreground">
-              {modeLocked
-                ? modeStatus
-                : mode === "ask"
-                  ? "Question detected. Enter will ask for guidance."
-                  : "Enter will save this draft to Journal."}
-            </p>
-          </div>
-
-          <p className="text-sm text-muted-foreground">{composerCopy.helper}</p>
         </CardHeader>
 
         <CardContent className="space-y-3 px-5 sm:px-6">
@@ -498,11 +488,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <p className="text-xs text-muted-foreground">
-            {modeLocked
-              ? "Clear the draft to return to automatic mode detection."
-              : "Home switches between capture and ask automatically while you draft."}
-          </p>
+          <p className="text-xs text-muted-foreground">{modeStatus}</p>
         </CardContent>
       </Card>
 

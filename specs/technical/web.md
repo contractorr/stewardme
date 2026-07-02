@@ -4,6 +4,7 @@ category: tracked_module
 status: updated
 implements:
 - analytics-admin
+- anki-decks
 - ask-advice
 - curriculum
 - deep-research
@@ -13,6 +14,7 @@ implements:
 - landing-page
 - library-reports
 - memory-threads
+- note-polish
 - profile-onboarding
 - settings-account
 code_paths:

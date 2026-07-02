@@ -30,6 +30,23 @@ This document is a cross-cutting foundation spec. It does not replace feature sp
 4. **Readable at speed** - Dense views are acceptable, but hierarchy must remain obvious.
 5. **Accessible by default** - Keyboard support, visible focus, contrast, and semantic structure are not optional.
 
+## Visual Direction: Warm Minimalism
+
+The current theme (see `specs/technical/web-visual-redesign.md`) is "warm
+minimalism": a soft warm-paper canvas, near-white flat cards with hairline
+borders, a toasted-amber primary, and generous rounding. Personality comes
+from a display typeface (Space Grotesk, exposed as the `font-display`
+utility) on the wordmark and page-level headings, brand-tinted text
+selection, and a subtle button press-down micro-interaction — not from
+gradients, heavy shadows, or decorative color.
+
+- Cards are flat by default (`shadow-xs`, no hover lift); only genuinely
+  clickable surfaces add hover elevation.
+- The display font is opt-in per heading; body and long-form content stay
+  in Geist.
+- Chrome stays quiet: one control per action (no duplicated sign-out or
+  settings entries), and helper copy is a single line, not a paragraph.
+
 ## Tokens
 
 ### Color roles

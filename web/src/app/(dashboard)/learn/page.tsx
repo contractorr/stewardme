@@ -152,7 +152,7 @@ export default function LearnPage() {
       const categoryLabel = guideCategoryLabels[guide.category].toLowerCase();
       return (
         guide.title.toLowerCase().includes(query) ||
-        guide.summary.toLowerCase().includes(query) ||
+        (guide.summary ?? "").toLowerCase().includes(query) ||
         categoryLabel.includes(query)
       );
     });
@@ -266,6 +266,12 @@ export default function LearnPage() {
                 ? `${inProgressCount} guide${inProgressCount === 1 ? "" : "s"} currently in progress.`
                 : "No guides in progress yet."}
             </p>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/learn/decks">
+                Flashcard decks
+                <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+              </Link>
+            </Button>
           </CardContent>
         </Card>
       </section>

@@ -82,12 +82,13 @@ const TECH_STACK = [
 
 export default function Landing() {
   return (
-    <div className="flex min-h-screen flex-col items-center bg-muted/40">
-      <section className="flex flex-col items-center px-4 pt-[15vh] pb-10 text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-          <Brain className="h-7 w-7 text-primary" />
+    <div className="relative flex min-h-screen flex-col items-center overflow-hidden">
+      <div className="pointer-events-none absolute -top-40 left-1/2 h-[28rem] w-[52rem] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
+      <section className="relative flex flex-col items-center px-4 pt-[15vh] pb-10 text-center">
+        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary shadow-sm">
+          <Brain className="h-7 w-7 text-primary-foreground" />
         </div>
-        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
+        <h1 className="font-display text-4xl font-bold tracking-tight sm:text-6xl">
           Know what matters next
         </h1>
         <p className="mt-4 max-w-md text-lg text-muted-foreground">
@@ -117,8 +118,8 @@ export default function Landing() {
       <section className="w-full max-w-3xl px-4 pt-2 pb-12">
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
           {PILLARS.map(({ icon: Icon, title, description }) => (
-            <div key={title} className="flex flex-col items-center rounded-xl border bg-card p-6 text-center">
-              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+            <div key={title} className="flex flex-col items-center rounded-2xl border bg-card p-6 text-center shadow-xs">
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
                 <Icon className="h-5 w-5 text-primary" />
               </div>
               <p className="text-sm font-semibold">{title}</p>
@@ -143,7 +144,7 @@ export default function Landing() {
       </section>
 
       <section className="w-full max-w-[700px] px-4 py-12">
-        <h2 className="mb-6 text-center text-2xl font-semibold tracking-tight">
+        <h2 className="mb-6 text-center font-display text-2xl font-semibold tracking-tight">
           What StewardMe does
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -200,10 +201,10 @@ export default function Landing() {
       </section>
 
       <section className="flex w-full max-w-xl flex-col items-center px-4 py-16 text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
           <Code2 className="h-7 w-7 text-primary" />
         </div>
-        <h2 className="text-2xl font-semibold tracking-tight">
+        <h2 className="font-display text-2xl font-semibold tracking-tight">
           Open source and easy to extend
         </h2>
         <p className="mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
