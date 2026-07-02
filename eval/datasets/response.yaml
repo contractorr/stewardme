@@ -18,18 +18,22 @@ cases:
     forbidden_traits: ["generic advice ignoring profile"]
     description: "Career-specific advice"
 
-  # Opportunities
+  # Opportunities — abstention ("no qualifying opportunities") is a correct,
+  # complete answer when the context lacks a specific match; padding to a
+  # count is the failure mode, not the short answer.
   - query: "Are there any interesting opportunities in AI?"
     advice_type: "opportunities"
-    expected_traits: ["references intel items", "relevant to user interests"]
-    forbidden_traits: ["hallucinated company names"]
-    description: "Opportunity matching from intel"
+    expected_traits:
+      ["references intel items OR clearly states no qualifying opportunities", "relevant to user interests when items are offered"]
+    forbidden_traits: ["hallucinated company names", "manufactured opportunities without intel support"]
+    description: "Opportunity matching from intel; abstention allowed"
 
   - query: "What trending projects align with my skills?"
     advice_type: "opportunities"
-    expected_traits: ["references trending items", "connects to user skills"]
-    forbidden_traits: ["fabricated project names"]
-    description: "Skill-matched opportunities"
+    expected_traits:
+      ["references trending items OR clearly states nothing qualifying", "connects to user skills when items are offered"]
+    forbidden_traits: ["fabricated project names", "generic filler to reach a count"]
+    description: "Skill-matched opportunities; fewer/zero items beat padded output"
 
   # Context integration
   - query: "Summarize what I've been working on recently"
@@ -98,9 +102,10 @@ cases:
   # Context assembly quality (memory/profile/thoughts injection)
   - query: "What habits have I mentioned consistently?"
     advice_type: "general"
-    expected_traits: ["references user memory facts", "identifies patterns"]
-    forbidden_traits: ["invents habits not in memory"]
-    description: "Memory injection grounding"
+    expected_traits:
+      ["references user memory facts", "supports any asserted pattern with quoted evidence or declines to assert one"]
+    forbidden_traits: ["invents habits not in memory", "asserts patterns without supporting quotes"]
+    description: "Memory injection grounding; patterns need evidence"
 
   - query: "I keep coming back to the same topic"
     advice_type: "general"
