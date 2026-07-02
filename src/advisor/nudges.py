@@ -82,9 +82,9 @@ class NudgeEngine:
                 > week_ago
             ]
 
-            if len(recent) >= 5:
-                return [f"{len(recent)} entries this week — solid streak!"]
-            elif len(recent) == 0:
+            # Default to nothing: nudges fire only on actionable conditions.
+            # Praise/streak messages are manufactured output, not a nudge.
+            if len(recent) == 0:
                 return ["No journal entries in 7 days. Quick reflection? `coach journal add`"]
         return []
 

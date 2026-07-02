@@ -18,13 +18,13 @@ cases:
     description: "should ground in profile gaps and trending tech"
 
   - query: "Are there any opportunities I should explore?"
-    description: "should reference intel items and match to profile"
+    description: "should reference intel items matched to profile, OR clearly state no qualifying opportunities — abstention is well-grounded when the context lacks a specific match"
 
   - query: "What patterns do you see in my recent work?"
-    description: "should reference multiple journal entries"
+    description: "should support any asserted pattern with dated verbatim journal quotes, framed as questions; declining to assert a pattern without 3+ supporting quotes is well-grounded"
 
   - query: "Give me a weekly review"
-    description: "should synthesize journal + intel + goals"
+    description: "should synthesize journal + intel + goals; sections without supporting evidence should be explicitly omitted rather than filled"
 
   - query: "What should I read next based on my interests?"
     description: "should reference intel items matching profile interests"

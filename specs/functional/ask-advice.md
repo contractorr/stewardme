@@ -47,6 +47,34 @@ Home is the default entry point for both note capture and grounded advice. The p
 - User opens the full chat deep link only when a longer thread needs more space.
 - User stays on Home for short back-and-forth exchanges and only leaves for `/advisor` when the thread becomes long enough to need a dedicated workspace.
 
+## Advisory Discipline (applies to all advisory output)
+
+The user makes high-stakes decisions on this advice; always-produce advice is
+a defect because it manufactures opportunities and patterns whether or not
+evidence exists. Every advisory template (weekly review, opportunities, goal
+analysis, recommendations, briefs, nudges) must encode:
+
+- **Default to nothing.** If the evidence doesn't clear the bar, say so in
+  one line and stop. "No qualifying opportunities this period" is a correct,
+  complete answer. No mandated counts — "at most N", never "exactly N",
+  with zero as the expected result most runs.
+- **Evidence bar for patterns.** A pattern may only be asserted if supported
+  by ≥3 dated, verbatim journal quotes, which must be included. Otherwise it
+  is not a pattern; omit it.
+- **Reflect, don't diagnose.** The assistant may quote what the user wrote
+  and name tensions between things the user wrote or did; it may not assert
+  why the user did something, what they're feeling, or what a pattern "means
+  about" them. Patterns are framed as questions, not findings.
+- **Sentiment/energy:** no free-form energy commentary. Only if logged
+  sentiment/energy declines for 3+ consecutive entries, flag it once, paired
+  only with a recovery suggestion (rest, scope reduction, talking to a
+  person) — never a productivity optimization.
+- **Caps.** At most 3 items in any advisory output section.
+- **Hypotheses, not conclusions.** Action suggestions are phrased as
+  "Hypothesis: …" with the evidence that motivates them; no confident causal
+  claims about markets or the user.
+- Existing tone rules (direct, no cheerleading, no emojis) remain.
+
 ## Acceptance Criteria — Prompt Assembly
 
 - All `ask()` invocations (CLI, web, MCP, council) use a single prompt assembly path via `build_context_for_ask()`.

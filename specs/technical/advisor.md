@@ -43,6 +43,29 @@ Advisor remains the conversational engine, but Home is now the primary entry poi
 - `rag_config` flags (`inject_memory`, `inject_documents`, etc.) control what `build_context_for_ask` retrieves, not which prompt branch runs.
 - `_build_user_prompt()` collapses empty context slots via blank-line removal, so missing data is harmless.
 
+## Advisory Discipline (prompt encoding)
+
+`PromptTemplates.ADVISORY_DISCIPLINE` (appended to the base `SYSTEM` and
+agentic system prompts) encodes the global rules from
+`specs/functional/ask-advice.md` § Advisory Discipline: default-to-nothing,
+≥3-dated-quote evidence bar for patterns, reflect-don't-diagnose, at most 3
+items per section, hypothesis phrasing. Per-template specifics:
+
+- `WEEKLY_REVIEW`: no mandated "patterns noticed / energy levels" — open
+  questions require the quote bar; sentiment flagged only on a 3+-entry
+  logged decline and paired only with a recovery suggestion.
+- `OPPORTUNITY_DETECTION`: "at most 3, zero expected most runs" with an
+  explicit bar (specific intel item + specific journal skill/goal + concrete
+  action).
+- `GOAL_ANALYSIS`: adjustments only when evidence shows stall/mis-scope,
+  phrased as hypotheses; "no logged evidence either way" is a valid finding.
+- `UNIFIED_RECOMMENDATIONS*`: "at most {max_items}", zero acceptable.
+- `TOP_PICKS`, `WEEKLY_ACTION_BRIEF`, `EVENT_RECOMMENDATIONS`,
+  `PROJECT_RECOMMENDATIONS`, `SIDE_PROJECT_IDEAS`: caps at 3 / "fewer if
+  fewer clear the bar".
+- `nudges.py`: fires only on actionable conditions (stale profile, stale
+  goal, zero recent entries); no praise/streak nudges.
+
 ## Untrusted External Content (prompt-injection hardening)
 
 `src/advisor/untrusted.py` provides the provenance layer for scraped content:
