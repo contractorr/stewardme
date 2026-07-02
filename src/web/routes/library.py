@@ -1,5 +1,6 @@
 """Library routes for durable AI-generated reports and uploaded PDFs."""
 
+import asyncio
 from datetime import datetime
 from pathlib import Path
 
@@ -273,7 +274,9 @@ async def create_report(
     user: dict = Depends(get_current_user),
 ):
     title = (body.title or "").strip() or _derive_title(body.prompt, body.report_type)
-    content = _generate_report_content(user["id"], body.prompt, body.report_type)
+    content = await asyncio.to_thread(
+        _generate_report_content, user["id"], body.prompt, body.report_type
+    )
     store = _get_store(user["id"])
     report = store.create(
         title=title,
@@ -409,7 +412,9 @@ async def refresh_report(
         raise HTTPException(status_code=404, detail="Report not found")
     if existing.get("source_kind") != "generated":
         raise HTTPException(status_code=400, detail="Only generated reports can be refreshed")
-    content = _generate_report_content(user["id"], existing["prompt"], existing["report_type"])
+    content = await asyncio.to_thread(
+        _generate_report_content, user["id"], existing["prompt"], existing["report_type"]
+    )
     report = store.update_report(
         report_id,
         content=content,

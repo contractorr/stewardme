@@ -45,7 +45,11 @@ def _get_db_components(collection: str):
         intel_storage = get_intel_storage(
             config, storage_paths=get_storage_paths(config=config, paths=paths)
         )
-        intel_embeddings = IntelEmbeddingManager(paths["chroma_dir"] / "intel", config=config_dict)
+        from storage_paths import get_intel_chroma_dir
+
+        intel_embeddings = IntelEmbeddingManager(
+            get_intel_chroma_dir(config_dict), config=config_dict
+        )
         intel_search = IntelSearch(intel_storage, intel_embeddings)
         # Count rows directly — IntelStorage has no count() method
         try:

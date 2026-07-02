@@ -248,6 +248,18 @@ Current properties:
   - lower-level fallback logic
   - LLM grading for richer answers
 
+#### LLM invocation contract
+
+- `LLMProvider.generate` is synchronous and takes a message list
+  (`[{"role": "user", "content": prompt}]`), never a bare prompt string.
+- All `QuestionGenerator` LLM calls go through one `_call_llm` helper that runs
+  the provider via `asyncio.to_thread` so async route handlers never block the
+  event loop, and awaits the result if a test double returns an awaitable.
+- Regression guard: at least one test exercises `QuestionGenerator` against a
+  synchronous provider double (spec-shaped `MagicMock`, not `AsyncMock`) so an
+  interface mismatch fails in CI instead of being swallowed by the broad
+  exception fallbacks.
+
 ### Personalization and Applied Assessments
 
 **File:** `src/curriculum/personalization.py`

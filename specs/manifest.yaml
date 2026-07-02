@@ -190,9 +190,10 @@ features:
     tests:
       - tests/curriculum/test_store.py
       - tests/curriculum/test_scanner.py
+      - tests/curriculum/test_question_generator.py
       - tests/web/test_curriculum_routes.py
     validation_commands:
-      - uv run pytest tests/curriculum/test_store.py tests/curriculum/test_scanner.py tests/web/test_curriculum_routes.py -q
+      - uv run pytest tests/curriculum/test_store.py tests/curriculum/test_scanner.py tests/curriculum/test_question_generator.py tests/web/test_curriculum_routes.py -q
   anki-decks:
     status: experimental
     functional_spec: specs/functional/anki-decks.md

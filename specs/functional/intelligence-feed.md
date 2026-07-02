@@ -32,6 +32,7 @@ Radar is the unified monitoring workspace for external signals, recurring thread
 - Threads and active dossiers live inside Radar because they are active monitoring work.
 - A `Scan now` action refreshes monitoring on demand.
 - The advanced `/intel` page remains available for power users but is no longer the primary monitoring entry point.
+- Semantic intel search and the advisor's intel retrieval operate on the same embeddings the scrapers produce — a scraped item that matches a query semantically must be findable everywhere (web, CLI, advisor), not only via keyword search.
 
 ## User Flows
 

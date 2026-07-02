@@ -1,5 +1,7 @@
 """LLM-powered question generation and answer grading for curriculum."""
 
+import asyncio
+import inspect
 import json
 import uuid
 from datetime import datetime
@@ -172,6 +174,14 @@ class QuestionGenerator:
         self.llm = llm_provider
         self.cheap_llm = cheap_llm_provider or llm_provider
 
+    @staticmethod
+    async def _call_llm(provider, prompt: str) -> str:
+        """LLMProvider.generate is sync and takes a message list; run it off the loop."""
+        result = await asyncio.to_thread(provider.generate, [{"role": "user", "content": prompt}])
+        if inspect.isawaitable(result):
+            result = await result
+        return result
+
     async def generate_questions(
         self,
         content: str,
@@ -244,7 +254,7 @@ class QuestionGenerator:
         )
 
         try:
-            response = await self.cheap_llm.generate(prompt)
+            response = await self._call_llm(self.cheap_llm, prompt)
             questions = self._parse_questions(response)
         except Exception:
             logger.exception("curriculum.questions.generation_failed")
@@ -327,7 +337,7 @@ class QuestionGenerator:
         )
 
         try:
-            response = await self.cheap_llm.generate(prompt)
+            response = await self._call_llm(self.cheap_llm, prompt)
             questions = self._parse_questions(response)
             # Assign IDs
             for q in questions:
@@ -366,7 +376,7 @@ class QuestionGenerator:
         )
 
         try:
-            response = await provider.generate(prompt)
+            response = await self._call_llm(provider, prompt)
             return self._parse_grade(response)
         except Exception:
             logger.exception("curriculum.grading.failed")
@@ -398,7 +408,7 @@ class QuestionGenerator:
         )
 
         try:
-            response = await self.cheap_llm.generate(prompt)
+            response = await self._call_llm(self.cheap_llm, prompt)
             data = json.loads(self._strip_code_fences(response))
             concept = data.get("concept", "")
             description = data.get("description", "")
@@ -445,7 +455,7 @@ class QuestionGenerator:
         )
 
         try:
-            response = await provider.generate(prompt)
+            response = await self._call_llm(provider, prompt)
             return self._parse_grade(response)
         except Exception:
             logger.exception("curriculum.teachback.grading_failed")
@@ -475,7 +485,7 @@ class QuestionGenerator:
         )
 
         try:
-            response = await provider.generate(prompt)
+            response = await self._call_llm(provider, prompt)
             return self._parse_grade(response)
         except Exception:
             logger.exception("curriculum.applied_assessment.grading_failed")

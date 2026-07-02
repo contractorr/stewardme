@@ -114,14 +114,13 @@ def get_intel_search(user_id: str | None = None):
     embedding_manager = None
     try:
         from intelligence.embeddings import IntelEmbeddingManager
+        from storage_paths import get_intel_chroma_dir
 
-        paths = get_coach_paths()
-        chroma_dir = Path(paths.get("chroma_dir", paths["intel_db"]).parent / "chroma")
-        mgr = IntelEmbeddingManager(chroma_dir)
+        mgr = IntelEmbeddingManager(get_intel_chroma_dir(get_config().to_dict()))
         if mgr.is_available:
             embedding_manager = mgr
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("intel_search.embeddings_unavailable", error=str(exc))
     return IntelSearch(storage, embedding_manager=embedding_manager, user_id=user_id)
 
 

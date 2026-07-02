@@ -43,6 +43,28 @@ def get_coach_home(coach_home: Path | None = None) -> Path:
     return Path.home() / "coach"
 
 
+def get_intel_chroma_dir(config: dict | None = None) -> Path:
+    """Canonical global directory of the shared intel embedding store.
+
+    Intel embeddings are written by the global scrapers and read by web, CLI,
+    and the scheduler — every consumer must resolve the same directory, so
+    this is the ONLY sanctioned way to locate it. Per-user chroma dirs are
+    never used for intel (intel is shared, like ``intel.db``).
+
+    Precedence mirrors ``web.deps_base.get_coach_paths``: ``COACH_HOME`` env
+    var first, then ``paths.chroma_dir`` from a config dict, then the default
+    ``~/coach/chroma``.
+    """
+    env_home = os.getenv("COACH_HOME")
+    if env_home:
+        return Path(env_home).expanduser() / "chroma"
+    if config is not None:
+        from coach_config import get_paths
+
+        return get_paths(config)["chroma_dir"]
+    return Path.home() / "coach" / "chroma"
+
+
 def safe_user_id(user_id: str) -> str:
     """Sanitize a user ID for file paths and collection names.
 

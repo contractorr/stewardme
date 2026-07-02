@@ -32,6 +32,7 @@ Journaling is the product's capture flywheel. Quick capture belongs on Home, whi
 - The full Journal workspace still supports richer editing, templates, filters, and search.
 - Journal should open with capture/search/filter controls and the entry list, not a stats dashboard.
 - Journal activity feeds threads, memory, extraction receipts, and downstream prioritization.
+- Saving an entry returns immediately; enrichment (title generation, embedding, thread detection, memory extraction) runs in the background and must never make the app unresponsive for the saving user or anyone else.
 
 ## User Flows
 

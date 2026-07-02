@@ -277,6 +277,7 @@ Rules:
 - [ ] Guide Library supports lightweight topic filtering and a clear recommended order without exposing tracks or trees.
 - [ ] Search is sufficient for finding guides in the normal case.
 - [ ] Learning does not auto-create goals or drafts as part of the default flow.
+- [ ] With an LLM provider configured, quiz, placement, pre-reading, and teach-back questions are actually generated for substantive chapters, and answers above recall level are LLM-graded rather than silently falling back to keyword matching.
 
 ## Edge Cases
 
@@ -290,6 +291,7 @@ Rules:
 | A chapter has no authored or inferred learning aids | The reader falls back to plain reading without empty panels or placeholders |
 | Content is missing or sync fails | The page degrades to a simple empty or reduced state without exposing internal complexity |
 | A guide record is missing optional-looking fields (e.g. no summary) | Search and browsing keep working; the guide card falls back to placeholder copy instead of the page crashing |
+| The LLM call fails during question generation or grading | Generation returns an explicit empty result and grading falls back to keyword grading; the failure is logged, never shown as a crash — but a healthy provider must never be treated as failed |
 
 ## Design Notes
 

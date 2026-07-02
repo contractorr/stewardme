@@ -38,6 +38,30 @@ The intelligence layer powers Radar, the Home next-step feed, and part of Goals 
 - Radar is now the default intelligence UX.
 - The advanced Intel page remains available for deeper filtering and power-user workflows.
 
+## Intel Embedding Store Location
+
+Intel embeddings (semantic dedup + semantic intel search) live in ONE global
+directory shared by every consumer, resolved exclusively via
+`storage_paths.get_intel_chroma_dir(config)`:
+
+1. `$COACH_HOME/chroma` when `COACH_HOME` is set (matches web deps precedence)
+2. `paths.chroma_dir` from config when a config dict is passed
+3. `~/coach/chroma` otherwise
+
+Invariants:
+
+- Writers (scraper embedding manager from `scraper_factory._create_embedding_mgr`)
+  and readers (web `get_intel_search`, web advisor engine, CLI components,
+  `coach intel dedup-backfill`) MUST all construct `IntelEmbeddingManager`
+  with this resolver. Per-user chroma dirs are never used for intel — intel
+  is shared, like `intel.db`.
+- No ad-hoc subdirectories (the legacy `chroma_dir / "intel"` CLI convention
+  is retired; any store left there is orphaned and regenerable via
+  `coach db rebuild`).
+- Construction failures in read paths must log a warning, never silently
+  `pass` — a missing embedding store degrades semantic intel search to
+  keyword-only and the operator needs a signal.
+
 ## Local Drop-Folder Ingest
 
 `src/intelligence/sources/local_drop.py` — `LocalDropScraper(BaseScraper)`,

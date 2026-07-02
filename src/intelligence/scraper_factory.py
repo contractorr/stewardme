@@ -95,11 +95,10 @@ class ScraperFactory:
         if not self.config.get("semantic_dedup", False):
             return None
         try:
-            from coach_config import get_paths
             from intelligence.embeddings import IntelEmbeddingManager
+            from storage_paths import get_intel_chroma_dir
 
-            paths = get_paths(self.full_config)
-            mgr = IntelEmbeddingManager(paths["chroma_dir"])
+            mgr = IntelEmbeddingManager(get_intel_chroma_dir(self.full_config))
             logger.info("semantic_dedup.enabled")
             return mgr
         except Exception as e:

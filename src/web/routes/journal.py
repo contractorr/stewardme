@@ -101,14 +101,18 @@ async def _run_post_create_hooks(
     thread_match_payload: dict | None = None
     memory_facts: list[dict] = []
 
-    # 1. ChromaDB embedding (per-user collection)
+    # 1. ChromaDB embedding (per-user collection). Construction parses the
+    # whole vector store and add_entry makes an embedding HTTP call — both
+    # must stay off the event loop.
     try:
         from journal.embeddings import EmbeddingManager
 
         chroma_dir = paths.get("chroma_dir")
         if chroma_dir:
-            em = EmbeddingManager(chroma_dir, user_id=safe_user_id(user_id))
-            em.add_entry(entry_id, content, metadata)
+            em = await asyncio.to_thread(
+                EmbeddingManager, chroma_dir, user_id=safe_user_id(user_id)
+            )
+            await asyncio.to_thread(em.add_entry, entry_id, content, metadata)
     except Exception as exc:
         logger.warning("post_create.embed_failed", error=str(exc), user=user_id)
         warnings.append("Embedding failed")
@@ -138,7 +142,8 @@ async def _run_post_create_hooks(
         from journal.fts import JournalFTSIndex
 
         fts_index = JournalFTSIndex(paths["journal_dir"])
-        fts_index.upsert(
+        await asyncio.to_thread(
+            fts_index.upsert,
             entry_id,
             metadata.get("title", ""),
             metadata.get("type", ""),
@@ -216,7 +221,8 @@ async def _run_post_create_hooks(
                 except Exception:
                     pass
             pipeline = MemoryPipeline(fact_store, consolidator=consolidator)
-            pipeline.process_journal_entry(entry_id, content, metadata)
+            # Extraction calls the cheap LLM synchronously — keep it off the loop
+            await asyncio.to_thread(pipeline.process_journal_entry, entry_id, content, metadata)
             memory_facts = [
                 {
                     "fact_id": fact.id,
@@ -308,11 +314,12 @@ async def _cleanup_deleted_entry_state(user_id: str, filepath: Path) -> None:
 
         chroma_dir = paths.get("chroma_dir")
         if chroma_dir:
-            manager = EmbeddingManager(
+            manager = await asyncio.to_thread(
+                EmbeddingManager,
                 chroma_dir,
                 user_id=safe_user_id(user_id),
             )
-            manager.remove_entry(entry_id)
+            await asyncio.to_thread(manager.remove_entry, entry_id)
     except Exception as exc:
         logger.warning(
             "journal.delete_embedding_failed", error=str(exc), user=user_id, entry=entry_id
@@ -366,9 +373,16 @@ async def _cleanup_deleted_entry_state(user_id: str, filepath: Path) -> None:
     _invalidate_greeting_cache(user_id, paths)
 
 
+# Strong references so in-flight background hooks aren't garbage-collected
+_background_tasks: set[asyncio.Task] = set()
+
+
 def _schedule_post_create_hooks(user_id: str, filepath: Path, content: str, metadata: dict):
     """Schedule post-create hooks without blocking the write request."""
-    return asyncio.create_task(_run_post_create_hooks(user_id, filepath, content, metadata))
+    task = asyncio.create_task(_run_post_create_hooks(user_id, filepath, content, metadata))
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+    return task
 
 
 def _validate_journal_path(filepath: str, storage: JournalStorage) -> Path:
@@ -418,7 +432,7 @@ async def create_entry(
 
     title = body.title
     if not title:
-        title = _generate_title(body.content, user["id"])
+        title = await asyncio.to_thread(_generate_title, body.content, user["id"])
 
     try:
         filepath = storage.create(
@@ -466,7 +480,7 @@ async def quick_capture(
     """Minimal journal entry — auto-title from content, type=quick, embed in ChromaDB."""
     storage = _get_storage(user["id"])
     text = body.content.strip()
-    title = _generate_title(text, user["id"])
+    title = await asyncio.to_thread(_generate_title, text, user["id"])
     if not title:
         title = text[:50].rstrip() + ("..." if len(text) > 50 else "")
 

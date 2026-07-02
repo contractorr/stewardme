@@ -56,8 +56,10 @@ def get_components(skip_advisor: bool = False):
     intel_storage = create_intel_storage(storage_paths)
 
     try:
+        from storage_paths import get_intel_chroma_dir
+
         embeddings = EmbeddingManager(paths["chroma_dir"])
-        intel_embeddings = IntelEmbeddingManager(paths["chroma_dir"] / "intel")
+        intel_embeddings = IntelEmbeddingManager(get_intel_chroma_dir(config))
     except Exception as e:
         err = str(e).lower()
         if "dimension" in err or "mismatch" in err:

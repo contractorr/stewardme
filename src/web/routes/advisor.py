@@ -201,16 +201,20 @@ def _get_engine(user_id: str, use_tools: bool = False):
     fts_index = JournalFTSIndex(paths["journal_dir"])
     journal_search = JournalSearch(journal_storage, embeddings, fts_index=fts_index)
 
-    # Build user-scoped intel search for RAG
+    # Build user-scoped intel search for RAG (embeddings live in the shared
+    # global store the scrapers write, not the per-user chroma dir)
     intel_search = None
     try:
         from intelligence.embeddings import IntelEmbeddingManager
         from intelligence.search import IntelSearch
+        from storage_paths import get_intel_chroma_dir
 
-        intel_emb = IntelEmbeddingManager(paths["chroma_dir"])
+        intel_emb = IntelEmbeddingManager(get_intel_chroma_dir(config.to_dict()))
         intel_search = IntelSearch(intel_storage, embedding_manager=intel_emb, user_id=user_id)
-    except Exception:
-        pass
+    except Exception as exc:
+        import structlog
+
+        structlog.get_logger().warning("advisor.intel_search_unavailable", error=str(exc))
 
     fact_store = None
     thread_store = None

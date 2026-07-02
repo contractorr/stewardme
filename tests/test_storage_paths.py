@@ -71,3 +71,39 @@ def test_safe_user_id_neutralizes_path_characters(user_id, tmp_path):
 def test_safe_user_id_rejects_empty_or_punctuation_only_ids(user_id):
     with pytest.raises(ValueError):
         safe_user_id(user_id)
+
+
+class TestGetIntelChromaDir:
+    """The shared intel embedding store must resolve identically everywhere."""
+
+    def test_coach_home_env_wins(self, monkeypatch, tmp_path):
+        from storage_paths import get_intel_chroma_dir
+
+        monkeypatch.setenv("COACH_HOME", str(tmp_path))
+        config = {"paths": {"chroma_dir": "/somewhere/else"}}
+        assert get_intel_chroma_dir(config) == tmp_path / "chroma"
+        assert get_intel_chroma_dir() == tmp_path / "chroma"
+
+    def test_config_paths_used_without_env(self, monkeypatch, tmp_path):
+        from storage_paths import get_intel_chroma_dir
+
+        monkeypatch.delenv("COACH_HOME", raising=False)
+        config = {"paths": {"chroma_dir": str(tmp_path / "vectors")}}
+        assert get_intel_chroma_dir(config) == tmp_path / "vectors"
+
+    def test_default_home_fallback(self, monkeypatch):
+        from pathlib import Path
+
+        from storage_paths import get_intel_chroma_dir
+
+        monkeypatch.delenv("COACH_HOME", raising=False)
+        assert get_intel_chroma_dir() == Path.home() / "coach" / "chroma"
+
+    def test_never_a_subdirectory_of_itself(self, monkeypatch, tmp_path):
+        # Regression: the legacy CLI convention appended "/intel", splitting
+        # the store the scrapers write from the store the CLI reads.
+        from storage_paths import get_intel_chroma_dir
+
+        monkeypatch.setenv("COACH_HOME", str(tmp_path))
+        resolved = get_intel_chroma_dir()
+        assert resolved.name == "chroma"

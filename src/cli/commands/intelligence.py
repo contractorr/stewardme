@@ -219,12 +219,12 @@ def dedup_backfill(days: int, threshold: float, dry_run: bool):
     """Backfill semantic dedup: scan recent items and mark near-duplicates."""
     from db import wal_connect
     from intelligence.embeddings import IntelEmbeddingManager
+    from storage_paths import get_intel_chroma_dir
 
     c = get_components(skip_advisor=True)
     storage = c["intel_storage"]
-    chroma_dir = c["paths"]["chroma_dir"] / "intel"
 
-    em = IntelEmbeddingManager(chroma_dir)
+    em = IntelEmbeddingManager(get_intel_chroma_dir(c["config"]))
 
     with wal_connect(storage.db_path) as conn:
         conn.row_factory = __import__("sqlite3").Row

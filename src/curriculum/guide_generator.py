@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import json
 import shutil
@@ -299,7 +300,11 @@ class GuideGenerationService:
         return chapter_path
 
     async def _generate_text(self, prompt: str) -> str:
-        result = self.llm.generate([{"role": "user", "content": prompt}], max_tokens=4000)
+        # Sync provider call runs off the event loop — multi-chapter guide
+        # generation would otherwise stall the whole server for minutes.
+        result = await asyncio.to_thread(
+            self.llm.generate, [{"role": "user", "content": prompt}], max_tokens=4000
+        )
         if inspect.isawaitable(result):
             result = await result
         if not isinstance(result, str) or not result.strip():

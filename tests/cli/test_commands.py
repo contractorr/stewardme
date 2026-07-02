@@ -206,8 +206,12 @@ class TestIntelCommands:
         assert remove_result.exit_code == 0
         assert "Removed" in remove_result.output
 
-    def test_dedup_backfill_uses_intel_embedding_subdir(self, runner, tmp_path):
+    def test_dedup_backfill_uses_shared_intel_chroma_dir(self, runner, tmp_path, monkeypatch):
+        # The CLI must read the same global store the scrapers write —
+        # never the legacy "chroma/intel" subdirectory.
+        monkeypatch.delenv("COACH_HOME", raising=False)
         components = _make_components(tmp_path, skip_advisor=True)
+        components["config"]["paths"]["chroma_dir"] = str(tmp_path / "chroma")
         conn = MagicMock()
         conn.__enter__.return_value = conn
         conn.execute.return_value.fetchall.return_value = []
@@ -220,7 +224,7 @@ class TestIntelCommands:
             result = runner.invoke(cli, ["dedup-backfill", "--dry-run"])
 
         assert result.exit_code == 0
-        embedding_cls.assert_called_once_with(tmp_path / "chroma" / "intel")
+        embedding_cls.assert_called_once_with(tmp_path / "chroma")
 
 
 class TestMemoryCommands:
@@ -267,11 +271,14 @@ class TestEvalCommands:
 
         with (
             patch("cli.utils.get_components", side_effect=fake_get_components),
-            patch("eval.runner.EvalRunner.run_all", return_value=SimpleNamespace(
-                retrieval_results=[],
-                response_results=[],
-                summary={},
-            )),
+            patch(
+                "eval.runner.EvalRunner.run_all",
+                return_value=SimpleNamespace(
+                    retrieval_results=[],
+                    response_results=[],
+                    summary={},
+                ),
+            ),
         ):
             result = runner.invoke(cli, ["eval", "run"])
 
