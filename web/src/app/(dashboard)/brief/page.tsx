@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Check, ExternalLink, Loader2, Plus, RefreshCcw, Trash2, X } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { CalendarDays, Check, ExternalLink, Loader2, Mail, Plus, RefreshCcw, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { BriefMarkdown } from "@/components/brief/BriefMarkdown";
@@ -16,7 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useToken } from "@/hooks/useToken";
 import { apiFetch } from "@/lib/api";
-import type { Brief, BriefConfig, BriefCustomSection } from "@/types/brief";
+import type { Brief, BriefConfig, BriefCustomSection, GoogleStatus } from "@/types/brief";
 
 const STATUS_BADGE: Record<string, string> = {
   unread: "bg-primary/10 text-primary",
@@ -36,15 +37,20 @@ const DEFAULT_CONFIG: BriefConfig = {
   min_interval_hours: 12,
   include_signals: true,
   include_journal: true,
+  include_calendar: true,
+  include_email: true,
   max_items_per_section: 8,
   custom_sections: [],
 };
 
 export default function BriefPage() {
   const token = useToken();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [briefs, setBriefs] = useState<Brief[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [config, setConfig] = useState<BriefConfig>(DEFAULT_CONFIG);
+  const [google, setGoogle] = useState<GoogleStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
@@ -52,12 +58,14 @@ export default function BriefPage() {
   const load = useCallback(async () => {
     if (!token) return;
     try {
-      const [history, cfg] = await Promise.all([
+      const [history, cfg, googleStatus] = await Promise.all([
         apiFetch<Brief[]>("/api/v1/brief?limit=30", {}, token),
         apiFetch<BriefConfig>("/api/v1/brief/config", {}, token),
+        apiFetch<GoogleStatus>("/api/v1/google/status", {}, token).catch(() => null),
       ]);
       setBriefs(history);
       setConfig(cfg);
+      setGoogle(googleStatus);
       setSelectedId((current) => current ?? history[0]?.id ?? null);
     } catch (error) {
       toast.error((error as Error).message);
@@ -69,6 +77,39 @@ export default function BriefPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Toast once after returning from the Google consent flow, then clean the URL.
+  useEffect(() => {
+    const result = searchParams.get("google");
+    if (!result) return;
+    if (result === "connected") {
+      toast.success("Google connected — calendar and inbox will appear in your next brief");
+    } else {
+      toast.error("Google connection failed. Try again.");
+    }
+    router.replace("/brief");
+  }, [searchParams, router]);
+
+  const connectGoogle = useCallback(async () => {
+    if (!token) return;
+    try {
+      const { url } = await apiFetch<{ url: string }>("/api/v1/google/auth-url", {}, token);
+      window.location.href = url;
+    } catch (error) {
+      toast.error((error as Error).message);
+    }
+  }, [token]);
+
+  const disconnectGoogle = useCallback(async () => {
+    if (!token) return;
+    try {
+      await apiFetch("/api/v1/google/disconnect", { method: "POST" }, token);
+      setGoogle((prev) => (prev ? { ...prev, connected: false, email: null } : prev));
+      toast.success("Google disconnected");
+    } catch (error) {
+      toast.error((error as Error).message);
+    }
+  }, [token]);
 
   const selected = briefs.find((b) => b.id === selectedId) ?? null;
 
@@ -273,6 +314,33 @@ export default function BriefPage() {
           <CardTitle className="text-base">Brief settings</CardTitle>
         </CardHeader>
         <CardContent className="space-y-5 px-5">
+          {google?.available ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                  <CalendarDays className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Google Calendar &amp; Gmail</p>
+                  <p className="text-xs text-muted-foreground">
+                    {google.connected
+                      ? `Connected as ${google.email ?? "your Google account"} (read-only)`
+                      : "Connect to plan your day and watch important email in each brief."}
+                  </p>
+                </div>
+              </div>
+              {google.connected ? (
+                <Button size="sm" variant="outline" onClick={() => void disconnectGoogle()}>
+                  Disconnect
+                </Button>
+              ) : (
+                <Button size="sm" onClick={() => void connectGoogle()}>
+                  Connect Google
+                </Button>
+              )}
+            </div>
+          ) : null}
+
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="flex items-center justify-between gap-3 rounded-xl border p-3 sm:flex-col sm:items-start">
               <Label htmlFor="brief-signals" className="text-sm">What changed (sources)</Label>
@@ -308,6 +376,33 @@ export default function BriefPage() {
               />
             </div>
           </div>
+
+          {google?.connected ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="flex items-center justify-between gap-3 rounded-xl border p-3">
+                <Label htmlFor="brief-calendar" className="flex items-center gap-2 text-sm">
+                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                  Coming up (calendar)
+                </Label>
+                <Switch
+                  id="brief-calendar"
+                  checked={config.include_calendar}
+                  onCheckedChange={(checked) => setConfig((prev) => ({ ...prev, include_calendar: checked }))}
+                />
+              </div>
+              <div className="flex items-center justify-between gap-3 rounded-xl border p-3">
+                <Label htmlFor="brief-email" className="flex items-center gap-2 text-sm">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  Inbox watch (email)
+                </Label>
+                <Switch
+                  id="brief-email"
+                  checked={config.include_email}
+                  onCheckedChange={(checked) => setConfig((prev) => ({ ...prev, include_email: checked }))}
+                />
+              </div>
+            </div>
+          ) : null}
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">

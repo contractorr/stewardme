@@ -420,6 +420,16 @@
             "title": "Enabled",
             "type": "boolean"
           },
+          "include_calendar": {
+            "default": true,
+            "title": "Include Calendar",
+            "type": "boolean"
+          },
+          "include_email": {
+            "default": true,
+            "title": "Include Email",
+            "type": "boolean"
+          },
           "include_journal": {
             "default": true,
             "title": "Include Journal",
@@ -9771,6 +9781,158 @@
         "summary": "Update Status",
         "tags": [
           "goals"
+        ]
+      }
+    },
+    "/api/google/auth-url": {
+      "get": {
+        "operationId": "google_auth_url_api_google_auth_url_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Google Auth Url",
+        "tags": [
+          "google"
+        ]
+      }
+    },
+    "/api/google/callback": {
+      "get": {
+        "description": "OAuth redirect target - unauthenticated; identity comes from the signed state.",
+        "operationId": "google_callback_api_google_callback_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Code"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "error",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Error"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Google Callback",
+        "tags": [
+          "google"
+        ]
+      }
+    },
+    "/api/google/disconnect": {
+      "post": {
+        "operationId": "google_disconnect_api_google_disconnect_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Google Disconnect",
+        "tags": [
+          "google"
+        ]
+      }
+    },
+    "/api/google/status": {
+      "get": {
+        "operationId": "google_status_api_google_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Google Status",
+        "tags": [
+          "google"
         ]
       }
     },
