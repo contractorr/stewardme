@@ -1,6 +1,6 @@
 // This file is generated. Do not edit manually.
 // Source: web/openapi.json
-// OpenAPI SHA256: ddff8d279504e6545deb86fbaaba70d70fc437b1a0ff5faf9ac7f102467a1a47
+// OpenAPI SHA256: d90a8bb2256b5710d0177c761c85b04125b3d653b4c79e54c62d26e0735cae90
 export interface paths {
     "/api/admin/stats": {
         parameters: {
@@ -9229,7 +9229,9 @@ export interface operations {
     };
     google_auth_url_api_google_auth_url_get: {
         parameters: {
-            query?: never;
+            query?: {
+                return_to?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -9243,6 +9245,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

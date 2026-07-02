@@ -31,6 +31,10 @@ ACCOUNT_EMAIL_SECRET = "google_account_email"
 STATE_TTL_MINUTES = 10
 HTTP_TIMEOUT = 20.0
 
+# Whitelisted frontend paths the OAuth callback may redirect back to.
+RETURN_PATHS = {"brief": "/brief", "onboarding": "/onboarding"}
+DEFAULT_RETURN_TO = "brief"
+
 GMAIL_QUERY = (
     "is:unread newer_than:7d (is:important OR category:primary) "
     "-category:promotions -category:social"
@@ -49,24 +53,30 @@ def _jwt_secret() -> str:
     return os.getenv("NEXTAUTH_SECRET", "")
 
 
-def make_state_token(user_id: str) -> str:
+def make_state_token(user_id: str, return_to: str = DEFAULT_RETURN_TO) -> str:
+    if return_to not in RETURN_PATHS:
+        return_to = DEFAULT_RETURN_TO
     expires = datetime.now(timezone.utc) + timedelta(minutes=STATE_TTL_MINUTES)
     return jwt.encode(
-        {"sub": user_id, "purpose": "google_oauth", "exp": expires},
+        {"sub": user_id, "purpose": "google_oauth", "return_to": return_to, "exp": expires},
         _jwt_secret(),
         algorithm="HS256",
     )
 
 
-def decode_state_token(state: str) -> str | None:
-    """Return the user id from a valid state token, else None."""
+def decode_state_token(state: str) -> tuple[str, str] | None:
+    """Return (user_id, return_path) from a valid state token, else None."""
     try:
         payload = jwt.decode(state, _jwt_secret(), algorithms=["HS256"])
     except JWTError:
         return None
     if payload.get("purpose") != "google_oauth":
         return None
-    return payload.get("sub")
+    user_id = payload.get("sub")
+    if not user_id:
+        return None
+    return_path = RETURN_PATHS.get(payload.get("return_to", ""), RETURN_PATHS[DEFAULT_RETURN_TO])
+    return user_id, return_path
 
 
 def build_auth_url(state: str) -> str:

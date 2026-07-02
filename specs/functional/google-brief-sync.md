@@ -40,6 +40,12 @@ Web app users who sign in with (or separately connect) a Google account.
    stored encrypted per user, and Disconnect deletes them.
 4. If Google is not connected, the calendar/email sections are simply
    omitted; the settings block explains what connecting adds.
+5. New users are offered the connection during **onboarding**, as an
+   optional step after picking feed topics: it explains what connecting
+   adds, offers "Connect Google" and "Skip for now", and only appears when
+   the server integration is configured and the account is not already
+   connected. Completing the consent flow (or skipping) lands on Home with
+   a confirmation; connecting later from Brief settings stays available.
 
 ## Acceptance Criteria
 
@@ -55,6 +61,10 @@ Web app users who sign in with (or separately connect) a Google account.
       affected section is skipped and other sections still render.
 - [ ] All Google API access is read-only scoped (gmail.readonly,
       calendar.readonly).
+- [ ] Onboarding shows the connect step only when the integration is
+      available and not yet connected; both Connect and Skip complete
+      onboarding, and the OAuth return lands the user on Home with a
+      confirmation toast.
 
 ## Edge Cases
 
