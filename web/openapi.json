@@ -404,6 +404,145 @@
         "title": "Body_upload_report_pdf_api_library_reports_upload_post",
         "type": "object"
       },
+      "BriefConfig": {
+        "description": "Per-user brief configuration.",
+        "properties": {
+          "custom_sections": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/BriefCustomSection"
+            },
+            "title": "Custom Sections",
+            "type": "array"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "include_journal": {
+            "default": true,
+            "title": "Include Journal",
+            "type": "boolean"
+          },
+          "include_signals": {
+            "default": true,
+            "title": "Include Signals",
+            "type": "boolean"
+          },
+          "max_items_per_section": {
+            "default": 8,
+            "maximum": 20.0,
+            "minimum": 3.0,
+            "title": "Max Items Per Section",
+            "type": "integer"
+          },
+          "min_interval_hours": {
+            "default": 12,
+            "maximum": 168.0,
+            "minimum": 1.0,
+            "title": "Min Interval Hours",
+            "type": "integer"
+          }
+        },
+        "title": "BriefConfig",
+        "type": "object"
+      },
+      "BriefCustomSection": {
+        "description": "A user-authored standing instruction the brief always honors.",
+        "properties": {
+          "id": {
+            "default": "",
+            "title": "Id",
+            "type": "string"
+          },
+          "instructions": {
+            "default": "",
+            "title": "Instructions",
+            "type": "string"
+          },
+          "title": {
+            "default": "",
+            "title": "Title",
+            "type": "string"
+          },
+          "use_research": {
+            "default": false,
+            "title": "Use Research",
+            "type": "boolean"
+          }
+        },
+        "title": "BriefCustomSection",
+        "type": "object"
+      },
+      "BriefLatestResponse": {
+        "properties": {
+          "brief": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BriefResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "should_generate": {
+            "default": false,
+            "title": "Should Generate",
+            "type": "boolean"
+          }
+        },
+        "title": "BriefLatestResponse",
+        "type": "object"
+      },
+      "BriefResponse": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "period_end": {
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_start": {
+            "title": "Period Start",
+            "type": "string"
+          },
+          "sections": {
+            "default": [],
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "default": "",
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "period_start",
+          "period_end",
+          "created_at"
+        ],
+        "title": "BriefResponse",
+        "type": "object"
+      },
       "BriefingGoal": {
         "properties": {
           "days_since_check": {
@@ -6989,6 +7128,304 @@
         "summary": "Resolve Assumption",
         "tags": [
           "assumptions"
+        ]
+      }
+    },
+    "/api/brief": {
+      "get": {
+        "operationId": "list_briefs_api_brief_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_dismissed",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Include Dismissed",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BriefResponse"
+                  },
+                  "title": "Response List Briefs Api Brief Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Briefs",
+        "tags": [
+          "brief"
+        ]
+      }
+    },
+    "/api/brief/config": {
+      "get": {
+        "operationId": "get_brief_config_api_brief_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BriefConfig"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Brief Config",
+        "tags": [
+          "brief"
+        ]
+      },
+      "put": {
+        "operationId": "update_brief_config_api_brief_config_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BriefConfig"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BriefConfig"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Brief Config",
+        "tags": [
+          "brief"
+        ]
+      }
+    },
+    "/api/brief/generate": {
+      "post": {
+        "operationId": "generate_brief_endpoint_api_brief_generate_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "force",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Force",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BriefResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Generate Brief Endpoint",
+        "tags": [
+          "brief"
+        ]
+      }
+    },
+    "/api/brief/latest": {
+      "get": {
+        "operationId": "get_latest_brief_api_brief_latest_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BriefLatestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Latest Brief",
+        "tags": [
+          "brief"
+        ]
+      }
+    },
+    "/api/brief/{brief_id}/dismiss": {
+      "post": {
+        "operationId": "dismiss_brief_api_brief__brief_id__dismiss_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "brief_id",
+            "required": true,
+            "schema": {
+              "title": "Brief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Dismiss Brief",
+        "tags": [
+          "brief"
+        ]
+      }
+    },
+    "/api/brief/{brief_id}/read": {
+      "post": {
+        "operationId": "mark_brief_read_api_brief__brief_id__read_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "brief_id",
+            "required": true,
+            "schema": {
+              "title": "Brief Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Mark Brief Read",
+        "tags": [
+          "brief"
         ]
       }
     },
