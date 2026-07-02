@@ -15,7 +15,7 @@ test.describe("Curriculum / Library", () => {
   test("learn page focuses on next up, reviews, and guide browsing", async ({ page }) => {
     await page.goto("/learn");
 
-    await expect(page.getByText("Next up")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("Suggested next")).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText(MOCK_TODAY.tasks[0].title, { exact: true })).toBeVisible();
     await expect(page.getByText("Reviews", { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Start review" })).toBeVisible();
@@ -24,7 +24,7 @@ test.describe("Curriculum / Library", () => {
     await expect(page.getByText(MOCK_GUIDES[1].title).first()).toBeVisible();
   });
 
-  test("learn page supports topic filtering and a clearer guide order", async ({ page }) => {
+  test("learn page supports topic filtering and search over an alphabetical order", async ({ page }) => {
     await page.goto("/learn");
     const browseGuides = page.locator("#browse-guides");
 
@@ -33,11 +33,11 @@ test.describe("Curriculum / Library", () => {
     await expect(browseGuides.getByText("Python Basics").first()).not.toBeVisible();
 
     await page.getByRole("button", { name: "All" }).click();
-    await expect(browseGuides.locator("a[href^=\"/learn/\"]").nth(0)).toContainText("Python Basics");
-
-    await page.getByRole("combobox").click();
-    await page.getByRole("option", { name: "A-Z" }).click();
     await expect(browseGuides.locator("a[href^=\"/learn/\"]").nth(0)).toContainText("Market Analysis");
+
+    await page.getByPlaceholder("Search guides").fill("python");
+    await expect(browseGuides.locator("a[href^=\"/learn/\"]").nth(0)).toContainText("Python Basics");
+    await expect(browseGuides.getByText("Market Analysis")).not.toBeVisible();
   });
 
   test("guide detail shows one primary action and the chapter list", async ({ page }) => {

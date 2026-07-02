@@ -289,6 +289,7 @@ Rules:
 | User wants a deeper exercise | The app can link outward, but the default learning flow stays lightweight |
 | A chapter has no authored or inferred learning aids | The reader falls back to plain reading without empty panels or placeholders |
 | Content is missing or sync fails | The page degrades to a simple empty or reduced state without exposing internal complexity |
+| A guide record is missing optional-looking fields (e.g. no summary) | Search and browsing keep working; the guide card falls back to placeholder copy instead of the page crashing |
 
 ## Design Notes
 
