@@ -66,6 +66,19 @@ items per section, hypothesis phrasing. Per-template specifics:
 - `nudges.py`: fires only on actionable conditions (stale profile, stale
   goal, zero recent entries); no praise/streak nudges.
 
+## Objectives Gate Pulse
+
+`src/services/objectives.py` — `Objectives`/`Gate`/`Clock` Pydantic models,
+`load_objectives(path=None)` (reads `$COACH_HOME/objectives.yaml`; returns
+`None` for absent/empty/invalid files, logging a warning on invalid), and
+`render_gate_pulse(objectives, today=None)` (deterministic text: staleness
+line when `last_reviewed` >42 days old, one `current / target` line per
+gate, days to `go_no_go`, runway end). `AdvisorEngine.weekly_review()`
+prepends the rendered pulse to the LLM's review output — the LLM never sees
+or generates the numbers, so no commentary about them is possible. The
+advisor never writes the file. See
+`specs/functional/objectives-gate-pulse.md`.
+
 ## Untrusted External Content (prompt-injection hardening)
 
 `src/advisor/untrusted.py` provides the provenance layer for scraped content:

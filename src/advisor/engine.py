@@ -403,7 +403,16 @@ class AdvisorEngine:
             intel_context=intel_ctx,
         )
 
-        return self._call_llm(PromptTemplates.SYSTEM, prompt, max_tokens=1500)
+        review = self._call_llm(PromptTemplates.SYSTEM, prompt, max_tokens=1500)
+
+        # Lead with measurable reality: the pulse is rendered in code, not by
+        # the LLM, so no commentary about the numbers is possible.
+        from services.objectives import load_objectives, render_gate_pulse
+
+        gate_pulse = render_gate_pulse(load_objectives())
+        if gate_pulse:
+            return f"{gate_pulse}\n\n{review}"
+        return review
 
     def detect_opportunities(self) -> str:
         """Identify opportunities based on profile and trends."""
