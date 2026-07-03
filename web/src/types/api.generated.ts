@@ -1,6 +1,6 @@
 // This file is generated. Do not edit manually.
 // Source: web/openapi.json
-// OpenAPI SHA256: 7cbc3d2acaf3c41f0f58012b07d94539714ec629d60d9b2d909f13ad083acf14
+// OpenAPI SHA256: 98a041052c37958ae4112d179ff32abf3177f3d23f179bdb4ec16f80bff279ac
 export interface paths {
     "/api/admin/stats": {
         parameters: {
@@ -1297,6 +1297,59 @@ export interface paths {
         get?: never;
         /** Update Status */
         put: operations["update_status_api_goals__filepath__status_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/google/calendar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Connect Calendar */
+        put: operations["connect_calendar_api_google_calendar_put"];
+        post?: never;
+        /** Disconnect Calendar */
+        delete: operations["disconnect_calendar_api_google_calendar_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/google/gmail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Connect Gmail */
+        put: operations["connect_gmail_api_google_gmail_put"];
+        post?: never;
+        /** Disconnect Gmail */
+        delete: operations["disconnect_gmail_api_google_gmail_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/google/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Google Status */
+        get: operations["google_status_api_google_status_get"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -2859,6 +2912,16 @@ export interface components {
              */
             enabled: boolean;
             /**
+             * Include Calendar
+             * @default true
+             */
+            include_calendar: boolean;
+            /**
+             * Include Email
+             * @default true
+             */
+            include_email: boolean;
+            /**
              * Include Journal
              * @default true
              */
@@ -2996,6 +3059,11 @@ export interface components {
             why_now: {
                 [key: string]: unknown;
             }[];
+        };
+        /** CalendarConnect */
+        CalendarConnect: {
+            /** Ical Url */
+            ical_url: string;
         };
         /**
          * ChapterStatus
@@ -3982,6 +4050,13 @@ export interface components {
              * @default []
              */
             watchlist_ids: string[];
+        };
+        /** GmailConnect */
+        GmailConnect: {
+            /** Address */
+            address: string;
+            /** App Password */
+            app_password: string;
         };
         /** GoalCheckIn */
         GoalCheckIn: {
@@ -8426,6 +8501,132 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    connect_calendar_api_google_calendar_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarConnect"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    disconnect_calendar_api_google_calendar_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    connect_gmail_api_google_gmail_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GmailConnect"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    disconnect_gmail_api_google_gmail_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    google_status_api_google_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

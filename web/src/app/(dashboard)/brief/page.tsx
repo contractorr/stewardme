@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Check, ExternalLink, Loader2, Plus, RefreshCcw, Trash2, X } from "lucide-react";
+import { CalendarDays, Check, ExternalLink, Loader2, Mail, Plus, RefreshCcw, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { BriefMarkdown } from "@/components/brief/BriefMarkdown";
@@ -16,7 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useToken } from "@/hooks/useToken";
 import { apiFetch } from "@/lib/api";
-import type { Brief, BriefConfig, BriefCustomSection } from "@/types/brief";
+import type { Brief, BriefConfig, BriefCustomSection, GoogleStatus } from "@/types/brief";
 
 const STATUS_BADGE: Record<string, string> = {
   unread: "bg-primary/10 text-primary",
@@ -36,6 +36,8 @@ const DEFAULT_CONFIG: BriefConfig = {
   min_interval_hours: 12,
   include_signals: true,
   include_journal: true,
+  include_calendar: true,
+  include_email: true,
   max_items_per_section: 8,
   custom_sections: [],
 };
@@ -48,16 +50,24 @@ export default function BriefPage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
+  const [google, setGoogle] = useState<GoogleStatus | null>(null);
+  const [icalUrl, setIcalUrl] = useState("");
+  const [gmailAddr, setGmailAddr] = useState("");
+  const [gmailPw, setGmailPw] = useState("");
+  const [savingCal, setSavingCal] = useState(false);
+  const [savingGmail, setSavingGmail] = useState(false);
 
   const load = useCallback(async () => {
     if (!token) return;
     try {
-      const [history, cfg] = await Promise.all([
+      const [history, cfg, googleStatus] = await Promise.all([
         apiFetch<Brief[]>("/api/v1/brief?limit=30", {}, token),
         apiFetch<BriefConfig>("/api/v1/brief/config", {}, token),
+        apiFetch<GoogleStatus>("/api/v1/google/status", {}, token).catch(() => null),
       ]);
       setBriefs(history);
       setConfig(cfg);
+      setGoogle(googleStatus);
       setSelectedId((current) => current ?? history[0]?.id ?? null);
     } catch (error) {
       toast.error((error as Error).message);
@@ -125,6 +135,67 @@ export default function BriefPage() {
       setSavingConfig(false);
     }
   }, [token, config]);
+
+  const connectCalendar = useCallback(async () => {
+    if (!token || !icalUrl.trim()) return;
+    setSavingCal(true);
+    try {
+      const s = await apiFetch<GoogleStatus>(
+        "/api/v1/google/calendar",
+        { method: "PUT", body: JSON.stringify({ ical_url: icalUrl.trim() }) },
+        token
+      );
+      setGoogle(s);
+      setIcalUrl("");
+      toast.success("Calendar connected");
+    } catch (error) {
+      toast.error((error as Error).message);
+    } finally {
+      setSavingCal(false);
+    }
+  }, [token, icalUrl]);
+
+  const disconnectCalendar = useCallback(async () => {
+    if (!token) return;
+    try {
+      const s = await apiFetch<GoogleStatus>("/api/v1/google/calendar", { method: "DELETE" }, token);
+      setGoogle(s);
+      toast.success("Calendar disconnected");
+    } catch (error) {
+      toast.error((error as Error).message);
+    }
+  }, [token]);
+
+  const connectGmail = useCallback(async () => {
+    if (!token || !gmailAddr.trim() || !gmailPw.trim()) return;
+    setSavingGmail(true);
+    try {
+      const s = await apiFetch<GoogleStatus>(
+        "/api/v1/google/gmail",
+        { method: "PUT", body: JSON.stringify({ address: gmailAddr.trim(), app_password: gmailPw.trim() }) },
+        token
+      );
+      setGoogle(s);
+      setGmailPw("");
+      toast.success("Gmail connected");
+    } catch (error) {
+      toast.error((error as Error).message);
+    } finally {
+      setSavingGmail(false);
+    }
+  }, [token, gmailAddr, gmailPw]);
+
+  const disconnectGmail = useCallback(async () => {
+    if (!token) return;
+    try {
+      const s = await apiFetch<GoogleStatus>("/api/v1/google/gmail", { method: "DELETE" }, token);
+      setGoogle(s);
+      setGmailAddr("");
+      toast.success("Gmail disconnected");
+    } catch (error) {
+      toast.error((error as Error).message);
+    }
+  }, [token]);
 
   const updateCustomSection = (index: number, patch: Partial<BriefCustomSection>) => {
     setConfig((prev) => ({
@@ -306,6 +377,114 @@ export default function BriefPage() {
                   }))
                 }
               />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-medium">Connected accounts</p>
+              <p className="text-xs text-muted-foreground">
+                Bring your own read-only Google credentials to add your calendar and inbox to each brief. Stored encrypted; read-only.
+              </p>
+            </div>
+
+            <div className="space-y-2 rounded-xl border p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4 text-primary" />
+                  <p className="text-sm font-medium">Google Calendar</p>
+                </div>
+                {google?.calendar_connected ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Connected</span>
+                    <Button size="sm" variant="outline" onClick={() => void disconnectCalendar()}>Disconnect</Button>
+                  </div>
+                ) : null}
+              </div>
+              {google?.calendar_connected ? (
+                <div className="flex items-center justify-between rounded-lg border p-2">
+                  <Label htmlFor="brief-calendar" className="text-sm">Show &ldquo;Coming up&rdquo; in briefs</Label>
+                  <Switch
+                    id="brief-calendar"
+                    checked={config.include_calendar}
+                    onCheckedChange={(checked) => setConfig((prev) => ({ ...prev, include_calendar: checked }))}
+                  />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Input
+                    placeholder="Secret iCal URL (…/private-…/basic.ics)"
+                    className="h-8"
+                    value={icalUrl}
+                    onChange={(event) => setIcalUrl(event.target.value)}
+                  />
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs text-muted-foreground">
+                      Calendar → Settings → your calendar → &ldquo;Secret address in iCal format&rdquo;.
+                    </p>
+                    <Button size="sm" onClick={() => void connectCalendar()} disabled={savingCal || !icalUrl.trim()}>
+                      {savingCal ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
+                      Connect
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2 rounded-xl border p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-primary" />
+                  <p className="text-sm font-medium">
+                    Gmail{google?.gmail_connected && google.gmail_address ? ` — ${google.gmail_address}` : ""}
+                  </p>
+                </div>
+                {google?.gmail_connected ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Connected</span>
+                    <Button size="sm" variant="outline" onClick={() => void disconnectGmail()}>Disconnect</Button>
+                  </div>
+                ) : null}
+              </div>
+              {google?.gmail_connected ? (
+                <div className="flex items-center justify-between rounded-lg border p-2">
+                  <Label htmlFor="brief-email" className="text-sm">Show &ldquo;Inbox watch&rdquo; in briefs</Label>
+                  <Switch
+                    id="brief-email"
+                    checked={config.include_email}
+                    onCheckedChange={(checked) => setConfig((prev) => ({ ...prev, include_email: checked }))}
+                  />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Input
+                    placeholder="you@gmail.com"
+                    className="h-8"
+                    value={gmailAddr}
+                    onChange={(event) => setGmailAddr(event.target.value)}
+                  />
+                  <Input
+                    type="password"
+                    placeholder="16-character app password"
+                    className="h-8"
+                    value={gmailPw}
+                    onChange={(event) => setGmailPw(event.target.value)}
+                  />
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs text-muted-foreground">
+                      Needs 2-Step Verification → Google Account → App passwords.
+                    </p>
+                    <Button
+                      size="sm"
+                      onClick={() => void connectGmail()}
+                      disabled={savingGmail || !gmailAddr.trim() || !gmailPw.trim()}
+                    >
+                      {savingGmail ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
+                      Connect
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

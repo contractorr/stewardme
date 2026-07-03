@@ -199,6 +199,16 @@
             "title": "Enabled",
             "type": "boolean"
           },
+          "include_calendar": {
+            "default": true,
+            "title": "Include Calendar",
+            "type": "boolean"
+          },
+          "include_email": {
+            "default": true,
+            "title": "Include Email",
+            "type": "boolean"
+          },
           "include_journal": {
             "default": true,
             "title": "Include Journal",
@@ -450,6 +460,19 @@
           }
         },
         "title": "BriefingRecommendation",
+        "type": "object"
+      },
+      "CalendarConnect": {
+        "properties": {
+          "ical_url": {
+            "title": "Ical Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ical_url"
+        ],
+        "title": "CalendarConnect",
         "type": "object"
       },
       "ChapterStatus": {
@@ -2312,6 +2335,24 @@
           "title"
         ],
         "title": "FollowUpUpsert",
+        "type": "object"
+      },
+      "GmailConnect": {
+        "properties": {
+          "address": {
+            "title": "Address",
+            "type": "string"
+          },
+          "app_password": {
+            "title": "App Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "address",
+          "app_password"
+        ],
+        "title": "GmailConnect",
         "type": "object"
       },
       "GoalCheckIn": {
@@ -9992,6 +10033,162 @@
         "summary": "Update Status",
         "tags": [
           "goals"
+        ]
+      }
+    },
+    "/api/google/calendar": {
+      "delete": {
+        "operationId": "disconnect_calendar_api_google_calendar_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Disconnect Calendar",
+        "tags": [
+          "google"
+        ]
+      },
+      "put": {
+        "operationId": "connect_calendar_api_google_calendar_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarConnect"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Connect Calendar",
+        "tags": [
+          "google"
+        ]
+      }
+    },
+    "/api/google/gmail": {
+      "delete": {
+        "operationId": "disconnect_gmail_api_google_gmail_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Disconnect Gmail",
+        "tags": [
+          "google"
+        ]
+      },
+      "put": {
+        "operationId": "connect_gmail_api_google_gmail_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GmailConnect"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Connect Gmail",
+        "tags": [
+          "google"
+        ]
+      }
+    },
+    "/api/google/status": {
+      "get": {
+        "operationId": "google_status_api_google_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Google Status",
+        "tags": [
+          "google"
         ]
       }
     },

@@ -269,12 +269,108 @@ def _build_custom_section(
     return section
 
 
+def _format_event_line(event: dict) -> str:
+    when = "all day" if event.get("all_day") else (event.get("start") or "")[11:16]
+    day = (event.get("start") or "")[:10]
+    location = f" @ {event['location']}" if event.get("location") else ""
+    return f"- {day} {when}: {event.get('title', '')}{location}"
+
+
+def _build_calendar_section(user_id: str, llm, max_items: int) -> dict | None:
+    """ "Coming up" section from the user's calendar; None when not connected."""
+    try:
+        from web.google_sync import fetch_calendar_events
+
+        events = fetch_calendar_events(user_id, days=7)
+    except Exception as exc:
+        logger.warning("brief.calendar_fetch_failed", error=str(exc))
+        return None
+    if events is None:
+        return None
+
+    section = {
+        "kind": "calendar",
+        "title": "Coming up",
+        "body": "A clear calendar for the next 7 days.",
+        "items": events[: max_items * 2],
+    }
+    if not events:
+        return section
+
+    today = _utcnow().date().isoformat()
+    listing = "\n".join(_format_event_line(event) for event in events)
+    body = _call_llm(
+        llm,
+        f"Today's date: {today}. Calendar for the next 7 days:\n\n{listing}",
+        (
+            "You plan someone's schedule from their calendar. Write short markdown "
+            "with **Today** (time-ordered, note anything that needs preparation) and "
+            "**This week** (a brief outlook: busy days, deadlines, open stretches). "
+            "Only use the events provided."
+        ),
+        max_tokens=800,
+    )
+    section["body"] = body or "\n".join(_format_event_line(event) for event in events)
+    return section
+
+
+def _build_email_section(user_id: str, llm, max_items: int) -> dict | None:
+    """ "Inbox watch" section from Gmail; None when not connected."""
+    try:
+        from web.google_sync import fetch_important_emails
+
+        emails = fetch_important_emails(user_id, limit=max_items)
+    except Exception as exc:
+        logger.warning("brief.email_fetch_failed", error=str(exc))
+        return None
+    if emails is None:
+        return None
+
+    section = {
+        "kind": "email",
+        "title": "Inbox watch",
+        "body": "No unread important email - inbox is quiet.",
+        "items": emails,
+    }
+    if not emails:
+        return section
+
+    listing = "\n".join(
+        f"- From: {email.get('from', '')} | Subject: {email.get('subject', '')} | "
+        f"{(email.get('snippet') or '')[:160]}"
+        for email in emails
+    )
+    body = _call_llm(
+        llm,
+        f"Unread important emails from the last week:\n\n{listing}",
+        (
+            "You triage someone's inbox. In short markdown, list the emails that "
+            "actually need attention in priority order - who it's from, what it's "
+            "about, and the likely next action (reply, schedule, ignore). Be blunt "
+            "about what can wait. Only use the emails provided."
+        ),
+        max_tokens=800,
+    )
+    section["body"] = body or "\n".join(
+        f"- {email.get('from', '')} — {email.get('subject', '')}" for email in emails
+    )
+    return section
+
+
 def generate_brief(user_id: str, config: BriefConfig, store: BriefStore) -> dict:
     """Generate and persist the next brief for a user."""
     period_start, period_end, capped = _compute_window(store)
     llm, provider, api_key = _resolve_llm(user_id)
 
     sections: list[dict] = []
+    if config.include_calendar:
+        calendar_section = _build_calendar_section(user_id, llm, config.max_items_per_section)
+        if calendar_section:
+            sections.append(calendar_section)
+    if config.include_email:
+        email_section = _build_email_section(user_id, llm, config.max_items_per_section)
+        if email_section:
+            sections.append(email_section)
     if config.include_signals:
         sections.append(
             _build_signals_section(user_id, period_start, llm, config.max_items_per_section)

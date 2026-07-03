@@ -59,6 +59,8 @@ web = [
     "python-jose[cryptography]>=3.3.0,<4",
     "cryptography>=42.0.0,<45",
     "python-multipart>=0.0.6,<1",
+    "icalendar>=5.0,<7",
+    "recurring-ical-events>=2.1,<4",
 ]
 dev = [
     "pre-commit>=4.0.0,<5",

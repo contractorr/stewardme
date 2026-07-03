@@ -196,6 +196,7 @@ functional_specs:
     - specs/functional/extraction-receipt.md
     - specs/functional/github-project-monitoring.md
     - specs/functional/goal-intel-matching.md
+    - specs/functional/google-byo-sync.md
     - specs/functional/graceful-degradation-ui.md
     - specs/functional/graceful-degradation.md
     - specs/functional/heartbeat-hybrid.md
@@ -419,6 +420,7 @@ technical_specs:
     - specs/technical/github-project-monitoring.md
     - specs/technical/goal-intel-matching.md
     - specs/technical/goal-learning-merge.md
+    - specs/technical/google-byo-sync.md
     - specs/technical/graceful-degradation-ui.md
     - specs/technical/graceful-degradation.md
     - specs/technical/greeting-cache.md

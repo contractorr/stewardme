@@ -112,6 +112,42 @@ def test_generate_with_llm_and_custom_section(client, auth_headers):
     client.put("/api/v1/brief/config", json={}, headers=auth_headers)
 
 
+def test_calendar_and_email_sections_appear_when_connected(client, auth_headers):
+    events = [
+        {
+            "title": "Standup",
+            "start": "2026-07-03T09:00:00+00:00",
+            "end": "",
+            "all_day": False,
+            "location": "",
+        }
+    ]
+    emails = [{"from": "Boss <boss@corp.com>", "subject": "Q3 plan", "date": "", "snippet": ""}]
+    with (
+        patch("web.brief_generator._resolve_llm", return_value=(None, None, None)),
+        patch("web.google_sync.fetch_calendar_events", return_value=events),
+        patch("web.google_sync.fetch_important_emails", return_value=emails),
+    ):
+        resp = client.post("/api/v1/brief/generate?force=true", headers=auth_headers)
+    assert resp.status_code == 200
+    kinds = {s["kind"] for s in resp.json()["sections"]}
+    assert "calendar" in kinds
+    assert "email" in kinds
+
+
+def test_calendar_email_sections_omitted_when_not_connected(client, auth_headers):
+    with (
+        patch("web.brief_generator._resolve_llm", return_value=(None, None, None)),
+        patch("web.google_sync.fetch_calendar_events", return_value=None),
+        patch("web.google_sync.fetch_important_emails", return_value=None),
+    ):
+        resp = client.post("/api/v1/brief/generate?force=true", headers=auth_headers)
+    assert resp.status_code == 200
+    kinds = {s["kind"] for s in resp.json()["sections"]}
+    assert "calendar" not in kinds
+    assert "email" not in kinds
+
+
 def test_read_and_dismiss_lifecycle(client, auth_headers):
     with patch("web.brief_generator._resolve_llm", return_value=(None, None, None)):
         brief = client.post("/api/v1/brief/generate?force=true", headers=auth_headers).json()
