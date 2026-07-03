@@ -38,3 +38,6 @@ test-harness/state/
 
 # OS
 .DS_Store
+
+# Local SSH keys (never commit)
+.ssh-keys/
