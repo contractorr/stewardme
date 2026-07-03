@@ -1,6 +1,6 @@
 // This file is generated. Do not edit manually.
 // Source: web/openapi.json
-// OpenAPI SHA256: 5c99bcd06ccfe5a7c0d487219c839b756b068e3d5e0efe5303d996678527bbfd
+// OpenAPI SHA256: 7cbc3d2acaf3c41f0f58012b07d94539714ec629d60d9b2d909f13ad083acf14
 export interface paths {
     "/api/admin/stats": {
         parameters: {
@@ -1297,77 +1297,6 @@ export interface paths {
         get?: never;
         /** Update Status */
         put: operations["update_status_api_goals__filepath__status_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/google/auth-url": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Google Auth Url */
-        get: operations["google_auth_url_api_google_auth_url_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/google/callback": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Google Callback
-         * @description OAuth redirect target - unauthenticated; identity comes from the signed state.
-         */
-        get: operations["google_callback_api_google_callback_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/google/disconnect": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Google Disconnect */
-        post: operations["google_disconnect_api_google_disconnect_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/google/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Google Status */
-        get: operations["google_status_api_google_status_get"];
-        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -2929,16 +2858,6 @@ export interface components {
              * @default true
              */
             enabled: boolean;
-            /**
-             * Include Calendar
-             * @default true
-             */
-            include_calendar: boolean;
-            /**
-             * Include Email
-             * @default true
-             */
-            include_email: boolean;
             /**
              * Include Journal
              * @default true
@@ -8507,110 +8426,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    google_auth_url_api_google_auth_url_get: {
-        parameters: {
-            query?: {
-                return_to?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    google_callback_api_google_callback_get: {
-        parameters: {
-            query?: {
-                code?: string | null;
-                state?: string | null;
-                error?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    google_disconnect_api_google_disconnect_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    google_status_api_google_status_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
                 };
             };
         };

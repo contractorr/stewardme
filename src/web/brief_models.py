@@ -19,8 +19,6 @@ class BriefConfig(BaseModel):
     min_interval_hours: int = Field(12, ge=1, le=168)
     include_signals: bool = True
     include_journal: bool = True
-    include_calendar: bool = True
-    include_email: bool = True
     max_items_per_section: int = Field(8, ge=3, le=20)
     custom_sections: list[BriefCustomSection] = []
 

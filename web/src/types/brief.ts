@@ -42,14 +42,6 @@ export interface BriefConfig {
   min_interval_hours: number;
   include_signals: boolean;
   include_journal: boolean;
-  include_calendar: boolean;
-  include_email: boolean;
   max_items_per_section: number;
   custom_sections: BriefCustomSection[];
-}
-
-export interface GoogleStatus {
-  available: boolean;
-  connected: boolean;
-  email: string | null;
 }
